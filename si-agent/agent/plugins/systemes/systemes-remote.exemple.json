@@ -1,5 +1,6 @@
 [
   {"name": "nms", "host": "192.0.2.30", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"},
   {"name": "fichiers", "host": "192.0.2.31", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"},
-  {"name": "nas-1", "host": "192.0.2.32", "user": "admin", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"}
+  {"name": "nas-1", "host": "192.0.2.32", "user": "admin", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"},
+  {"name": "guichet-ancien", "host": "192.0.2.40", "key": "/etc/si-agent/keys/si_agent_legacy", "role": "serveur", "ssh_options": ["-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1", "-o", "HostKeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa"]}
 ]

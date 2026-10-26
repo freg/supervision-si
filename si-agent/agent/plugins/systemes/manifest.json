@@ -10,7 +10,7 @@
     "/etc/si-agent/systemes-remote.json"
   ],
   "enabled": false,
-  "description": "État des lieux des systèmes du SI interne hors Proxmox (#861) -- hôte de l'agent (Linux ou Windows) et hôtes de systemes-remote.json ([{name, host, key, role}], ssh, lecture seule) : système et fin de support, dernière mise à jour, correctifs en attente, versions des paquets clés, ports écoutés, connexions établies agrégées (dépendances, serveurs utilisés par les postes), services actifs. Des noms et des nombres seulement. Alimente Migration › État des lieux. Privilégiée : root / administrateur (processus des ports écoutés).",
+  "description": "État des lieux des systèmes du SI interne hors Proxmox (#861) -- hôte de l'agent (Linux ou Windows) et hôtes de systemes-remote.json ([{name, host, key, role, ssh_options}], ssh, lecture seule ; hôtes très anciens : algorithmes ssh hérités, netstat, rcN.d) : système et fin de support, dernière mise à jour, correctifs en attente, versions des paquets clés, ports écoutés, connexions établies agrégées (dépendances, serveurs utilisés par les postes), services actifs. Des noms et des nombres seulement. Alimente Migration › État des lieux. Privilégiée : root / administrateur (processus des ports écoutés).",
   "source": "bundled",
   "privileged": true
 }

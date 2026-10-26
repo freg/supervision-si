@@ -23,7 +23,9 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAlive
 INVENTAIRE_SH = r"""LC_ALL=C; export LC_ALL
 echo "@@node $(hostname -s 2>/dev/null)"
 # #857 : état des lieux -- système, mises à jour, versions clés, services, usage, dépendances (noms et nombres seulement)
-if [ -r /etc/os-release ]; then ( . /etc/os-release; echo "@@os ${ID:-?}|${VERSION_ID:-?}|${PRETTY_NAME:-?}" ); fi
+if [ -r /etc/os-release ]; then ( . /etc/os-release; echo "@@os ${ID:-?}|${VERSION_ID:-?}|${PRETTY_NAME:-?}" )
+elif [ -r /etc/debian_version ]; then v=$(head -n 1 /etc/debian_version); echo "@@os debian|${v%%.*}|Debian GNU/Linux $v"
+elif [ -r /etc/redhat-release ]; then v=$(head -n 1 /etc/redhat-release); echo "@@os rhel|$(echo "$v" | sed -n 's/[^0-9]*\([0-9]*\).*/\1/p')|$v"; fi
 echo "@@kernel $(uname -r 2>/dev/null)"
 I=$(hostname -I 2>/dev/null); [ -n "$(echo $I)" ] || I=$(ip -4 -o addr show scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); printf "%s ", $4}')
 echo "@@ips $I"
@@ -34,10 +36,10 @@ echo "@@disque $(df -P / 2>/dev/null | awk 'NR == 2 {sub(/%/, "", $5); print $5}
 if command -v apt-get >/dev/null 2>&1; then
   U=$(apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | grep '^Inst ')
   if [ -n "$U" ]; then echo "@@attente $(printf '%s\n' "$U" | grep -c '^Inst ') $(printf '%s\n' "$U" | grep -ci 'securi')"; else echo "@@attente 0 0"; fi
-  dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version}\n' apache2 nginx 'php[0-9]*-common' php-common 'mariadb-server-[0-9]*' mariadb-server \
+  dpkg-query -W -f='${Status} ${Package} ${Version}\n' apache2 apache nginx 'php[0-9]*-common' php-common 'mariadb-server-[0-9]*' mariadb-server \
     'mysql-server-[0-9]*' 'postgresql-[0-9]*' postfix dovecot-core openssh-server docker-ce docker.io pve-manager proxmox-backup-server \
     redis-server nodejs python3 'openjdk-[0-9]*-jre-headless' 'tomcat[0-9]*' bind9 samba squid amavisd-new spamassassin roundcube-core \
-    proftpd-basic vsftpd 2>/dev/null | awk '$1 ~ /^ii/ {print "@@pkg", $2, $3}' | head -n 60
+    proftpd-basic proftpd vsftpd openssl 2>/dev/null | awk '$3 == "installed" {print "@@pkg", $4, $5}' | head -n 60
 fi
 for f in /var/www/*/version.php /var/www/*/*/version.php; do
   [ -f "$f" ] || continue
@@ -53,6 +55,20 @@ if command -v ss >/dev/null 2>&1; then
     if (rh ~ /^127\./ || rh == "::1") next;
     if (index(L, " " lp " ")) {cin[lp]++; k = lp " " rh; if (!(k in vu)) {vu[k] = 1; din[lp]++}} else cout[rh " " rp]++}
     END {for (p in cin) print "@@cnxin", p, cin[p], din[p]; for (k in cout) print "@@cnxout", k, cout[k]}' | head -n 120
+fi
+if ! command -v ss >/dev/null 2>&1 && command -v netstat >/dev/null 2>&1; then
+  netstat -ltnp 2>/dev/null | awk '$1 ~ /^tcp/ {a = $4; n = split(a, x, ":"); p = x[n]; h = substr(a, 1, length(a) - length(p) - 1);
+    u = $7; if (u == "" || u == "-") u = "?"; else sub(/^[0-9]+\//, "", u); print "@@ecoute", p, h, u}' | sort -u | head -n 80
+  L=" $(netstat -ltn 2>/dev/null | awk '$1 ~ /^tcp/ {n = split($4, x, ":"); print x[n]}' | sort -u | tr '\n' ' ') "
+  netstat -tn 2>/dev/null | awk -v L="$L" '$1 ~ /^tcp/ && $6 == "ESTABLISHED" {n = split($4, a, ":"); lp = a[n]; m = split($5, b, ":"); rp = b[m];
+    rh = substr($5, 1, length($5) - length(rp) - 1); sub(/^::ffff:/, "", rh);
+    if (rh ~ /^127\./ || rh == "::1") next;
+    if (index(L, " " lp " ")) {cin[lp]++; k = lp " " rh; if (!(k in vu)) {vu[k] = 1; din[lp]++}} else cout[rh " " rp]++}
+    END {for (p in cin) print "@@cnxin", p, cin[p], din[p]; for (k in cout) print "@@cnxout", k, cout[k]}' | head -n 120
+fi
+if ! command -v systemctl >/dev/null 2>&1; then
+  N=$(runlevel 2>/dev/null | awk '{print $2}'); [ -d "/etc/rc${N:-2}.d" ] || N=2
+  for f in /etc/rc${N:-2}.d/S*; do [ -e "$f" ] || continue; b=$(basename "$f"); echo "@@svc $(echo "$b" | sed 's/^S[0-9]*//')"; done | head -n 80
 fi
 command -v systemctl >/dev/null 2>&1 && systemctl list-units --type=service --state=running --no-legend 2>/dev/null | \
   awk '{u = $1; if (u !~ /^[A-Za-z0-9]/) u = $2; sub(/\.service$/, "", u); print "@@svc", u}' | head -n 80
@@ -177,7 +193,7 @@ def parse_windows(text):
 def _ssh(h, script, runner, timeout=300):
     if h.get("key") and not os.path.exists(h["key"]):
         raise RuntimeError("clé %s introuvable (la placer dans /etc/si-agent/keys/, chmod 600)" % h["key"])
-    args = ["ssh"] + SSH_OPTS + (["-i", h["key"], "-o", "IdentitiesOnly=yes"] if h.get("key") else []) + ["%s@%s" % (h.get("user") or "root", h["host"]), "sh -s"]
+    args = ["ssh"] + SSH_OPTS + [str(o) for o in (h.get("ssh_options") or [])] + (["-i", h["key"], "-o", "IdentitiesOnly=yes"] if h.get("key") else []) + ["%s@%s" % (h.get("user") or "root", h["host"]), "sh -s"]
     return runner(args, input=script, capture_output=True, text=True, timeout=timeout)
 
 

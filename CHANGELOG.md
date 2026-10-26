@@ -1,3 +1,15 @@
+## 2026-10-26 — État des lieux : relevé à distance des serveurs très anciens (Debian 4 et suivants) (livraison #865)
+
+- Sonde `systemes` (agent 0.6.4) : un serveur trop ancien pour porter l'agent (Debian 4, OpenSSL 0.9.8, glibc 2.3)
+  est relevé par ssh depuis un agent récent :
+  - système lu dans `/etc/debian_version` (ou `/etc/redhat-release`) quand `/etc/os-release` n'existe pas ;
+  - paquets lus avec `${Status}` (dpkg ancien) ; ajout d'apache 1.x, proftpd, openssl ;
+  - ports écoutés et connexions par `netstat` quand `ss` est absent ; services par les liens `/etc/rcN.d` quand
+    `systemctl` est absent ;
+  - `ssh_options` par hôte dans `systemes-remote.json` (algorithmes hérités : `ssh-rsa`, `diffie-hellman-group14-sha1`).
+- Fin de support : Debian 4 (15/02/2010) et 5 (06/02/2012).
+- Vérifié : `test_systemes.py` (script réel exécuté sans ss ni systemctl, netstat et dpkg simulés ; options ssh).
+
 ## 2026-10-26 — Page Agents : installation sur un hôte ancien (Python autonome), relance exacte proposée par install.sh (livraison #864)
 
 - Page Agents, bloc **« 2 bis. Hôte ancien »** (Debian 9, Proxmox VE 5 : Python 3.5, l'installation s'arrête sur

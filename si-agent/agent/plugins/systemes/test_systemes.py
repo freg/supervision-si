@@ -50,5 +50,50 @@ class Systemes(unittest.TestCase):
             self.assertEqual(d["alerts"][0]["code"], "systeme-injoignable:nas")
 
 
+    def test_hote_ancien_sans_ss_ni_systemctl(self):
+        """#865 : Debian 4 (optick3) -- pas de ss, pas de systemctl, dpkg sans db:Status-Abbrev : netstat, rcN.d, ${Status}."""
+        with tempfile.TemporaryDirectory() as tmp:
+            b = os.path.join(tmp, "bin")
+            os.mkdir(b)
+            for o in ("hostname", "uname", "cut", "df", "stat", "head", "sed", "awk", "mawk", "gawk", "grep", "sort", "tr", "wc", "cat", "basename"):
+                for d in ("/usr/bin", "/bin"):
+                    if os.path.exists(os.path.join(d, o)):
+                        os.symlink(os.path.join(d, o), os.path.join(b, o))
+                        break
+            stubs = {
+                "apt-get": "true",
+                "runlevel": "echo 'N 2'",
+                "dpkg-query": "printf '%s\\n' 'install ok installed apache 1.3.34-4.1' 'deinstall ok config-files php4-common 4.4.4' "
+                              "'install ok installed php5-common 5.2.0-8' 'install ok installed mysql-server-5.0 5.0.32-7'",
+                "netstat": """case "$1" in
+-ltnp) printf '%s\\n' 'Active Internet connections (only servers)' 'Proto Recv-Q Send-Q Local Address Foreign Address State PID/Program name' \
+  'tcp 0 0 0.0.0.0:80 0.0.0.0:* LISTEN 2203/apache' 'tcp 0 0 127.0.0.1:3306 0.0.0.0:* LISTEN 1987/mysqld' 'tcp 0 0 0.0.0.0:22 0.0.0.0:* LISTEN -' ;;
+-ltn) printf '%s\\n' 'tcp 0 0 0.0.0.0:80 0.0.0.0:* LISTEN' 'tcp 0 0 127.0.0.1:3306 0.0.0.0:* LISTEN' ;;
+-tn) printf '%s\\n' 'tcp 0 0 192.0.2.40:80 192.0.2.77:51000 ESTABLISHED' 'tcp 0 0 192.0.2.40:80 192.0.2.77:51001 ESTABLISHED' \
+  'tcp 0 0 192.0.2.40:42000 192.0.2.5:25 ESTABLISHED' 'tcp 0 0 127.0.0.1:3306 127.0.0.1:40000 ESTABLISHED' ;;
+esac""",
+            }
+            for n, c in stubs.items():
+                with open(os.path.join(b, n), "w") as fh:
+                    fh.write("#!/bin/sh\n" + c + "\n")
+                os.chmod(os.path.join(b, n), 0o755)
+            p = subprocess.run(["/bin/sh", "-s"], input=S.INVENTAIRE_SH, capture_output=True, text=True, timeout=60,
+                               env={"PATH": b, "LC_ALL": "C"})
+            o = S.parse_systeme(p.stdout)
+            self.assertEqual(o["paquets"], {"apache": "1.3.34-4.1", "php5-common": "5.2.0-8", "mysql-server-5.0": "5.0.32-7"}, p.stdout)
+            self.assertEqual(sorted((e["port"], e["proc"]) for e in o["ecoute"]), [(22, "?"), (80, "apache"), (3306, "mysqld")])
+            self.assertEqual(o["cnx_in"], [{"port": 80, "n": 2, "clients": 1}])
+            self.assertEqual(o["cnx_out"], [{"hote": "192.0.2.5", "port": 25, "n": 1}])
+        o = S.parse_systeme("@@os debian|4|Debian GNU/Linux 4.0\n@@fin")
+        self.assertEqual((o["os"]["id"], o["os"]["version"]), ("debian", "4"))
+
+    def test_options_ssh_par_hote(self):
+        vu = []
+        S._ssh({"host": "192.0.2.40", "ssh_options": ["-o", "HostKeyAlgorithms=+ssh-rsa"]}, "true",
+               lambda args, **kw: vu.append(args) or subprocess.CompletedProcess(args, 0, "", ""))
+        self.assertIn("HostKeyAlgorithms=+ssh-rsa", vu[0])
+        self.assertEqual(vu[0][-2:], ["root@192.0.2.40", "sh -s"])
+
+
 if __name__ == "__main__":
     unittest.main()

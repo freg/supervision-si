@@ -1,5 +1,11 @@
 [
  {
+  "n": 865,
+  "from": 865,
+  "date": "2026-10-26",
+  "title": "État des lieux : relevé à distance des serveurs très anciens (Debian 4 et suivants)"
+ },
+ {
   "n": 864,
   "from": 864,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 825,
   "date": "2026-10-22",
   "title": "Banc d'installation des agents sur un pool de VM"
- },
- {
-  "n": 824,
-  "from": 824,
-  "date": "2026-10-22",
-  "title": "Agent Windows : installeur MSI ; mise à jour automatique Windows réparée"
  }
 ]
