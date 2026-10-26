@@ -1,3 +1,35 @@
+## 2026-10-26 — Migration : inventaire permanent de toutes les copies et de leur distance à la source ; récapitulatif permanent du risque (livraison #856)
+
+- Tuile Migration, page **« Copies et sauvegardes »** (`?view=migration&page=copies`) : pour chaque CT / VM de tous les
+  nœuds relevés, **toutes** ses copies, où qu'elles soient (nœuds Proxmox, serveurs du LAN, PBS, disque USB) :
+  - réplique pvesr, copie ZFS (reçue ou clonée), instantané local, archive vzdump, sauvegarde PBS, flux `zfs send` posé
+    en fichier, copie rsync (répertoire `subvol-…-disk-…`), CT / VM restauré sous un autre numéro (9xxx, même nom) ;
+  - **distance à la source** : octets modifiés depuis la copie, **exacte** quand un instantané est commun aux deux
+    (somme des `written`), sinon majorant ; **0** quand la source est arrêtée et n'a rien écrit depuis son dernier
+    instantané (« figée depuis ») ;
+  - **volume** : la copie correspond-elle en taille (ZFS ±3 % en logique, rsync ±15 %, archive compressée plausible) ;
+  - **survit à la perte du nœud** ? (un hôte virtuel comme pbs10 ne protège pas l'hôte qui le porte) ; **support
+    fragile** signalé (pool dégradé ou sans redondance, disque simple ext4) ;
+  - verdict par invité (ok / attention / critique), meilleure copie hors du nœud, copies non rattachées, règles de
+    rattachement modifiables (préfixe de chemin = nœud, hôte virtuel = hôte physique, hôte = site).
+- Page **« Risques »** (`?view=migration&page=risques`) : niveau critique / élevé / moyen / faible de chaque CT / VM sur
+  cinq axes -- sauvegarde, réplication (dernière synchro, échecs), **accès aux services**, support (pool), nœud (quorum,
+  nœud à réinstaller, choisi dans la page). Les copies restaurées (9xxx) n'y sont pas comptées comme sources.
+- **Accès aux services**, contrôlé depuis le hub toutes les 5 min : ports usuels découverts une fois par jour sur les
+  adresses fixes des CT (ssh, smtp, http(s), imaps, bases, Proxmox…), puis surveillés ; cibles ajoutées à la main par
+  invité (`https://…`, `tcp://hôte:port`) ; « depuis quand » dans chaque état ; bouton « Vérifier l'accès maintenant ».
+  Réglage : `ACCES_THREAD=0` pour couper la boucle.
+- Nouvelle sonde **`copies-inventory`** (agent **0.6.1**), sur l'agent qui joint les Proxmox et le LAN : un ssh par hôte,
+  lecture seule, PVE 5.4 et PBS compris -- pools (santé, **redondance** : un pool de disques simples concaténés est
+  signalé « sans redondance »), jeux de données et instantanés, invités, réplications, archives et flux des stockages
+  et des chemins supplémentaires (ex. disque USB), PBS, copies rsync (volume par `du`, mis en cache tant que le
+  répertoire ne bouge pas). Hôtes : `/etc/si-agent/copies-hosts.json` (modèle `copies-hosts.exemple.json` dans le
+  répertoire de la sonde), sinon nœuds de `pve-remote.json`. Alerte critique : pool dégradé sans redondance.
+- Sonde `pve-preflight` : adresses IPv4 fixes de la configuration des invités (pour le contrôle d'accès).
+- Vérifié : `test_copies_inventory.py` (dont le pilote bash réel sur de faux zpool / zfs / pct / pvesh), `test_z_copies.py`,
+  `test_z_acces.py`, `test_z_risque.py`, `test_z_copies_routes.py`, `copiesLib.test.mjs`, rendu des deux pages sur données
+  simulées. **Non vérifié** : les sorties réelles des hôtes (PVE 5.4, PBS, disque USB).
+
 ## 2026-10-24 — Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés (livraison #855)
 
 - Tuile Nebula, onglet **Pilotage**, deux colonnes. **Mesures** : état de la veille, clients et débit Wi-Fi, bornes

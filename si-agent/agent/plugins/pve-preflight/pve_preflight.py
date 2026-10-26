@@ -307,8 +307,12 @@ def parse_conf(text):
     def num(k):
         m = re.search(r"^%s:\s*(\d+)" % k, text or "", re.M)
         return int(m.group(1)) if m else None
+    ips = []    # #856 : adresses IPv4 fixes (LXC : net0 ip= ; VM cloud-init : ipconfig0 ip=) -> contrôle d'accessibilité
+    for ip in re.findall(r"(?:^net\d+|^ipconfig\d+):.*?\bip=(\d{1,3}(?:\.\d{1,3}){3})", text or "", re.M):
+        if ip not in ips:
+            ips.append(ip)
     return {"vmac": any(m.startswith("02:00:00") for m in macs), "macs": macs, "onboot": num("onboot") == 1, "cores": num("cores"),
-            "memory_mb": num("memory"), "disks": stor}
+            "memory_mb": num("memory"), "disks": stor, "ips": ips}
 
 
 def rrd_stats(avg_rows, max_rows=None):

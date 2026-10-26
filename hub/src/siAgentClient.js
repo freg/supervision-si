@@ -227,6 +227,12 @@ export const fetchLatencyConfig = (apiBase) => fetchJson(apiBase, "/latency/conf
 export const importLatencyConfig = (apiBase, config, actor) => fetchJson(apiBase, "/latency/config", json("PUT", { ...config, actor }));
 export const fetchMigration = (apiBase) => fetchJson(apiBase, "/migration");   // #774 : tuile « Migration 2026-2027 »
 export const fetchMigrationPrep = (apiBase, qs) => fetchJson(apiBase, `/migration/preparation${qs ? `?${qs}` : ""}`);   // #815 : préparer la réinstallation d'un nœud
+export const fetchCopies = (apiBase) => fetchJson(apiBase, "/copies/inventaire");   // #856 : toutes les copies et leur distance à la source
+export const saveCopiesRegles = (apiBase, regles) => fetchJson(apiBase, "/copies/regles", json("PUT", { regles }));
+export const fetchRisques = (apiBase) => fetchJson(apiBase, "/migration/risques");   // #856 : risque permanent par CT / VM
+export const saveAccesCibles = (apiBase, key, cibles) => fetchJson(apiBase, "/migration/acces", json("PUT", { key, cibles }));
+export const verifierAcces = (apiBase) => fetchJson(apiBase, "/migration/acces/verifier", json("POST", {}));
+export const saveMigrationCible = (apiBase, cible) => fetchJson(apiBase, "/migration/cible", json("PUT", { cible }));
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
 export const saveMigrationVars = (apiBase, vars, actor) => fetchJson(apiBase, "/migration/vars", json("PUT", { vars, actor }));
 export const migrationControl = (apiBase, action, step, actor, onglet = "") => fetchJson(apiBase, "/migration/control", json("POST", { action, step, actor, onglet }));

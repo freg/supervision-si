@@ -5,7 +5,9 @@
 // reprise, ou commande exacte à lancer et où). Données : si-agent-api /migration (sonde « migration » des agents).
 // Logique pure : migrationLib.js.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import MigrationPrepView from "./MigrationPrepView.jsx";   // #815
+import MigrationPrepView from "./MigrationPrepView.jsx";
+import MigrationCopiesView from "./MigrationCopiesView.jsx";   // #856
+import MigrationRisquesView from "./MigrationRisquesView.jsx";   // #856   // #815
 import { viewParams } from "./hubLinks.js";
 import { fetchMigration, saveMigrationPlan, saveMigrationVars, migrationControl } from "./siAgentClient.js";
 import {
@@ -154,7 +156,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
   const [tab, setTab] = useState(() => viewParams().onglet || "");   // #784 : onglet (Migration, MX…) ; #790 : ?onglet=MX
-  const [page, setPage] = useState(() => (viewParams().page === "prep" ? "prep" : "plan"));   // #815 : plan | préparation d'une réinstallation
+  const [page, setPage] = useState(() => (["prep", "copies", "risques"].includes(viewParams().page) ? viewParams().page : "plan"));   // #815 : plan | préparation d'une réinstallation ; #856 : copies | risques
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => {
@@ -198,8 +200,10 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
       <div className="mig-controls" role="tablist">
         <button role="tab" aria-selected={page === "plan"} className={page === "plan" ? "" : "secondary"} onClick={() => setPage("plan")}>Plan de migration</button>
         <button role="tab" aria-selected={page === "prep"} className={page === "prep" ? "" : "secondary"} onClick={() => setPage("prep")}>Préparer la réinstallation d'un nœud</button>
+        <button role="tab" aria-selected={page === "copies"} className={page === "copies" ? "" : "secondary"} onClick={() => setPage("copies")}>Copies et sauvegardes</button>
+        <button role="tab" aria-selected={page === "risques"} className={page === "risques" ? "" : "secondary"} onClick={() => setPage("risques")}>Risques</button>
       </div>
-      {page === "prep" ? <MigrationPrepView siAgentApiBase={siAgentApiBase} /> : <>
+      {page === "copies" ? <MigrationCopiesView siAgentApiBase={siAgentApiBase} /> : page === "risques" ? <MigrationRisquesView siAgentApiBase={siAgentApiBase} /> : page === "prep" ? <MigrationPrepView siAgentApiBase={siAgentApiBase} /> : <>
       {err && <p className="infra-error">{err}</p>}
       {data && !data.plan && <p className="infra-card">Aucun plan : importer le fichier <code>migration-2026.local.json</code> ci-dessous (modèle : <code>deploy/migration/plan-exemple.json</code>).</p>}
       {data?.plan && tabs.length > 1 && (

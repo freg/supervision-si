@@ -46,6 +46,9 @@ COPY si-agent/api/parcours.py .
 COPY si-agent/api/htoprelay.py .
 COPY si-agent/api/datarf.py .
 COPY si-agent/api/prep.py .
+COPY si-agent/api/copies.py .
+COPY si-agent/api/acces.py .
+COPY si-agent/api/risque.py .
 COPY si-agent/api/priorites.py .
 COPY si-agent/api/modeles.py .
 COPY si-agent/api/diffusion.py .

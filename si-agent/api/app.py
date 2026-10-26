@@ -59,6 +59,9 @@ import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
 import genealogie  # noqa: E402  -- #854 : généalogie des modèles (histoire, filiations, mode d'emploi)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
+import copies as copies_lib  # noqa: E402  -- #856 : inventaire de toutes les copies et distance à la source
+import acces as acces_lib  # noqa: E402  -- #856 : accessibilité des services des CT / VM
+import risque as risque_lib  # noqa: E402  -- #856 : récapitulatif permanent du risque (Migration › Risques)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
@@ -2926,6 +2929,137 @@ def migration_prep_route():
     return jsonify(prep.assemble(reports, lan, profils, cible, accueil, params, transferes, liens_sonde=liens, manuel_sonde=manuel)), 200
 
 
+# -- #856 : copies et sauvegardes, risques ---------------------------------------------------------------------------
+def _inventaire():
+    conn = store._connect(DB_PATH)
+    try:
+        reports = infra.latest(conn, "plugin:copies-inventory")
+        cands = _agents_proxmox(conn)
+    finally:
+        conn.close()
+    regles = store.get_setting(DB_PATH, "copies_regles", {}) or {}
+    return reports, copies_lib.assemble(reports, regles), regles, cands
+
+
+@app.route("/copies/inventaire", methods=["GET"])
+def copies_inventaire_route():
+    """#856 : toutes les copies (répliques, ZFS, instantanés, vzdump, PBS, flux, rsync, restaurés) et leur distance à la source."""
+    reports, inv, regles, cands = _inventaire()
+    liens, manuel = _liens_sonde(cands, "copies-inventory")
+    if not reports:
+        return jsonify({"invites": [], "hotes": [], "orphelines": [], "resume": {}, "regles": regles, "liens": liens, "manuel": manuel,
+                        "error": "aucun relevé copies-inventory : activer la sonde copies-inventory sur l'agent qui joint les Proxmox "
+                                 "(hôtes dans /etc/si-agent/copies-hosts.json, sinon nœuds de pve-remote.json)"}), 200
+    return jsonify(dict(inv, regles=regles, liens=liens, manuel=manuel)), 200
+
+
+@app.route("/copies/regles", methods=["PUT"])
+def copies_regles_route():
+    """#856 : {regles: {origines: {préfixe de chemin: nœud}, dans: {hôte: hôte physique}, sites: {hôte: site}}, actor}."""
+    b = request.get_json(silent=True) or {}
+    r = b.get("regles") or {}
+    propre = {}
+    for k in ("origines", "dans", "sites"):
+        v = r.get(k, {})
+        if v is None:
+            v = {}
+        if not isinstance(v, dict):
+            return jsonify({"error": "%s : objet {clé: valeur} attendu" % k}), 400
+        propre[k] = {str(a)[:200]: str(c)[:64] for a, c in list(v.items())[:200] if str(a).strip() and str(c).strip()}
+    store.set_setting(DB_PATH, "copies_regles", propre)
+    return jsonify({"regles": propre}), 200
+
+
+def _acces_invites():
+    conn = store._connect(DB_PATH)
+    try:
+        reports = infra.latest(conn, "plugin:pve-preflight")
+    finally:
+        conn.close()
+    return prep.noeuds(reports)
+
+
+def acces_passage():
+    nodes = _acces_invites()
+    etat = store.get_setting(DB_PATH, "acces_etat", {}) or {}
+    e = acces_lib.passage(acces_lib.invites_en_marche(nodes), etat)
+    cur = store.get_setting(DB_PATH, "acces_etat", {}) or {}
+    e["manuels"] = cur.get("manuels") or {}          # une cible saisie pendant le passage n'est pas perdue
+    store.set_setting(DB_PATH, "acces_etat", e)
+    return e
+
+
+def _acces_boucle():
+    import fcntl
+    try:
+        fh = open(os.path.join(os.path.dirname(DB_PATH) or ".", "acces.lock"), "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    time.sleep(60)
+    while True:
+        try:
+            acces_passage()
+        except Exception as e:  # noqa: BLE001 -- le contrôle d'accès ne fait jamais tomber l'API
+            _log.warning("acces : %s", e)
+        time.sleep(300)
+
+
+if os.environ.get("ACCES_THREAD", "1") == "1":
+    threading.Thread(target=_acces_boucle, name="acces", daemon=True).start()
+
+
+@app.route("/migration/acces", methods=["PUT"])
+def migration_acces_route():
+    """#856 : {key: "nœud/vmid", cibles: ["https://…", "tcp://hôte:port"]} -> cibles manuelles d'un invité."""
+    b = request.get_json(silent=True) or {}
+    key = str(b.get("key") or "")
+    if not re.match(r"^[A-Za-z0-9_.-]+/\d+$", key):
+        return jsonify({"error": "key : nœud/vmid"}), 400
+    cib = []
+    for c in b.get("cibles") or []:
+        c = str(c).strip()[:300]
+        if re.match(r"^(https?://\S+|(tcp://)?[A-Za-z0-9_.:-]+:\d{1,5})$", c):
+            cib.append(c)
+        elif c:
+            return jsonify({"error": "cible illisible : %s (https://…, tcp://hôte:port)" % c}), 400
+    e = store.get_setting(DB_PATH, "acces_etat", {}) or {}
+    e.setdefault("manuels", {})[key] = cib
+    if not cib:
+        e["manuels"].pop(key, None)
+    store.set_setting(DB_PATH, "acces_etat", e)
+    return jsonify({"key": key, "cibles": cib}), 200
+
+
+@app.route("/migration/acces/verifier", methods=["POST"])
+def migration_acces_verifier_route():
+    """#856 : contrôle immédiat (en tâche de fond ; résultat au prochain affichage)."""
+    threading.Thread(target=acces_passage, name="acces-maintenant", daemon=True).start()
+    return jsonify({"ok": True, "message": "contrôle lancé"}), 202
+
+
+@app.route("/migration/risques", methods=["GET"])
+def migration_risques_route():
+    """#856 : risque permanent de chaque CT / VM : réplication, sauvegarde, accès, support, nœud. ?cible=<nœud à réinstaller>"""
+    reports, inv, _regles, cands = _inventaire()
+    nodes = _acces_invites()
+    e = store.get_setting(DB_PATH, "acces_etat", {}) or {}
+    cible = str(request.args.get("cible") or store.get_setting(DB_PATH, "migration_cible", "") or "")
+    r = risque_lib.assemble(inv, copies_lib.hotes(reports), nodes, e.get("resultats") or {}, cible or None)
+    liens, manuel = _liens_sonde(cands, "copies-inventory")
+    r.update(manuels=e.get("manuels") or {}, liens=liens, manuel=manuel,
+             error=None if reports else "aucun relevé copies-inventory : activer la sonde copies-inventory (et pve-preflight pour l'accès aux services)")
+    return jsonify(r), 200
+
+
+@app.route("/migration/cible", methods=["PUT"])
+def migration_cible_route():
+    """#856 : nœud en cours de réinstallation (ses invités sont signalés dans les risques)."""
+    b = request.get_json(silent=True) or {}
+    store.set_setting(DB_PATH, "migration_cible", str(b.get("cible") or "")[:64])
+    return jsonify({"cible": str(b.get("cible") or "")[:64]}), 200
+
+
 def _agents_proxmox(conn):
     """#815 : agents qui joignent des Proxmox (sondes pve-remote / guest-usage, sinon proxmox) -> [(agent_id, hôte)]."""
     vus = {}
@@ -2937,11 +3071,15 @@ def _agents_proxmox(conn):
     return sorted(vus.items(), key=lambda x: x[1] or "")
 
 
-def _liens_sonde(cands):
+def _liens_sonde(cands, sonde="pve-preflight"):
     """Règle du hub (#570, absolue depuis #817) : « activer / régler X » donne le lien vers l'endroit où on le fait ;
     sans lien possible, une opération manuelle explicite."""
     if cands:
-        return [{"label": "Sondes de %s → activer pve-preflight" % h, "view": "si-agent", "params": {"agent": a, "section": "plugins"}} for a, h in cands], None
+        return [{"label": "Sondes de %s → activer %s" % (h, sonde), "view": "si-agent", "params": {"agent": a, "section": "plugins"}} for a, h in cands], None
+    if sonde == "copies-inventory":
+        return [], ("pas de lien : opération manuelle -- sur l'agent Linux qui joint les Proxmox et le LAN, créer /etc/si-agent/copies-hosts.json "
+                    "([{\"name\": \"pve10\", \"local\": true, \"paths\": [\"/opt/usb\"]}, {\"name\": \"pve-2\", \"host\": \"<IP>\", \"key\": "
+                    "\"/etc/si-agent/keys/pve\"}, {\"name\": \"pbs10\", \"host\": \"<IP>\", \"dans\": \"pve10\"}]), puis activer copies-inventory dans sa fiche › Sondes")
     return [], ("pas de lien : opération manuelle -- sur l'agent Linux qui joindra les Proxmox, créer /etc/si-agent/pve-remote.json "
                 "([{\"name\": \"pve-2\", \"host\": \"<IP>\", \"key\": \"/etc/si-agent/keys/pve\"}]), puis activer pve-preflight dans sa fiche › Sondes")
 

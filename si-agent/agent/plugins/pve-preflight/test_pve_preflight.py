@@ -198,3 +198,10 @@ class PiloteReel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Ips(unittest.TestCase):
+    def test_ips_de_la_conf(self):
+        c = P.parse_conf("net0: name=eth0,bridge=vmbr0,hwaddr=02:00:00:15:45:EE,ip=198.51.100.7/32,gw=198.51.100.1,type=veth\n"
+                         "net1: name=eth1,bridge=vmbr1,ip=dhcp\nipconfig0: ip=192.0.2.9/24,gw=192.0.2.1\ndescription: ip=203.0.113.1\n")
+        self.assertEqual(c["ips"], ["198.51.100.7", "192.0.2.9"])
