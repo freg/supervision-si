@@ -3962,7 +3962,7 @@ Demandé le 23/10/2026 : passer en IP fixe tous les systèmes en Ethernet, et si
 - Wi-Fi : décider d'après l'historique des clients (30 jours : nombre de VLAN / SSID / bornes vus par MAC, adresses
   aléatoires « MAC privée » exclues) ; une réservation n'a de sens que pour un client toujours sur le même VLAN.
 
-### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#860), essais prévus
+### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#862), essais prévus
 
 Suite de #855 (pilotage, boucles, bancs). Constat du 24/10/2026 : le Wi-Fi du campus se limite au mieux au Wi-Fi 6
 (pas de Wi-Fi 7 en service) ; inutile d'acheter des cartes Wi-Fi 7.
@@ -3976,7 +3976,7 @@ Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
 - 2e banc mobile éventuel : mini PC Intel N100/N150, 2,5 GbE, 4 ports USB 3 (sa carte interne = un client de plus) ;
 - serveur iperf3 **en filaire au plus près du cœur** (2,5 / 10 Gb/s), ports 5201 et 5202, sinon c'est lui qui limite.
 
-Évolution de l'agent netprobe (#860) :
+Évolution de l'agent netprobe (#862) :
 - **un agent par carte Wi-Fi**, chacune dans son espace réseau Linux (`ip netns`) : une MAC, une association, une
   adresse DHCP par client simulé ; identifiant de sonde = machine + interface ;
 - **pilotage et remontée par l'Ethernet** (VLAN d'administration) : les tâches et les mesures ne passent pas par le
@@ -4000,3 +4000,17 @@ empreinte de CA, adresse du central, archive à décompresser) est beaucoup trop
 développeur. À faire : un vrai installeur (double-clic, un seul code d'enrôlement à saisir, central public par défaut,
 vérification de connectivité intégrée avec message clair, exclusion antivirus guidée) et une mécanique de test
 automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) dans le banc (#825, BACKLOG 133).
+
+### 138. Passe de design et d'ergonomie (notes du 26/10/2026)
+
+- On ne voit pas quel bouton / onglet est sélectionné (pages de la tuile Migration et autres barres de boutons) : couleur
+  pleine ou pseudo-onglet pour l'élément actif, partout.
+- Tableaux très larges (État des lieux) : colonnes coupées à droite, lignes trop hautes ; colonnes repliables, détail
+  dans un volet.
+
+### 139. État des lieux : le SI interne hors Proxmox, et les serveurs / services utilisés par les postes -- à faire (#861)
+
+- Ajouter les systèmes du SI interne qui ne sont ni des nœuds ni des invités Proxmox : nms, r2d2, serveur, serveur de
+  fichiers, NAS… (hôtes avec agent : relevé local ; sans agent : relevé par ssh, comme pve-remote) ; Windows compris.
+- À partir des analyses permanentes du réseau (sonde voisinage, postes Windows, connexions des postes), dresser la liste
+  des serveurs et services utilisés par les postes, et les ajouter aux dépendances.

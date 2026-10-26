@@ -64,6 +64,7 @@ import acces as acces_lib  # noqa: E402  -- #856 : accessibilité des services d
 import risque as risque_lib  # noqa: E402  -- #856 : récapitulatif permanent du risque (Migration › Risques)
 import etat as etat_lib  # noqa: E402  -- #857 : état des lieux des systèmes (versions, mises à jour, services, usage, dépendances)
 import etat_excel  # noqa: E402  -- #857 : version Excel pour les décideurs
+import etat_rapport  # noqa: E402  -- #860 : audit d'obsolescence et de support (page imprimable)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
@@ -3146,6 +3147,14 @@ def etat_eol_route():
     fusion = {f: dict(etat_lib.EOL.get(f, {}), **t) for f, t in propre.items()}
     store.set_setting(DB_PATH, "etat_eol", fusion)
     return jsonify({"eol": fusion}), 200
+
+
+@app.route("/etat-des-lieux/audit.html", methods=["GET"])
+def etat_audit_route():
+    """#860 : audit d'obsolescence et de support pour les décideurs (page autonome, imprimable en PDF)."""
+    _r, e, _t, _c = _etat()
+    from flask import Response
+    return Response(etat_rapport.page(e, os.environ.get("ETAT_ORGANISATION", "")), mimetype="text/html; charset=utf-8")
 
 
 @app.route("/etat-des-lieux/export.xlsx", methods=["GET"])

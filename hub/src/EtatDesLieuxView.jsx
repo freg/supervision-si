@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, etatExportUrl } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -62,6 +62,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <span className={r.inconnus ? "np-tone warn" : "infra-muted"}>· {r.inconnus ?? 0} système(s) non identifié(s)</span>
         <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
+        <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatAuditUrl(siAgentApiBase)} target="_blank" rel="noreferrer">Audit obsolescence et support (page à imprimer) ↗</a>
       </div>
       <div className="infra-card"><b>Évolution :</b> <Tendance t={d.tendance} /></div>
       {note && <p className={`np-tone ${note[0] === "ok" ? "good" : "bad"}`}>{note[1]}</p>}
@@ -71,7 +72,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">nœuds, CT et VM</option>{["nœud", "CT", "VM"].map((n) => <option key={n}>{n}</option>)}</select>
         <select value={f.noeud} onChange={(e) => setF({ ...f, noeud: e.target.value })}><option value="">tous les nœuds</option>{[...new Set((d.systemes || []).map((l) => l.node))].map((n) => <option key={n}>{n}</option>)}</select>
       </div>
-      <table className="infra-table">
+      <div style={{ overflowX: "auto" }}><table className="infra-table">
         <thead><tr><th>Niveau</th><th>Système</th><th>Rôle</th><th>Système d'exploitation</th><th>Mise à jour</th><th>Versions clés</th><th>Usage</th><th>Dépendances</th><th>Pourquoi / que faire</th></tr></thead>
         <tbody>{lignes.map((l) => (
           <Fragment key={l.key}>
@@ -104,7 +105,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
               Noyau {l.noyau || "?"} · adresses {(l.ips || []).join(", ") || "?"} · écoute {(l.ecoute || []).map((e) => `${e.port} (${e.proc})`).join(", ") || "—"}
               <div>Services actifs : {(l.services || []).join(", ") || "—"}</div></td></tr>}
           </Fragment>))}</tbody>
-      </table>
+      </table></div>
       <div className="infra-card">
         <b>Interactions entre systèmes ({(d.dependances || []).length})</b>
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>

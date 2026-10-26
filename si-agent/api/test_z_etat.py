@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import etat as E  # noqa: E402
 import etat_excel as X  # noqa: E402
+import etat_rapport as RP  # noqa: E402
 
 T = E._date("2026-10-26")
 J = 86400
@@ -102,6 +103,19 @@ class Etat(unittest.TestCase):
         a = next(l for l in r["systemes"] if l["key"] == "pve-2/105")
         self.assertEqual((a["source"], a["os"]["statut"], a["services"]), ("relevé (activité)", "obsolète", ["apache2"]))   # le relevé prime sur la déclaration
         self.assertIn("198.51.100.15", a["ips"])
+
+    def test_audit_html(self):
+        r = E.assemble(NODES, maintenant=T, libelles={"pve-2/100": "Partage <THD>"})
+        el = RP.elements(r, T)
+        self.assertEqual(el[0]["rang"], 0)                                             # échéances dépassées d'abord
+        self.assertNotIn("MED10", " ".join(e["systeme"] for e in el))                  # arrêtés exclus
+        self.assertTrue(any(e["quoi"].startswith("ownCloud") for e in el))
+        self.assertEqual(RP.echeance("2026-12-31", T)[1], "orange")
+        self.assertEqual(RP.echeance("2020-06-30", T)[0], "dépassée depuis 6 an(s)")
+        h = RP.page(r, "Organisation", T)
+        self.assertIn("Partage &lt;THD&gt;", h)                                         # échappé
+        self.assertIn("Calendrier des fins de support", h)
+        self.assertIn("window.print()", h)
 
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)

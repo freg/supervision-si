@@ -1,3 +1,16 @@
+## 2026-10-26 — Audit d'obsolescence et de support pour les décideurs (page imprimable) (livraison #860)
+
+- Migration › État des lieux : lien **« Audit obsolescence et support (page à imprimer) »** (`GET /etat-des-lieux/audit.html`),
+  complément de l'Excel : chiffres clés (systèmes en service, éléments dont le support est terminé, fins de support dans
+  6 mois et dans 2 ans, correctifs non appliqués, systèmes fragiles accessibles depuis Internet), « ce qu'il faut
+  retenir », **calendrier des fins de support** (système et logiciels clés : élément, qui le maintient, date, échéance
+  « dépassée depuis 4 ans » / « dans 2 mois »), plan d'action (immédiat, 6 mois, 2 ans, en continu), méthode.
+  Sombre à l'écran, clair à l'impression ; « Imprimer / PDF ».
+- Tableau de l'état des lieux : défilement horizontal au lieu de colonnes coupées.
+- BACKLOG 138 (passe de design : onglet actif visible, tableaux larges) et 139 (SI interne hors Proxmox, serveurs et
+  services utilisés par les postes).
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`, rendu de la page sur données simulées.
+
 ## 2026-10-26 — État des lieux : VM arrêtées lues hors ligne (système, paquets, services, adresses) (livraison #859)
 
 - Sonde `guest-usage` (agent **0.6.2**) : son script d'invité, déjà exécuté sur le disque des VM ARRÊTÉES lu hors ligne
