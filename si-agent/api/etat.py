@@ -366,3 +366,40 @@ def instantane(etat):
 def tendance(historique):
     """[(jour, instantané)] -> [{jour, urgent, à planifier, …}] dans l'ordre des jours."""
     return [dict({"jour": j}, **{k: (d.get("resume") or {}).get(k, 0) for k in NIVEAUX + ("obsoletes", "secu", "exposes")}) for j, d in sorted(historique or [])]
+
+
+# -- #862 : chantiers et décisions à prendre (complément pour les décideurs) ------------------------------------------
+DONE_MIG = ("fait", "manuel_fait", "saute")
+
+
+def chantiers(entries, migration=None, decisions=None, maintenant=None, jours=45):
+    """Journal des chantiers (#795), plan de migration (#774) et décisions saisies -> bloc pour l'Excel et l'audit :
+    par chantier, ce qui est fait sur la période, en cours, planifié, à faire ; avancement de la migration par phase."""
+    now = maintenant or time.time()
+    debut = dt.datetime.fromtimestamp(now - jours * 86400, dt.timezone.utc).strftime("%Y-%m-%d")
+    par = {}
+    for e in entries or []:
+        c = par.setdefault(e.get("chantier") or "Divers", {"chantier": e.get("chantier") or "Divers", "faits": [], "en_cours": [], "planifies": [], "a_faire": []})
+        st = e.get("statut") or "Fait"
+        if st == "Fait":
+            if (e.get("day") or "") >= debut:
+                c["faits"].append(e)
+        else:
+            c[{"En cours": "en_cours", "Planifié": "planifies", "À faire": "a_faire"}.get(st, "a_faire")].append(e)
+    out = []
+    for c in sorted(par.values(), key=lambda x: x["chantier"]):
+        for k in ("faits", "en_cours", "planifies", "a_faire"):
+            c[k] = [{"day": e.get("day"), "acte": e.get("acte"), "description": e.get("description"), "resultat": e.get("resultat")}
+                    for e in sorted(c[k], key=lambda e: e.get("day") or "", reverse=(k == "faits"))]
+        if any(c[k] for k in ("faits", "en_cours", "planifies", "a_faire")):
+            out.append(c)
+    mig = None
+    if migration and migration.get("plan"):
+        ph = []
+        for p in migration["plan"].get("phases") or []:
+            st = p.get("steps") or []
+            ph.append({"nom": p.get("name") or p.get("title") or p.get("id"), "faites": sum(1 for s in st if s.get("status") in DONE_MIG), "total": len(st)})
+        mig = {"nom": migration["plan"].get("name"), "faites": migration.get("done") or 0, "total": migration.get("total") or 0, "phases": ph,
+               "marche": (migration.get("run") or {}).get("state")}
+    dec = [d for d in (decisions or []) if d.get("titre")]
+    return {"periode_jours": jours, "depuis": debut, "chantiers": out, "migration": mig, "decisions": dec}

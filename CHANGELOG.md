@@ -1,3 +1,12 @@
+## 2026-10-26 — Excel décideurs et audit : chantiers en cours et décisions à prendre (livraison #862)
+
+- L'Excel pour les décideurs gagne une feuille **Chantiers** (2e position) et l'audit imprimable deux sections :
+  **Décisions à prendre** (objet, pourquoi, montant, échéance -- saisies dans Migration › État des lieux) et
+  **Avancement des chantiers** : plan de migration (étapes faites / total, par phase) et, par chantier du Journal des
+  chantiers, ce qui a été fait sur les 45 derniers jours, ce qui est en cours, planifié, à faire.
+- `PUT /etat-des-lieux/decisions` ; éditeur dans la page (lignes, enregistrement).
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`. Non vérifié : rendu avec le journal réel.
+
 ## 2026-10-26 — État des lieux : SI interne hors Proxmox (serveurs, NAS, postes) et serveurs utilisés par les postes (livraison #861)
 
 - Nouvelle sonde **`systemes`** (agent **0.6.3**) : l'hôte de l'agent (Linux ou **Windows**) et les hôtes de

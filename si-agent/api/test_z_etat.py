@@ -136,6 +136,26 @@ class Etat(unittest.TestCase):
         ns = {x["ip"]: x for x in r["non_suivis"]}
         self.assertEqual((ns["192.0.2.50"]["postes"], ns["192.0.2.50"]["natures"], ns["192.0.2.50"]["interne"]), (1, ["partage de fichiers"], True))
 
+    def test_chantiers_et_decisions(self):
+        entries = [{"chantier": "Serveurs", "day": "2026-10-25", "acte": "Copie au bureau", "statut": "Fait", "resultat": "copies identiques"},
+                   {"chantier": "Serveurs", "day": "2026-08-01", "acte": "Vieux", "statut": "Fait"},
+                   {"chantier": "Serveurs", "day": "2026-10-27", "acte": "Réinstallation", "statut": "Planifié"},
+                   {"chantier": "SMS", "day": "2026-10-20", "acte": "Veille", "statut": "En cours"}]
+        mig = {"plan": {"name": "Migration 2026-2027", "phases": [{"name": "A", "steps": [{"status": "fait"}, {"status": "a_faire"}]}]}, "done": 1, "total": 2}
+        c = E.chantiers(entries, mig, [{"titre": "Disques", "montant": "835 € HT"}, {"titre": ""}], maintenant=T)
+        srv = next(x for x in c["chantiers"] if x["chantier"] == "Serveurs")
+        self.assertEqual(([e["acte"] for e in srv["faits"]], [e["acte"] for e in srv["planifies"]]), (["Copie au bureau"], ["Réinstallation"]))
+        self.assertEqual((c["migration"]["faites"], c["migration"]["phases"][0]["total"], len(c["decisions"])), (1, 2, 1))
+        r = E.assemble(NODES, maintenant=T)
+        r["chantiers"] = c
+        h = RP.page(r, "", T)
+        self.assertIn("Décisions à prendre", h)
+        self.assertIn("Avancement des chantiers", h)
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(X.classeur(r, [], "")))
+        self.assertEqual(wb.sheetnames[1], "Chantiers")
+        self.assertIn("835 € HT", [c.value for row in wb["Chantiers"].iter_rows() for c in row])
+
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)
         self.assertEqual(c[0]["statut"], "maintenu par la distribution")

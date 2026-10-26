@@ -154,6 +154,41 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
     ws2.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(cols)), max(1, len(etat["systemes"]) + 1))
     _largeurs(ws2, [34, 16, 30, 26, 14, 14, 12, 12, 12, 12, 13, 50, 44])
 
+    ch = etat.get("chantiers") or {}
+    if ch.get("decisions") or ch.get("chantiers") or ch.get("migration"):
+        wsc = wb.create_sheet("Chantiers", 1)
+        wsc["A1"] = "Chantiers en cours et décisions à prendre"
+        wsc["A1"].font = TITRE
+        ligne = 3
+        if ch.get("decisions"):
+            wsc.cell(row=ligne, column=1, value="Décisions à prendre").font = GRAS
+            ligne += 1
+            _entete(wsc, ligne, ["Objet", "Pourquoi", "Montant", "Échéance"])
+            for d in ch["decisions"]:
+                ligne += 1
+                for j, v in enumerate([d.get("titre"), d.get("detail"), d.get("montant"), d.get("echeance")], 1):
+                    wsc.cell(row=ligne, column=j, value=v).alignment = Alignment(wrap_text=True, vertical="top")
+            ligne += 2
+        m = ch.get("migration")
+        if m:
+            wsc.cell(row=ligne, column=1, value="%s : %d étape(s) faite(s) sur %d" % (m["nom"], m["faites"], m["total"])).font = GRAS
+            for p in m["phases"]:
+                ligne += 1
+                wsc.cell(row=ligne, column=1, value=p["nom"])
+                wsc.cell(row=ligne, column=2, value="%d / %d" % (p["faites"], p["total"]))
+            ligne += 2
+        for c in ch.get("chantiers") or []:
+            wsc.cell(row=ligne, column=1, value=c["chantier"]).font = GRAS
+            ligne += 1
+            _entete(wsc, ligne, ["Où en est-on", "Date", "Action", "Résultat / détail"])
+            for lib, k in (("Fait (%d derniers jours)" % ch.get("periode_jours", 45), "faits"), ("En cours", "en_cours"), ("Planifié", "planifies"), ("À faire", "a_faire")):
+                for e in c[k]:
+                    ligne += 1
+                    for j, v in enumerate([lib, _fin(e.get("day")), e.get("acte"), e.get("resultat") or e.get("description")], 1):
+                        wsc.cell(row=ligne, column=j, value=v).alignment = Alignment(wrap_text=True, vertical="top")
+            ligne += 2
+        _largeurs(wsc, [26, 14, 52, 70])
+
     ws3 = wb.create_sheet("Dépendances")
     _entete(ws3, 1, ["Système", "utilise", "pour"])
     noms = {l["key"]: nom(l) for l in etat["systemes"]}

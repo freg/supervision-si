@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -25,6 +25,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [lib, setLib] = useState(null);      // {key, texte}
   const [eol, setEol] = useState(null);
   const [decl, setDecl] = useState(null);    // #858 : {key, famille, version, nom, maj, note}
+  const [decis, setDecis] = useState(null);  // #862 : décisions à prendre (liste en édition)
   const [note, setNote] = useState(null);
   const load = useCallback(() => fetchEtat(siAgentApiBase).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => { load(); const id = setInterval(load, 300000); return () => clearInterval(id); }, [load]);
@@ -44,6 +45,11 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
     const x = await saveEtatManuel(siAgentApiBase, key, effacer ? null : fiche);
     setNote(x?.error ? ["ko", x.error] : ["ok", effacer ? "Déclaration retirée." : `Système de ${key} déclaré.`]);
     if (!x?.error) { setDecl(null); load(); }
+  };
+  const enregistrerDecis = async () => {
+    const x = await saveEtatDecisions(siAgentApiBase, decis.filter((y) => y.titre.trim()));
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Décisions enregistrées : elles figurent dans l'Excel et dans l'audit."]);
+    if (!x?.error) { setDecis(null); load(); }
   };
   const enregistrerEol = async () => {
     let o; try { o = JSON.parse(eol); } catch (e) { setNote(["ko", `JSON invalide : ${e.message}`]); return; }
@@ -111,6 +117,21 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>
           <tbody>{(d.dependances || []).map((x, i) => <tr key={i}><td>{noms[x.de] || x.de}</td><td>{noms[x.vers] || x.vers}</td><td>{x.nature}</td><td>{x.n}</td></tr>)}</tbody></table>
         <p className="infra-muted">Relevées à partir des connexions établies au moment du relevé (toutes les 15 min) : une interaction rare peut manquer.</p>
+      </div>
+      <div className="infra-card">
+        <b>Décisions à prendre (pour les décideurs)</b> {!decis && <button className="secondary" onClick={() => setDecis((d.decisions || []).map((y) => ({ ...y })).concat([{ titre: "", detail: "", montant: "", echeance: "" }]))}>Modifier</button>}
+        {decis ? (
+          <div>
+            {decis.map((y, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 3fr 1fr 1fr auto", gap: 6, marginTop: 6 }}>
+                {["titre", "detail", "montant", "echeance"].map((k) => <input key={k} placeholder={{ titre: "objet", detail: "pourquoi (en clair)", montant: "montant", echeance: "échéance" }[k]} value={y[k] || ""}
+                  onChange={(e) => setDecis(decis.map((z, j) => (j === i ? { ...z, [k]: e.target.value } : z)))} />)}
+                <button className="secondary" onClick={() => setDecis(decis.filter((_, j) => j !== i))}>✕</button>
+              </div>))}
+            <div style={{ marginTop: 6 }}><button className="secondary" onClick={() => setDecis([...decis, { titre: "", detail: "", montant: "", echeance: "" }])}>+ ligne</button> <button onClick={enregistrerDecis}>Enregistrer</button> <button className="secondary" onClick={() => setDecis(null)}>Annuler</button></div>
+          </div>
+        ) : (d.decisions || []).length ? <ul>{d.decisions.map((y, i) => <li key={i}><b>{y.titre}</b>{y.montant ? ` · ${y.montant}` : ""}{y.echeance ? ` · ${y.echeance}` : ""}<div className="infra-muted">{y.detail}</div></li>)}</ul>
+          : <p className="infra-muted">Aucune décision saisie. Elles apparaissent dans l'Excel (feuille Chantiers) et dans l'audit, avec l'avancement des chantiers tiré du Journal des chantiers et du plan de migration.</p>}
       </div>
       <div className="infra-card">
         <b>Serveurs utilisés mais non suivis ({(d.non_suivis || []).length})</b>

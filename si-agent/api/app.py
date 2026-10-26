@@ -3080,6 +3080,12 @@ def _etat():
             conn.execute("DELETE FROM etat_historique WHERE jour < ?", (time.strftime("%Y-%m-%d", time.gmtime(time.time() - 800 * 86400)),))
             conn.commit()
         hist = [(r[0], json.loads(r[1])) for r in conn.execute("SELECT jour, data FROM etat_historique ORDER BY jour")]
+        try:   # #862 : chantiers (journal, plan de migration) et décisions à prendre, pour les décideurs
+            mig = migrun.view(conn)
+            conn.commit()
+        except Exception:  # noqa: BLE001
+            mig = None
+        e["chantiers"] = etat_lib.chantiers(journal.list_entries(conn), mig, store.get_setting(DB_PATH, "etat_decisions", []) or [])
     finally:
         conn.close()
     return reports, e, etat_lib.tendance(hist), cands
@@ -3091,6 +3097,7 @@ def etat_route():
     reports, e, t, cands = _etat()
     liens, manuel = _liens_sonde(cands)
     e.update(tendance=t, libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {}, manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {},
+             decisions=store.get_setting(DB_PATH, "etat_decisions", []) or [],
              liens=liens, manuel=manuel,
              error=None if reports else "aucun relevé pve-preflight : activer la sonde pve-preflight (agent 0.6.1 ou plus récent pour les versions et services)")
     return jsonify(e), 200
@@ -3128,6 +3135,18 @@ def etat_manuel_route():
         m[key]["famille"] = m[key]["famille"].lower()
     store.set_setting(DB_PATH, "etat_manuels", m)
     return jsonify({"key": key, "fiche": m.get(key)}), 200
+
+
+@app.route("/etat-des-lieux/decisions", methods=["PUT"])
+def etat_decisions_route():
+    """#862 : décisions à prendre présentées aux décideurs : {decisions: [{titre, detail, montant, echeance}]}."""
+    b = request.get_json(silent=True) or {}
+    v = b.get("decisions")
+    if not isinstance(v, list):
+        return jsonify({"error": "decisions : liste [{titre, detail, montant, echeance}]"}), 400
+    propre = [{k: str(d.get(k) or "").strip()[:400] for k in ("titre", "detail", "montant", "echeance")} for d in v[:50] if isinstance(d, dict) and str(d.get("titre") or "").strip()]
+    store.set_setting(DB_PATH, "etat_decisions", propre)
+    return jsonify({"decisions": propre}), 200
 
 
 @app.route("/etat-des-lieux/eol", methods=["PUT"])

@@ -120,7 +120,29 @@ def page(etat, organisation="", maintenant=None):
         h.append("<li>%d système(s) n'ont pas pu être identifiés automatiquement (à compléter).</li>" % len(inconnus))
     if not (depasses or expo or secu or six or deux):
         h.append("<li>Aucun point critique : tous les systèmes suivis sont maintenus.</li>")
-    h.append("</ul><h2>Calendrier des fins de support</h2>")
+    h.append("</ul>")
+    ch = etat.get("chantiers") or {}
+    if ch.get("decisions"):
+        h.append("<h2>Décisions à prendre</h2><table><tr><th>Objet</th><th>Pourquoi</th><th>Montant</th><th>Échéance</th></tr>")
+        for d in ch["decisions"]:
+            h.append("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>" % (_e(d.get("titre")), _e(d.get("detail")), _e(d.get("montant")), _e(d.get("echeance"))))
+        h.append("</table>")
+    m = ch.get("migration")
+    if m or ch.get("chantiers"):
+        h.append("<h2>Avancement des chantiers</h2>")
+        if m:
+            pct = int(100 * m["faites"] / m["total"]) if m["total"] else 0
+            h.append("<p><b>%s</b> : %d étape(s) faite(s) sur %d (%d %%)</p><ul>" % (_e(m["nom"]), m["faites"], m["total"], pct))
+            h.extend("<li>%s : %d / %d</li>" % (_e(p["nom"]), p["faites"], p["total"]) for p in m["phases"])
+            h.append("</ul>")
+        for c in ch.get("chantiers") or []:
+            h.append("<h3 style='margin:14px 0 4px'>%s</h3><ul>" % _e(c["chantier"]))
+            for lib, k, cls in (("Fait", "faits", "vert"), ("En cours", "en_cours", "orange"), ("Planifié", "planifies", "orange"), ("À faire", "a_faire", "rouge")):
+                for e in c[k][:8]:
+                    h.append("<li><span class='%s'>%s</span> · %s · <b>%s</b>%s</li>" % (cls, lib, _e(_jour(e.get("day"))), _e(e.get("acte")),
+                                                                                 (" -- %s" % _e(e.get("resultat") or e.get("description"))) if (e.get("resultat") or e.get("description")) else ""))
+            h.append("</ul>")
+    h.append("<h2>Calendrier des fins de support</h2>")
     h.append("<table><tr><th>Système</th><th>Rôle</th><th>Élément</th><th>Maintenu par</th><th>Fin du support</th><th>Échéance</th></tr>")
     for e in el:
         h.append("<tr><td>%s</td><td class='doux'>%s</td><td>%s</td><td>%s</td><td>%s</td><td class='%s'><b>%s</b></td></tr>" % (
