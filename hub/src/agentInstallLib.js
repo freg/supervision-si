@@ -34,6 +34,20 @@ export function installLines({ base, agentId, site, pkg, caFp }) {
   return out;
 }
 
+/** #864 : hôte trop ancien (Python < 3.7 : Debian 9 / Proxmox VE 5) -- Python 3.11 autonome dans /opt/pyagent (uv),
+ * sans toucher au Python du système, puis la MÊME ligne d'installation avec --python (toutes les options gardées). */
+export function oldHostLines(install) {
+  const ligne = String(install || "").replace(/^sudo\s+/, "").replace(/^\.\/install\.sh\s*/, "");
+  return [
+    "uname -m; python3 --version",
+    "curl -LsSf https://astral.sh/uv/install.sh | sh",
+    "sudo UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python install 3.11",
+    'PYAGENT="$(UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python find 3.11)"; echo "$PYAGENT"; "$PYAGENT" --version',
+    `sudo ./install.sh --python "$PYAGENT" ${ligne}`.trim(),
+    "systemctl status si-agent --no-pager | head -5",
+  ];
+}
+
 export function pushHistory(list, url, max = HISTORY_MAX) {
   const u = normalizeBase(url);
   if (!u) return list || [];

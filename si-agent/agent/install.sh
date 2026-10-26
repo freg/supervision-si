@@ -30,6 +30,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true" OBSERVATION="false"
 PYAGENT="python3"   # #645 : interpréteur d'exécution de l'agent (peut différer du python3 système)
+# #864 : arguments d'origine, pour proposer la relance EXACTE avec --python (le secret affiché comme "$TOKEN")
+RELANCE="" PREC=""
+for a in "$@"; do
+  case "$PREC" in --secret) a='"$TOKEN"';; --python) PREC="$a"; continue;; esac
+  [ "$a" = "--python" ] && { PREC="$a"; continue; }
+  case "$a" in '"$TOKEN"') RELANCE="$RELANCE $a";; *[!A-Za-z0-9_./:=@,+-]*) RELANCE="$RELANCE '$a'";; *) RELANCE="$RELANCE $a";; esac
+  PREC="$a"
+done
 while [ $# -gt 0 ]; do
   case "$1" in
     --upgrade) UPGRADE="true"; shift;;   # #522 : code et service seulement, configuration/secret/CA/sondes conservés
@@ -64,17 +72,20 @@ if [ "$UPGRADE" = "true" ] && [ "$PYAGENT" = "python3" ] && [ -f /etc/systemd/sy
 fi
 PYAGENT_ABS="$(command -v "$PYAGENT" 2>/dev/null || true)"
 [ -n "$PYAGENT_ABS" ] || { [ -x "$PYAGENT" ] && PYAGENT_ABS="$PYAGENT"; }
+[ -n "$PYAGENT" ] || { echo "--python vide : uv n'est pas installé ? Commencer par : curl -LsSf https://astral.sh/uv/install.sh | sh  (voir docs/agent-python-autonome.md)" >&2; exit 1; }
 [ -n "$PYAGENT_ABS" ] || { echo "interpréteur Python introuvable : $PYAGENT (voir --python)" >&2; exit 1; }
 if ! "$PYAGENT_ABS" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 7) else 1)' 2>/dev/null; then
   ver="$("$PYAGENT_ABS" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "?")"
   {
     echo "ERREUR : si-agent requiert Python >= 3.7, or $PYAGENT_ABS est en $ver."
     echo "  Hôte trop ancien (ex. Debian 9 / Proxmox VE 5 = Python 3.5)."
-    echo "  Installe un Python AUTONOME (aucun changement système) puis relance avec --python :"
+    echo "  Installe un Python AUTONOME dans /opt/pyagent (aucun changement système), une commande à la fois :"
     echo "    curl -LsSf https://astral.sh/uv/install.sh | sh"
-    echo "    ~/.local/bin/uv python install 3.11"
-    echo '    sudo ./install.sh --python "$(~/.local/bin/uv python find 3.11)" <mêmes options>'
-    echo "  Détails et variante sans uv : docs/agent-python-autonome.md"
+    echo "    sudo UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python install 3.11"
+    echo '    PYAGENT="$(UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python find 3.11)"; "$PYAGENT" --version'
+    echo "  puis relance l'installation avec TOUTES les options (secret dans la variable TOKEN) :"
+    echo "    sudo ./install.sh --python \"\$PYAGENT\"$RELANCE"
+    echo "  Hôte 32 bits (uname -m = i686) sans uv : docs/agent-python-autonome.md, option B."
   } >&2
   exit 1
 fi

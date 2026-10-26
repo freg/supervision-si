@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeBase, isInternal, caFingerprintOf, installLines, pushHistory, loadHistory, saveHistory } from "../src/agentInstallLib.js";
+import { normalizeBase, isInternal, caFingerprintOf, installLines, oldHostLines, pushHistory, loadHistory, saveHistory } from "../src/agentInstallLib.js";
 
 test("adresse du hub : normalisation, interne / publique", () => {
   assert.equal(normalizeBase("hub.exemple.fr"), "https://hub.exemple.fr/api/si-agent");
@@ -30,4 +30,12 @@ test("historique des adresses : plus récent d'abord, sans doublon, borné, stoc
   const mem = { v: {}, getItem(k) { return this.v[k] ?? null; }, setItem(k, x) { this.v[k] = x; } };
   saveHistory(h, mem); assert.deepEqual(loadHistory(mem), h);
   assert.deepEqual(loadHistory({ getItem() { throw new Error("bloqué"); } }), []);
+});
+
+test("hôte ancien : Python autonome puis la même ligne avec --python", () => {
+  const l = oldHostLines('./install.sh --agent r2d2 --secret "$TOKEN" --central https://192.0.2.5:6443/api/si-agent --site bureau --ca-fingerprint ab');
+  assert.equal(l.length, 6);
+  assert.equal(l[4], 'sudo ./install.sh --python "$PYAGENT" --agent r2d2 --secret "$TOKEN" --central https://192.0.2.5:6443/api/si-agent --site bureau --ca-fingerprint ab');
+  assert.match(l[2], /UV_PYTHON_INSTALL_DIR=\/opt\/pyagent/);
+  assert.equal(oldHostLines("sudo ./install.sh --agent a")[4], 'sudo ./install.sh --python "$PYAGENT" --agent a');
 });

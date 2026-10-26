@@ -1,4 +1,4 @@
-import { normalizeBase, caFingerprintOf, installLines, pushHistory, loadHistory, saveHistory } from "./agentInstallLib.js";
+import { normalizeBase, caFingerprintOf, installLines, oldHostLines, pushHistory, loadHistory, saveHistory } from "./agentInstallLib.js";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { viewParams, clearViewParams } from "./hubLinks.js";
 import {
@@ -573,7 +573,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         {L.download && <pre className="np-secret">{L.download}</pre>}
                         <p style={{ margin: "6px 0 4px" }}>2. Installation, dans le dossier de l'archive (root ; <code>sudo</code> devant sinon) :</p>
                         <pre className="np-secret">{L.install}</pre>
-                        <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>Hôte ancien (Debian 9 / Proxmox 5, Python 3.5) : préfixer par <code>SI_AGENT_PYTHON="$PY"</code> (Python ≥ 3.7 autonome, voir <code>docs/agent-python-autonome.md</code>){L.internal ? "" : " et ajouter la racine Let's Encrypt X2 au magasin système"}.</p>
+                        <details style={{ marginTop: 6 }}>
+                          <summary>2 bis. Hôte ancien : « si-agent requiert Python &gt;= 3.7 » (Debian 9 / Proxmox VE 5 = Python 3.5)</summary>
+                          <p className="muted" style={{ margin: "4px 0", fontSize: 12 }}>Un Python 3.11 <b>autonome</b> est installé dans <code>/opt/pyagent</code>, sans toucher au Python du système, puis la même installation est relancée avec <code>--python</code> et <b>toutes</b> ses options. Une commande à la fois, dans le dossier de l'archive :</p>
+                          {oldHostLines(L.install).map((c, i) => <pre key={i} className="np-secret">{c}</pre>)}
+                          <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
+                            Hôte 32 bits (<code>uname -m</code> = <code>i686</code>) et <code>uv</code> refusé : archive <code>cpython-3.11.*-i686-unknown-linux-gnu-install_only.tar.gz</code> de python-build-standalone décompressée dans <code>/opt/pyagent</code>, puis <code>PYAGENT=/opt/pyagent/python/bin/python3</code> (<code>docs/agent-python-autonome.md</code>, option B).
+                            {L.internal ? "" : " Adresse publique : si « CERTIFICATE_VERIFY_FAILED », l'installeur propose le magasin système ou certifi (même document)."}
+                            {" "}Solution de passage : l'hôte reste à mettre à niveau (état des lieux).</p>
+                        </details>
                       </>
                     );
                   })()}

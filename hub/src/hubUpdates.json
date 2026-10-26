@@ -1,5 +1,11 @@
 [
  {
+  "n": 864,
+  "from": 864,
+  "date": "2026-10-26",
+  "title": "Page Agents : installation sur un hôte ancien (Python autonome), relance exacte proposée par install.sh"
+ },
+ {
   "n": 863,
   "from": 863,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 824,
   "date": "2026-10-22",
   "title": "Agent Windows : installeur MSI ; mise à jour automatique Windows réparée"
- },
- {
-  "n": 823,
-  "from": 823,
-  "date": "2026-10-22",
-  "title": "Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées"
  }
 ]

@@ -1,3 +1,14 @@
+## 2026-10-26 — Page Agents : installation sur un hôte ancien (Python autonome), relance exacte proposée par install.sh (livraison #864)
+
+- Page Agents, bloc **« 2 bis. Hôte ancien »** (Debian 9, Proxmox VE 5 : Python 3.5, l'installation s'arrête sur
+  « si-agent requiert Python >= 3.7 ») : commandes complètes, dans l'ordre -- architecture, installation de uv,
+  Python 3.11 autonome dans `/opt/pyagent` (sans toucher au Python du système), vérification, puis **la même ligne
+  d'installation** relancée avec `--python "$PYAGENT"` et toutes ses options. Notes : machine 32 bits (i686),
+  certificat d'une adresse publique.
+- `install.sh` : en cas de Python trop ancien, affiche les commandes et **la ligne de relance exacte** (options
+  d'origine reprises, secret remplacé par `"$TOKEN"`) ; message clair si `--python` est vide (uv absent).
+- Vérifié : `agentInstallLib.test.mjs` (hôte ancien), `bash -n install.sh`, sortie testée.
+
 ## 2026-10-26 — Pour les décideurs : où, quand, combien -- serveurs concernés et organisation du chantier par phase (livraison #863)
 
 - Migration › État des lieux, bloc **« Où, quand, combien »** ; repris dans la feuille Chantiers de l'Excel et dans l'audit :
