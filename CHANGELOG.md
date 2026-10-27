@@ -1,3 +1,18 @@
+## 2026-10-27 — Tuile NAS : état et alertes par SNMP en lecture seule (QNAP), étape 1 (livraison #883)
+
+- Sonde `nas-snmp` (agent 0.6.8, désactivée par défaut) : lit l'agent SNMP déjà actif du NAS avec ses réglages existants
+  (rien n'est modifié : Zenoss et les autres outils continuent de l'interroger). MIB QNAP QTS / QuTS (55062, repli 24681) :
+  disques (modèle, série, état, température, capacité, heures de fonctionnement, attributs SMART 5 / 187 / 197 / 198),
+  RAID (niveau, état), réserve, volumes (taille, libre, %), ventilateurs, applications (installée / disponible),
+  micrologiciel. Constats : volume à 80 / 90 %, disque en défaut, chaud (50 / 60 °C) ou âgé (50 000 h), secteurs
+  réalloués / en attente / illisibles, RAID dégradé ou sans redondance, ventilateur arrêté, mises à jour disponibles.
+  Réglages hors dépôt : /etc/si-agent/nas-snmp.json (root seulement, la communauté ne sort jamais de l'hôte).
+- API `GET /nas` ; tuile « NAS » (thème équipements) : alertes, volumes avec jauges, disques (âge en années, SMART),
+  RAID, ventilateurs, réserve, applications à mettre à jour.
+- Vérifié : `test_nas_snmp.py` sur un relevé fictif de même structure qu'un TS-883XU-RP réel (formats net-snmp,
+  table SMART par disque, volumes en Kio, alertes, communauté jamais renvoyée) ; syntaxe JSX ; tests de l'agent.
+  Non vérifié : sur le NAS réel ; correspondance disques / SMART supposée dans l'ordre des disques présents.
+
 ## 2026-10-27 — Barème des estimations façon planning poker, catégories de systèmes, actions automatisables (livraison #882)
 
 - Constat : estimations #878 disproportionnées (heures fixes élevées, reconstruction à 16 h, puis × 3).

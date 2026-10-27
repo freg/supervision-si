@@ -31,6 +31,15 @@ const json = (method, body) => ({
 
 export const fetchSiAgentStatus = (apiBase) => fetchJson(apiBase, "/status");
 
+/** #883 : NAS relevés par SNMP (sonde nas-snmp). */
+export async function fetchNas(apiBase) {
+  try {
+    const r = await fetch(`${apiBase}/nas`, { credentials: "include" });
+    const d = await r.json();
+    return Array.isArray(d?.nas) ? d.nas : [];
+  } catch { return []; }
+}
+
 /** #876 : hôtes relevés à distance par un agent relais (sonde systemes), affichés sous leur relais dans la Flotte. */
 export async function fetchRelayedHosts(apiBase) {
   try {

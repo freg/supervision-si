@@ -1,0 +1,13 @@
+{
+  "id": "nas-snmp",
+  "version": "1",
+  "runner": "python",
+  "entry": "nas_snmp.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 300,
+  "args": ["--warn-pct", "80", "--crit-pct", "90", "--hours-old", "50000"],
+  "enabled": false,
+  "description": "NAS par SNMP en lecture seule (#883, QNAP QTS / QuTS) : disques (état, température, heures, SMART critiques), RAID, réserve, volumes, ventilateurs, applications et micrologiciel ; constats : volume plein (80 / 90 %), disque en défaut / chaud / âgé, secteurs réalloués ou en attente, RAID dégradé ou sans redondance, ventilateur arrêté, mises à jour disponibles. Ne modifie rien sur le NAS : réutilise les réglages SNMP existants. Réglages : /etc/si-agent/nas-snmp.json (root seulement, la communauté est un secret) : [{\"name\", \"host\", \"community\", \"version\"}]. Exige snmpwalk (apt install snmp). Privilégié (lecture du fichier de réglages).",
+  "source": "bundled",
+  "privileged": true
+}

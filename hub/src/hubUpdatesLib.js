@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  883: [{ view: "nas", hint: "tuile NAS : volumes, disques (âge, SMART), RAID, applications, alertes -- SNMP en lecture seule" }],
   882: [{ view: "migration", params: { page: "etat" }, hint: "« ⚖ Barème des estimations » : points par type d'action, catégories (physique, virtuel, conteneur, SGBD), automatisable, vélocité, marge" }],
   881: [{ view: "migration", params: { page: "etat" }, hint: "Excel des décideurs et page d'audit de nouveau disponibles" }],
   880: [{ view: "si-agent", hint: "bouton « ⚙ OS » : ping, processus (htop), réseau (ntop), journal depuis l'hôte, une VM ou un CT (agents en 0.6.7)" }],

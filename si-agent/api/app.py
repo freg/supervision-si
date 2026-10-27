@@ -390,6 +390,22 @@ def ca_route():
     return pem, 200, {"Content-Type": "application/x-pem-file"}
 
 
+@app.route("/nas", methods=["GET"])
+def nas_route():
+    """#883 : NAS relevés par SNMP (sonde nas-snmp) -> {nas: [{… relevé, relais, at}]} (dernière mesure de chaque agent)."""
+    conn = store._connect(DB_PATH)
+    try:
+        rows = infra.latest(conn, "plugin:nas-snmp")
+    finally:
+        conn.close()
+    out = []
+    for agent_id, _h, at, d in rows:
+        for n in (d or {}).get("nas") or []:
+            out.append(dict(n, relais=agent_id, at=at))
+    out.sort(key=lambda n: str(n.get("name")))
+    return jsonify({"nas": out}), 200
+
+
 @app.route("/relayed-hosts", methods=["GET"])
 def relayed_hosts_route():
     """#876 : hôtes relevés à distance par un agent relais (sonde `systemes` : serveurs trop anciens pour l'agent,
