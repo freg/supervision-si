@@ -12,7 +12,18 @@ const duree = (s) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? `
 const depuis = (t) => { if (!t) return "jamais"; const s = Math.max(0, Date.now() / 1000 - t); return s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`; };
 const num = (n) => { const x = parseInt(String(n ?? "").replace(/\D/g, ""), 10); return Number.isFinite(x) ? x : null; };
 
+// #870 : un seul rechargement automatique par livraison. Si l'écran rechargé est toujours l'ancien (hub pas
+// reconstruit : le numéro servi vient du disque, l'écran du build), on s'arrête au lieu de boucler.
+const CLE_ESSAI = "hub.rechargement.essai";
+export function dejaEssaye(v) {
+  try { return sessionStorage.getItem(CLE_ESSAI) === String(v); } catch { return false; }
+}
+function noterEssai(v) {
+  try { sessionStorage.setItem(CLE_ESSAI, String(v)); } catch { /* stockage indisponible : un essai de plus au pire */ }
+}
+
 export async function rechargerSansCache(v) {
+  noterEssai(v);
   try { await fetch("/index.html", { cache: "reload" }); } catch { /* hors ligne : on recharge quand même */ }
   const u = new URL(window.location.href);
   u.searchParams.set("v", String(v || Date.now()));
@@ -46,7 +57,7 @@ export default function BarreEtatHub({ charge, servicesBase, siAgentBase, vulnBa
   const servie = num(srv?.delivery_number);
   const nouvelle = servie && num(charge) && servie > num(charge) && !srv?.maj ? servie : null;
   useEffect(() => {
-    if (!nouvelle || plusTard === nouvelle) { setCompte(null); return undefined; }
+    if (!nouvelle || plusTard === nouvelle || dejaEssaye(nouvelle)) { setCompte(null); return undefined; }
     setCompte(15);
     const t = setInterval(() => setCompte((c) => { if (c <= 1) { clearInterval(t); rechargerSansCache(nouvelle); return 0; } return c - 1; }), 1000);
     return () => clearInterval(t);
@@ -67,7 +78,10 @@ export default function BarreEtatHub({ charge, servicesBase, siAgentBase, vulnBa
       {m && <div className="barre-maj">⟳ mise à jour en cours{m.numero ? ` vers #${m.numero}` : ""} : {m.sujet || ""} — <b>{m.etape}</b>
         <span className="infra-muted"> · depuis {duree(Math.max(0, Math.round(Date.now() / 1000 - (m.debut || 0))))}{m.commande ? ` · run.sh ${m.commande}` : ""}</span></div>}
       {hs && vuMaj && <div className="barre-maj">⟳ redémarrage des services ({vuMaj.etape}) — reconnexion automatique…</div>}
-      {nouvelle && plusTard !== nouvelle && <div className="barre-maj nouvelle">✔ nouvelle livraison #{nouvelle} servie (cet écran : #{charge}) — rechargement sans cache dans {compte ?? 15} s{" "}
+      {nouvelle && plusTard !== nouvelle && dejaEssaye(nouvelle) && <div className="barre-maj">⚠ livraison #{nouvelle} servie mais cet écran est toujours #{charge} après rechargement : l'interface du hub n'a pas été reconstruite (pas de lien : opération manuelle — sur super, <code>./scripts/run.sh up -d --build hub</code> depuis la racine du projet){" "}
+        <button type="button" className="secondary" onClick={() => rechargerSansCache(nouvelle)}>Réessayer</button>{" "}
+        <button type="button" className="secondary" onClick={() => setPlusTard(nouvelle)}>Masquer</button></div>}
+      {nouvelle && plusTard !== nouvelle && !dejaEssaye(nouvelle) && <div className="barre-maj nouvelle">✔ nouvelle livraison #{nouvelle} servie (cet écran : #{charge}) — rechargement sans cache dans {compte ?? 15} s{" "}
         <button type="button" onClick={() => rechargerSansCache(nouvelle)}>Recharger maintenant</button>{" "}
         <button type="button" className="secondary" onClick={() => setPlusTard(nouvelle)}>Plus tard</button></div>}
       {finis.map((x) => <div key={x.id} className={`barre-maj ${x.ok ? "nouvelle" : ""}`}>{x.ok ? "✔" : "✗"} {ICONE[x.genre]} {x.detail} — {x.ok ? "terminé" : `échec${x.erreur ? ` : ${x.erreur}` : ""}`}{" "}

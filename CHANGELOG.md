@@ -1,3 +1,12 @@
+## 2026-10-27 — Pied de page : fin de la boucle de rechargement quand le hub n'est pas reconstruit (livraison #871)
+
+- Constat : après un `git pull` sans reconstruction du hub, le pied de page annonçait « #868 servie (cet écran : #866) »
+  et rechargeait toutes les 15 s sans fin (le numéro servi vient du disque, celui de l'écran du build) : pages
+  inutilisables, dont l'État des lieux.
+- Un seul rechargement automatique par livraison (mémorisé pour l'onglet) ; si l'écran reste ancien, bandeau
+  d'avertissement avec la commande de reconstruction, « Réessayer » et « Masquer ».
+- Vérifié : syntaxe JSX (parseur Babel). Non vérifié : rendu dans le navigateur.
+
 ## 2026-10-27 — Lectures « dernière mesure par sonde » indexées : État des lieux et vues des sondes (livraison #870)
 
 - Constat : les mesures de la sonde `systemes` (nms, optick3) arrivent bien au central, mais l'État des lieux ne les
