@@ -8,6 +8,7 @@ import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
 import IpPing from "./IpPing.jsx";
+import OsActions from "./OsActions.jsx";   // #880
 function Tendance({ t }) {
   if (!t || t.length < 2) return <span className="infra-muted">Suivi commencé : la courbe apparaît à partir du deuxième jour.</span>;
   const cles = ["urgent", "à planifier", "à surveiller"];
@@ -57,7 +58,9 @@ function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, set
         <header>
           <div><h3 style={{ margin: 0 }}>{l.libelle || l.name || l.key} <span className="infra-muted" style={{ fontSize: 14 }}>{l.type} · {l.key}</span></h3>
             <span className={`np-tone ${TON[l.niveau]}`}><b>{l.niveau}</b></span>{l.score ? <span className="infra-muted"> · score {l.score} · impact {l.impact}</span> : null}
-            {l.expose ? <span className="np-tone warn"> · exposé sur Internet</span> : null}</div>
+            {l.expose ? <span className="np-tone warn"> · exposé sur Internet</span> : null}
+            {" "}<OsActions small={false} label={l.type === "nœud" ? l.name : l.type === "CT" || l.type === "VM" ? l.name : l.name} ip={(l.ips || [])[0]}
+              node={l.type === "CT" || l.type === "VM" ? l.node : l.type === "nœud" ? l.name : undefined} ct={l.type === "CT" ? l.vmid : undefined} /></div>
           <button type="button" className="secondary" onClick={onClose} title="fermer (Échap)">✕</button>
         </header>
         {l.representant && <div className="np-tone warn" style={{ margin: "6px 0" }}>{l.representant.note}</div>}
@@ -90,7 +93,7 @@ function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, set
             : <button type="button" className="secondary" onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</button>)}
           {bloc("Rôle et usage", <>{ligne("rôle", (l.roles || []).join(", ") || "—")}{ligne("usage", l.usage)}
             {ligne("clients", l.usage_detail?.clients)}{ligne("requêtes", l.usage_detail?.requetes)}{ligne("CPU moyen", l.usage_detail?.cpu_moy_pct != null ? `${Math.round(l.usage_detail.cpu_moy_pct)} %` : null)}</>)}
-          {bloc("Adresses", (l.ips || []).length ? (l.ips || []).map((ip) => <div key={ip}><IpPing ip={ip} /></div>) : "—")}
+          {bloc("Adresses", (l.ips || []).length ? (l.ips || []).map((ip) => <div key={ip}><IpPing os={false} ip={ip} /></div>) : "—")}
           {bloc("Versions clés", (l.composants || []).length ? (l.composants || []).map((c) => <div key={c.nom + c.version} className={`np-tone ${TON_OS[c.statut] || "neutral"}`}>{c.nom} {c.version} <small>({c.statut}{c.fin ? ` · fin ${jour(c.fin)}` : ""}{c.note ? ` ; ${c.note}` : ""})</small></div>) : "—")}
           {bloc("Dépendances", <>{ligne("utilise", l.utilise?.length ? l.utilise.map((k) => noms[k] || k).join(", ") : "—")}{ligne("utilisé par", l.dependants?.length ? l.dependants.map((k) => noms[k] || k).join(", ") : "—")}</>)}
         </div>

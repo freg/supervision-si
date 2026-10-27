@@ -73,5 +73,48 @@ class HostOpsTest(unittest.TestCase):
         self.assertTrue(big["truncated"]); self.assertEqual(len(big["output"]), hostops.MAX_OUT)
 
 
+class ActionsDepuisOs(unittest.TestCase):
+    """#880 : ping vers une adresse tierce, processus, réseau, journal du système ; dans un conteneur (pct exec)."""
+    W = staticmethod(lambda x: "/usr/sbin/" + x if x in ("pct", "journalctl", "iftop") else None)
+
+    def test_ping(self):
+        argvs, err = hostops.plan({"action": "ping", "target": "192.0.2.10", "count": 99}, {})
+        self.assertIsNone(err)
+        self.assertEqual(argvs, [["ping", "-n", "-c", "20", "-W", "2", "192.0.2.10"]])
+        for bad in ("-c 9 x", "a;id", "$(id)", "", "x y"):
+            self.assertEqual(hostops.plan({"action": "ping", "target": bad}, {})[1], "adresse invalide (IPv4, IPv6 ou nom)")
+        self.assertIsNone(hostops.plan({"action": "ping", "target": "2001:db8::1"}, {})[1])
+
+    def test_top_net_syslog(self):
+        self.assertIn("top -b -n 1", hostops.plan({"action": "top"}, {})[0][0][2])
+        net = hostops.plan({"action": "net"}, {}, which=self.W)[0]
+        self.assertEqual(len(net), 3)                                   # débits, iftop présent, connexions
+        self.assertEqual(net[1][0], "iftop")
+        self.assertEqual(len(hostops.plan({"action": "net"}, {}, which=lambda x: None)[0]), 2)
+        self.assertEqual(hostops.plan({"action": "syslog", "lines": 5, "priority": "err"}, {}, which=self.W)[0][0],
+                         ["journalctl", "-n", "10", "--no-pager", "-o", "short-iso", "-p", "err"])
+        self.assertIn("tail -n 200", hostops.plan({"action": "syslog"}, {}, which=lambda x: None)[0][0][2])
+
+    def test_conteneur(self):
+        argvs, err = hostops.plan({"action": "top", "ct": "108"}, {}, which=self.W)
+        self.assertIsNone(err)
+        self.assertEqual(argvs[0][:4], ["pct", "exec", "108", "--"])
+        net = hostops.plan({"action": "net", "ct": 108}, {}, which=self.W)[0]
+        self.assertTrue(all(v[:4] == ["pct", "exec", "108", "--"] for v in net))
+        self.assertFalse(any("iftop" in v for v in net))               # iftop de l'hôte, pas forcément dans le CT
+        self.assertEqual(hostops.plan({"action": "top", "ct": "1;x"}, {}, which=self.W)[1], "numéro de conteneur invalide")
+        self.assertIn("pct absent", hostops.plan({"action": "top", "ct": "108"}, {}, which=lambda x: None)[1])
+        self.assertEqual(hostops.plan({"action": "ping", "target": "192.0.2.1", "ct": "108"}, {})[0][0][0], "ping")   # ping : depuis le nœud
+
+    def test_execution_et_audit(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = hostops.run({"action": "ping", "target": "192.0.2.10"}, {}, lambda argv, t: (0, "4 packets transmitted, 4 received", ""),
+                            audit_path=os.path.join(d, "a.log"))
+            self.assertTrue(r["ok"])
+            self.assertIn("4 received", r["output"])
+            with open(os.path.join(d, "a.log"), encoding="utf-8") as fh:
+                self.assertEqual(json.loads(fh.readline())["action"], "ping")
+
+
 if __name__ == "__main__":
     unittest.main()

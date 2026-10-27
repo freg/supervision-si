@@ -2,6 +2,7 @@
 // (API centrale si-agent-api : ICMP puis repli TCP sur 22/443/80/3389/8006/161).
 // Usage : <IpPing ip="192.0.2.4" /> (affiche l'IP + le bouton) ou <IpPing ip={x} bare /> (bouton seul).
 import { useState } from "react";
+import OsActions from "./OsActions.jsx";   // #880 : « ⚙ OS » à côté de chaque IP (désactivable : os={false})
 
 const API = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
 
@@ -34,7 +35,7 @@ export function PingResult({ r }) {
   return <span style={style} title={pingTitle(r)}>{txt}</span>;
 }
 
-export default function IpPing({ ip, bare = false, children }) {
+export default function IpPing({ ip, bare = false, children, os = true, label }) {
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState(null);
   if (!ip) return children ?? (bare ? null : <span className="muted">—</span>);
@@ -54,6 +55,7 @@ export default function IpPing({ ip, bare = false, children }) {
         {busy ? "…" : "ping"}
       </button>
       <PingResult r={res} />
+      {os && <OsActions label={label || ip} ip={ip} />}
     </span>
   );
 }

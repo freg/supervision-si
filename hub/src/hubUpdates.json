@@ -1,5 +1,11 @@
 [
  {
+  "n": 880,
+  "from": 880,
+  "date": "2026-10-27",
+  "title": "Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT"
+ },
+ {
   "n": 879,
   "from": 879,
   "date": "2026-10-27",
@@ -232,11 +238,5 @@
   "from": 841,
   "date": "2026-10-23",
   "title": "si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien"
- },
- {
-  "n": 840,
-  "from": 840,
-  "date": "2026-10-23",
-  "title": "si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret"
  }
 ]

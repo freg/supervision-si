@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  880: [{ view: "si-agent", hint: "bouton « ⚙ OS » : ping, processus (htop), réseau (ntop), journal depuis l'hôte, une VM ou un CT (agents en 0.6.7)" }],
   879: [{ view: "migration", params: { page: "etat" }, hint: "copies, clones, préparations et tests rattachés à leur système, listés en fin ; « Rattachement » dans la fiche" }],
   878: [{ view: "migration", params: { page: "etat" }, hint: "temps estimé par action (marge ×3), planning en Gantt par regroupements de dépendances ; Excel et page d'audit" }],
   877: [{ view: "migration", params: { page: "etat" }, hint: "état des lieux compact (2 lignes), fiche au clic ; barres de défilement épaisses dans tout le hub" }],

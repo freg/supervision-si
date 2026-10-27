@@ -111,7 +111,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
               <Fragment key={r.site_id + r.mac}>
                 <tr onClick={() => ouvrir(r)} style={{ cursor: "pointer" }} className={sel?.mac === r.mac ? "selected" : ""}>
                   <td><code>{r.mac}</code></td>
-                  <td onClick={(e) => e.stopPropagation()}><IpPing ip={r.ip} /></td>
+                  <td onClick={(e) => e.stopPropagation()}><IpPing os={false} ip={r.ip} /></td>
                   <td>{r.name || "—"}</td>
                   <td>{r.manufacturer || "—"}</td>
                   <td>{r.device || "—"}{r.port ? ` · port ${r.port}` : ""}{r.ssid ? ` · ${r.ssid}` : ""}{r.vlan ? ` · VLAN ${r.vlan}` : ""}</td>

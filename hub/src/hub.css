@@ -2825,3 +2825,6 @@ body { padding-bottom: 36px; }
 
 /* #879 : copies, clones, préparations et VM de test -- en fin de liste, atténués */
 .edl-table tr.edl-variante td { opacity: .55; font-style: italic; }
+
+/* #880 : actions depuis l'OS -- sortie déroulante */
+.osa-sortie { max-height: 55vh; overflow: auto; background: rgba(0, 0, 0, .35); padding: 8px 10px; border-radius: 6px; font-size: 12px; white-space: pre; margin-top: 6px; }

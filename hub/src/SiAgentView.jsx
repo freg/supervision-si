@@ -32,6 +32,7 @@ import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 import MailServerSection from "./MailServerSection.jsx";  // #692
 import OllamaSection from "./OllamaSection.jsx";  // #746
 import { useTableColumns, TableColumnsHead, ColumnsMenu, AutoColumns } from "./TableColumns.jsx";  // #698
+import OsActions from "./OsActions.jsx";   // #880
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -509,7 +510,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         )}
                         {agentCols.show("site") && <td>{a.site}</td>}
                         {agentCols.show("host") && <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>}
-                        {agentCols.show("ip") && <td onClick={(e) => e.stopPropagation()}><IpPing ip={contactIp(a.last_ip)} /></td>}
+                        {agentCols.show("ip") && <td onClick={(e) => e.stopPropagation()}><IpPing os={false} ip={contactIp(a.last_ip)} /><OsActions label={a.agent_id} ip={contactIp(a.last_ip)} agent={a.agent_id} /></td>}
                         {agentCols.show("contact") && (
                         <td>
                           <Tone tone={contactTone(a.online)} title={when(a.last_seen_at)}>{CONTACT_LABELS[a.online] || a.online}</Tone>
@@ -542,7 +543,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                               <span className="muted">↳ relevé par {a.agent_id} :</span> <strong>{h.name}</strong>{" "}
                               <Tone tone={h.ok ? "good" : "bad"}>{h.ok ? "relevé" : "injoignable"}</Tone>{" "}
                               {h.os || "système inconnu"}{h.noyau ? ` · noyau ${h.noyau}` : ""}
-                              {(h.ips || []).length > 0 && <> · <IpPing ip={h.ips[0]} />{h.ips.length > 1 ? <span className="muted"> +{h.ips.length - 1}</span> : null}</>}
+                              {(h.ips || []).length > 0 && <> · <IpPing os={false} ip={h.ips[0]} /><OsActions label={h.name} ip={h.ips[0]} prefer={h.relay} />{h.ips.length > 1 ? <span className="muted"> +{h.ips.length - 1}</span> : null}</>}
                               {h.ports?.length > 0 && <span className="muted"> · ports {h.ports.slice(0, 12).join(", ")}{h.ports.length > 12 ? "…" : ""}</span>}
                               {hAge != null && <span className="muted"> · il y a {hAge < 3600 ? `${Math.round(hAge / 60)} min` : `${Math.round(hAge / 3600)} h`}</span>}
                               {h.error && <span style={{ color: "var(--danger)" }}> · {h.error}</span>}
@@ -698,7 +699,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         )}
                         <div><span className="muted">Mémoire</span>{formatBytes(host.memory?.total_bytes != null && host.memory?.available_bytes != null ? host.memory.total_bytes - host.memory.available_bytes : null)} / {formatBytes(host.memory?.total_bytes)} ({host.memory?.used_percent ?? "—"} %){host.memory?.swap_total_bytes > 0 && <> · swap {host.memory.swap_used_percent} %</>}</div>
                         <div><span className="muted">Comptes</span>{host.system?.os_id === "windows" ? "administrateurs" : "sudo"} : {(host.accounts?.sudoers || []).join(", ") || "—"} · {host.system?.os_id === "windows" ? "locaux actifs" : "interactifs"} : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
-                        <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP <IpPing ip={contactIp(detail.last_ip)} />{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
+                        <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP <IpPing os={false} ip={contactIp(detail.last_ip)} /><OsActions label={detail.agent_id} ip={contactIp(detail.last_ip)} agent={detail.agent_id} />{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
                         {/* #549 : la page que l'agent publie sur son LAN, vue d'ici (même gabarit, même contenu) */}
                         {detail.publish?.enabled && (
                           <div><span className="muted">Publication</span>page « {detail.publish.title} » sur le port {detail.publish.port} du poste · {publishedPageUrl(detail) && <><a href={publishedPageUrl(detail)} target="_blank" rel="noopener noreferrer">ouvrir sur le site ↗</a> (depuis le réseau du site) · </>}<a href={`${siAgentApiBase}/agents/${encodeURIComponent(selectedId)}/publish/preview`} target="_blank" rel="noopener noreferrer">aperçu depuis le hub ↗</a></div>

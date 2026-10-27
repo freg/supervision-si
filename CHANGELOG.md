@@ -1,3 +1,18 @@
+## 2026-10-27 — Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT (livraison #880)
+
+- Agent 0.6.7, gestes encadrés (liste fermée, journal d'audit sur l'hôte) : `ping` vers une adresse tierce (validée,
+  20 paquets au plus), `top` (instantané type htop : charge, mémoire, processus), `net` (type ntop : débit par interface
+  sur 2 s, iftop s'il est installé, connexions établies par destination), `syslog` (journal du système, nombre de
+  lignes, filtre avertissements / erreurs ; repli sur /var/log/syslog ou messages). Option `ct` : exécution DANS un
+  conteneur LXC par l'agent de son nœud Proxmox (`pct exec`), pour un CT sans agent. Linux seulement.
+- Hub : bouton « ⚙ OS » ouvrant une fenêtre (choix de l'agent qui exécute, cible du ping, options du journal ; résultats
+  de la session dans une liste déroulante, sortie déroulante ; lien « htop en direct »). L'hôte lui-même s'il a un
+  agent (retrouvé par son nom), sinon son nœud pour un CT, sinon ping seulement depuis l'agent choisi (relais pour nms
+  / optick3). Placé : Flotte (colonne IP, fiche, hôtes relayés), fiche de l'état des lieux, Infra PVE/PBS, et partout
+  où une IP de gestion a le bouton ping (#868).
+- Vérifié : `tests/test_hostops.py` (ping et refus d'injection, top, net avec / sans iftop, journal, conteneur, audit),
+  syntaxe JSX, tests du hub. Non vérifié : exécution réelle sur un agent (mise à jour en 0.6.7 nécessaire), rendu.
+
 ## 2026-10-27 — État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin (livraison #879)
 
 - Constat : bruit dans l'état des lieux et le planning -- clone d'une machine physique (« serv3-clone »), préparations

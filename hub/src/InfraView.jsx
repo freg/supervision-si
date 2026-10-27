@@ -9,6 +9,7 @@ import { fetchInfraOverview } from "./siAgentClient.js";
 import { fmtBytes, fmtBps, fmtUptime, fillLevel, donutArcs, htopRows, sortRows, groupByHost, fills, pct } from "./infraLib.js";
 
 import IpPing from "./IpPing.jsx";
+import OsActions from "./OsActions.jsx";   // #880
 const ZONE = { local: "local", distant: "distant (OVH)" };
 const TABS = [["synthese", "Synthèse"], ["htop", "htop"], ["transferts", "Transferts"], ["constats", "Constats"]];
 
@@ -172,7 +173,9 @@ export default function InfraView({ onBack, siAgentApiBase }) {
             <thead><tr>{th("kind", "Type")}{th("name", "Nom")}{th("host", "Hôte")}{th("zone", "Zone")}{th("cpu", "CPU")}<th>Cœurs</th>{th("mem", "Mémoire")}<th>Swap</th><th>Tâches</th>{th("load", "Charge 1 / 5 / 15")}{th("uptime", "Uptime")}{th("status", "État")}</tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.key} className={r.kind === "PVE" || r.kind === "PBS" ? "infra-host" : ""}>
-                <td>{r.kind}</td><td>{grouped && (r.kind === "VM" || r.kind === "CT") ? <span className="infra-muted">└ </span> : null}{r.name}{r.error && <span className="infra-muted" title={r.error}> ⚠</span>}</td><td><IpPing ip={r.host}>{r.host}</IpPing></td><td>{ZONE[r.zone] || r.zone}</td>
+                <td>{r.kind}</td><td>{grouped && (r.kind === "VM" || r.kind === "CT") ? <span className="infra-muted">└ </span> : null}{r.name}{r.error && <span className="infra-muted" title={r.error}> ⚠</span>}</td><td><IpPing os={false} ip={r.host}>{r.host}</IpPing>{(() => { const m = /^v:([^:]+):(\d+)$/.exec(r.key || ""); return m
+                  ? <OsActions label={String(r.name).replace(/^\d+ /, "")} node={m[1]} ct={r.kind === "CT" ? m[2] : undefined} ip={r.ip} />
+                  : <OsActions label={r.name} node={r.host} />; })()}</td><td>{ZONE[r.zone] || r.zone}</td>
                 <td><Meter value={r.cpu} label={r.cpu == null ? "—" : `${r.cpu} %${r.ncpu ? ` · ${r.ncpu} vCPU` : ""}`} /></td>
                 <td><Cores cores={r.cores} /></td>
                 <td><Meter value={r.mem} max={r.maxmem} label={r.maxmem ? `${fmtBytes(r.mem)} / ${fmtBytes(r.maxmem)}` : "—"} /></td>
