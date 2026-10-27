@@ -218,11 +218,14 @@ def daily_rows(data):
     return out
 
 
-def ingest_daily(conn, data, at):
-    """Accumule les jours d'une mesure guest-usage (fusion par jour). -> nombre de jours écrits."""
+def ingest_daily(conn, data, at, commit_every=0):
+    """Accumule les jours d'une mesure guest-usage (fusion par jour). -> nombre de jours écrits.
+    commit_every (#869) : valide toutes les N lignes lues, pour ne jamais tenir le verrou d'écriture longtemps."""
     conn.execute(DAILY_SCHEMA)
     n = 0
-    for node, vmid, metric, day, vals in daily_rows(data):
+    for k, (node, vmid, metric, day, vals) in enumerate(daily_rows(data), 1):
+        if commit_every and k % commit_every == 0:
+            conn.commit()
         r = conn.execute("SELECT data FROM guest_daily WHERE node = ? AND vmid = ? AND metric = ? AND day = ?", (node, vmid, metric, day)).fetchone()
         try:
             old = json.loads(r[0]) if r else None

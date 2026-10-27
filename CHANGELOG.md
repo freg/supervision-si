@@ -1,3 +1,18 @@
+## 2026-10-27 — Base des agents verrouillée par salves : purge et fusion guest-usage par petits lots (livraison #869)
+
+- Constat sur super : `si-agent.db` = 15 Go ; toutes les ~30 min, « database is locked » pendant ~2 min sur la
+  réception de TOUS les agents (mesures perdues). La purge horaire (`at < ? AND id NOT IN (SELECT MAX(id) … GROUP BY
+  …)`) relisait toute la table, sans index sur `at`, en tenant le verrou d'écriture ; la fusion jour par jour de
+  `guest-usage` (#771) se faisait dans la transaction de réception.
+- Purge : borne trouvée par dichotomie sur les ids (`received_at`), suppression par lots de 2 000 ids, une transaction
+  courte par lot et une pause entre deux, dernière mesure de chaque (agent, tâche) toujours gardée (via l'index).
+- Rétention par tâche `SI_AGENT_RETENTION_TASKS` (défaut `plugin:guest-usage=3` : seule la dernière mesure est lue,
+  l'historique est dans `guest_daily`). Durée de chaque purge journalisée.
+- Réception : fusion guest-usage après la validation, en transactions de 200 lignes.
+- Vérifié : `test_purge_lots.py` (rétention globale et par tâche, agent muet conservé, dichotomie, purge idempotente,
+  fusion après validation identique à #771 sur 302 jours) ; `test_ping.py`.
+- Non vérifié : sur la base réelle de 15 Go (la place disque n'est rendue qu'après un VACUUM, opération à part).
+
 ## 2026-10-27 — Bouton « ping » à côté des IP de gestion du hub (livraison #868)
 
 - `si-agent-api` : `GET /ping?host=` et `POST /ping {"hosts": [...]}` (64 max). Le test part du hub (API centrale) :

@@ -120,6 +120,9 @@ logging.basicConfig(level=getattr(logging, os.environ.get("SI_AGENT_LOG_LEVEL", 
 DB_PATH = os.environ.get("SI_AGENT_DB_PATH", "/data/si-agent.db")
 OFFLINE_AFTER_SECONDS = int(os.environ.get("SI_AGENT_OFFLINE_SECONDS", "300"))
 RETENTION_DAYS = int(os.environ.get("SI_AGENT_RETENTION_DAYS", "90"))
+# #869 : rétention plus courte des grosses mesures déjà agrégées ailleurs (« tâche=jours,tâche=jours »)
+TASK_RETENTION = {k.strip(): int(v) for k, v in (x.split("=", 1) for x in os.environ.get(
+    "SI_AGENT_RETENTION_TASKS", "plugin:guest-usage=3").split(",") if "=" in x) if v.strip().isdigit()}
 PUBLIC_URL = os.environ.get("SI_AGENT_PUBLIC_URL", "").rstrip("/")
 CA_FILE = os.environ.get("SI_AGENT_CA_FILE", "/ca/ca.crt")
 EVENTS_RETENTION_DAYS = int(os.environ.get("SI_AGENT_EVENTS_RETENTION_DAYS", "365"))
@@ -147,9 +150,9 @@ def _purge_loop():
     while True:
         time.sleep(3600)
         try:
-            n = store.purge_measurements(DB_PATH, RETENTION_DAYS)
-            if n:
-                _log.info("purge : %d mesure(s) au-delà de %d jours", n, RETENTION_DAYS)
+            t0 = time.time()
+            n = store.purge_measurements(DB_PATH, RETENTION_DAYS, task_retention=TASK_RETENTION)
+            _log.info("purge : %d mesure(s) au-delà de %d jours (%s) en %.0f s", n, RETENTION_DAYS, TASK_RETENTION, time.time() - t0)
             n = store.purge_events(DB_PATH, EVENTS_RETENTION_DAYS)
             if n:
                 _log.info("purge : %d événement(s) au-delà de %d jours", n, EVENTS_RETENTION_DAYS)

@@ -1055,6 +1055,7 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
     dernier contact et, sur `host`/`inventory`, la fiche de l'agent."""
     accepted, duplicates, rejected = 0, 0, []
     events_seen = []
+    guest_reports = []
     now = now_iso()
     conn = _connect(db_path)
     try:
@@ -1119,11 +1120,7 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                     pass
             if m["task"] == "plugin:guest-usage" and isinstance(data, dict):
                 # #771 : historique quotidien des CT / VM accumulé à la réception (au-delà de la rotation des journaux)
-                try:
-                    import guestusage
-                    guestusage.ingest_daily(conn, data, now)
-                except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
-                    pass
+                guest_reports.append(data)   # #869 : fusionné APRÈS la validation, par petits lots (voir plus bas)
             elif m["task"] == "plugin:proxmox" and isinstance(data, dict):
                 for ev in proxmox_state_changes(conn, agent_id, m["at"], data):
                     try:
@@ -1134,6 +1131,15 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                         pass
         touch_agent(conn, agent_id, ip)
         conn.commit()
+        # #869 : l'historique quotidien des CT / VM (#771) était fusionné DANS la transaction de réception : des milliers
+        # de lignes, base verrouillée pour tous les agents. Désormais après la validation, en transactions courtes.
+        for data in guest_reports:
+            try:
+                import guestusage
+                guestusage.ingest_daily(conn, data, now, commit_every=200)
+                conn.commit()
+            except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
+                conn.rollback()
     finally:
         conn.close()
     return accepted, duplicates, rejected, events_seen
@@ -1638,17 +1644,66 @@ def fleet_risks(db_path, site=None):
     return out
 
 
-def purge_measurements(db_path, retention_days):
-    """Efface les mesures plus vieilles que la rétention, en gardant
-    toujours la dernière de chaque (agent, tâche)."""
-    if not retention_days or retention_days <= 0:
-        return 0
-    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - retention_days * 86400))
-    conn = _connect(db_path)
-    try:
-        cur = conn.execute(
-            "DELETE FROM measurements WHERE at < ? AND id NOT IN (SELECT MAX(id) FROM measurements GROUP BY agent_id, task)", (cutoff,))
-        conn.commit()
-        return cur.rowcount
-    finally:
-        conn.close()
+def _id_before(conn, cutoff):
+    """Plus grand id reçu avant `cutoff` (received_at croît avec l'id) : recherche dichotomique par rowid,
+    une vingtaine de lectures au lieu d'un parcours de la table."""
+    lo, hi = conn.execute("SELECT MIN(id), MAX(id) FROM measurements").fetchone()
+    if lo is None:
+        return None
+    best = None
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        r = conn.execute("SELECT id, received_at FROM measurements WHERE id >= ? ORDER BY id LIMIT 1", (mid,)).fetchone()
+        if r is None:
+            hi = mid - 1
+        elif r[1] < cutoff:
+            best, lo = r[0], r[0] + 1
+        else:
+            hi = mid - 1
+    return best
+
+
+def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_retention=None, now=None):
+    """Efface les mesures plus vieilles que la rétention, en gardant toujours la dernière de chaque (agent, tâche).
+    #869 : par petits lots d'ids (une transaction courte par lot, pause entre deux) -- l'ancienne requête relisait
+    toute la table (15 Go) en tenant le verrou d'écriture plusieurs minutes : « database is locked » pour tous les agents.
+    task_retention : {tâche: jours} plus court pour les grosses mesures déjà agrégées ailleurs (guest-usage…)."""
+    now = time.time() if now is None else now
+    plans = []
+    if retention_days and retention_days > 0:
+        plans.append((None, retention_days))
+    for task, days in (task_retention or {}).items():
+        if days and days > 0 and (not retention_days or retention_days <= 0 or days < retention_days):
+            plans.append((task, days))
+    total = 0
+    for task, days in plans:
+        cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - days * 86400))
+        conn = _connect(db_path)
+        try:
+            last = _id_before(conn, cutoff)
+            start = conn.execute("SELECT MIN(id) FROM measurements").fetchone()[0]
+        finally:
+            conn.close()
+        if last is None or start is None:
+            continue
+        sql = ("DELETE FROM measurements WHERE id BETWEEN ? AND ?" + (" AND task = ?" if task else "") +
+               " AND EXISTS (SELECT 1 FROM measurements m2 WHERE m2.agent_id = measurements.agent_id"
+               " AND m2.task = measurements.task AND m2.at > measurements.at)")
+        lo = start
+        while lo is not None and lo <= last:
+            conn = _connect(db_path)
+            try:
+                # bornes réelles du lot (ordre des rowid, coût proportionnel au lot) : les plages vidées par les purges
+                # précédentes ne coûtent rien, contrairement à un pas fixe de numéros d'id
+                r = conn.execute("SELECT id FROM measurements WHERE id >= ? ORDER BY id LIMIT 1 OFFSET ?", (lo, batch - 1)).fetchone()
+                hi = min(r[0], last) if r else last
+                cur = conn.execute(sql, (lo, hi, task) if task else (lo, hi))
+                conn.commit()
+                total += max(cur.rowcount, 0)
+                nxt = conn.execute("SELECT MIN(id) FROM measurements WHERE id > ?", (hi,)).fetchone()[0]
+            finally:
+                conn.close()
+            lo = nxt
+            if pause:
+                time.sleep(pause)
+    return total
