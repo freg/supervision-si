@@ -243,7 +243,23 @@ def _watchdog_loop():
             _log.warning("htop : %s", exc)
 
 
+def _index_thread():
+    """#869 : index (task, agent_id, at) construit en arrière-plan, un seul processus à la fois."""
+    import fcntl
+    try:
+        fh = open(os.path.join(os.path.dirname(DB_PATH) or ".", "index.lock"), "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    time.sleep(20)
+    try:
+        store.ensure_task_index(DB_PATH, log=_log.warning)
+    except Exception as exc:  # noqa: BLE001 -- l'index est une optimisation : l'API fonctionne sans
+        _log.warning("index des sondes impossible : %s", exc)
+
+
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
+    threading.Thread(target=_index_thread, name="index", daemon=True).start()
     threading.Thread(target=_purge_loop, daemon=True).start()
     threading.Thread(target=_watchdog_loop, daemon=True).start()
 app.register_blueprint(genealogie.bp)   # #854 : /modeles/genealogie

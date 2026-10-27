@@ -1644,6 +1644,29 @@ def fleet_risks(db_path, site=None):
     return out
 
 
+TASK_INDEX = "idx_measurements_task_agent"
+
+
+def ensure_task_index(db_path, log=None):
+    """#869 : index (task, agent_id, at) pour « dernière mesure d'une sonde par agent » (État des lieux, maintenance,
+    diagnostics, vues des sondes) : sans lui, chaque requête relisait toute la table (15 Go sur super).
+    Construit UNE fois, hors du schéma (sa construction relit la base : jamais pendant le démarrage). -> True si créé."""
+    conn = sqlite3.connect(db_path, timeout=600)
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (TASK_INDEX,)).fetchone():
+            return False
+        if log:
+            log("index %s : construction en cours (une seule fois, quelques minutes sur une grosse base)" % TASK_INDEX)
+        t0 = time.time()
+        conn.execute("CREATE INDEX IF NOT EXISTS %s ON measurements(task, agent_id, at)" % TASK_INDEX)
+        conn.commit()
+        if log:
+            log("index %s : construit en %.0f s" % (TASK_INDEX, time.time() - t0))
+        return True
+    finally:
+        conn.close()
+
+
 def _id_before(conn, cutoff):
     """Plus grand id reçu avant `cutoff` (received_at croît avec l'id) : recherche dichotomique par rowid,
     une vingtaine de lectures au lieu d'un parcours de la table."""

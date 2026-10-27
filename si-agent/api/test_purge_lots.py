@@ -73,6 +73,16 @@ class PurgeLots(unittest.TestCase):
         store.purge_measurements(self.db, 90, batch=13, pause=0, now=self.now)
         self.assertEqual(store.purge_measurements(self.db, 90, batch=13, pause=0, now=self.now), 0)
 
+    def test_index_par_sonde_utilise(self):
+        self.assertTrue(store.ensure_task_index(self.db))
+        self.assertFalse(store.ensure_task_index(self.db))
+        c = sqlite3.connect(self.db)
+        try:
+            plan = " ".join(str(r) for r in c.execute("EXPLAIN QUERY PLAN SELECT agent_id, MAX(at) FROM measurements WHERE task = ? GROUP BY agent_id", ("host",)))
+        finally:
+            c.close()
+        self.assertIn(store.TASK_INDEX, plan)
+
 
 class ReceptionGuestUsage(unittest.TestCase):
     """#869 : la fusion guest-usage se fait après la validation de la réception, résultat identique à #771."""

@@ -1,3 +1,15 @@
+## 2026-10-27 — Lectures « dernière mesure par sonde » indexées : État des lieux et vues des sondes (livraison #870)
+
+- Constat : les mesures de la sonde `systemes` (nms, optick3) arrivent bien au central, mais l'État des lieux ne les
+  affichait pas à temps. Une dizaine de requêtes (`WHERE task = ? GROUP BY agent_id` : État des lieux, maintenance,
+  diagnostics, netview, web-audit, inventaires, sondes Windows/diffusion/DNS/accès, Proxmox) relisaient toute la table
+  de 15 Go à chaque affichage : l'index existant commence par `agent_id`.
+- Index `idx_measurements_task_agent (task, agent_id, at)`, construit une seule fois en arrière-plan au démarrage de
+  l'API (verrou fichier, durée journalisée), jamais dans le schéma pour ne pas bloquer le redémarrage.
+- Vérifié : `test_purge_lots.py` (index créé une fois, utilisé par le plan de requête).
+- Non vérifié : durée de construction sur la base réelle ; pendant la construction (quelques minutes, une fois), les
+  écritures des agents attendent et certaines peuvent être refusées.
+
 ## 2026-10-27 — Base des agents verrouillée par salves : purge et fusion guest-usage par petits lots (livraison #869)
 
 - Constat sur super : `si-agent.db` = 15 Go ; toutes les ~30 min, « database is locked » pendant ~2 min sur la
