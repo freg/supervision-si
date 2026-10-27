@@ -3,7 +3,7 @@
 // interface, connexions, iftop s'il est installé), journal du système. Exécuté par un agent (gestes encadrés, liste
 // fermée, journal d'audit sur l'hôte) : l'hôte lui-même s'il a un agent, sinon son nœud Proxmox (conteneur : pct exec),
 // sinon un autre agent pour le seul ping. Les résultats de la session restent dans une liste déroulante.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchFleet, sendCommand, fetchCommand } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 
@@ -64,10 +64,14 @@ function Fenetre({ label, ip, agent: agentDonne, node, ct, prefer, onClose }) {
         setDepuis((noeud || pref || liste.find((a) => a.online) || liste[0] || {}).agent_id || "");
       }
     }).catch(() => setAgents([]));
-    const k = (e) => { if (e.key === "Escape") onClose(); };
+  }, [agentDonne, node, ct, label, prefer]);
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") fermer.current(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [agentDonne, node, ct, label, prefer, onClose]);
+  }, []);
   // sur l'hôte lui-même : tout ; dans un CT depuis son nœud : tout (pct exec) ; ailleurs : ping seulement
   const surHote = !!agent && depuis === agent;
   const dansCt = !agent && ct && node && agents.some((a) => a.agent_id === depuis && (a.agent_id === node || (a.hostname || "").split(".")[0] === node));

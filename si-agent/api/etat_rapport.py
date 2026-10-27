@@ -95,9 +95,9 @@ def gantt_html(pl):
     span = max(1, (d1 - d0).days + 1)
     pos = lambda a, b: (100.0 * (dt.date.fromisoformat(a) - d0).days / span, max(0.8, 100.0 * ((dt.date.fromisoformat(b) - dt.date.fromisoformat(a)).days + 1) / span))
     hy, tot = pl["hypotheses"], pl["total"]
-    h = ["<h2>Planning estimé</h2><p class='doux'>Estimation action par action, tests compris, multipliée par %s (marge) ; %s personne(s), "
+    h = ["<h2>Planning estimé</h2><p class='doux'>Estimation action par action, tests compris (barème en points, " + _e(("%g" % hy.get("heures_par_point", 1)).replace(".", ",")) + " h par point), multipliée par %s (marge) ; %s personne(s), "
          "%s h par jour ouvré. Un serveur et les systèmes qui en dépendent sont traités ensemble. <b>Total : %s jours de travail, fin estimée le %s.</b></p>"
-         % (_e(hy["marge"]), _e(hy["personnes"]), _e(hy["heures_jour"]), _e(str(tot["jours"]).replace(".", ",")), _e(_jour(tot["fin"])))]
+         % (_e(("%g" % hy["marge"]).replace(".", ",")), _e(hy["personnes"]), _e(hy["heures_jour"]), _e(str(tot["jours"]).replace(".", ",")), _e(_jour(tot["fin"])))]
     h.append("<table class='gantt'><tr><th style='width:38%%'>Phase / regroupement</th><th style='width:8%%'>Jours</th><th>Du %s au %s</th></tr>" % (_e(_jour(d0.isoformat())), _e(_jour(d1.isoformat()))))
     for ph in pl["phases"]:
         g, l = pos(ph["debut"], ph["fin"])

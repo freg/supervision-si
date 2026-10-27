@@ -2,12 +2,13 @@
 // dernière mise à jour, correctifs en attente, versions obsolètes, services inclus, usage, exposition, interactions et
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl, fetchEtatPlan, saveEtatPlan, saveEtatRegroupement } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
 import IpPing from "./IpPing.jsx";
+import EtatBareme from "./EtatBareme.jsx";   // #882
 import OsActions from "./OsActions.jsx";   // #880
 function Tendance({ t }) {
   if (!t || t.length < 2) return <span className="infra-muted">Suivi commencé : la courbe apparaît à partir du deuxième jour.</span>;
@@ -45,11 +46,13 @@ function Rattachement({ l, siAgentApiBase, onDone }) {
 }
 
 function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, setDecl, enregistrerDecl, manuels, siAgentApiBase, onReload }) {
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
   useEffect(() => {
-    const k = (e) => { if (e.key === "Escape") onClose(); };
+    const k = (e) => { if (e.key === "Escape") fermer.current(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+  }, []);
   const bloc = (titre, contenu) => (contenu ? <section className="edl-fiche-bloc"><h4>{titre}</h4>{contenu}</section> : null);
   const ligne = (k, v) => (v || v === 0 ? <div><span className="infra-muted">{k} : </span>{v}</div> : null);
   return (
@@ -111,6 +114,8 @@ function PlanReglages({ siAgentApiBase }) {
   const [p, setP] = useState(null);
   const [r, setR] = useState(null);
   const [msg, setMsg] = useState("");
+  const [bareme, setBareme] = useState(false);   // #882
+  const recharger = () => fetchEtatPlan(siAgentApiBase).then((x) => { setP(x); setR(x?.hypotheses ? { ...x.hypotheses } : null); }).catch(() => {});
   useEffect(() => { fetchEtatPlan(siAgentApiBase).then((x) => { setP(x); setR(x?.hypotheses ? { ...x.hypotheses } : null); }).catch(() => setP(null)); }, [siAgentApiBase]);
   if (!p || !r) return null;
   const enregistrer = async () => {
@@ -125,7 +130,9 @@ function PlanReglages({ siAgentApiBase }) {
       marge ×<input type="number" min="1" max="10" step="0.5" value={r.marge} onChange={(e) => setR({ ...r, marge: e.target.value })} style={{ width: 56 }} />
       {" "}personnes <input type="number" min="1" max="20" value={r.personnes} onChange={(e) => setR({ ...r, personnes: e.target.value })} style={{ width: 48 }} />
       {" "}début <input type="date" value={r.debut || ""} onChange={(e) => setR({ ...r, debut: e.target.value })} />
-      {" "}<button type="button" className="secondary" onClick={enregistrer}>Recalculer</button> {msg}
+      {" "}<button type="button" className="secondary" onClick={enregistrer}>Recalculer</button>
+      {" "}<button type="button" className="secondary" onClick={() => setBareme(true)} title="points par type d'action, catégories, automatisable, vélocité">⚖ Barème des estimations</button> {msg}
+      {bareme && <EtatBareme siAgentApiBase={siAgentApiBase} onClose={() => setBareme(false)} onSaved={recharger} />}
     </div>
   );
 }

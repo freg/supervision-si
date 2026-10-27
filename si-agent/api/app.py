@@ -3114,38 +3114,30 @@ def migration_cible_route():
 
 # -- #857 : état des lieux des systèmes ---------------------------------------------------------------------------------
 def _etat_plan(e):
-    """#878 : plan estimé (temps par action avec marge, regroupements de dépendances, phases, calendrier)."""
+    """#878 / #882 : plan estimé (barème en points, marge, regroupements de dépendances, phases, calendrier)."""
     import etat_plan
     r = store.get_setting(DB_PATH, "etat_plan", {}) or {}
+    b = store.get_setting(DB_PATH, "etat_bareme", {}) or {}
+    if "marge" not in b and r.get("marge"):
+        b = dict(b, marge=r["marge"])
     try:
         import datetime as _dtm
         debut = _dtm.date.fromisoformat(r["debut"]) if r.get("debut") else None
     except ValueError:
         debut = None
-    return etat_plan.plan(e, marge=float(r.get("marge") or etat_plan.MARGE), personnes=int(r.get("personnes") or 1), debut=debut)
+    return etat_plan.plan(e, personnes=int(r.get("personnes") or 1), debut=debut, bareme=b)
 
 
-@app.route("/etat-des-lieux/regroupements", methods=["GET", "PUT"])
-def etat_regroupements_route():
-    """#879 : règles de regroupement. PUT {key, de, role, note} rattache un système à la référence « de » ; {key, seul: true} le
-    garde à part malgré son nom ; {key, retirer: true} revient au regroupement automatique (d'après le nom)."""
-    regles = store.get_setting(DB_PATH, "etat_regroupements", {}) or {}
+@app.route("/etat-des-lieux/bareme", methods=["GET", "PUT"])
+def etat_bareme_route():
+    """#882 : barème des estimations façon planning poker. GET -> pesage (types, points, occurrences dans l'état actuel,
+    totaux) ; PUT {points: {type: n}, heures_par_point, marge, seuil_reconstruction, logiciel_avec_os} -> enregistre ;
+    PUT {defaut: true} -> revient au barème par défaut."""
+    import etat_plan
     if request.method == "PUT":
         b = request.get_json(silent=True) or {}
-        k = str(b.get("key") or "")[:120]
-        if not k:
-            return jsonify({"error": "clé du système manquante"}), 400
-        if b.get("retirer"):
-            regles.pop(k, None)
-        elif b.get("seul"):
-            regles[k] = {"seul": True}
-        elif str(b.get("de") or "").strip():
-            role = b.get("role") if b.get("role") in etat_lib.ROLES_VARIANTE else "copie"
-            regles[k] = {"de": str(b["de"]).strip()[:120], "role": role, "note": str(b.get("note") or "")[:300] or None}
-        else:
-            return jsonify({"error": "indiquer « de » (système de référence), « seul » ou « retirer »"}), 400
-        store.set_setting(DB_PATH, "etat_regroupements", regles)
-    return jsonify({"regles": regles, "roles": list(etat_lib.ROLES_VARIANTE)}), 200
+        store.set_setting(DB_PATH, "etat_bareme", {} if b.get("defaut") else etat_plan.bareme_normalise(b))
+    return jsonify(etat_plan.pesage(_etat()[1], store.get_setting(DB_PATH, "etat_bareme", {}) or {})), 200
 
 
 @app.route("/etat-des-lieux/plan", methods=["GET", "PUT"])
@@ -3154,8 +3146,11 @@ def etat_plan_route():
     if request.method == "PUT":
         b = request.get_json(silent=True) or {}
         try:
-            r = {"marge": min(10.0, max(1.0, float(b.get("marge", 3)))), "personnes": min(20, max(1, int(b.get("personnes", 1)))),
-                 "debut": str(b.get("debut") or "")[:10] or None}
+            r = {"personnes": min(20, max(1, int(b.get("personnes", 1)))), "debut": str(b.get("debut") or "")[:10] or None}
+            if b.get("marge") not in (None, ""):   # #882 : la marge vit dans le barème
+                bar = store.get_setting(DB_PATH, "etat_bareme", {}) or {}
+                bar["marge"] = min(10.0, max(1.0, float(b["marge"])))
+                store.set_setting(DB_PATH, "etat_bareme", bar)
         except (TypeError, ValueError):
             return jsonify({"error": "marge, personnes ou début invalides"}), 400
         store.set_setting(DB_PATH, "etat_plan", r)

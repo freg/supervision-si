@@ -18,6 +18,15 @@ GRAS = Font(bold=True)
 ENTETE = PatternFill("solid", fgColor="D9E1F2")
 
 
+def _n(x):
+    """3.0 -> « 3 » ; 1.5 -> « 1,5 » (#882)."""
+    try:
+        f = float(x)
+    except (TypeError, ValueError):
+        return str(x)
+    return str(int(f)) if f == int(f) else ("%g" % f).replace(".", ",")
+
+
 def _jour(t):
     return dt.datetime.fromtimestamp(t, dt.timezone.utc).strftime("%d/%m/%Y") if t else "—"
 
@@ -103,9 +112,9 @@ def _feuille_planning(wb, pl, position=1):
     hy, tot = pl["hypotheses"], pl["total"]
     ws["A1"] = "Planning estimé des actions"
     ws["A1"].font = TITRE
-    ws["A2"] = ("Estimation action par action, tests compris, multipliée par %s pour la marge ; %s personne(s), %s h de travail par jour, "
-                "du lundi au vendredi, à partir du %s. Un serveur et les systèmes qui en dépendent sont traités ensemble."
-                % (hy["marge"], hy["personnes"], hy["heures_jour"], _fin(hy["debut"])))
+    ws["A2"] = ("Estimation action par action, tests compris : poids en points selon un barème (%s h par point), multiplié par %s pour la "
+                "marge ; %s personne(s), %s h de travail par jour, du lundi au vendredi, à partir du %s. Un serveur et les systèmes qui en "
+                "dépendent sont traités ensemble." % (_n(hy.get("heures_par_point", 1)), _n(hy["marge"]), hy["personnes"], hy["heures_jour"], _fin(hy["debut"])))
     ws["A2"].alignment = Alignment(wrap_text=True)
     ws.merge_cells("A2:H2")
     ws.row_dimensions[2].height = 32
@@ -192,7 +201,7 @@ def classeur(etat, tendance=None, organisation="", maintenant=None, plan=None):
         cles.append("%d système(s) sont utilisés par plusieurs autres : une panne aurait des effets en chaîne." % dep)
     if plan and plan["taches"]:   # #878
         cles.append("Temps de travail estimé : %s jours (marge ×%s comprise, tests inclus), fin estimée le %s avec %s personne(s) -- voir « Planning »."
-                    % (str(plan["total"]["jours"]).replace(".", ","), plan["hypotheses"]["marge"], _fin(plan["total"]["fin"]), plan["hypotheses"]["personnes"]))
+                    % (_n(plan["total"]["jours"]), _n(plan["hypotheses"]["marge"]), _fin(plan["total"]["fin"]), plan["hypotheses"]["personnes"]))
     if not cles:
         cles.append("Aucun point critique relevé.")
     for i, t in enumerate(cles, 12):

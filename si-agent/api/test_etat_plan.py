@@ -32,11 +32,11 @@ class Plan(unittest.TestCase):
     def test_heures(self):
         l = ETAT["systemes"][0]
         h, _ = ep.heures_action("mettre à niveau le système (Debian 9 → version maintenue)", l)
-        self.assertEqual(h, 16.0 + 3)                                  # écart 4 versions -> reconstruction + rôle base de données
-        self.assertEqual(ep.heures_action("remplacer mysql 5.5 par une version maintenue", l, mise_a_niveau_os=True)[0], 3.0)
-        self.assertEqual(ep.heures_action("mettre à niveau le système (Debian 11 → …)", ETAT["systemes"][3])[0], 4.0 + 3 * 2)
+        self.assertEqual(h, 8 + 1)                                     # écart 4 > seuil 3 -> reconstruction (8 pts) + rôle base de données (1)
+        self.assertEqual(ep.heures_action("remplacer mysql 5.5 par une version maintenue", l, mise_a_niveau_os=True)[0], 1.5)
+        self.assertEqual(ep.heures_action("mettre à niveau le système (Debian 11 → …)", ETAT["systemes"][3])[0], 3 + 2 * 1)
         t = ep.taches(l, marge=3)
-        self.assertEqual([x["heures"] for x in t], [57.0, 4.5, 9.0])  # brut × 3 ; mysql à moitié (fait avec le système)
+        self.assertEqual([x["heures"] for x in t], [32.4, 3.6, 5.4])  # points × 1 h × 3 × 1,2 (conteneur 0,8 × SGBD 1,5) ; mysql à moitié
 
     def test_groupes(self):
         g = {x["pivot"]["key"]: [m["key"] for m in x["membres"]] for x in ep.groupes(ETAT)}
@@ -60,7 +60,7 @@ class Plan(unittest.TestCase):
         self.assertEqual(p["total"]["heures"], round(3 * p["total"]["brut"], 1))
         p2 = ep.plan(ETAT, marge=3, personnes=2, debut=LUNDI)
         self.assertLess(p2["total"]["fin"], p["total"]["fin"])        # deux personnes : fin plus tôt
-        self.assertEqual(ep.par_systeme(p)["sql2"]["heures"], 70.5)
+        self.assertEqual(ep.par_systeme(p)["sql2"]["heures"], 41.4)
 
     def test_excel_et_page(self):
         try:
@@ -79,13 +79,50 @@ class Plan(unittest.TestCase):
         wb = openpyxl.load_workbook(io.BytesIO(etat_excel.classeur(e, maintenant=1793000000, plan=p)))
         self.assertEqual(wb.sheetnames[1], "Planning")
         ws = wb["Planning"]
-        self.assertIn("multipliée par 3", ws["A2"].value)
+        self.assertIn("multiplié par 3 pour la marge", ws["A2"].value)
         self.assertTrue(any("sql2.intranet et 2" in str(c.value) for c in ws["A"]))
         sys_ = wb["Systèmes"]
         self.assertEqual(sys_.cell(row=1, column=14).value, "Temps estimé (jours, marge comprise)")
         html = etat_rapport.page(e, plan=p)
         self.assertIn("Planning estimé", html)
         self.assertIn("sql2.intranet et 2", html)
+
+
+class Bareme(unittest.TestCase):
+    def test_reglage_et_pesage(self):
+        b = ep.bareme_normalise({"points": {"os_reconstruction": 5, "inconnu": 99, "securite": "x"}, "heures_par_point": 2, "marge": 50})
+        self.assertEqual((b["points"]["os_reconstruction"], b["points"]["securite"], b["marge"], b["heures_par_point"]), (5.0, 1, 10, 2.0))
+        self.assertNotIn("inconnu", b["points"])
+        l = ETAT["systemes"][0]
+        self.assertEqual(ep.heures_action("mettre à niveau le système (Debian 9 → …)", l, bareme=b)[0], (5 + 1) * 2)
+        p = ep.pesage(ETAT, {"marge": 2})
+        par = {x["type"]: x for x in p["types"]}
+        self.assertEqual(par["os_reconstruction"]["occurrences"], 2)   # sql2 (Debian 9) et vieux (Debian 4)
+        self.assertEqual(par["securite"]["occurrences"], 1)
+        self.assertEqual(p["total"]["heures_marge"], round(p["total"]["heures"] * 2, 1))
+        moins = ep.pesage(ETAT, {"points": {"os_reconstruction": 3}})
+        self.assertLess(moins["total"]["points"], ep.pesage(ETAT)["total"]["points"])
+        self.assertEqual(ep.plan(ETAT, bareme={"heures_par_point": 0.5}, debut=LUNDI)["total"]["heures"], round(ep.plan(ETAT, debut=LUNDI)["total"]["heures"] / 2, 1))
+
+    def test_categories_et_repetition(self):
+        self.assertEqual(ep.categories(ETAT["systemes"][0]), ["conteneur", "sgbd"])
+        self.assertEqual(ep.categories(L("n", "urgent", [], type_="nœud")), ["physique"])
+        self.assertEqual(ep.categories(L("v", "urgent", [], type_="VM")), ["virtuel"])
+        b = ep.bareme_normalise({"categories": {"physique": 2}, "facteur_repetition": 0.5})
+        phys = L("srv", "urgent", ["mettre à jour les paquets"], type_="serveur")
+        self.assertEqual(ep.taches(phys, 1, b)[0]["points"], 2.0)            # 1 point × physique 2
+        vus = {}
+        p1 = ep.taches(L("a", "urgent", ["mettre à jour les paquets"], type_="VM"), 1, b, vus)[0]["points"]
+        p2 = ep.taches(L("b", "urgent", ["mettre à jour les paquets"], type_="VM"), 1, b, vus)[0]["points"]
+        self.assertEqual((p1, p2), (1.0, 0.5))                                 # automatisable : 2e occurrence × 0,5
+        b2 = ep.bareme_normalise({"automatisable": {"paquets": False}})
+        vus = {}
+        ep.taches(L("a", "urgent", ["mettre à jour les paquets"], type_="VM"), 1, b2, vus)
+        self.assertEqual(ep.taches(L("b", "urgent", ["mettre à jour les paquets"], type_="VM"), 1, b2, vus)[0]["points"], 1.0)
+        pz = ep.pesage(ETAT)
+        cat = {c["categorie"]: c for c in pz["categories"]}
+        self.assertEqual(cat["sgbd"]["systemes"], 1)
+        self.assertTrue({x["type"]: x for x in pz["types"]}["paquets"]["automatisable"])
 
 
 if __name__ == "__main__":

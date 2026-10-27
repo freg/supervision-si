@@ -1,5 +1,17 @@
 [
  {
+  "n": 882,
+  "from": 882,
+  "date": "2026-10-27",
+  "title": "Barème des estimations façon planning poker, catégories de systèmes, actions automatisables"
+ },
+ {
+  "n": 881,
+  "from": 881,
+  "date": "2026-10-27",
+  "title": "Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image)"
+ },
+ {
   "n": 880,
   "from": 880,
   "date": "2026-10-27",
@@ -226,17 +238,5 @@
   "from": 843,
   "date": "2026-10-23",
   "title": "si-mailbox : widget des non lus à côté de la date, total et par filtre de / sujet"
- },
- {
-  "n": 842,
-  "from": 842,
-  "date": "2026-10-23",
-  "title": "Hub blanc au chargement : fetchImages déclaré deux fois dans siAgentClient.js"
- },
- {
-  "n": 841,
-  "from": 841,
-  "date": "2026-10-23",
-  "title": "si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien"
  }
 ]

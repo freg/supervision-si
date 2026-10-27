@@ -1,3 +1,22 @@
+## 2026-10-27 — Barème des estimations façon planning poker, catégories de systèmes, actions automatisables (livraison #882)
+
+- Constat : estimations #878 disproportionnées (heures fixes élevées, reconstruction à 16 h, puis × 3).
+- `etat_plan.py` : poids en POINTS par type d'action (échelle ½ 1 2 3 5 8 13 20 40 ; 25 types : socle et version de
+  mise à niveau, reconstruction, Windows, hyperviseur, service à revérifier, logiciels par nom, correctifs, filtrage,
+  identification, archivage…) ; heures = points × heures par point (vélocité, 1 par défaut) × coefficient de catégorie ×
+  marge. Catégories : serveur physique ×1,5, machine virtuelle ×1, conteneur ×0,8, SGBD ×1,5 en plus. Types
+  automatisables (correctifs, paquets, mise à niveau standard, agent invité, déclaration) : après la première
+  occurrence, facteur de répétition (×0,3). Seuil de reconstruction et part d'un logiciel mis à jour avec le système
+  réglables.
+- Page « ⚖ Barème des estimations » (état des lieux) : points par type (liste façon planning poker, écart au défaut),
+  case automatisable, coefficients de catégorie, vélocité, marge, seuils ; occurrences et heures de chaque type dans
+  l'état actuel, aperçu du total en direct ; enregistrer, revenir au défaut. API `GET/PUT /etat-des-lieux/bareme`. La
+  marge vit dans le barème (le réglage du planning la transmet). Excel et page d'audit citent le barème.
+- Fenêtres (fiche, barème, ⚙ OS) : plus de relecture à chaque rafraîchissement de la page (modifications et agent
+  choisi conservés).
+- Vérifié : `test_etat_plan.py` (barème borné, points, catégories, répétition automatisable, pesage, vélocité), tests
+  de l'état des lieux, tests du hub. Non vérifié : rendu ; valeurs par défaut à calibrer sur l'expérience.
+
 ## 2026-10-27 — Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image) (livraison #881)
 
 - `etat_plan.py` (#878) n'était pas copié dans l'image de si-agent-api (le Dockerfile liste ses fichiers un par un) :

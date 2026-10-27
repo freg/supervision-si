@@ -251,6 +251,8 @@ export const saveEtatEol = (apiBase, eol) => fetchJson(apiBase, "/etat-des-lieux
 export const etatExportUrl = (apiBase) => `${apiBase}/etat-des-lieux/export.xlsx`;
 export const etatAuditUrl = (apiBase) => `${apiBase}/etat-des-lieux/audit.html`;   // #860
 export const saveEtatRegroupement = (apiBase, r) => fetchJson(apiBase, "/etat-des-lieux/regroupements", json("PUT", r));   // #879
+export const fetchEtatBareme = (apiBase) => fetchJson(apiBase, "/etat-des-lieux/bareme");   // #882 : pesage
+export const saveEtatBareme = (apiBase, b) => fetchJson(apiBase, "/etat-des-lieux/bareme", json("PUT", b));
 export const fetchEtatPlan = (apiBase) => fetchJson(apiBase, "/etat-des-lieux/plan");   // #878 : temps estimés, phases, Gantt
 export const saveEtatPlan = (apiBase, r) => fetchJson(apiBase, "/etat-des-lieux/plan", json("PUT", r));
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
