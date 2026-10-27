@@ -1,0 +1,13 @@
+{
+  "id": "lan-audit",
+  "version": "1",
+  "runner": "python",
+  "entry": "lan_audit.py",
+  "interval_seconds": 604800,
+  "timeout_seconds": 9000,
+  "args": ["--targets", "", "--top-ports", "300", "--max-rate", "200"],
+  "enabled": false,
+  "description": "Audit actif des réseaux du site (#873) : découverte des hôtes puis, sur les seuls hôtes vivants, ports usuels, services et versions (nmap -sV --version-light) et système (-O). Alimente l'état des lieux : hôtes non suivis, systèmes et logiciels plus maintenus. Trafic ACTIF : désactivé par défaut, à lancer à la demande ou hors heures ouvrées, débit plafonné (--max-rate), équipements fragiles à exclure (--exclude). Arguments : --targets réseaux (obligatoire), --exclude, --top-ports 300, --max-rate 200, --host-timeout 300, --no-os, --no-versions. Exige nmap sur l'hôte (apt install nmap). Privilégié (détection du système et ARP).",
+  "source": "bundled",
+  "privileged": true
+}

@@ -28,6 +28,11 @@ EOL = {
     "postgresql": {"9": "2021-11-11", "10": "2022-11-10", "11": "2023-11-09", "12": "2024-11-21", "13": "2025-11-13", "14": "2026-11-12",
                    "15": "2027-11-11", "16": "2028-11-09", "17": "2029-11-08"},
     "owncloud": {"8": "2016-12-31", "9": "2017-12-31", "10": "2026-12-31"},
+    # #873 : logiciels reconnus par l'audit réseau (bannières des services)
+    "apache-httpd": {"1.3": "2010-02-03", "2.0": "2013-07-10", "2.2": "2017-07-11"},
+    "mysql": {"4.1": "2009-12-31", "5.0": "2012-01-09", "5.1": "2013-12-31", "5.5": "2018-12-03", "5.6": "2021-02-05", "5.7": "2023-10-25", "8.0": "2026-04-30"},
+    "tomcat": {"5.5": "2012-09-30", "6": "2016-12-31", "7": "2021-03-31", "8.0": "2018-06-30", "8.5": "2024-03-31"},
+    "samba": {"3": "2015-03-04"},
     "nextcloud": {"25": "2023-10-31", "26": "2024-03-31", "27": "2024-06-30", "28": "2025-01-31", "29": "2025-04-30", "30": "2025-09-30",
                   "31": "2026-02-28", "32": "2026-08-31"},
 }
@@ -196,7 +201,72 @@ def autres_systemes(reports):
     return [out[k] for k in sorted(out)]
 
 
-def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None, autres=None):
+# -- #873 : audit réseau (sonde lan-audit) ---------------------------------------------------------------------------
+DEBIAN_CODE = {"etch": "4", "lenny": "5", "squeeze": "6", "wheezy": "7", "jessie": "8", "stretch": "9", "buster": "10", "bullseye": "11",
+               "bookworm": "12", "trixie": "13"}
+PRODUITS = (("apache httpd", "apache-httpd"), ("mysql", "mysql"), ("mariadb", "mariadb"), ("openssh", "openssh"), ("nginx", "nginx"),
+            ("microsoft iis", "microsoft-iis"), ("samba", "samba"), ("tomcat", "tomcat"), ("proftpd", "proftpd"), ("vsftpd", "vsftpd"),
+            ("postfix", "postfix"), ("exim", "exim"), ("dovecot", "dovecot"), ("lighttpd", "lighttpd"), ("postgresql", "postgresql"),
+            ("php", "php"))
+
+
+def _ver(v, n=2):
+    m = re.match(r"^(\d+(?:\.\d+){0,%d})" % (n - 1), str(v or ""))
+    return m.group(1) if m else None
+
+
+def systeme_audit(h):
+    """Hôte vu par l'audit réseau -> relevé « système » déduit (os, écoute, applications), marqué source « audit réseau ».
+    Système : bannières Debian (« OpenSSH 4.3p2 Debian 9etch3 » -> Debian 4, « deb12u » -> 12), sinon empreinte nmap."""
+    os_ = {"id": None, "version": None, "nom": None}
+    apps, ecoute = [], []
+    for p in h.get("ports") or []:
+        prod = (p.get("product") or "").lower()
+        txt = " ".join(str(p.get(k) or "") for k in ("product", "version", "extrainfo")).lower()
+        ecoute.append({"port": p["port"], "hote": h["ip"], "proc": p.get("product") or p.get("service") or "?"})
+        if "debian" in txt and not os_["id"]:
+            m = re.search(r"deb(\d+)u", txt)
+            code = next((v for k, v in DEBIAN_CODE.items() if k in txt), None)
+            ver = m.group(1) if m else code
+            if ver:
+                os_ = {"id": "debian", "version": ver, "nom": "Debian %s (déduit des services)" % ver}
+        for motif, nom in PRODUITS:
+            if motif in prod and p.get("version"):
+                v = _ver(p["version"], 1 if nom == "samba" else 2)
+                if v and not any(a["nom"] == nom for a in apps):
+                    apps.append({"nom": nom, "version": v})
+        m = re.search(r"php/(\d+\.\d+)", txt)
+        if m and not any(a["nom"] == "php" for a in apps):
+            apps.append({"nom": "php", "version": m.group(1)})
+    o = h.get("os") or {}
+    if not os_["id"] and o.get("family") == "Windows" and (o.get("accuracy") or 0) >= 90:
+        name = o.get("name") or ""
+        m = re.search(r"Server (\d{4})( R2)?", name)
+        if m:
+            os_ = {"id": "windows-server", "version": m.group(1) + ("r2" if m.group(2) else ""), "nom": name + " (empreinte réseau)"}
+        else:
+            m = re.search(r"Windows (7|8\.1|8|10|11|XP|Vista)\b", name)
+            if m:
+                os_ = {"id": "windows", "version": m.group(1).lower(), "nom": name + " (empreinte réseau)"}
+    if not os_["id"] and o.get("name"):
+        os_["nom"] = "%s (empreinte réseau, %s %%)" % (o["name"], o.get("accuracy"))
+    return {"os": os_ if (os_["id"] or os_["nom"]) else {}, "noyau": None, "maj_at": None, "attente": None, "attente_secu": None, "paquets": {},
+            "apps": apps, "ecoute": ecoute, "cnx_in": [], "cnx_out": [], "services": [], "ips": [h["ip"]],
+            "note": " · ".join(x for x in (h.get("vendor"), h.get("mac"), h.get("hostname")) if x) or None}
+
+
+def hotes_audit(reports):
+    """Relevés lan-audit [(agent, hôte, at, data)] -> {ip: hôte} (le plus récent l'emporte ; un hôte absent du dernier
+    passage d'un agent reste connu par ses passages précédents tant qu'il figure dans la dernière mesure gardée)."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for h in (d or {}).get("hosts") or []:
+            if h.get("ip"):
+                out[h["ip"]] = dict(h, vu_le=at)
+    return out
+
+
+def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None, autres=None, scan=None):
     """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées ;
     lus = inventaires de la sonde guest-usage (dont VM arrêtées lues hors ligne), utilisés quand pve-preflight n'a rien."""
     now = maintenant or time.time()
@@ -234,6 +304,20 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
         sys_.append({"key": "hote:%s" % x["name"], "type": "poste" if x.get("role") == "poste" else "serveur", "node": "hors Proxmox", "vmid": None,
                      "name": x["name"], "status": "running" if x.get("ok") else "injoignable", "systeme": sx, "charge": None, "ips": ips,
                      "erreur": x.get("error")})
+    # #873 : audit réseau -- complète les systèmes connus (services vus du réseau ; système déduit s'il n'était pas relevé)
+    # et ajoute les hôtes découverts que rien d'autre ne suit
+    connus = {ip: s for s in sys_ for ip in s["ips"]}
+    for ip, h in sorted((scan or {}).items()):
+        sa = systeme_audit(h)
+        s = connus.get(ip)
+        if s:
+            s["reseau"] = h.get("ports") or []
+            if not s["systeme"] or not ((s["systeme"] or {}).get("os") or {}).get("id"):
+                if (sa.get("os") or {}).get("id") or sa["apps"]:
+                    s["systeme_audit"] = sa
+            continue
+        sys_.append({"key": "ip:%s" % ip, "type": "découvert", "node": "réseau", "vmid": None, "name": h.get("hostname") or ip, "status": "running",
+                     "systeme": None, "systeme_audit": sa, "charge": None, "ips": [ip], "reseau": h.get("ports") or [], "vu_le": h.get("vu_le")})
     par_ip = {}
     for s in sys_:
         for ip in s["ips"]:
@@ -268,6 +352,8 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
             sy, source = lus[s["key"]], ("lu hors ligne" if s["status"] != "running" else "relevé (activité)")
         elif (not sy or not (sy.get("os") or {}).get("id")) and manuels.get(s["key"]):
             sy, source = declaration(manuels[s["key"]]), "déclaré"
+        elif (not sy or not (sy.get("os") or {}).get("id")) and s.get("systeme_audit"):
+            sy, source = s["systeme_audit"], "audit réseau"   # #873
         elif not sy or not (sy.get("os") or {}).get("id"):
             source = "aucune"
         fam, ver, nom_os = os_de(sy)
@@ -294,8 +380,12 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
         elif st_os in ("inconnu", "non relevé"):
             if s["status"] == "running":
                 score += 1
-            raisons.append("système non identifié (%s)" % ("agent invité QEMU absent ou Windows" if s["type"] == "VM" else "relevé impossible"))
-            actions.append("installer l'agent invité QEMU (VM Linux) ou déclarer le système à la main" if s["type"] == "VM" else "déclarer le système à la main")
+            if s["type"] == "découvert":   # #873
+                raisons.append("hôte vu sur le réseau, suivi par aucun outil et système non identifié")
+                actions.append("identifier l'hôte (propriétaire, rôle) puis installer l'agent ou le déclarer")
+            else:
+                raisons.append("système non identifié (%s)" % ("agent invité QEMU absent ou Windows" if s["type"] == "VM" else "relevé impossible"))
+                actions.append("installer l'agent invité QEMU (VM Linux) ou déclarer le système à la main" if s["type"] == "VM" else "déclarer le système à la main")
         if secu:
             score += 2
             raisons.append("%d mise(s) à jour de sécurité en attente" % secu)
@@ -346,7 +436,9 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
                        "ecoute": [{"port": e["port"], "proc": e["proc"]} for e in ext], "expose": expose, "ips": s["ips"],
                        "usage": u, "usage_detail": ud, "dependants": dependants, "utilise": utilise, "impact": impact,
                        "score": score, "niveau": niveau, "raisons": raisons, "actions": list(dict.fromkeys(actions)), "releve": bool(sy),
-                       "source": source, "note": (sy or {}).get("note")})
+                       "source": source, "note": (sy or {}).get("note"),
+                       "reseau": [{"port": p["port"], "service": p.get("service"), "logiciel": " ".join(x for x in (p.get("product"), p.get("version")) if x) or None}
+                                  for p in s.get("reseau") or []], "vu_le": s.get("vu_le")})
     ordre = {n: i for i, n in enumerate(NIVEAUX)}
     lignes.sort(key=lambda l: (ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
     res = {n: sum(1 for l in lignes if l["niveau"] == n) for n in NIVEAUX}
@@ -354,6 +446,8 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
     res["secu"] = sum(1 for l in lignes if (l["attente_secu"] or 0) > 0)
     res["exposes"] = sum(1 for l in lignes if l["expose"])
     res["inconnus"] = sum(1 for l in lignes if l["source"] == "aucune")
+    res["decouverts"] = sum(1 for l in lignes if l["type"] == "découvert")     # #873 : vus sur le réseau, suivis par rien d'autre
+    res["audit_reseau"] = sum(1 for l in lignes if l["reseau"])
     return {"at": now, "systemes": lignes, "dependances": deps, "resume": res, "eol": eol, "non_suivis": non_suivis}
 
 

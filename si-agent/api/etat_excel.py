@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 
 TEINTES = {"urgent": "F4B6B6", "à planifier": "F9D9A8", "à surveiller": "FFF2B3", "ok": "CDEBC5", "inactif": "E0E0E0"}
 LIBELLE_NIVEAU = {"urgent": "Urgent", "à planifier": "À planifier", "à surveiller": "À surveiller", "ok": "À jour", "inactif": "Arrêté"}
-TYPE = {"nœud": "Serveur physique", "VM": "Machine virtuelle", "CT": "Conteneur", "serveur": "Serveur", "poste": "Poste de travail"}
+TYPE = {"nœud": "Serveur physique", "VM": "Machine virtuelle", "CT": "Conteneur", "serveur": "Serveur", "poste": "Poste de travail", "découvert": "Appareil découvert sur le réseau"}
 USAGE = {"fort": "Forte", "moyen": "Moyenne", "faible": "Faible", "nul": "Arrêté"}
 TITRE = Font(bold=True, size=14)
 GRAS = Font(bold=True)
@@ -117,6 +117,8 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
         cles.append("%d système(s) ont des correctifs de sécurité disponibles mais non appliqués." % r["secu"])
     if r.get("exposes"):
         cles.append("%d système(s) sont accessibles depuis Internet." % r["exposes"])
+    if r.get("decouverts"):   # #873
+        cles.append("%d appareil(s) vus sur le réseau ne sont suivis par aucun outil : à identifier." % r["decouverts"])
     dep = sum(1 for l in actifs if len(l["dependants"]) >= 2)
     if dep:
         cles.append("%d système(s) sont utilisés par plusieurs autres : une panne aurait des effets en chaîne." % dep)
@@ -151,6 +153,23 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
             c.alignment = Alignment(wrap_text=True, vertical="top")
         ws2.cell(row=i, column=11).fill = PatternFill("solid", fgColor=TEINTES[l["niveau"]])
     ws2.freeze_panes = "B2"
+
+    # #873 : audit réseau -- une ligne par service vu sur le réseau (suivi de migration : qui expose quoi, en quelle version)
+    vus = [l for l in etat["systemes"] if l.get("reseau")]
+    if vus:
+        ws3 = wb.create_sheet("Audit réseau")
+        _entete(ws3, 1, ["Système", "Adresse", "Nature", "Système d'exploitation", "Port", "Service", "Logiciel et version", "Source", "Vu le"])
+        i = 2
+        for l in vus:
+            for p in l["reseau"]:
+                vals = [nom(l), ", ".join(l["ips"]), TYPE.get(l["type"], l["type"]), l["os"]["nom"] or "non identifié", p["port"], p.get("service") or "—",
+                        p.get("logiciel") or "—", l["source"], (l.get("vu_le") or "")[:10] or "—"]
+                for j, v in enumerate(vals, 1):
+                    ws3.cell(row=i, column=j, value=v)
+                i += 1
+        ws3.freeze_panes = "B2"
+        ws3.auto_filter.ref = "A1:I%d" % max(1, i - 1)
+        _largeurs(ws3, [30, 16, 12, 34, 7, 14, 40, 14, 11])
     ws2.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(cols)), max(1, len(etat["systemes"]) + 1))
     _largeurs(ws2, [34, 16, 30, 26, 14, 14, 12, 12, 12, 12, 13, 50, 44])
 

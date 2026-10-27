@@ -73,6 +73,8 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
       <div className="infra-card mig-controls">
         {NIVEAUX.map((n) => <span key={n} className={`np-tone ${TON[n]}`} style={{ marginRight: 10 }}><b>{r[n] ?? 0}</b> {n}</span>)}
         <span className={r.inconnus ? "np-tone warn" : "infra-muted"}>· {r.inconnus ?? 0} système(s) non identifié(s)</span>
+        {/* #873 : audit réseau */}
+        <span className={r.decouverts ? "np-tone warn" : "infra-muted"} title="appareils vus par l'audit réseau (sonde lan-audit) et suivis par aucun autre outil">· {r.decouverts ?? 0} appareil(s) découvert(s) sur le réseau</span>
         <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatAuditUrl(siAgentApiBase)} target="_blank" rel="noreferrer">Audit obsolescence et support (page à imprimer) ↗</a>
@@ -82,7 +84,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
       <div className="mig-controls">
         <input placeholder="nom, rôle, système" value={f.texte} onChange={(e) => setF({ ...f, texte: e.target.value })} />
         <select value={f.niveau} onChange={(e) => setF({ ...f, niveau: e.target.value })}><option value="">tous les niveaux</option>{NIVEAUX.map((n) => <option key={n}>{n}</option>)}</select>
-        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">tous les types</option>{["nœud", "CT", "VM", "serveur", "poste"].map((n) => <option key={n}>{n}</option>)}</select>
+        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">tous les types</option>{["nœud", "CT", "VM", "serveur", "poste", "découvert"].map((n) => <option key={n}>{n}</option>)}</select>
         <select value={f.noeud} onChange={(e) => setF({ ...f, noeud: e.target.value })}><option value="">tous les nœuds</option>{[...new Set((d.systemes || []).map((l) => l.node))].map((n) => <option key={n}>{n}</option>)}</select>
       </div>
       <div style={{ overflowX: "auto" }}><table className="infra-table">
@@ -97,6 +99,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
               <td>{(l.roles || []).join(", ") || "—"}{l.expose ? <div className="np-tone warn">exposé sur Internet</div> : null}</td>
               <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}<div className="infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}</div>
                 {l.source === "lu hors ligne" && <div className="infra-muted">lu hors ligne (disque de la VM arrêtée)</div>}
+                {l.source === "audit réseau" && <div className="infra-muted" title={l.note || ""}>déduit de l'audit réseau{l.vu_le ? ` (${String(l.vu_le).slice(0, 10)})` : ""}</div>}
                 {(l.source === "aucune" || l.source === "déclaré") && (decl?.key === l.key ? (
                   <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
                     <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
@@ -116,7 +119,8 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
             </tr>
             {ouvert[l.key] && <tr><td colSpan={9} className="infra-muted">
               Noyau {l.noyau || "?"} · adresses {(l.ips || []).join(", ") || "?"} · écoute {(l.ecoute || []).map((e) => `${e.port} (${e.proc})`).join(", ") || "—"}
-              <div>Services actifs : {(l.services || []).join(", ") || "—"}</div></td></tr>}
+              <div>Services actifs : {(l.services || []).join(", ") || "—"}</div>
+              {l.reseau?.length > 0 && <div>Vu du réseau : {l.reseau.map((p) => `${p.port}${p.service ? ` ${p.service}` : ""}${p.logiciel ? ` (${p.logiciel})` : ""}`).join(" · ")}{l.note ? ` — ${l.note}` : ""}</div>}</td></tr>}
           </Fragment>))}</tbody>
       </table></div>
       <div className="infra-card">

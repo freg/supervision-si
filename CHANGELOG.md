@@ -1,3 +1,20 @@
+## 2026-10-27 — Audit réseau du site : hôtes, services, versions et systèmes dans l'état des lieux (livraison #873)
+
+- Sonde `lan-audit` (agent 0.6.6, désactivée par défaut, trafic actif) : nmap en deux passes -- découverte des hôtes
+  vivants des réseaux donnés (`--targets`), puis sur eux seuls ports usuels (`--top-ports 300`), services et versions
+  (`-sV --version-light`), système (`-O --osscan-limit`) ; débit plafonné (`--max-rate 200`), délai par hôte,
+  exclusions (`--exclude`, équipements fragiles). Exige nmap sur l'hôte de l'agent.
+- État des lieux : les hôtes vus complètent les systèmes déjà suivis (même adresse : services vus du réseau ; système
+  déduit seulement s'il n'était pas relevé) et ajoutent les **appareils découverts** suivis par rien d'autre. Système
+  déduit des bannières (Debian par nom de code ou `debNu`) ou de l'empreinte Windows ; logiciels reconnus (Apache,
+  MySQL, PHP, OpenSSH, Samba, Tomcat…) avec fin de support (Apache 2.2, MySQL 5.x, Tomcat 6-8.5, Samba 3 ajoutés).
+- Excel décideurs : point clé « appareils non suivis » et feuille « Audit réseau » (une ligne par service vu).
+  Page : type « découvert », compteur, source « déduit de l'audit réseau », ligne « Vu du réseau » dans le détail.
+- Vérifié : `test_lan_audit.py` (XML nmap, deux passes, exclusions, absence de nmap ou de cibles),
+  `test_etat_audit_reseau.py` (système déduit Debian 5 / 12 / Windows 2012 R2, fusion avec un hôte relevé, découverts,
+  niveaux, feuille Excel), `test_z_etat.py`, `test_si_agent.py`.
+- Non vérifié : contre un vrai nmap (absent ici) ; durée réelle sur deux /24.
+
 ## 2026-10-27 — Historique des clients Nebula : relève horaire, relève immédiate, requête filtrée et triée (livraison #872)
 
 - Constat : Nebula ne garde que 24 h d'historique des clients ; une passerelle LoRa muette depuis le 13/10 y était
