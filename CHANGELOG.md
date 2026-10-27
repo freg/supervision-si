@@ -1,3 +1,23 @@
+## 2026-10-27 — Historique des clients Nebula : relève horaire, relève immédiate, requête filtrée et triée (livraison #872)
+
+- Constat : Nebula ne garde que 24 h d'historique des clients ; une passerelle LoRa muette depuis le 13/10 y était
+  introuvable (MAC / IP jamais notées).
+- `nebula-api` : relève toutes les heures (`NEBULA_CLIENT_HISTORY_SECONDS`, défaut 3600) des clients du site (v2
+  clients + clients des bornes + clients des commutateurs, période 2 h) ; par MAC : première / dernière vue, dernière
+  IP, nom, fabricant, raccordement (équipement, port, SSID, VLAN), nombre de relèves ; périodes de présence à
+  raccordement constant (une nouvelle période à chaque changement d'IP, de port, de borne ou après 3 h d'absence).
+  Peu de lignes, index par site / MAC / date, conservation 400 jours, purge quotidienne.
+- Routes : `GET /client-history` (texte : MAC avec ou sans séparateurs, IP, nom, fabricant, équipement, SSID ;
+  fabricant ; équipement ; vu entre deux dates ; « plus vu depuis » ; tri par colonne ; pages de 200),
+  `/client-history/sessions`, `/manufacturers`, `/status`, `POST /client-history/poll` (une par minute au plus),
+  `/client-history/export.csv`.
+- Hub : onglet « Historique des clients » de la tuile Nebula (relever maintenant, filtres, tri par en-tête, périodes
+  de présence au clic, ping de l'IP, export CSV).
+- Vérifié : `nebula/tests/test_client_history.py` (fusion des trois sources, sessions, changement de raccordement,
+  disparition, filtres / tri / tri inconnu, début de mot d'abord, purge) ; syntaxe JSX.
+- Non vérifié : noms exacts des champs renvoyés par Nebula pour le port et le VLAN des clients des commutateurs
+  (plusieurs variantes lues) ; rendu dans le navigateur.
+
 ## 2026-10-27 — Pied de page : fin de la boucle de rechargement quand le hub n'est pas reconstruit (livraison #871)
 
 - Constat : après un `git pull` sans reconstruction du hub, le pied de page annonçait « #868 servie (cet écran : #866) »

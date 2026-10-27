@@ -1670,3 +1670,10 @@ def campus_import(collection):
     finally:
         conn.close()
     return jsonify({"ok": True, "count": len(records), "mode": mode, "columns": rows[0] if rows else []}), 200
+
+
+# #872 : historique des clients (Nebula ne garde que 24 h) -- relève horaire + à la demande, requête filtrée et triée
+import client_history_routes  # noqa: E402
+client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
+                                     "configured": lambda: bool(NEBULA_API_KEY),
+                                     "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
