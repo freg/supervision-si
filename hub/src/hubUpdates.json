@@ -1,5 +1,11 @@
 [
  {
+  "n": 875,
+  "from": 875,
+  "date": "2026-10-27",
+  "title": "Notes de mise à jour : liens vers les écrans des livraisons #867 à #874"
+ },
+ {
   "n": 874,
   "from": 874,
   "date": "2026-10-27",
@@ -232,11 +238,5 @@
   "from": 836,
   "date": "2026-10-22",
   "title": "Orchestration : VM à la demande avec durée de vie"
- },
- {
-  "n": 835,
-  "from": 835,
-  "date": "2026-10-22",
-  "title": "Émulation : écran dans le navigateur, image Raspberry installable, APK dans l'émulateur"
  }
 ]

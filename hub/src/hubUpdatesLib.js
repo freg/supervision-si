@@ -6,6 +6,15 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  874: [{ view: "aujourdhui", hint: "un rechargement revient sur la page consultée, son onglet et sa position" }],
+  873: [{ view: "migration", params: { page: "etat" }, hint: "audit réseau : appareils découverts, services et versions vus du réseau ; feuille « Audit réseau » de l'Excel" },
+        { view: "si-agent", params: { tab: "catalogue" }, hint: "sonde lan-audit (à lancer sur l'agent de super : --targets, --exclude)" }],
+  872: [{ view: "nebula", params: { tab: "historique" }, hint: "historique des clients : relève horaire, relever maintenant, filtres, tri, périodes de présence" }],
+  871: [{ view: "aujourdhui", hint: "pied de page : un seul rechargement par livraison, sinon la commande de reconstruction" }],
+  870: [{ view: "migration", params: { page: "etat" }, hint: "état des lieux : affichage rapide (index des dernières mesures par sonde)" }],
+  869: [{ view: "si-agent", params: { tab: "events" }, hint: "fin des « database is locked » : purge et historique des VM par petits lots" }],
+  868: [{ view: "si-agent", hint: "bouton « ping » à côté des IP (Agents, Proxmox, onduleurs, postes, infra, latence, état des lieux, équipements)" }],
+  867: [{ view: "si-agent", hint: "installeur des hôtes anciens Debian 4 / 5 : si-agent/agent/ancien/install-ancien.sh (pas de lien : opération manuelle)" }],
   866: [{ view: "migration", params: { page: "etat" }, hint: "serveurs anciens : ports écoutés, adresses et services corrigés" }],
   865: [{ view: "migration", params: { page: "etat" }, hint: "serveurs très anciens relevés à distance : système, paquets, ports, services" }],
   864: [{ view: "si-agent", hint: "installation sur un hôte ancien (Debian 9 / Python 3.5) : commandes complètes" }],

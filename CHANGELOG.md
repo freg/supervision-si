@@ -1,3 +1,9 @@
+## 2026-10-27 — Notes de mise à jour : liens vers les écrans des livraisons #867 à #874 (livraison #875)
+
+- Les boutons du pied de page « Mises à jour » n'ouvraient plus l'écran concerné depuis #867 (table `UPDATE_LINKS` non
+  complétée). Ajoutés : #867 à #874 (état des lieux, audit réseau, historique des clients Nebula, ping, événements).
+- Vérifié : tests du hub. Non vérifié : rendu.
+
 ## 2026-10-27 — Contexte de navigation : un rechargement revient sur la page consultée, son onglet et sa position (livraison #874)
 
 - Constat : le hub retombait sur l'accueil après un rechargement (F5, rechargement sans cache d'une livraison, retour de
