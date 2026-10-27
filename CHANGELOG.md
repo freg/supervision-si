@@ -1,3 +1,13 @@
+## 2026-10-27 — Installeur unique des hôtes anciens : Debian 4.0, 5.0 et suivantes (livraison #867)
+
+- `si-agent/agent/ancien/install-ancien.sh` : détecte le système ; hôte récent -> agent complet (`install.sh`) ;
+  hôte ancien -> compte `si-agent` verrouillé, clé limitée à l'IP du relayeur, commande forcée = relevé `systemes`
+  en lecture seule ; `--sudo` optionnel (sudoers vérifié par visudo) ; `--verifier` par défaut, `--installer`, `--retirer`.
+- Relevé embarqué généré depuis `systemes.py` (`make-installer.py`), une seule source.
+- Vérifié : `test_install_ancien.py` (généré à jour, syntaxe sh/dash/bash, choix du mode Debian 4/5/9 i686/12, refus
+  sans root/clé, relevé embarqué identique et lisible par `parse_systeme`), `test_systemes.py`.
+- Non vérifié : `--installer` / `--retirer` réels (pas de root ici) ; OpenSSH 4.3 (Debian 4) et sudo 1.6 sur hôte réel.
+
 ## 2026-10-26 — Relevé à distance des serveurs anciens : ports, adresses et services corrigés (livraison #866)
 
 - Sonde `systemes` (agent 0.6.5), constaté sur un serveur Debian 5 :
