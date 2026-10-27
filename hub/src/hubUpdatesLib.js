@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  876: [{ view: "si-agent", hint: "Flotte : hôtes relevés à distance (nms, optick3) sous leur agent relais" }],
   874: [{ view: "aujourdhui", hint: "un rechargement revient sur la page consultée, son onglet et sa position" }],
   873: [{ view: "migration", params: { page: "etat" }, hint: "audit réseau : appareils découverts, services et versions vus du réseau ; feuille « Audit réseau » de l'Excel" },
         { view: "si-agent", params: { tab: "catalogue" }, hint: "sonde lan-audit (à lancer sur l'agent de super : --targets, --exclude)" }],

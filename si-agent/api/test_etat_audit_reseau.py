@@ -74,5 +74,19 @@ class AuditReseau(unittest.TestCase):
         self.assertEqual(wb["Audit réseau"].max_row, 5)
 
 
+class HotesRelayes(unittest.TestCase):
+    def test_hotes_relayes(self):
+        rows = [("super-hub", "super", "2026-10-27T10:20:06Z", {"systemes": [
+            {"name": "super", "zone": "local", "ok": True, "systeme": {}},
+            {"name": "optick3", "zone": "distant", "role": "serveur", "ok": True, "systeme": {"os": {"nom": "Debian GNU/Linux 4.0"}, "noyau": "2.6.18-6-686",
+             "ips": ["192.0.2.30"], "ecoute": [{"port": 80, "hote": "192.0.2.30"}, {"port": 25, "hote": "127.0.0.1"}, {"port": 22, "hote": "*"}]}},
+            {"name": "nms", "zone": "distant", "ok": False, "error": "ssh refusé", "systeme": None}]})]
+        h = etat.hotes_relayes(rows)
+        self.assertEqual([x["name"] for x in h], ["nms", "optick3"])
+        self.assertEqual(h[1]["ports"], [22, 80])
+        self.assertEqual((h[0]["ok"], h[0]["error"], h[0]["os"]), (False, "ssh refusé", None))
+        self.assertEqual(etat.hotes_relayes([]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

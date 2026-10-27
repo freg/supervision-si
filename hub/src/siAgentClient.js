@@ -31,6 +31,15 @@ const json = (method, body) => ({
 
 export const fetchSiAgentStatus = (apiBase) => fetchJson(apiBase, "/status");
 
+/** #876 : hôtes relevés à distance par un agent relais (sonde systemes), affichés sous leur relais dans la Flotte. */
+export async function fetchRelayedHosts(apiBase) {
+  try {
+    const r = await fetch(`${apiBase}/relayed-hosts`, { credentials: "include" });
+    const d = await r.json();
+    return Array.isArray(d?.hosts) ? d.hosts : [];
+  } catch { return []; }
+}
+
 export async function fetchFleet(apiBase, site) {
   const data = await fetchJson(apiBase, `/fleet${site ? `?site=${encodeURIComponent(site)}` : ""}`);
   return Array.isArray(data?.agents) ? data.agents : [];

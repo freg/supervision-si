@@ -562,3 +562,19 @@ def infrastructure(hotes_copies, systemes):
                     "secours": "non" if sans else ("oui" if pools else "inconnu"),
                     "etat": "dégradé" if malades else ("injoignable" if not h.get("ok") else "normal")})
     return out
+
+
+def hotes_relayes(rows):
+    """#876 : relevés `systemes` [(agent, hôte, at, data)] -> hôtes relevés à distance par chaque agent relais (hors l'hôte
+    du relais lui-même), pour la Flotte : [{relay, name, role, ok, error, at, os, noyau, ips, ports}] triés."""
+    out = []
+    for agent_id, _h, at, d in rows or []:
+        for x in (d or {}).get("systemes") or []:
+            if x.get("zone") == "local" or not x.get("name"):
+                continue
+            sy = x.get("systeme") or {}
+            out.append({"relay": agent_id, "name": x["name"], "role": x.get("role"), "ok": bool(x.get("ok")), "error": x.get("error"), "at": at,
+                        "os": (sy.get("os") or {}).get("nom"), "noyau": sy.get("noyau"), "ips": sy.get("ips") or [],
+                        "ports": sorted({e.get("port") for e in sy.get("ecoute") or [] if not str(e.get("hote", "")).startswith("127.")} - {None})})
+    out.sort(key=lambda h: (h["relay"], h["name"]))
+    return out

@@ -1,3 +1,12 @@
+## 2026-10-27 — Flotte : hôtes relevés à distance affichés sous leur agent relais (livraison #876)
+
+- Les serveurs trop anciens pour l'agent (nms Debian 5, optick3 Debian 4), relevés par la sonde `systemes` de l'agent de
+  super, n'apparaissaient que dans l'état des lieux. Ils figurent maintenant dans la Flotte, sous leur relais :
+  « ↳ relevé par … », état (relevé / injoignable avec l'erreur), système, noyau, IP avec ping, ports écoutés, âge du
+  dernier relevé, lien vers l'état des lieux. API : `GET /relayed-hosts`.
+- Vérifié : `test_etat_audit_reseau.py` (hôtes relayés : hôte local écarté, injoignable, ports hors boucle locale) ;
+  syntaxe JSX. Non vérifié : rendu.
+
 ## 2026-10-27 — Notes de mise à jour : liens vers les écrans des livraisons #867 à #874 (livraison #875)
 
 - Les boutons du pied de page « Mises à jour » n'ouvraient plus l'écran concerné depuis #867 (table `UPDATE_LINKS` non

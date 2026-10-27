@@ -390,6 +390,19 @@ def ca_route():
     return pem, 200, {"Content-Type": "application/x-pem-file"}
 
 
+@app.route("/relayed-hosts", methods=["GET"])
+def relayed_hosts_route():
+    """#876 : hôtes relevés à distance par un agent relais (sonde `systemes` : serveurs trop anciens pour l'agent,
+    ex. Debian 4 / 5) -> {hosts: [{relay, name, role, ok, error, at, os, noyau, ips, ports}]}, affichés sous leur relais."""
+    conn = store._connect(DB_PATH)
+    try:
+        rows = infra.latest(conn, "plugin:systemes")
+    finally:
+        conn.close()
+    out = etat_lib.hotes_relayes(rows)
+    return jsonify({"hosts": out}), 200
+
+
 @app.route("/fleet", methods=["GET"])
 def fleet_route():
     return jsonify({"agents": store.fleet(DB_PATH, site=request.args.get("site"), offline_after_seconds=OFFLINE_AFTER_SECONDS)}), 200

@@ -1,9 +1,9 @@
 import { normalizeBase, caFingerprintOf, installLines, oldHostLines, pushHistory, loadHistory, saveHistory } from "./agentInstallLib.js";
 import IpPing from "./IpPing.jsx";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { viewParams, clearViewParams } from "./hubLinks.js";
+import { viewParams, clearViewParams, hubLink } from "./hubLinks.js";
 import {
-  fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
+  fetchSiAgentStatus, fetchFleet, fetchRelayedHosts, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
   unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
   fetchEvents, fetchEventsSummary, testNotifications, fetchUpdates, saveUpdates, applyUpdates, fetchEventsMuted,
@@ -83,6 +83,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const agentCols = useTableColumns("si-agent.agents", AGENT_COLUMNS);
   const [status, setStatus] = useState(null);
   const [fleet, setFleet] = useState([]);
+  const [relayed, setRelayed] = useState([]);   // #876 : hôtes relevés par un agent relais
   const [risks, setRisks] = useState([]);
   const [catalogue, setCatalogue] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +129,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       fetchSiAgentStatus(siAgentApiBase), fetchFleet(siAgentApiBase), fetchFleetRisks(siAgentApiBase), fetchPlugins(siAgentApiBase),
       fetchEvents(siAgentApiBase, { limit: 300 }), fetchEventsSummary(siAgentApiBase, 24),
     ]);
+    fetchRelayedHosts(siAgentApiBase).then(setRelayed);   // #876 : sans retarder la Flotte
     setStatus(st);
     setFleet(fl);
     setRisks(rk);
@@ -497,8 +499,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       );
                     }
                     const age = ageSeconds(a.last_seen_at, now);
+                    const fils = relayed.filter((h) => h.relay === a.agent_id);   // #876
                     return (
-                      <tr key={a.agent_id} className={`ups-row${selectedId === a.agent_id ? " active" : ""}${a.active ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === a.agent_id ? null : a.agent_id)}>
+                      <Fragment key={a.agent_id}>
+                      <tr className={`ups-row${selectedId === a.agent_id ? " active" : ""}${a.active ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === a.agent_id ? null : a.agent_id)}>
                         {agentCols.show("agent") && (
                         <td><strong>{a.agent_id}</strong>{byCategory && fleetGroups.some((g) => g.id === "proxmox" && g.agents.includes(a)) && <> <Tone tone="neutral">{proxmoxRole(a)}</Tone></>}{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
                           {publishedPageUrl(a) && <div style={{ fontSize: 11 }}><a href={publishedPageUrl(a)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Page publiée par l'agent sur le réseau de son site (#552)">page publiée ↗</a></div>}</td>
@@ -530,6 +534,23 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         </td>
                         )}
                       </tr>
+                      {fils.map((h) => {
+                        const hAge = h.at ? Math.max(0, Math.round((now - Date.parse(h.at)) / 1000)) : null;
+                        return (
+                          <tr key={`${a.agent_id}>${h.name}`} className="sa-relayed-row" title={h.error || ""}>
+                            <td colSpan={agentCols.visible.length} style={{ paddingLeft: 28 }}>
+                              <span className="muted">↳ relevé par {a.agent_id} :</span> <strong>{h.name}</strong>{" "}
+                              <Tone tone={h.ok ? "good" : "bad"}>{h.ok ? "relevé" : "injoignable"}</Tone>{" "}
+                              {h.os || "système inconnu"}{h.noyau ? ` · noyau ${h.noyau}` : ""}
+                              {(h.ips || []).length > 0 && <> · <IpPing ip={h.ips[0]} />{h.ips.length > 1 ? <span className="muted"> +{h.ips.length - 1}</span> : null}</>}
+                              {h.ports?.length > 0 && <span className="muted"> · ports {h.ports.slice(0, 12).join(", ")}{h.ports.length > 12 ? "…" : ""}</span>}
+                              {hAge != null && <span className="muted"> · il y a {hAge < 3600 ? `${Math.round(hAge / 60)} min` : `${Math.round(hAge / 3600)} h`}</span>}
+                              {h.error && <span style={{ color: "var(--danger)" }}> · {h.error}</span>}
+                              {" "}<a href={hubLink("migration", { page: "etat" })} onClick={(e) => e.stopPropagation()}>état des lieux</a>
+                            </td>
+                          </tr>);
+                      })}
+                      </Fragment>
                     );
                   })}
                 </tbody>
