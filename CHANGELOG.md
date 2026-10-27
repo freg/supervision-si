@@ -1,3 +1,11 @@
+## 2026-10-27 — Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image) (livraison #881)
+
+- `etat_plan.py` (#878) n'était pas copié dans l'image de si-agent-api (le Dockerfile liste ses fichiers un par un) :
+  « ModuleNotFoundError: No module named 'etat_plan' » sur l'Excel des décideurs, la page d'audit et le planning.
+- Ajouté au Dockerfile ; nouveau test `test_dockerfile_modules.py` : tout module local importé par l'API, directement
+  ou non, doit être copié dans l'image.
+- Vérifié : test ajouté. Non vérifié : construction de l'image (sur super).
+
 ## 2026-10-27 — Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT (livraison #880)
 
 - Agent 0.6.7, gestes encadrés (liste fermée, journal d'audit sur l'hôte) : `ping` vers une adresse tierce (validée,
