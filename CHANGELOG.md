@@ -1,3 +1,16 @@
+## 2026-10-27 — État des lieux compact avec fiche au clic ; barres de défilement épaisses et contrastées (livraison #877)
+
+- État des lieux : deux lignes de texte au plus par rangée (versions clés : la plus critique + « N autre(s) » ;
+  dépendances en nombre ; pourquoi / que faire coupé à deux lignes), tableau dans un cadre déroulant dans les deux
+  sens (glissière horizontale visible sans descendre en bas de page), en-tête fixe.
+- Clic sur une rangée : fiche du système en fenêtre rapide, format page (pourquoi / que faire, système, libellé,
+  déclaration à la main, rôle et usage, adresses avec ping, versions clés, dépendances nommées, ports, services, vu du
+  réseau) ; Échap ou clic hors de la fenêtre pour fermer.
+- Tout le hub : barres de défilement de 14 px, poignée claire sur fond contrasté. La règle précédente (gris sur gris)
+  déclarait `scrollbar-color`, ce qui, dans Chrome, désactive tout style `::-webkit-scrollbar` : barres fines et presque
+  invisibles. Désormais Firefox seul reçoit `scrollbar-color`.
+- Vérifié : syntaxe JSX, tests du hub. Non vérifié : rendu dans le navigateur.
+
 ## 2026-10-27 — Flotte : hôtes relevés à distance affichés sous leur agent relais (livraison #876)
 
 - Les serveurs trop anciens pour l'agent (nms Debian 5, optick3 Debian 4), relevés par la sonde `systemes` de l'agent de

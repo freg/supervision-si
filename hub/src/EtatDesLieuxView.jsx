@@ -18,6 +18,62 @@ function Tendance({ t }) {
   );
 }
 
+// #877 : fiche d'un système en fenêtre rapide, format page (Échap ou clic hors de la fenêtre pour fermer).
+function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, setDecl, enregistrerDecl, manuels }) {
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  const bloc = (titre, contenu) => (contenu ? <section className="edl-fiche-bloc"><h4>{titre}</h4>{contenu}</section> : null);
+  const ligne = (k, v) => (v || v === 0 ? <div><span className="infra-muted">{k} : </span>{v}</div> : null);
+  return (
+    <div className="edl-fiche-fond" onClick={onClose}>
+      <div className="edl-fiche" role="dialog" aria-label={`fiche ${l.name}`} onClick={(e) => e.stopPropagation()}>
+        <header>
+          <div><h3 style={{ margin: 0 }}>{l.libelle || l.name || l.key} <span className="infra-muted" style={{ fontSize: 14 }}>{l.type} · {l.key}</span></h3>
+            <span className={`np-tone ${TON[l.niveau]}`}><b>{l.niveau}</b></span>{l.score ? <span className="infra-muted"> · score {l.score} · impact {l.impact}</span> : null}
+            {l.expose ? <span className="np-tone warn"> · exposé sur Internet</span> : null}</div>
+          <button type="button" className="secondary" onClick={onClose} title="fermer (Échap)">✕</button>
+        </header>
+        {bloc("Pourquoi, que faire", <>{(l.raisons || []).map((x, i) => <div key={i}>• {x}</div>)}{l.actions?.length ? <div style={{ marginTop: 6 }}><b>→ {l.actions.join(" ; ")}</b></div> : null}{!l.raisons?.length && !l.actions?.length ? "—" : null}</>)}
+        <div className="edl-fiche-cols">
+          {bloc("Système", <>
+            <div className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}</div>
+            {ligne("fin des correctifs", l.os?.fin ? `${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut)}
+            {ligne("noyau", l.noyau)}{ligne("source", l.source)}{ligne("note", l.note)}
+            {ligne("dernière mise à jour", l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : null)}
+            {l.attente != null && <div className={l.attente_secu ? "np-tone bad" : ""}>{l.attente} mise(s) à jour en attente{l.attente_secu ? `, dont ${l.attente_secu} de sécurité` : ""}</div>}
+            {(l.source === "aucune" || l.source === "déclaré") && (decl?.key === l.key ? (
+              <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
+                <input placeholder="version (12, 22.04, 2019…)" value={decl.version} onChange={(e) => setDecl({ ...decl, version: e.target.value })} />
+                <input placeholder="nom affiché (facultatif)" value={decl.nom} onChange={(e) => setDecl({ ...decl, nom: e.target.value })} />
+                <label className="infra-muted">dernière mise à jour <input type="date" value={decl.maj} onChange={(e) => setDecl({ ...decl, maj: e.target.value })} /></label>
+                <input placeholder="note (ex. appliance, relevé du 26/10)" value={decl.note} onChange={(e) => setDecl({ ...decl, note: e.target.value })} />
+                <div><button onClick={() => enregistrerDecl()}>Enregistrer</button> {l.source === "déclaré" && <button className="secondary" onClick={() => enregistrerDecl(true)}>Retirer</button>} <button className="secondary" onClick={() => setDecl(null)}>Annuler</button></div>
+              </div>
+            ) : <button type="button" className="secondary" style={{ marginTop: 6 }} onClick={() => { const m = manuels[l.key] || {}; setDecl({ key: l.key, famille: m.famille || "debian", version: m.version || "", nom: m.nom || "", maj: m.maj || "", note: m.note || "" }); }}>
+              {l.source === "déclaré" ? "modifier la déclaration" : "déclarer le système à la main"}</button>)}
+          </>)}
+          {bloc("Libellé pour les décideurs", lib?.key === l.key
+            ? <div><input value={lib.texte} onChange={(e) => setLib({ ...lib, texte: e.target.value })} placeholder="libellé pour les décideurs" /> <button onClick={enregistrerLib}>OK</button></div>
+            : <button type="button" className="secondary" onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</button>)}
+          {bloc("Rôle et usage", <>{ligne("rôle", (l.roles || []).join(", ") || "—")}{ligne("usage", l.usage)}
+            {ligne("clients", l.usage_detail?.clients)}{ligne("requêtes", l.usage_detail?.requetes)}{ligne("CPU moyen", l.usage_detail?.cpu_moy_pct != null ? `${Math.round(l.usage_detail.cpu_moy_pct)} %` : null)}</>)}
+          {bloc("Adresses", (l.ips || []).length ? (l.ips || []).map((ip) => <div key={ip}><IpPing ip={ip} /></div>) : "—")}
+          {bloc("Versions clés", (l.composants || []).length ? (l.composants || []).map((c) => <div key={c.nom + c.version} className={`np-tone ${TON_OS[c.statut] || "neutral"}`}>{c.nom} {c.version} <small>({c.statut}{c.fin ? ` · fin ${jour(c.fin)}` : ""}{c.note ? ` ; ${c.note}` : ""})</small></div>) : "—")}
+          {bloc("Dépendances", <>{ligne("utilise", l.utilise?.length ? l.utilise.map((k) => noms[k] || k).join(", ") : "—")}{ligne("utilisé par", l.dependants?.length ? l.dependants.map((k) => noms[k] || k).join(", ") : "—")}</>)}
+        </div>
+        {bloc("Ports écoutés", (l.ecoute || []).length ? (l.ecoute || []).map((e) => `${e.port} (${e.proc})`).join(" · ") : "—")}
+        {bloc("Services actifs", (l.services || []).length ? (l.services || []).join(", ") : null)}
+        {bloc("Vu du réseau (audit)", (l.reseau || []).length ? <table className="infra-table"><thead><tr><th>Port</th><th>Service</th><th>Logiciel et version</th></tr></thead>
+          <tbody>{l.reseau.map((p) => <tr key={p.port}><td>{p.port}</td><td>{p.service || "—"}</td><td>{p.logiciel || "—"}</td></tr>)}</tbody></table> : null)}
+      </div>
+    </div>
+  );
+}
+
 export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -29,11 +85,13 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [decis, setDecis] = useState(null);  // #862 : décisions à prendre (liste en édition)
   const [phases, setPhases] = useState(null); // #863 : fiches « où, quand, combien » par phase (en édition)
   const [note, setNote] = useState(null);
+  const [fiche, setFiche] = useState(null);   // #877 : clé du système dont la fiche est ouverte
   const load = useCallback(() => fetchEtat(siAgentApiBase).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => { load(); const id = setInterval(load, 300000); return () => clearInterval(id); }, [load]);
   if (!d) return <p className="infra-muted">{err || "lecture de l'état des lieux…"}</p>;
   const lignes = filtrer(d.systemes, f);
   const noms = Object.fromEntries((d.systemes || []).map((l) => [l.key, nom(l)]));
+  const ficheL = fiche ? (d.systemes || []).find((l) => l.key === fiche) : null;   // #877
   const r = d.resume || {};
   const enregistrerLib = async () => {
     const libelles = { ...(d.libelles || {}) };
@@ -87,42 +145,30 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">tous les types</option>{["nœud", "CT", "VM", "serveur", "poste", "découvert"].map((n) => <option key={n}>{n}</option>)}</select>
         <select value={f.noeud} onChange={(e) => setF({ ...f, noeud: e.target.value })}><option value="">tous les nœuds</option>{[...new Set((d.systemes || []).map((l) => l.node))].map((n) => <option key={n}>{n}</option>)}</select>
       </div>
-      <div style={{ overflowX: "auto" }}><table className="infra-table">
+      {/* #877 : lignes compactes (2 lignes de texte au plus), clic -> fiche ; cadre déroulant dans les deux sens */}
+      <div className="edl-cadre"><table className="infra-table edl-table">
         <thead><tr><th>Niveau</th><th>Système</th><th>Rôle</th><th>Système d'exploitation</th><th>Mise à jour</th><th>Versions clés</th><th>Usage</th><th>Dépendances</th><th>Pourquoi / que faire</th></tr></thead>
-        <tbody>{lignes.map((l) => (
-          <Fragment key={l.key}>
-            <tr style={{ verticalAlign: "top" }}>
-              <td className={`np-tone ${TON[l.niveau]}`}><b>{l.niveau}</b>{l.score ? <div className="infra-muted">score {l.score} · impact {l.impact}</div> : null}</td>
-              <td><b style={{ cursor: "pointer" }} onClick={() => setOuvert({ ...ouvert, [l.key]: !ouvert[l.key] })}>{l.key}</b> {l.name} <span className="infra-muted">{l.type}</span>
-                {lib?.key === l.key ? <div><input value={lib.texte} onChange={(e) => setLib({ ...lib, texte: e.target.value })} placeholder="libellé pour les décideurs" /> <button onClick={enregistrerLib}>OK</button></div>
-                  : <div className="infra-muted" style={{ cursor: "pointer" }} onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</div>}</td>
-              <td>{(l.roles || []).join(", ") || "—"}{l.expose ? <div className="np-tone warn">exposé sur Internet</div> : null}</td>
-              <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}<div className="infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}</div>
-                {l.source === "lu hors ligne" && <div className="infra-muted">lu hors ligne (disque de la VM arrêtée)</div>}
-                {l.source === "audit réseau" && <div className="infra-muted" title={l.note || ""}>déduit de l'audit réseau{l.vu_le ? ` (${String(l.vu_le).slice(0, 10)})` : ""}</div>}
-                {(l.source === "aucune" || l.source === "déclaré") && (decl?.key === l.key ? (
-                  <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
-                    <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
-                    <input placeholder="version (12, 22.04, 2019…)" value={decl.version} onChange={(e) => setDecl({ ...decl, version: e.target.value })} />
-                    <input placeholder="nom affiché (facultatif)" value={decl.nom} onChange={(e) => setDecl({ ...decl, nom: e.target.value })} />
-                    <label className="infra-muted">dernière mise à jour <input type="date" value={decl.maj} onChange={(e) => setDecl({ ...decl, maj: e.target.value })} /></label>
-                    <input placeholder="note (ex. appliance, relevé du 26/10)" value={decl.note} onChange={(e) => setDecl({ ...decl, note: e.target.value })} />
-                    <div><button onClick={() => enregistrerDecl()}>Enregistrer</button> {l.source === "déclaré" && <button className="secondary" onClick={() => enregistrerDecl(true)}>Retirer</button>} <button className="secondary" onClick={() => setDecl(null)}>Annuler</button></div>
-                  </div>
-                ) : <div style={{ cursor: "pointer" }} className="infra-muted" onClick={() => { const m = (d.manuels || {})[l.key] || {}; setDecl({ key: l.key, famille: m.famille || "debian", version: m.version || "", nom: m.nom || "", maj: m.maj || "", note: m.note || "" }); }}>
-                  {l.source === "déclaré" ? `déclaré à la main ✎${l.note ? ` · ${l.note}` : ""}` : "+ déclarer le système"}</div>)}</td>
-              <td>{l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : "—"}<div className={l.attente_secu ? "np-tone bad" : "infra-muted"}>{l.attente != null ? `${l.attente} en attente${l.attente_secu ? `, dont ${l.attente_secu} de sécurité` : ""}` : ""}</div></td>
-              <td>{(l.composants || []).map((c) => <div key={c.nom + c.version} className={`np-tone ${TON_OS[c.statut] || "neutral"}`}>{c.nom} {c.version} <small>({c.statut}{c.note ? ` ; ${c.note}` : ""})</small></div>)}</td>
-              <td>{l.usage}<div className="infra-muted">{l.usage_detail?.clients ? `${l.usage_detail.clients} client(s)` : ""}{l.usage_detail?.requetes ? ` · ${l.usage_detail.requetes} req.` : ""}{l.usage_detail?.cpu_moy_pct != null ? ` · CPU ${Math.round(l.usage_detail.cpu_moy_pct)} %` : ""}</div></td>
-              <td>{l.utilise?.length ? <div>utilise : {l.utilise.map((k) => noms[k] || k).join(", ")}</div> : null}{l.dependants?.length ? <div className="np-tone warn">utilisé par : {l.dependants.map((k) => noms[k] || k).join(", ")}</div> : null}{!l.utilise?.length && !l.dependants?.length ? "—" : null}</td>
-              <td style={{ minWidth: 300, maxWidth: 420, whiteSpace: "normal" }}><small>{(l.raisons || []).join(" ; ") || "—"}</small>{l.actions?.length ? <div><b>→</b> {l.actions.join(" ; ")}</div> : null}</td>
-            </tr>
-            {ouvert[l.key] && <tr><td colSpan={9} className="infra-muted">
-              Noyau {l.noyau || "?"} · adresses {(l.ips || []).join(", ") || "?"} · écoute {(l.ecoute || []).map((e) => `${e.port} (${e.proc})`).join(", ") || "—"}
-              <div>Services actifs : {(l.services || []).join(", ") || "—"}</div>
-              {l.reseau?.length > 0 && <div>Vu du réseau : {l.reseau.map((p) => `${p.port}${p.service ? ` ${p.service}` : ""}${p.logiciel ? ` (${p.logiciel})` : ""}`).join(" · ")}{l.note ? ` — ${l.note}` : ""}</div>}</td></tr>}
-          </Fragment>))}</tbody>
+        <tbody>{lignes.map((l) => {
+          const comp = l.composants || [];
+          const pire = comp.find((c) => c.statut === "obsolète") || comp[0];
+          return (
+            <tr key={l.key} onClick={() => setFiche(l.key)} title="ouvrir la fiche">
+              <td className={`np-tone ${TON[l.niveau]}`}><div className="edl-l"><b>{l.niveau}</b></div><div className="edl-l infra-muted">{l.score ? `score ${l.score} · impact ${l.impact}` : ""}</div></td>
+              <td><div className="edl-l"><b>{l.libelle || l.name || l.key}</b> <span className="infra-muted">{l.type}</span></div><div className="edl-l infra-muted">{l.key}{l.ips?.length ? ` · ${l.ips[0]}` : ""}</div></td>
+              <td><div className="edl-l">{(l.roles || []).join(", ") || "—"}</div><div className="edl-l">{l.expose ? <span className="np-tone warn">exposé sur Internet</span> : null}</div></td>
+              <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}><div className="edl-l">{l.os?.nom || "non relevé"}</div>
+                <div className="edl-l infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}{l.source && l.source !== "relevé" ? ` · ${l.source}` : ""}</div></td>
+              <td><div className="edl-l">{l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : "—"}</div><div className={`edl-l ${l.attente_secu ? "np-tone bad" : "infra-muted"}`}>{l.attente != null ? `${l.attente} en attente${l.attente_secu ? `, ${l.attente_secu} sécu.` : ""}` : ""}</div></td>
+              <td>{pire ? <div className={`edl-l np-tone ${TON_OS[pire.statut] || "neutral"}`}>{pire.nom} {pire.version} <small>({pire.statut})</small></div> : <div className="edl-l">—</div>}
+                <div className="edl-l infra-muted">{comp.length > 1 ? `+ ${comp.length - 1} autre(s)` : ""}</div></td>
+              <td><div className="edl-l">{l.usage}</div><div className="edl-l infra-muted">{l.usage_detail?.clients ? `${l.usage_detail.clients} client(s)` : ""}{l.usage_detail?.requetes ? ` · ${l.usage_detail.requetes} req.` : ""}</div></td>
+              <td><div className="edl-l">{l.utilise?.length ? `utilise ${l.utilise.length}` : "—"}</div><div className={`edl-l ${l.dependants?.length ? "np-tone warn" : "infra-muted"}`}>{l.dependants?.length ? `utilisé par ${l.dependants.length}` : ""}</div></td>
+              <td className="edl-pourquoi"><div className="edl-2l"><small>{(l.raisons || []).join(" ; ") || "—"}</small>{l.actions?.length ? <> <b>→</b> {l.actions.join(" ; ")}</> : null}</div></td>
+            </tr>);
+        })}</tbody>
       </table></div>
+      {ficheL && <FicheSysteme l={ficheL} noms={noms} onClose={() => setFiche(null)}
+        lib={lib} setLib={setLib} enregistrerLib={enregistrerLib} decl={decl} setDecl={setDecl} enregistrerDecl={enregistrerDecl} manuels={d.manuels || {}} />}
       <div className="infra-card">
         <b>Interactions entre systèmes ({(d.dependances || []).length})</b>
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>
