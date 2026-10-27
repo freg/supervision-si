@@ -92,8 +92,74 @@ def _entete(ws, ligne, valeurs):
         c.alignment = Alignment(wrap_text=True, vertical="top")
 
 
-def classeur(etat, tendance=None, organisation="", maintenant=None):
-    """-> octets du fichier .xlsx."""
+TEINTES_PHASE = {"1": "F4B6B6", "2": "F9C98A", "3": "F9E3A8", "4": "CFE2F3", "5": "E0E0E0"}
+
+
+def _feuille_planning(wb, pl, position=1):
+    """#878 : planning estimé en Gantt -- phases, groupes de dépendances, actions ; une colonne par semaine."""
+    ws = wb.create_sheet("Planning", position)
+    hy, tot = pl["hypotheses"], pl["total"]
+    ws["A1"] = "Planning estimé des actions"
+    ws["A1"].font = TITRE
+    ws["A2"] = ("Estimation action par action, tests compris, multipliée par %s pour la marge ; %s personne(s), %s h de travail par jour, "
+                "du lundi au vendredi, à partir du %s. Un serveur et les systèmes qui en dépendent sont traités ensemble."
+                % (hy["marge"], hy["personnes"], hy["heures_jour"], _fin(hy["debut"])))
+    ws["A2"].alignment = Alignment(wrap_text=True)
+    ws.merge_cells("A2:H2")
+    ws.row_dimensions[2].height = 32
+    ws["A3"] = "Total : %s jours de travail (%s h sans marge, %s h avec marge) -- fin estimée le %s" % (
+        str(tot["jours"]).replace(".", ","), str(tot["brut"]).replace(".", ","), str(tot["heures"]).replace(".", ","), _fin(tot["fin"]))
+    ws["A3"].font = GRAS
+    if not pl["taches"]:
+        ws["A5"] = "Aucune action à planifier."
+        return
+    d0 = dt.date.fromisoformat(min(t["debut"] for t in pl["taches"]))
+    d1 = dt.date.fromisoformat(max(t["fin"] for t in pl["taches"]))
+    lundi = d0 - dt.timedelta(days=d0.weekday())
+    semaines = []
+    while lundi <= d1:
+        semaines.append(lundi)
+        lundi += dt.timedelta(days=7)
+    cols = ["Phase / regroupement / système", "Action", "Sans marge (h)", "Avec marge (h)", "Jours", "Début", "Fin"]
+    _entete(ws, 5, cols + ["sem. %s" % s_.strftime("%d/%m") for s_ in semaines])
+    i = 6
+
+    def barre(ligne, debut, fin, teinte, gras=False):
+        a, b = dt.date.fromisoformat(debut), dt.date.fromisoformat(fin)
+        for j, s_ in enumerate(semaines):
+            if s_ <= b and s_ + dt.timedelta(days=6) >= a:
+                c = ws.cell(row=ligne, column=len(cols) + 1 + j)
+                c.fill = PatternFill("solid", fgColor=teinte if not gras else "888888")
+    for ph in pl["phases"]:
+        ts = [t for t in pl["taches"] if t["phase"] == ph["phase"]]
+        for j, v in enumerate(["Phase %s : %s" % (ph["phase"], ph["nom"]), "%d système(s), %d regroupement(s)" % (ph["systemes"], ph["groupes"]),
+                               round(sum(t["brut"] for t in ts), 1), ph["heures"], ph["jours"], _fin(ph["debut"]), _fin(ph["fin"])], 1):
+            c = ws.cell(row=i, column=j, value=v)
+            c.font, c.fill = GRAS, PatternFill("solid", fgColor=TEINTES_PHASE[ph["phase"]])
+        barre(i, ph["debut"], ph["fin"], TEINTES_PHASE[ph["phase"]], gras=True)
+        i += 1
+        for g in dict.fromkeys(t["groupe"] for t in ts):
+            tg = [t for t in ts if t["groupe"] == g]
+            if len({t["key"] for t in tg}) > 1 or len(tg) > 1:
+                ws.cell(row=i, column=1, value="  " + g).font = Font(italic=True, bold=True)
+                ws.cell(row=i, column=4, value=round(sum(t["heures"] for t in tg), 1))
+                ws.cell(row=i, column=5, value=round(sum(t["jours"] for t in tg), 1))
+                ws.cell(row=i, column=6, value=_fin(min(t["debut"] for t in tg)))
+                ws.cell(row=i, column=7, value=_fin(max(t["fin"] for t in tg)))
+                i += 1
+            for t in tg:
+                a = _clair(t["action"])
+                vals = ["      " + t["systeme"], a[0].upper() + a[1:], t["brut"], t["heures"], t["jours"], _fin(t["debut"]), _fin(t["fin"])]
+                for j, v in enumerate(vals, 1):
+                    ws.cell(row=i, column=j, value=v).alignment = Alignment(vertical="top", wrap_text=j <= 2)
+                barre(i, t["debut"], t["fin"], TEINTES_PHASE[ph["phase"]])
+                i += 1
+    ws.freeze_panes = ws.cell(row=6, column=len(cols) + 1)
+    _largeurs(ws, [46, 56, 10, 10, 7, 11, 11] + [7] * len(semaines))
+
+
+def classeur(etat, tendance=None, organisation="", maintenant=None, plan=None):
+    """-> octets du fichier .xlsx. `plan` (#878) : etat_plan.plan(etat) -- temps estimés et planning en Gantt."""
     now = maintenant or etat.get("at")
     actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif"]
     r = etat["resume"]
@@ -122,6 +188,9 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
     dep = sum(1 for l in actifs if len(l["dependants"]) >= 2)
     if dep:
         cles.append("%d système(s) sont utilisés par plusieurs autres : une panne aurait des effets en chaîne." % dep)
+    if plan and plan["taches"]:   # #878
+        cles.append("Temps de travail estimé : %s jours (marge ×%s comprise, tests inclus), fin estimée le %s avec %s personne(s) -- voir « Planning »."
+                    % (str(plan["total"]["jours"]).replace(".", ","), plan["hypotheses"]["marge"], _fin(plan["total"]["fin"]), plan["hypotheses"]["personnes"]))
     if not cles:
         cles.append("Aucun point critique relevé.")
     for i, t in enumerate(cles, 12):
@@ -142,12 +211,16 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
 
     ws2 = wb.create_sheet("Systèmes")
     cols = ["Système", "Nature", "Rôle", "Système d'exploitation", "Fin des correctifs", "Dernière mise à jour", "Correctifs de sécurité en attente",
-            "Utilisation", "Accessible depuis Internet", "Utilisé par (nombre de systèmes)", "Niveau", "Pourquoi", "Action proposée"]
+            "Utilisation", "Accessible depuis Internet", "Utilisé par (nombre de systèmes)", "Niveau", "Pourquoi", "Action proposée",
+            "Temps estimé (jours, marge comprise)"]
     _entete(ws2, 1, cols)
+    import etat_plan as _ep   # #878
+    temps = _ep.par_systeme(plan) if plan else {}
     for i, l in enumerate(etat["systemes"], 2):
         vals = [nom(l), TYPE.get(l["type"], l["type"]), ", ".join(l["roles"]) or "—", l["os"]["nom"] or "non relevé", _fin(l["os"]["fin"]),
                 _jour(l["maj_at"]), l["attente_secu"] if l["attente_secu"] is not None else "—", USAGE.get(l["usage"], l["usage"]),
-                "Oui" if l["expose"] else "Non", len(l["dependants"]), LIBELLE_NIVEAU[l["niveau"]], raisons_claires(l), action_claire(l)]
+                "Oui" if l["expose"] else "Non", len(l["dependants"]), LIBELLE_NIVEAU[l["niveau"]], raisons_claires(l), action_claire(l),
+                (temps.get(l["key"]) or {}).get("jours", "—")]
         for j, v in enumerate(vals, 1):
             c = ws2.cell(row=i, column=j, value=v)
             c.alignment = Alignment(wrap_text=True, vertical="top")
@@ -171,7 +244,7 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
         ws3.auto_filter.ref = "A1:I%d" % max(1, i - 1)
         _largeurs(ws3, [30, 16, 12, 34, 7, 14, 40, 14, 11])
     ws2.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(cols)), max(1, len(etat["systemes"]) + 1))
-    _largeurs(ws2, [34, 16, 30, 26, 14, 14, 12, 12, 12, 12, 13, 50, 44])
+    _largeurs(ws2, [34, 16, 30, 26, 14, 14, 12, 12, 12, 12, 13, 50, 44, 14])
 
     ch = etat.get("chantiers") or {}
     if ch.get("decisions") or ch.get("chantiers") or ch.get("migration") or ch.get("organisation") or ch.get("infrastructure"):
@@ -243,6 +316,8 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
         ws3.cell(row=2, column=1, value="Aucune dépendance relevée entre les systèmes suivis.")
     _largeurs(ws3, [40, 40, 30])
 
+    if plan is not None:   # #878 : juste après la synthèse
+        _feuille_planning(wb, plan, 1)
     ws4 = wb.create_sheet("Évolution")
     _entete(ws4, 1, ["Jour", "Urgent", "À planifier", "À surveiller", "À jour", "Arrêtés", "Plus maintenus", "Correctifs en attente"])
     for i, t in enumerate((tendance or [])[-120:], 2):

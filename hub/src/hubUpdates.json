@@ -1,5 +1,11 @@
 [
  {
+  "n": 878,
+  "from": 878,
+  "date": "2026-10-27",
+  "title": "État des lieux pour les décideurs : temps estimé par action (marge ×3) et planning en Gantt par regroupements de dépendances"
+ },
+ {
   "n": 877,
   "from": 877,
   "date": "2026-10-27",
@@ -232,11 +238,5 @@
   "from": 839,
   "date": "2026-10-22",
   "title": "Émulation : écran d'un clic dans le hub supervision, par le bastion"
- },
- {
-  "n": 838,
-  "from": 838,
-  "date": "2026-10-22",
-  "title": "Émulation : lancement d'une machine complète marqué en échec à tort ; émulateurs hors de l'agent"
  }
 ]

@@ -83,7 +83,38 @@ def elements(etat, maintenant):
     return out
 
 
-def page(etat, organisation="", maintenant=None):
+COUL_PHASE = {"1": "#e57373", "2": "#f0a04b", "3": "#e8c547", "4": "#6fa8dc", "5": "#9e9e9e"}
+
+
+def gantt_html(pl):
+    """#878 : planning estimé en Gantt HTML (barres par phase et par regroupement), pour la page à imprimer."""
+    if not pl or not pl["taches"]:
+        return ""
+    d0 = dt.date.fromisoformat(min(t["debut"] for t in pl["taches"]))
+    d1 = dt.date.fromisoformat(max(t["fin"] for t in pl["taches"]))
+    span = max(1, (d1 - d0).days + 1)
+    pos = lambda a, b: (100.0 * (dt.date.fromisoformat(a) - d0).days / span, max(0.8, 100.0 * ((dt.date.fromisoformat(b) - dt.date.fromisoformat(a)).days + 1) / span))
+    hy, tot = pl["hypotheses"], pl["total"]
+    h = ["<h2>Planning estimé</h2><p class='doux'>Estimation action par action, tests compris, multipliée par %s (marge) ; %s personne(s), "
+         "%s h par jour ouvré. Un serveur et les systèmes qui en dépendent sont traités ensemble. <b>Total : %s jours de travail, fin estimée le %s.</b></p>"
+         % (_e(hy["marge"]), _e(hy["personnes"]), _e(hy["heures_jour"]), _e(str(tot["jours"]).replace(".", ",")), _e(_jour(tot["fin"])))]
+    h.append("<table class='gantt'><tr><th style='width:38%%'>Phase / regroupement</th><th style='width:8%%'>Jours</th><th>Du %s au %s</th></tr>" % (_e(_jour(d0.isoformat())), _e(_jour(d1.isoformat()))))
+    for ph in pl["phases"]:
+        g, l = pos(ph["debut"], ph["fin"])
+        h.append("<tr><td><b>Phase %s : %s</b></td><td><b>%s</b></td><td><div class='gb' style='margin-left:%.1f%%;width:%.1f%%;background:%s'></div></td></tr>"
+                 % (_e(ph["phase"]), _e(ph["nom"]), _e(str(ph["jours"]).replace(".", ",")), g, l, COUL_PHASE[ph["phase"]]))
+        ts = [t for t in pl["taches"] if t["phase"] == ph["phase"]]
+        for grp in dict.fromkeys(t["groupe"] for t in ts):
+            tg = [t for t in ts if t["groupe"] == grp]
+            a, b = min(t["debut"] for t in tg), max(t["fin"] for t in tg)
+            g, l = pos(a, b)
+            h.append("<tr><td style='padding-left:16px'>%s</td><td>%s</td><td><div class='gb' style='margin-left:%.1f%%;width:%.1f%%;background:%s;opacity:.7'></div></td></tr>"
+                     % (_e(grp), _e(str(round(sum(t["jours"] for t in tg), 1)).replace(".", ",")), g, l, COUL_PHASE[ph["phase"]]))
+    h.append("</table><style>.gantt td{vertical-align:middle}.gb{height:12px;border-radius:3px}</style>")
+    return "".join(h)
+
+
+def page(etat, organisation="", maintenant=None, plan=None):
     now = maintenant or etat.get("at")
     el = elements(etat, now)
     actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif"]
@@ -177,6 +208,7 @@ def page(etat, organisation="", maintenant=None):
     if deux:
         h.append("<li><b>Dans les 2 ans</b> : prévoir au budget la mise à niveau de %s.</li>" % _e(", ".join(sorted({e["systeme"] for e in deux})[:12])))
     h.append("<li><b>En continu</b> : correctifs appliqués chaque mois, suivi de cet audit (mis à jour automatiquement chaque jour).</li></ol>")
+    h.append(gantt_html(plan))   # #878
     h.append("<h2>Méthode</h2><p class='doux'>Relevé automatique sur chaque serveur (version du système, logiciels installés, date de la dernière "
              "mise à jour, correctifs en attente, services ouverts). Les dates de fin de support sont celles publiées par les éditeurs ; quand un "
              "logiciel est fourni par la distribution, il reste maintenu tant que la distribution l'est. Des supports étendus payants existent "

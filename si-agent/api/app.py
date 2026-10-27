@@ -3113,6 +3113,31 @@ def migration_cible_route():
 
 
 # -- #857 : état des lieux des systèmes ---------------------------------------------------------------------------------
+def _etat_plan(e):
+    """#878 : plan estimé (temps par action avec marge, regroupements de dépendances, phases, calendrier)."""
+    import etat_plan
+    r = store.get_setting(DB_PATH, "etat_plan", {}) or {}
+    try:
+        import datetime as _dtm
+        debut = _dtm.date.fromisoformat(r["debut"]) if r.get("debut") else None
+    except ValueError:
+        debut = None
+    return etat_plan.plan(e, marge=float(r.get("marge") or etat_plan.MARGE), personnes=int(r.get("personnes") or 1), debut=debut)
+
+
+@app.route("/etat-des-lieux/plan", methods=["GET", "PUT"])
+def etat_plan_route():
+    """#878 : GET -> plan estimé ; PUT {marge, personnes, debut} -> réglages (marge 1 à 10, 1 à 20 personnes, AAAA-MM-JJ)."""
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        try:
+            r = {"marge": min(10.0, max(1.0, float(b.get("marge", 3)))), "personnes": min(20, max(1, int(b.get("personnes", 1)))),
+                 "debut": str(b.get("debut") or "")[:10] or None}
+        except (TypeError, ValueError):
+            return jsonify({"error": "marge, personnes ou début invalides"}), 400
+        store.set_setting(DB_PATH, "etat_plan", r)
+    return jsonify(_etat_plan(_etat()[1])), 200
+
 def _etat():
     conn = store._connect(DB_PATH)
     try:
@@ -3252,14 +3277,14 @@ def etat_audit_route():
     """#860 : audit d'obsolescence et de support pour les décideurs (page autonome, imprimable en PDF)."""
     _r, e, _t, _c = _etat()
     from flask import Response
-    return Response(etat_rapport.page(e, os.environ.get("ETAT_ORGANISATION", "")), mimetype="text/html; charset=utf-8")
+    return Response(etat_rapport.page(e, os.environ.get("ETAT_ORGANISATION", ""), plan=_etat_plan(e)), mimetype="text/html; charset=utf-8")   # #878
 
 
 @app.route("/etat-des-lieux/export.xlsx", methods=["GET"])
 def etat_export_route():
     """#857 : classeur Excel pour les décideurs (synthèse, systèmes, dépendances, évolution), sans jargon."""
     _r, e, t, _c = _etat()
-    data = etat_excel.classeur(e, t, os.environ.get("ETAT_ORGANISATION", ""))
+    data = etat_excel.classeur(e, t, os.environ.get("ETAT_ORGANISATION", ""), plan=_etat_plan(e))   # #878
     from flask import Response
     return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": "attachment; filename=etat-des-lieux-%s.xlsx" % time.strftime("%Y-%m-%d")})

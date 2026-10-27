@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl, fetchEtatPlan, saveEtatPlan } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -74,6 +74,30 @@ function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, set
   );
 }
 
+// #878 : temps estimés (marge, personnes, début) -- repris dans l'Excel (feuille « Planning ») et la page d'audit.
+function PlanReglages({ siAgentApiBase }) {
+  const [p, setP] = useState(null);
+  const [r, setR] = useState(null);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { fetchEtatPlan(siAgentApiBase).then((x) => { setP(x); setR(x?.hypotheses ? { ...x.hypotheses } : null); }).catch(() => setP(null)); }, [siAgentApiBase]);
+  if (!p || !r) return null;
+  const enregistrer = async () => {
+    setMsg("calcul…");
+    const x = await saveEtatPlan(siAgentApiBase, { marge: r.marge, personnes: r.personnes, debut: r.debut });
+    if (x?.error) setMsg(x.error); else { setP(x); setMsg("enregistré"); }
+  };
+  return (
+    <div className="infra-muted" style={{ marginTop: 6 }}>
+      Planning estimé : <b>{String(p.total?.jours ?? 0).replace(".", ",")} jours</b> de travail, fin le {p.total?.fin ? jour(p.total.fin) : "—"}
+      {" "}({(p.phases || []).map((x) => `phase ${x.phase} : ${String(x.jours).replace(".", ",")} j`).join(" · ")}) —
+      marge ×<input type="number" min="1" max="10" step="0.5" value={r.marge} onChange={(e) => setR({ ...r, marge: e.target.value })} style={{ width: 56 }} />
+      {" "}personnes <input type="number" min="1" max="20" value={r.personnes} onChange={(e) => setR({ ...r, personnes: e.target.value })} style={{ width: 48 }} />
+      {" "}début <input type="date" value={r.debut || ""} onChange={(e) => setR({ ...r, debut: e.target.value })} />
+      {" "}<button type="button" className="secondary" onClick={enregistrer}>Recalculer</button> {msg}
+    </div>
+  );
+}
+
 export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -136,6 +160,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatAuditUrl(siAgentApiBase)} target="_blank" rel="noreferrer">Audit obsolescence et support (page à imprimer) ↗</a>
+        <PlanReglages siAgentApiBase={siAgentApiBase} />
       </div>
       <div className="infra-card"><b>Évolution :</b> <Tendance t={d.tendance} /></div>
       {note && <p className={`np-tone ${note[0] === "ok" ? "good" : "bad"}`}>{note[1]}</p>}

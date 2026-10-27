@@ -1,3 +1,19 @@
+## 2026-10-27 — État des lieux pour les décideurs : temps estimé par action (marge ×3) et planning en Gantt par regroupements de dépendances (livraison #878)
+
+- `etat_plan.py` : estimation brute de chaque action, tests compris (mise à niveau du système selon l'écart de versions,
+  reconstruction au-delà de 3 versions, hyperviseur, Windows ; logiciels ; correctifs ; filtrage d'accès ; nettoyage),
+  multipliée par la marge (3 par défaut). Un logiciel mis à jour en même temps que le système compte pour moitié.
+- Regroupements : les systèmes liés par des dépendances sont traités ensemble, celui dont les autres dépendent d'abord
+  (ex. « sql2.intranet et N systèmes qui en dépendent »). Phases : 1 mesures immédiates de sécurité, 2 systèmes urgents
+  et ce qui en dépend, 3 à planifier, 4 à surveiller, 5 nettoyage. Calendrier en jours ouvrés (7 h), N personnes.
+- Excel décideurs : feuille « Planning » (Gantt par semaine : phases, regroupements, actions, heures sans / avec marge,
+  jours, dates) juste après la synthèse ; colonne « Temps estimé » dans « Systèmes » ; point clé « temps total, fin
+  estimée ». Page d'audit à imprimer : section « Planning estimé » en Gantt. Page : réglages marge / personnes / début.
+- API : `GET/PUT /etat-des-lieux/plan`.
+- Vérifié : `test_etat_plan.py` (heures, marge, regroupement par pivot, phases, jours ouvrés, deux personnes, Excel,
+  page) ; `test_z_etat.py`, `test_etat_audit_reseau.py`. Non vérifié : sur les données réelles ; les barèmes d'heures
+  sont des valeurs de départ à ajuster.
+
 ## 2026-10-27 — État des lieux compact avec fiche au clic ; barres de défilement épaisses et contrastées (livraison #877)
 
 - État des lieux : deux lignes de texte au plus par rangée (versions clés : la plus critique + « N autre(s) » ;
