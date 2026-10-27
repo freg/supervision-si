@@ -21,6 +21,7 @@ import { MailIncidents, MailQueue, MailFailures, MailLists, MailSettings } from 
 import MailChecks from "./MailChecks.jsx";   // #770 : contrôles et tests fabriqués
 import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand, openInteractive, closeInteractive } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
+import { useNavState } from "./navContext.js";   // #874
 import { downloadCsv, MAIL_EXPORTS } from "./mailCsv.js";   // #713
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
@@ -61,7 +62,7 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
   const [agents, setAgents] = useState(null);
   const [agentId, setAgentId] = useState(() => { try { return localStorage.getItem(STORE_KEY) || ""; } catch { return ""; } });
   const [probe, setProbe] = useState(null);
-  const [tab, setTab] = useState("traitements");
+  const [tab, setTab] = useNavState("MailServerView", "tab", "traitements");   // #874 : gardé au rechargement
   const [viewer, setViewer] = useState(null);
   const [reason, setReason] = useState("");
 

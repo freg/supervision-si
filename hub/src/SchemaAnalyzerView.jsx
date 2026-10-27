@@ -22,6 +22,7 @@ import {
   assignRelation,
 } from "./schemaAnalyzerClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Analyse de schémas (hub), livraison #156 -- interface pour
 // schema-analyzer-api (#151-#154, jusqu'ici accessible seulement via
@@ -173,7 +174,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
   const [importingProposals, setImportingProposals] = useState(false);
   const [error, setError] = useState(null);
   const [importSummary, setImportSummary] = useState(null);
-  const [subTab, setSubTab] = useState("schema");
+  const [subTab, setSubTab] = useNavState("SchemaAnalyzerView", "subTab", "schema");   // #874 : gardé au rechargement
   const [manualForm, setManualForm] = useState(EMPTY_MANUAL_FORM);
   // Validation contre les vraies données (livraison #241) --
   // {[relationId]: résultat ou "loading" ou {error}}.

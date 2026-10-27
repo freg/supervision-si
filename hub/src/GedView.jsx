@@ -34,6 +34,7 @@ import OwnCloudSearchView from "./OwnCloudSearchView.jsx";
 import VersionGraphView from "./VersionGraphView.jsx";
 import { fetchArchiveCatalog, fetchCheckouts, archiveDownloadUrl } from "./gedClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // #460 : onglet « Archive » -- catalogue des copies immuables (sha256
 // vérifié à chaque affichage) et documents sortis (check-out).
@@ -64,7 +65,7 @@ const EMPTY_LINK_FORM = { linkedType: "", linkedId: "" };
 
 export default function GedView({ onBack, gedApiBase, login, groups = [], ticketsPortalUrl, ownCloudApiBase, ownCloudSearchApiBase, frontendUrl, onViewRelations }) {
   const [graphFor, setGraphFor] = useState(null); // #460 : document dont le graphe des versions est ouvert
-  const [tab, setTab] = useState("interne");
+  const [tab, setTab] = useNavState("GedView", "tab", "interne");   // #874 : gardé au rechargement
   const [filterType, setFilterType] = useState("");
   const [filterId, setFilterId] = useState("");
   const [documents, setDocuments] = useState([]);

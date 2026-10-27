@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import LoginEventsTab from "./LoginEventsTab.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url) {
   const r = await fetch(url, { credentials: "include" });
@@ -21,7 +22,7 @@ const CAT_ICON = {
 };
 
 export default function PersonalDataView({ apiBase, me, onBack }) {
-  const [tab, setTab] = useState("frise");
+  const [tab, setTab] = useNavState("PersonalDataView", "tab", "frise");   // #874 : gardé au rechargement
   const [by, setBy] = useState("week");
   const [cat, setCat] = useState("");
   const [q, setQ] = useState("");

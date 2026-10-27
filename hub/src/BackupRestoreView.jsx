@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchImages, createImage, deleteImage, fetchCoverage, fetchHubBackups, runHubBackup, deleteHubBackup, pruneHubBackups, hubBackupDownloadUrl } from "./backupRestoreClient.js";
 import { fmtSize, KIND_LABEL, restorePoint, chainSummary, scheduleText, lastRunText } from "./hubBackups.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // --- Sauvegardes DU HUB (livraison #459) : catalogue de sessions façon
 // ARCserve (chaînes totale -> incrémentales), exécution, rotation GFS,
@@ -454,7 +455,7 @@ function ResticView({ apiBase }) {
 
 // --- Vue principale ---
 export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups = [] }) {
-  const [tab, setTab] = useState("hub"); // #459 : les sauvegardes du hub d'abord
+  const [tab, setTab] = useNavState("BackupRestoreView", "tab", "hub");   // #874 : gardé au rechargement // #459 : les sauvegardes du hub d'abord
   const [coverage, setCoverage] = useState(null);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);

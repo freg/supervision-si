@@ -3,6 +3,7 @@ import { LOG_SERVICES, mergeLogEntries, summarizeLogEntries } from "./logsLib.js
 import { fetchServiceLogs, fetchAllServiceLogs, fetchPushedSources } from "./logsClient.js";
 import { logPresenceTransitions } from "./hubLogClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Gestionnaire de logs (hub), livraison #139 -- demandé explicitement
 // ("un excellent moyen pour optimiser en déploiement et en
@@ -33,7 +34,7 @@ function levelClass(level) {
 }
 
 export default function LogsManagerView({ onBack, prefsApiBase }) {
-  const [subTab, setSubTab] = useState("dashboard");
+  const [subTab, setSubTab] = useNavState("LogsManagerView", "subTab", "dashboard");   // #874 : gardé au rechargement
   const [selectedService, setSelectedService] = useState(LOG_SERVICES[0].id);
   const [singleEntries, setSingleEntries] = useState(undefined);
   const [allResults, setAllResults] = useState(undefined);

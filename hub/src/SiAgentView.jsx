@@ -22,6 +22,7 @@ import BancSection from "./BancSection.jsx";  // #825
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
 import PathProbeSection from "./PathProbeSection.jsx";
+import { etatMemorise, memoriserEtat } from "./navContext.js";   // #874
 import HostControlSection from "./HostControlSection.jsx";  // #613
 import DeployTab from "./DeployTab.jsx";  // #616
 import WebAuditTab, { WebAuditSection } from "./WebAuditSection.jsx";  // #617
@@ -88,7 +89,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const [tab, setTab] = useState(() => (["events", "risks", "catalogue", "updates", "banc"].includes(viewParams().tab) ? viewParams().tab : "fleet"));   // #768
+  const [tab, setTab] = useState(() => { const t = viewParams().tab || etatMemorise("SiAgentView", "tab"); return ["events", "risks", "catalogue", "updates", "banc", "deploy", "webaudit", "netobs", "rotations", "filters"].includes(t) ? t : "fleet"; });   // #768 ; #874
+  useEffect(() => { memoriserEtat("SiAgentView", "tab", tab); }, [tab]);   // #874
   const [busy, setBusy] = useState(false);
 
   const [showEnroll, setShowEnroll] = useState(false);

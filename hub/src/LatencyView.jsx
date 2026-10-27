@@ -11,6 +11,7 @@ import {
   parseConfig, sparkPoints,
 } from "./latencyLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 function Copy({ text }) {
   const [ok, setOk] = useState(false);
   return <button className="secondary mig-small" onClick={() => navigator.clipboard?.writeText(text).then(() => { setOk(true); setTimeout(() => setOk(false), 1500); })}>{ok ? "copié ✓" : "Copier"}</button>;
@@ -117,7 +118,7 @@ function PointForm({ initial, agents, targets, onSave, onCancel }) {
 export default function LatencyView({ onBack, siAgentApiBase: api, username }) {
   const [v, setV] = useState(null);
   const [err, setErr] = useState(null);
-  const [tab, setTab] = useState("mesures");
+  const [tab, setTab] = useNavState("LatencyView", "tab", "mesures");   // #874 : gardé au rechargement
   const [open, setOpen] = useState(null);
   const [editT, setEditT] = useState(null);
   const [editP, setEditP] = useState(null);

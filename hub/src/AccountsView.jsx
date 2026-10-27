@@ -6,6 +6,7 @@
 // Logique pure dans accountsLib.js.
 import { useEffect, useMemo, useState } from "react";
 import { filterUsers, validateNewUser, membersByGroup } from "./accountsLib.js";
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 import DemoUsersTab from "./DemoUsersTab.jsx";  // #608
 import LoginEventsTab from "./LoginEventsTab.jsx";  // #612
@@ -21,7 +22,7 @@ async function call(url, init) {
 const EMPTY = { username: "", email: "", first_name: "", last_name: "", password: "", temporary: true, member_of: [], allowKeycloakOnly: false };
 
 export default function AccountsView({ onBack, accountsApiBase, groups, login, keycloakConsoleUrl = "" }) {
-  const [tab, setTab] = useState("users");
+  const [tab, setTab] = useNavState("AccountsView", "tab", "users");   // #874 : gardé au rechargement
   const [info, setInfo] = useState(null);
   const [users, setUsers] = useState([]);
   const [allGroups, setAllGroups] = useState([]);

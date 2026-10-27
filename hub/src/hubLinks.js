@@ -22,14 +22,19 @@ export function viewParams() {
 /** #790 : pose des paramètres d'écran (ex. {tab: "sms"}) dans l'URL sans recharger, lus par viewParams() à l'ouverture. */
 export function setViewParams(params) {
   try {
-    const q = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v != null && v !== "")).toString();
+    const cur = new URLSearchParams(window.location.search).get("view");   // #874 : la vue reste dans l'URL
+    const q = new URLSearchParams(Object.entries({ ...(cur && !(params || {}).view ? { view: cur } : {}), ...(params || {}) }).filter(([, v]) => v != null && v !== "")).toString();
     window.history.replaceState(null, "", window.location.pathname + (q ? "?" + q : ""));
   } catch { /* sans importance */ }
 }
 
 /** Efface les paramètres de l'URL sans recharger (une fois consommés). */
 export function clearViewParams() {
-  try { window.history.replaceState(null, "", window.location.pathname); } catch { /* sans importance */ }
+  // #874 : garde `?view=` (la page consultée) -- seuls les paramètres consommés par la vue sont retirés
+  try {
+    const v = new URLSearchParams(window.location.search).get("view");
+    window.history.replaceState(null, "", window.location.pathname + (v ? "?view=" + encodeURIComponent(v) : ""));
+  } catch { /* sans importance */ }
 }
 
 /** #768 : liens « journal » d'un agent à joindre à tout message d'erreur : événements de l'agent (filtrés sur un mot),

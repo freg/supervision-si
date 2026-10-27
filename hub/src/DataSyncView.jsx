@@ -3,6 +3,7 @@ import { listSources, createSource, updateSource, deleteSource, rotateToken, sou
 import { presenceBadge, sourceStats, connectorConfig, groupLinks, rowSummary, groupNodes } from "./datasyncLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Synchronisation centrale » (hub), livraison #652 -- liaison de
 // synchronisation unidirectionnelle des serveurs / applications / bases vers le
@@ -25,7 +26,7 @@ function RowCard({ n, onRelated }) {
 }
 
 export default function DataSyncView({ onBack, datasyncApiBase, login }) {
-  const [tab, setTab] = useState("sources");
+  const [tab, setTab] = useNavState("DataSyncView", "tab", "sources");   // #874 : gardé au rechargement
   const [sources, setSources] = useState([]);
   const [presenceS, setPresenceS] = useState(600);
   const [form, setForm] = useState(null);           // {name, kind, notes}

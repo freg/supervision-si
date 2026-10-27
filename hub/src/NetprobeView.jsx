@@ -9,6 +9,7 @@ import {
 } from "./netprobeClient.js";
 import NetprobeAgentsTab from "./NetprobeAgentsTab.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Sondes réseau" (netprobe, livraisons #295/#297/#302/#305/
 // #307) -- six onglets : Cibles (collecteur d'IP), Sondes (système
@@ -27,7 +28,7 @@ function formatLatency(ms) {
 }
 
 export default function NetprobeView({ onBack, netprobeApiBase }) {
-  const [tab, setTab] = useState("cibles");
+  const [tab, setTab] = useNavState("NetprobeView", "tab", "cibles");   // #874 : gardé au rechargement
   const [targets, setTargets] = useState([]);
   const [loadingTargets, setLoadingTargets] = useState(true);
   const [newIp, setNewIp] = useState("");

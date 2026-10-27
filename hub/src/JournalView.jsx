@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchJournal, saveJournalEntry, deleteJournalEntry, importJournal, journalExportUrl, fetchJournalSuggestions, acceptJournalSuggestion } from "./siAgentClient.js";
 import { NATURES, STATUTS, STATUT_TONE, fmtDay, weekday, durationMin, fmtDuration, offHour, isWeekend, emptyEntry, entryToForm, filterEntries, importPayload, totals } from "./journalLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 function EntryForm({ initial, chantiers, onSave, onCancel, busy }) {
   const [f, setF] = useState(entryToForm(initial));
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -35,7 +36,7 @@ function EntryForm({ initial, chantiers, onSave, onCancel, busy }) {
 export default function JournalView({ onBack, siAgentApiBase: api, username }) {
   const [v, setV] = useState(null);
   const [err, setErr] = useState(null);
-  const [tab, setTab] = useState("journal");
+  const [tab, setTab] = useNavState("JournalView", "tab", "journal");   // #874 : gardé au rechargement
   const [chantier, setChantier] = useState("");
   const [filt, setFilt] = useState({ q: "", nature: "", statut: "" });
   const [edit, setEdit] = useState(null);

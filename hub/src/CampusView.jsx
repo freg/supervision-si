@@ -8,6 +8,7 @@ import WindowsHostsView from "./WindowsHostsView.jsx";
 import BroadcastView from "./BroadcastView.jsx";
 import CampusExtract from "./CampusExtract.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 const STATUS = { online: ["● en ligne", "var(--ok)"], offline: ["● hors ligne", "var(--danger)"] };
 
 async function getJson(url, opts) {
@@ -18,7 +19,7 @@ async function getJson(url, opts) {
 }
 
 export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", siteId, login = "", onShowInTopology, onShowHealth }) {
-  const [tab, setTab] = useState("assets");
+  const [tab, setTab] = useNavState("CampusView", "tab", "assets");   // #874 : gardé au rechargement
   const [data, setData] = useState({ assets: null, services: null });
   const [query, setQuery] = useState("");
   const [lab, setLab] = useState("");

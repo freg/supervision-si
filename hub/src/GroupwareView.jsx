@@ -3,6 +3,7 @@ import { listGrants, createGrant, deleteGrant, listCategories, createCategory, u
 import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree, EMPTY_CONTACT, contactToForm, formToContact, contactRow, weekOf, monthGrid, eventsOfDay, EMPTY_EVENT, eventToForm, formToEvent, defaultSlot, dateKey, localIso, busyOfDay, freeSlots, INFOLOG_TYPES, INFOLOG_STATUS, PRIORITIES, EMPTY_INFOLOG, isLate, kanban, infologToForm, formToInfolog, linkLabel, PARTSTAT_LABELS, ALARM_CHOICES, attendeeSummary } from "./groupwareLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Groupware » (livraison #664, item 115) -- tranche 1 d'un groupware « façon eGroupware » : mes accès
 // CalDAV / CardDAV (Radicale, comptes LDAP), partages de mes données par application (grants : lecture, ajout,
@@ -312,7 +313,7 @@ function Contacts({ base, login, groups, health, setError, setNotice }) {
 }
 
 export default function GroupwareView({ onBack, groupwareApiBase, login, groups, isAdmin }) {
-  const [tab, setTab] = useState("agenda");
+  const [tab, setTab] = useNavState("GroupwareView", "tab", "agenda");   // #874 : gardé au rechargement
   const [health, setHealth] = useState(null);
   const [dav, setDav] = useState(null);
   const [grants, setGrants] = useState(null);

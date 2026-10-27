@@ -26,6 +26,7 @@ import { fetchExternalLinks } from "./settingsClient.js";
 import { fetchSources } from "./fileManagerClient.js";
 import { fetchDocuments } from "./gedClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 30000;
 
@@ -35,7 +36,7 @@ function Tone({ tone, children, title }) {
 const TONE = { ok: "good", warning: "warn", critical: "bad", info: "neutral", unknown: "neutral" };
 
 export default function BastionView({ onBack, onNavigate, siProxyApiBase, accessToken, username, groups = [], apiBases = {} }) {
-  const [tab, setTab] = useState("proxy");
+  const [tab, setTab] = useNavState("BastionView", "tab", "proxy");   // #874 : gardé au rechargement
   const [data, setData] = useState(null);
   const [errors, setErrors] = useState([]);
   const [busy, setBusy] = useState(false);

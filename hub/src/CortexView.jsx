@@ -13,6 +13,7 @@ import { layoutGraph, EDGE_STYLE, KIND_ICON, CHANGE_LABEL, changeTone, routesByH
 import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText, RULE_STATE, OUTCOME, ruleText, minutesLeft, predictionStats, sparkPath, PRIORITY_TONE, NOTIF_KIND, humanizeS, matchText, policyFromForm, formFromPolicy, kpiRows, weeklyBars } from "./cortexPlaces.js";
 import { SEV, STATE_LABEL, KIND_LABEL, confidenceWord, pct, incidentLine, splitHypotheses, collectHealth, principleText, eventsBySource } from "./cortex.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 30000;
 const TABS = [["incidents", "Incidents"], ["alerts", "Alertes & KPI"], ["anticipation", "Anticipation"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
@@ -80,7 +81,7 @@ function InterventionSheet({ sheet, apiBase, login, groups, onSaved }) {
 }
 
 export default function CortexView({ onBack, cortexApiBase, login, groups = [], onNavigate }) {
-  const [tab, setTab] = useState("incidents");
+  const [tab, setTab] = useNavState("CortexView", "tab", "incidents");   // #874 : gardé au rechargement
   const [status, setStatus] = useState(null);
   const [incidents, setIncidents] = useState([]);
   const [incState, setIncState] = useState("open");

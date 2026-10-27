@@ -5,6 +5,7 @@ import ValidationView from "./ValidationView.jsx";
 import GedView from "./GedView.jsx";
 import RelationsView from "./RelationsView.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
 // Tuile "ENT" (Environnement Numérique de Travail), livraison #272 --
 // demandée explicitement : "intègre un calendrier/agenda interne au
 // hub et branche le sur la gestion de tickets et sur une gestion de
@@ -21,7 +22,7 @@ import RelationsView from "./RelationsView.jsx";
 // -- même motif d'onglets que le reste du hub (ex. SchemaAnalyzerView).
 
 export default function EntView({ onBack, ticketsApiBase, tasksApiBase, portalUrl, gedApiBase, login, relationsApiBase, ownCloudApiBase, ownCloudSearchApiBase }) {
-  const [tab, setTab] = useState("calendrier");
+  const [tab, setTab] = useNavState("EntView", "tab", "calendrier");   // #874 : gardé au rechargement
   // Cible d'une navigation "voir les relations" depuis une autre vue
   // (livraison #339) -- {type, id} ou null. Portée à ce niveau
   // (pas dans RelationsView elle-même) car c'est ICI que vit le

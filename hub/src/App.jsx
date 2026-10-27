@@ -6,6 +6,7 @@ import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
 import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
 import PrioritesPanel from "./PrioritesPanel.jsx";   // #818 : priorités de la page d'accueil
 import { setViewParams } from "./hubLinks.js";   // #790
+import { vueInitiale, memoriserVue, usePositionMemorisee, restaurerPosition } from "./navContext.js";   // #874
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
@@ -127,6 +128,7 @@ const FileManagerView = lazyView(() => import("./FileManagerView.jsx"));
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 import VersionBadge from "./VersionBadge.jsx";  // #700
 
@@ -529,7 +531,7 @@ function MarkdownDocument({ blocks }) {
 // réellement (jamais une copie figée), avec un rendu markdown de
 // base (titres/gras/code/listes -- voir markdown.js).
 function HistoryView({ apiBase, onBack }) {
-  const [subTab, setSubTab] = useState("changelog");
+  const [subTab, setSubTab] = useNavState("App", "subTab", "changelog");   // #874 : gardé au rechargement
   const [changelogBlocks, setChangelogBlocks] = useState(null);
   const [backlogBlocks, setBacklogBlocks] = useState(null);
   const [error, setError] = useState(null);
@@ -1150,15 +1152,12 @@ export default function App() {
     }
   }, [showFooterNote]);
   const [theme, setThemeState] = useState(themeStore.get() || "light");
-  const [viewMode, setViewMode] = useState(() => {
-    // Lien profond depuis un autre front (ex. "⚙️ Paramètres" du
-    // portail tickets, voir tickets/portal/src/App.jsx) -- ouvre
-    // directement la page de paramètres plutôt que d'ajouter un clic
-    // supplémentaire une fois arrivé sur le hub.
-    const params = new URLSearchParams(window.location.search);
-    const requestedView = params.get("view");
-    return requestedView && /^[a-z0-9-]+$/.test(requestedView) ? requestedView : "grid";  // #559 : toute vue (ex. ?view=nebula depuis la page d'un agent)
-  }); // "grid" | "settings"
+  // #874 : lien profond `?view=` (#559), sinon la dernière vue de cet onglet du navigateur (rechargement, retour de
+  // Keycloak, rechargement sans cache d'une livraison) : on ne retombe plus sur l'accueil.
+  const [viewMode, setViewMode] = useState(() => vueInitiale("grid")); // "grid" | "settings" | vue
+  useEffect(() => { memoriserVue(viewMode); }, [viewMode]);
+  usePositionMemorisee(viewMode);
+  useEffect(() => { restaurerPosition(viewMode); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const username = auth.user?.profile?.preferred_username;
   useEffect(() => {
@@ -2342,7 +2341,7 @@ vm === "agent-page" ? (
                   return (
                     <button key={(l.view || l.front) + (l.hint || "") + JSON.stringify(l.params || {})} type="button" className="secondary hub-update-link" disabled={!ok}
                       title={ok ? (l.hint ? `${l.label} › ${l.hint}` : l.label) : "écran non disponible pour vous ou sur ce déploiement"}
-                      onClick={() => { if (l.view) { setViewParams(l.params); setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
+                      onClick={() => { if (l.view) { setViewParams({ view: l.view, ...(l.params || {}) }); setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
                       {l.isNew && <b>Nouveau · </b>}{l.label}{l.hint ? ` › ${l.hint}` : ""} →
                     </button>);
                 })}

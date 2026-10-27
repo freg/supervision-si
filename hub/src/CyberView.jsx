@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchCyberRisks, createCyberRisk, updateCyberRisk, deleteCyberRisk, fetchCyberRisksHistory } from "./cyberRisksClient.js";
 import { fetchGovernanceDocuments, governanceDocumentDownloadUrl } from "./settingsClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Écran "Cyber" (livraison #187) -- demandé explicitement : "au même
 // niveau que Logs" (menu horizontal texte, #173), "une matrice en
@@ -73,7 +74,7 @@ const HISTORY_CHANGE_LABELS = { created: "➕ Créé", updated: "✏️ Modifié
 export default function CyberView({ onBack, prefsApiBase, login }) {
   const [risks, setRisks] = useState([]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [tab, setTab] = useState("matrix");
+  const [tab, setTab] = useNavState("CyberView", "tab", "matrix");   // #874 : gardé au rechargement
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);

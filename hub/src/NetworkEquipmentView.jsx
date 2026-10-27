@@ -9,6 +9,7 @@ import {
   displayName, pollTone, topologyRows, previewSummary, KIND_CHOICES, isNetworkGear,
 } from "./networkEquipment.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Équipements réseau » (livraison #506) -- facette de l'exploration :
 // QUI sont les routeurs/switchs du LAN (constructeur, modèle, système,
@@ -39,7 +40,7 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [tab, setTab] = useState("inventory");
+  const [tab, setTab] = useNavState("NetworkEquipmentView", "tab", "inventory");   // #874 : gardé au rechargement
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);

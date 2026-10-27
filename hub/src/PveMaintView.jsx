@@ -13,6 +13,7 @@ import { fetchMaintCatalog, fetchMaintCampaigns, fetchMaintCampaign, createMaint
 import { STATE_LABEL, STATE_TONE, HOW_LABEL, STATUS_LABEL, detectorFields, paramsToText, textToParams, toLocalInput, fromLocalInput,
   emptyAction, plannedList, missingParams, move, gb, campaignLines, filterInventory, inventorySummary } from "./pveMaintLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
@@ -24,7 +25,7 @@ const box = { border: "1px solid var(--border)", borderRadius: 8, padding: 10, m
 
 export default function PveMaintView({ onBack, siAgentApiBase, login }) {
   const base = siAgentApiBase;
-  const [tab, setTab] = useState("campagnes");
+  const [tab, setTab] = useNavState("PveMaintView", "tab", "campagnes");   // #874 : gardé au rechargement
   const [catalog, setCatalog] = useState(null);
   const [list, setList] = useState(null);
   const [current, setCurrent] = useState(null);       // campagne ouverte (évaluée)

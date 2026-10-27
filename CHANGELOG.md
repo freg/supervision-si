@@ -1,3 +1,16 @@
+## 2026-10-27 — Contexte de navigation : un rechargement revient sur la page consultée, son onglet et sa position (livraison #874)
+
+- Constat : le hub retombait sur l'accueil après un rechargement (F5, rechargement sans cache d'une livraison, retour de
+  Keycloak qui revient sur « / », PWA relancée, liens qui effaçaient tous les paramètres de l'URL).
+- `navContext.js` : la vue est gardée dans l'URL (`?view=`) et par onglet du navigateur (sessionStorage, deux onglets
+  restent indépendants) ; retour de Keycloak sur la vue de l'onglet ; `clearViewParams` / `setViewParams` gardent la vue.
+- Onglets internes : `useNavState` pour 25 pages (onglet gardé au rechargement) ; Nebula, Agents et Migration gardent
+  aussi leur onglet tout en restant pilotables par lien (`?tab=` / `?page=`).
+- Position : défilement de la page et des cadres déroulants mémorisé par vue et restauré une fois au rechargement, le
+  temps que les données arrivent (4 s au plus) ; naviguer vers une autre vue repart du haut.
+- Vérifié : `tests/navContext.test.mjs` (vue initiale, retour de Keycloak, paramètres de vue, états par vue) ; syntaxe
+  JSX de tous les fichiers ; tests du hub. Non vérifié : rendu et restauration de position dans le navigateur.
+
 ## 2026-10-27 — Audit réseau du site : hôtes, services, versions et systèmes dans l'état des lieux (livraison #873)
 
 - Sonde `lan-audit` (agent 0.6.6, désactivée par défaut, trafic actif) : nmap en deux passes -- découverte des hôtes

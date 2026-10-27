@@ -16,6 +16,7 @@ import {
   solutionCommand, missingVars, statusLabel, statusTone, RUN_LABEL, KIND_LABEL, tabsOf, tabView,
 } from "./migrationLib.js";
 
+import { etatMemorise, memoriserEtat } from "./navContext.js";   // #874
 // #784 : étape à la main -- commande exacte et machine où la lancer
 function HandCmd({ s }) {
   if (!s.cmd) return s.where ? <p>À faire sur <b>{s.where}</b>.</p> : null;
@@ -157,7 +158,8 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
   const [tab, setTab] = useState(() => viewParams().onglet || "");   // #784 : onglet (Migration, MX…) ; #790 : ?onglet=MX
-  const [page, setPage] = useState(() => (["prep", "copies", "risques", "etat"].includes(viewParams().page) ? viewParams().page : "plan"));   // #815 : plan | préparation d'une réinstallation ; #856 : copies | risques
+  const [page, setPage] = useState(() => { const p = viewParams().page || etatMemorise("MigrationView", "page"); return ["prep", "copies", "risques", "etat"].includes(p) ? p : "plan"; });
+  useEffect(() => { memoriserEtat("MigrationView", "page", page); }, [page]);   // #874   // #815 : plan | préparation d'une réinstallation ; #856 : copies | risques
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => {

@@ -16,6 +16,7 @@ import NebulaPlan from "./NebulaPlan.jsx";
 import NebulaReports from "./NebulaReports.jsx";  // #703
 import CampusView from "./CampusView.jsx";
 
+import { etatMemorise, memoriserEtat } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
 // (#196-200) et le pont vers GLPI (#208), jusqu'ici accessibles
@@ -55,7 +56,8 @@ const TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";  /
 
 export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", groups = [], login = "" }) {
   // #847 : onglet de l'adresse (?tab=health…), sinon la Veille
-  const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get("tab"); return TABS.some((x) => x.key === t) ? t : "veille"; } catch { return "veille"; } });
+  const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get("tab") || etatMemorise("NebulaView", "tab"); return TABS.some((x) => x.key === t) ? t : "veille"; } catch { return "veille"; } });
+  useEffect(() => { memoriserEtat("NebulaView", "tab", tab); }, [tab]);   // #874
   const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
   const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
   const [siteId, setSiteId] = useState("");

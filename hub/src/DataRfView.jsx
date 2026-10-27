@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand } from "./siAgentClient.js";
 import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE } from "./datarfLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`);
 
 function Spectre({ rf, bande }) {
@@ -151,7 +152,7 @@ export default function DataRfView({ onBack, siAgentApiBase, username }) {
   const [err, setErr] = useState(null);
   const [choix, setChoix] = useState("");
   const [at, setAt] = useState(null);
-  const [onglet, setOnglet] = useState("reseau");
+  const [onglet, setOnglet] = useNavState("DataRfView", "onglet", "reseau");   // #874 : gardé au rechargement
   const ouvrir = (nom, config) => {
     setChoix(nom); setOnglet("detail");
     if (config) setTimeout(() => document.querySelector(".datarf-config")?.scrollIntoView({ behavior: "smooth" }), 300);

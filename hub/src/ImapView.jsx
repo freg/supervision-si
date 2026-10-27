@@ -6,6 +6,7 @@ import {
   fetchInterpreters, createInterpreter, updateInterpreter, deleteInterpreter,
 } from "./imapClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet client IMAP (hub), livraison #230 -- PREMIÈRE interface pour
 // imap-client-api : le backend était déjà construit (#179-191) mais
@@ -23,7 +24,7 @@ const EMPTY_INTERPRETER_FORM = { name: "", match_subject: "", match_from: "", ta
 const EMPTY_RULE_FORM = { name: "", watch_folder: "INBOX", match_subject: "", match_from: "", match_unseen_only: false, action_move_to: "", action_add_label: "", action_mark_seen: false };
 
 export default function ImapView({ onBack, imapApiBase }) {
-  const [subTab, setSubTab] = useState("folders");
+  const [subTab, setSubTab] = useNavState("ImapView", "subTab", "folders");   // #874 : gardé au rechargement
   const [folders, setFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [messages, setMessages] = useState([]);

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchHtop, fetchHtopHote } from "./siAgentClient.js";
 import { go, num, pctOf, niveau, niveauHote, grouper, invites, projeter, sparkPath, maxDisque } from "./htopLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 const NAT = { pve: "PVE", vm: "VM", ct: "CT", hote: "hôte" };
 const TONE_LABEL = { critical: "critique", warning: "au seuil", near: "proche" };
 // #803 : l'ARC ZFS ne compte que pour un Proxmox / un hôte (vu depuis un CT, c'est celui de l'hôte) ; les cœurs d'un CT
@@ -153,7 +154,7 @@ function Capacite({ hotes }) {
 export default function HtopView({ onBack, siAgentApiBase }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
-  const [tab, setTab] = useState("hotes");
+  const [tab, setTab] = useNavState("HtopView", "tab", "hotes");   // #874 : gardé au rechargement
   const [tri, setTri] = useState({ col: "cpu", dir: -1 });
   const [vu, setVu] = useState(null);
   useEffect(() => {

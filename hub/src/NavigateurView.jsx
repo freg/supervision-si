@@ -11,6 +11,7 @@ import { fetchNavigateurs, saveNavigateurs, navCommand, fetchCommand, fetchFleet
 import { ecranUrl, EXEMPLE_ETAPES, lireEtapes, etatCommande, imageDe, trierNavigateurs, paramsVisibles, valeursInitiales, brouillonDepuis,
   resumeParcours } from "./navigateurLib.js";
 
+import { useNavState } from "./navContext.js";   // #874
 function Registre({ api, liste, username, recharger }) {
   const [ouvert, setOuvert] = useState(false);
   const [agents, setAgents] = useState([]);
@@ -206,7 +207,7 @@ export default function NavigateurView({ onBack, siAgentApiBase: api, username }
   const [arret, setArret] = useState(true);
   const [ecranSeul, setEcranSeul] = useState(false);
   const [cmd, lancer, suivre] = useCommande(api);
-  const [onglet, setOnglet] = useState("demande");
+  const [onglet, setOnglet] = useNavState("NavigateurView", "onglet", "demande");   // #874 : gardé au rechargement
   const [parcours, setParcours] = useState([]);
   const [plan, setPlan] = useState(null);
   const chargerParcours = useCallback(() => fetchParcours(api).then((r) => setParcours(r?.parcours || [])).catch(() => {}), [api]);
