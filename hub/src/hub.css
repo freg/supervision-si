@@ -2822,3 +2822,6 @@ body { padding-bottom: 36px; }
 ::-webkit-scrollbar-thumb { background: #8b95a7; border-radius: 7px; border: 2px solid rgba(0, 0, 0, .25); min-height: 40px; min-width: 40px; }
 ::-webkit-scrollbar-thumb:hover { background: #b9c2d3; }
 ::-webkit-scrollbar-corner { background: rgba(127, 127, 127, .22); }
+
+/* #879 : copies, clones, préparations et VM de test -- en fin de liste, atténués */
+.edl-table tr.edl-variante td { opacity: .55; font-style: italic; }

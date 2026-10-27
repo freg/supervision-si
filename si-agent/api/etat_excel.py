@@ -30,7 +30,9 @@ def _fin(d):
 
 
 def nom(l):
-    return l.get("libelle") or ("%s (%s)" % (l["name"], l["key"]) if l["type"] != "nœud" else "Serveur %s" % l["name"])
+    n = l.get("libelle") or ("%s (%s)" % (l["name"], l["key"]) if l["type"] != "nœud" else "Serveur %s" % l["name"])
+    v = l.get("variante_de")   # #879 : copie, clone, préparation, test -- listés en fin de tableau
+    return "%s — %s de %s" % (n, v["role"], v["name"]) if v else n
 
 
 def raisons_claires(l):
@@ -161,7 +163,7 @@ def _feuille_planning(wb, pl, position=1):
 def classeur(etat, tendance=None, organisation="", maintenant=None, plan=None):
     """-> octets du fichier .xlsx. `plan` (#878) : etat_plan.plan(etat) -- temps estimés et planning en Gantt."""
     now = maintenant or etat.get("at")
-    actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif"]
+    actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif" and not l.get("variante_de")]   # #879 : sans les copies
     r = etat["resume"]
     wb = Workbook()
     ws = wb.active
@@ -217,6 +219,11 @@ def classeur(etat, tendance=None, organisation="", maintenant=None, plan=None):
     import etat_plan as _ep   # #878
     temps = _ep.par_systeme(plan) if plan else {}
     for i, l in enumerate(etat["systemes"], 2):
+        if l.get("variante_de"):   # #879 : copie / clone / test : listé pour la forme, sans niveau ni action
+            for j, v in enumerate([nom(l), TYPE.get(l["type"], l["type"]), "—", l["os"]["nom"] or "—", "", "", "", "", "", "", "Copie / essai",
+                                   "rattaché à « %s » (%s)" % (l["variante_de"]["name"], l["variante_de"]["role"]), "aucune (suivi avec sa référence)", "—"], 1):
+                ws2.cell(row=i, column=j, value=v).font = Font(italic=True, color="777777")
+            continue
         vals = [nom(l), TYPE.get(l["type"], l["type"]), ", ".join(l["roles"]) or "—", l["os"]["nom"] or "non relevé", _fin(l["os"]["fin"]),
                 _jour(l["maj_at"]), l["attente_secu"] if l["attente_secu"] is not None else "—", USAGE.get(l["usage"], l["usage"]),
                 "Oui" if l["expose"] else "Non", len(l["dependants"]), LIBELLE_NIVEAU[l["niveau"]], raisons_claires(l), action_claire(l),

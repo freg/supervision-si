@@ -3125,6 +3125,29 @@ def _etat_plan(e):
     return etat_plan.plan(e, marge=float(r.get("marge") or etat_plan.MARGE), personnes=int(r.get("personnes") or 1), debut=debut)
 
 
+@app.route("/etat-des-lieux/regroupements", methods=["GET", "PUT"])
+def etat_regroupements_route():
+    """#879 : règles de regroupement. PUT {key, de, role, note} rattache un système à la référence « de » ; {key, seul: true} le
+    garde à part malgré son nom ; {key, retirer: true} revient au regroupement automatique (d'après le nom)."""
+    regles = store.get_setting(DB_PATH, "etat_regroupements", {}) or {}
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        k = str(b.get("key") or "")[:120]
+        if not k:
+            return jsonify({"error": "clé du système manquante"}), 400
+        if b.get("retirer"):
+            regles.pop(k, None)
+        elif b.get("seul"):
+            regles[k] = {"seul": True}
+        elif str(b.get("de") or "").strip():
+            role = b.get("role") if b.get("role") in etat_lib.ROLES_VARIANTE else "copie"
+            regles[k] = {"de": str(b["de"]).strip()[:120], "role": role, "note": str(b.get("note") or "")[:300] or None}
+        else:
+            return jsonify({"error": "indiquer « de » (système de référence), « seul » ou « retirer »"}), 400
+        store.set_setting(DB_PATH, "etat_regroupements", regles)
+    return jsonify({"regles": regles, "roles": list(etat_lib.ROLES_VARIANTE)}), 200
+
+
 @app.route("/etat-des-lieux/plan", methods=["GET", "PUT"])
 def etat_plan_route():
     """#878 : GET -> plan estimé ; PUT {marge, personnes, debut} -> réglages (marge 1 à 10, 1 à 20 personnes, AAAA-MM-JJ)."""
@@ -3150,6 +3173,7 @@ def _etat():
         e = etat_lib.assemble(prep.noeuds(reports), eol=store.get_setting(DB_PATH, "etat_eol", {}) or {},
                               libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {},
                               manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {}, lus=lus, autres=autres, scan=scan)
+        e = etat_lib.regrouper(e, store.get_setting(DB_PATH, "etat_regroupements", {}) or {})   # #879 : copies, clones, préparations
         if reports:     # une ligne par jour : le suivi à long terme
             conn.execute("INSERT OR REPLACE INTO etat_historique VALUES (?, ?)", (time.strftime("%Y-%m-%d"), json.dumps(etat_lib.instantane(e))))
             conn.execute("DELETE FROM etat_historique WHERE jour < ?", (time.strftime("%Y-%m-%d", time.gmtime(time.time() - 800 * 86400)),))

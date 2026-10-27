@@ -441,6 +441,11 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
                                   for p in s.get("reseau") or []], "vu_le": s.get("vu_le")})
     ordre = {n: i for i, n in enumerate(NIVEAUX)}
     lignes.sort(key=lambda l: (ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
+    return {"at": now, "systemes": lignes, "dependances": deps, "resume": resume(lignes), "eol": eol, "non_suivis": non_suivis}
+
+
+def resume(lignes):
+    """Compteurs de l'état des lieux (calculés aussi après regroupement des copies, #879)."""
     res = {n: sum(1 for l in lignes if l["niveau"] == n) for n in NIVEAUX}
     res["obsoletes"] = sum(1 for l in lignes if l["os"]["statut"] == "obsolète" and l["status"] == "running")
     res["secu"] = sum(1 for l in lignes if (l["attente_secu"] or 0) > 0)
@@ -448,7 +453,8 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
     res["inconnus"] = sum(1 for l in lignes if l["source"] == "aucune")
     res["decouverts"] = sum(1 for l in lignes if l["type"] == "découvert")     # #873 : vus sur le réseau, suivis par rien d'autre
     res["audit_reseau"] = sum(1 for l in lignes if l["reseau"])
-    return {"at": now, "systemes": lignes, "dependances": deps, "resume": res, "eol": eol, "non_suivis": non_suivis}
+    res["variantes"] = sum(len(l.get("variantes") or []) for l in lignes)   # #879 : copies, clones, préparations rattachées
+    return res
 
 
 def instantane(etat):
@@ -578,3 +584,107 @@ def hotes_relayes(rows):
                         "ports": sorted({e.get("port") for e in sy.get("ecoute") or [] if not str(e.get("hote", "")).startswith("127.")} - {None})})
     out.sort(key=lambda h: (h["relay"], h["name"]))
     return out
+
+
+# -- #879 : regroupement des copies, clones, préparations de migration et VM de test ------------------------------------
+# Une VM de test, un clone préparatoire (« serv3-clone », « pre-optick3 », « pre-r2d2 ») ou plusieurs copies d'un même
+# système (« md10 » répliqué, archivé) faisaient du bruit : chacun comptait comme un système à traiter. Ils sont
+# rattachés à leur système de référence (même nom une fois retirés pré-/clone/copie/test…, ou règle manuelle) : ils ne
+# comptent plus dans les niveaux ni dans le planning, et apparaissent dans la fiche de la référence.
+MARQUE_PREFIXE = re.compile(r"^(pre|pré|clone|copie|copy|test|tmp|old)[-_.]", re.I)
+MARQUE_SUFFIXE = re.compile(r"[-_.](clone|copie|copy|old|bak|backup|test|tmp|temp|new|pre|pré)\d*$", re.I)
+ROLE_MARQUE = {"pre": "préparation de migration", "pré": "préparation de migration", "clone": "clone", "copie": "copie", "copy": "copie",
+               "test": "test", "tmp": "test", "temp": "test", "old": "ancienne version", "bak": "copie", "backup": "copie", "new": "préparation de migration"}
+ROLES_VARIANTE = ("clone", "préparation de migration", "copie", "test", "ancienne version")
+
+
+def nom_de_base(nom):
+    """« pre-r2d2 » -> ("r2d2", "préparation de migration") ; « serv3-clone » -> ("serv3", "clone") ; « md10 » -> ("md10", None)."""
+    n = (nom or "").strip().lower()
+    role = None
+    for _ in range(3):
+        m = MARQUE_PREFIXE.match(n) or MARQUE_SUFFIXE.search(n)
+        if not m:
+            break
+        role = role or ROLE_MARQUE.get(m.group(1).lower(), "copie")
+        n = (n[m.end():] if m.start() == 0 and MARQUE_PREFIXE.match(n) else n[:m.start()]).strip("-_.")
+    return (n or (nom or "").lower()), role
+
+
+def regrouper(etat, regles=None):
+    """Rattache les variantes (copies, clones, préparations, VM de test) à leur référence, d'après :
+    - le nom : « pre-r2d2 », « serv3-clone », « test-xxx », « md10 » en plusieurs exemplaires ;
+    - le numéro de VM / CT : 9106 (ou 1106, 2106…) clone de 106 quand 106 existe ; même numéro sur deux nœuds = copie ;
+    - les règles manuelles : {clé: {"de": nom de base, "role": …, "note": …}} ou {"seul": true} (garder à part).
+    Les variantes restent LISTÉES, en fin de tableau, marquées « variante de … » ; elles ne comptent ni dans les niveaux
+    ni dans le planning. Référence d'un groupe : un système qui n'est pas une variante, en service de préférence ; à
+    défaut (machine physique non suivie, ex. serv3), une variante le représente et le dit."""
+    regles = regles or {}
+    rang_t = {"nœud": 0, "serveur": 1, "VM": 2, "CT": 3, "poste": 4, "découvert": 5}
+    lignes = etat["systemes"]
+    par_vmid = {}
+    for l in lignes:
+        if l.get("vmid") is not None and l["type"] in ("VM", "CT"):
+            par_vmid.setdefault(int(l["vmid"]), []).append(l)
+    groupes = {}
+    for l in lignes:
+        r = regles.get(l["key"]) or {}
+        if r.get("seul"):
+            base, role = "#" + l["key"], None
+        elif r.get("de"):
+            base, role = r["de"].strip().lower(), r.get("role") or "copie"
+        else:
+            base, role = nom_de_base(l.get("name") or l["key"])
+            v = l.get("vmid")
+            memes = par_vmid.get(int(v), []) if v is not None and l["type"] in ("VM", "CT") else []
+            if not role and len({x["node"] for x in memes}) > 1:   # même numéro sur plusieurs nœuds : copies (réplication, archive)
+                tete = sorted(memes, key=lambda x: (x["status"] != "running", x["key"]))[0]
+                base = nom_de_base(tete.get("name") or tete["key"])[0]
+            if not role and v is not None and l["type"] in ("VM", "CT") and int(v) >= 1000 and (int(v) % 1000) in par_vmid:
+                orig = par_vmid[int(v) % 1000][0]           # 9106 -> 106 : clone (numérotation des copies de travail)
+                base, role = nom_de_base(orig.get("name") or orig["key"])[0], "clone"
+        l["_base"], l["_role"], l["_note"] = base, role, r.get("note")
+        groupes.setdefault(base, []).append(l)
+    vers = {}
+    for base, ls in groupes.items():
+        if len(ls) == 1 and not ls[0]["_role"]:
+            continue
+        refs = [l for l in ls if not l["_role"]]
+        if not refs and all(l["_role"] == "test" for l in ls):   # VM de test sans référence : listées en fin, pour la forme
+            for l in ls:
+                l["variante_de"] = {"key": None, "name": base, "role": "test", "note": l["_note"]}
+            continue
+        cle = lambda l: (l["status"] != "running", rang_t.get(l["type"], 9), -(l.get("maj_at") or 0), l["key"])
+        if refs:
+            ref = sorted(refs, key=cle)[0]
+        else:
+            ref = sorted(ls, key=cle)[0]
+            ref["representant"] = {"de": base, "role": ref["_role"],
+                                   "note": "« %s » n'est pas suivi : ce %s le représente (machine d'origine à rechercher)" % (base, ref["_role"])}
+        ref["variantes"] = []
+        for l in ls:
+            if l is ref:
+                continue
+            role = l["_role"] or "copie"            # même nom qu'une référence (md10 répliqué, archivé) = copie
+            ref["variantes"].append({"key": l["key"], "name": l["name"], "type": l["type"], "node": l["node"], "vmid": l.get("vmid"),
+                                     "status": l["status"], "role": role, "note": l["_note"], "os": l["os"].get("nom"), "niveau": l["niveau"]})
+            l["variante_de"] = {"key": ref["key"], "name": ref.get("libelle") or ref["name"], "role": role, "note": l["_note"]}
+            vers[l["key"]] = ref["key"]
+    for l in lignes:
+        for k in ("_base", "_role", "_note"):
+            l.pop(k, None)
+        if not l.get("variante_de"):
+            l["dependants"] = sorted({vers.get(k, k) for k in l.get("dependants") or []} - {l["key"]})
+            l["utilise"] = sorted({vers.get(k, k) for k in l.get("utilise") or []} - {l["key"]})
+    deps, vus = [], set()
+    for d in etat.get("dependances") or []:
+        d = dict(d, de=vers.get(d["de"], d["de"]), vers=vers.get(d["vers"], d["vers"]))
+        if d["de"] != d["vers"] and (d["de"], d["vers"], d.get("port")) not in vus:
+            vus.add((d["de"], d["vers"], d.get("port")))
+            deps.append(d)
+    ordre = {n: i for i, n in enumerate(NIVEAUX)}
+    lignes.sort(key=lambda l: (bool(l.get("variante_de")), ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
+    etat["dependances"] = deps
+    etat["resume"] = resume([l for l in lignes if not l.get("variante_de")])
+    etat["resume"]["variantes"] = sum(1 for l in lignes if l.get("variante_de"))   # copies, clones, préparations, tests (en fin de liste)
+    return etat

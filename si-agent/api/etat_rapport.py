@@ -63,7 +63,7 @@ def echeance(fin, maintenant):
 def elements(etat, maintenant):
     """Un élément par (système, composant suivi) : le système d'exploitation, puis les logiciels clés."""
     out = []
-    for l in etat["systemes"]:
+    for l in [x for x in etat["systemes"] if not x.get("variante_de")]:   # #879 : sans les copies / clones / tests
         if l["niveau"] == "inactif":
             continue
         qui = l.get("libelle") or ("serveur %s" % l["name"] if l["type"] == "nœud" else "poste %s" % l["name"] if l["type"] == "poste" else l["name"])
@@ -117,7 +117,7 @@ def gantt_html(pl):
 def page(etat, organisation="", maintenant=None, plan=None):
     now = maintenant or etat.get("at")
     el = elements(etat, now)
-    actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif"]
+    actifs = [l for l in etat["systemes"] if l["niveau"] != "inactif" and not l.get("variante_de")]
     depasses = [e for e in el if e["rang"] == 0]
     six = [e for e in el if e["rang"] == 1]
     deux = [e for e in el if e["rang"] == 2]

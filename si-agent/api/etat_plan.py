@@ -78,7 +78,7 @@ def taches(l, marge=MARGE):
 def groupes(etat):
     """Systèmes à traiter regroupés par dépendances (union des liens « utilise ») -> [{pivot, membres (ordonnés)}].
     Pivot = le membre dont dépendent le plus d'autres systèmes ; il passe en premier, puis les autres par score."""
-    lignes = {l["key"]: l for l in etat["systemes"]}
+    lignes = {l["key"]: l for l in etat["systemes"] if not l.get("variante_de")}   # #879 : copies / clones / tests hors planning
     parent = {k: k for k in lignes}
 
     def racine(k):

@@ -1,5 +1,11 @@
 [
  {
+  "n": 879,
+  "from": 879,
+  "date": "2026-10-27",
+  "title": "État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin"
+ },
+ {
   "n": 878,
   "from": 878,
   "date": "2026-10-27",
@@ -232,11 +238,5 @@
   "from": 840,
   "date": "2026-10-23",
   "title": "si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret"
- },
- {
-  "n": 839,
-  "from": 839,
-  "date": "2026-10-22",
-  "title": "Émulation : écran d'un clic dans le hub supervision, par le bastion"
  }
 ]

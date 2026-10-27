@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl, fetchEtatPlan, saveEtatPlan } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl, fetchEtatPlan, saveEtatPlan, saveEtatRegroupement } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -19,7 +19,31 @@ function Tendance({ t }) {
 }
 
 // #877 : fiche d'un système en fenêtre rapide, format page (Échap ou clic hors de la fenêtre pour fermer).
-function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, setDecl, enregistrerDecl, manuels }) {
+// #879 : rattacher un système à sa référence (copie, clone, préparation, test), le garder à part, ou revenir à l'automatique.
+function Rattachement({ l, siAgentApiBase, onDone }) {
+  const [r, setR] = useState({ de: l.variante_de?.name || "", role: l.variante_de?.role || "copie", note: "" });
+  const [msg, setMsg] = useState("");
+  const envoyer = async (corps) => {
+    setMsg("enregistrement…");
+    const x = await saveEtatRegroupement(siAgentApiBase, { key: l.key, ...corps });
+    setMsg(x?.error || "enregistré : la liste se met à jour");
+    if (!x?.error) onDone?.();
+  };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+      <span className="infra-muted">rattacher à</span>
+      <input value={r.de} onChange={(e) => setR({ ...r, de: e.target.value })} placeholder="nom du système de référence (ex. serv3)" style={{ minWidth: 200 }} />
+      <select value={r.role} onChange={(e) => setR({ ...r, role: e.target.value })}>{["clone", "préparation de migration", "copie", "test", "ancienne version"].map((x) => <option key={x}>{x}</option>)}</select>
+      <input value={r.note} onChange={(e) => setR({ ...r, note: e.target.value })} placeholder="note (ex. plusieurs cartes réseau physiques)" style={{ minWidth: 220 }} />
+      <button type="button" onClick={() => envoyer({ de: r.de, role: r.role, note: r.note })} disabled={!r.de.trim()}>Rattacher</button>
+      <button type="button" className="secondary" onClick={() => envoyer({ seul: true })} title="ne pas le rattacher malgré son nom">Garder à part</button>
+      <button type="button" className="secondary" onClick={() => envoyer({ retirer: true })} title="revenir au rattachement automatique (nom, numéro)">Automatique</button>
+      <span className="infra-muted">{msg}</span>
+    </div>
+  );
+}
+
+function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, setDecl, enregistrerDecl, manuels, siAgentApiBase, onReload }) {
   useEffect(() => {
     const k = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
@@ -36,6 +60,11 @@ function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, set
             {l.expose ? <span className="np-tone warn"> · exposé sur Internet</span> : null}</div>
           <button type="button" className="secondary" onClick={onClose} title="fermer (Échap)">✕</button>
         </header>
+        {l.representant && <div className="np-tone warn" style={{ margin: "6px 0" }}>{l.representant.note}</div>}
+        {l.variante_de && <div className="infra-muted" style={{ margin: "6px 0" }}><b>{l.variante_de.role}</b>{l.variante_de.key ? ` de ${l.variante_de.name} : listé pour la forme, hors compteurs et planning` : " : listé pour la forme"}{l.variante_de.note ? ` — ${l.variante_de.note}` : ""}</div>}
+        {bloc("Copies, clones, préparations rattachés", (l.variantes || []).length ? <table className="infra-table"><thead><tr><th>Système</th><th>Rôle</th><th>Où</th><th>État</th><th>Système d'exploitation</th></tr></thead>
+          <tbody>{l.variantes.map((v) => <tr key={v.key}><td>{v.name} <span className="infra-muted">{v.key}</span></td><td>{v.role}</td><td>{v.node}{v.vmid ? ` / ${v.vmid}` : ""}</td><td>{v.status}</td><td>{v.os || "—"}</td></tr>)}</tbody></table> : null)}
+        {bloc("Rattachement", <Rattachement l={l} siAgentApiBase={siAgentApiBase} onDone={onReload} />)}
         {bloc("Pourquoi, que faire", <>{(l.raisons || []).map((x, i) => <div key={i}>• {x}</div>)}{l.actions?.length ? <div style={{ marginTop: 6 }}><b>→ {l.actions.join(" ; ")}</b></div> : null}{!l.raisons?.length && !l.actions?.length ? "—" : null}</>)}
         <div className="edl-fiche-cols">
           {bloc("Système", <>
@@ -156,6 +185,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         {NIVEAUX.map((n) => <span key={n} className={`np-tone ${TON[n]}`} style={{ marginRight: 10 }}><b>{r[n] ?? 0}</b> {n}</span>)}
         <span className={r.inconnus ? "np-tone warn" : "infra-muted"}>· {r.inconnus ?? 0} système(s) non identifié(s)</span>
         {/* #873 : audit réseau */}
+        <span className="infra-muted" title="copies, clones, préparations de migration et VM de test : rattachés à leur système, listés en fin, hors compteurs et planning">· {r.variantes ?? 0} copie(s) / essai(s) en fin de liste </span>
         <span className={r.decouverts ? "np-tone warn" : "infra-muted"} title="appareils vus par l'audit réseau (sonde lan-audit) et suivis par aucun autre outil">· {r.decouverts ?? 0} appareil(s) découvert(s) sur le réseau</span>
         <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
@@ -177,8 +207,9 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
           const comp = l.composants || [];
           const pire = comp.find((c) => c.statut === "obsolète") || comp[0];
           return (
-            <tr key={l.key} onClick={() => setFiche(l.key)} title="ouvrir la fiche">
-              <td className={`np-tone ${TON[l.niveau]}`}><div className="edl-l"><b>{l.niveau}</b></div><div className="edl-l infra-muted">{l.score ? `score ${l.score} · impact ${l.impact}` : ""}</div></td>
+            <tr key={l.key} onClick={() => setFiche(l.key)} title="ouvrir la fiche" className={l.variante_de ? "edl-variante" : ""}>
+              {l.variante_de ? <td><div className="edl-l"><i>{l.variante_de.role}</i></div><div className="edl-l infra-muted">{l.variante_de.key ? `de ${l.variante_de.name}` : "pour la forme"}</div></td>
+                : <td className={`np-tone ${TON[l.niveau]}`}><div className="edl-l"><b>{l.niveau}</b></div><div className="edl-l infra-muted">{l.score ? `score ${l.score} · impact ${l.impact}` : ""}{l.variantes?.length ? ` · +${l.variantes.length} copie(s)` : ""}</div></td>}
               <td><div className="edl-l"><b>{l.libelle || l.name || l.key}</b> <span className="infra-muted">{l.type}</span></div><div className="edl-l infra-muted">{l.key}{l.ips?.length ? ` · ${l.ips[0]}` : ""}</div></td>
               <td><div className="edl-l">{(l.roles || []).join(", ") || "—"}</div><div className="edl-l">{l.expose ? <span className="np-tone warn">exposé sur Internet</span> : null}</div></td>
               <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}><div className="edl-l">{l.os?.nom || "non relevé"}</div>
@@ -193,7 +224,8 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         })}</tbody>
       </table></div>
       {ficheL && <FicheSysteme l={ficheL} noms={noms} onClose={() => setFiche(null)}
-        lib={lib} setLib={setLib} enregistrerLib={enregistrerLib} decl={decl} setDecl={setDecl} enregistrerDecl={enregistrerDecl} manuels={d.manuels || {}} />}
+        lib={lib} setLib={setLib} enregistrerLib={enregistrerLib} decl={decl} setDecl={setDecl} enregistrerDecl={enregistrerDecl} manuels={d.manuels || {}}
+        siAgentApiBase={siAgentApiBase} onReload={load} />}
       <div className="infra-card">
         <b>Interactions entre systèmes ({(d.dependances || []).length})</b>
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>

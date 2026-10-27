@@ -1,3 +1,19 @@
+## 2026-10-27 — État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin (livraison #879)
+
+- Constat : bruit dans l'état des lieux et le planning -- clone d'une machine physique (« serv3-clone »), préparations
+  de bascule (« pre-optick3 », « pre-r2d2 »), copies d'un même système (« MED10 » répliqué, archivé), VM de test.
+- Rattachement automatique à la référence d'après le nom (préfixes `pre-`, `clone-`, `test-`…, suffixes `-clone`,
+  `-copie`, `-old`, `-test`…, avec séparateur : « preprodia » reste un système à part), d'après le numéro de VM / CT
+  (9106 = clone de 106 ; même numéro sur plusieurs nœuds = copies) ; règles manuelles dans la fiche (rattacher à…,
+  garder à part, automatique) -- API `GET/PUT /etat-des-lieux/regroupements`.
+- Les variantes restent listées, en fin de tableau, atténuées (« clone de … », « préparation de migration de … »,
+  « test ») ; hors compteurs, hors planning et hors audit ; la fiche de la référence liste ses copies. Quand la
+  référence n'est pas suivie (machine physique serv3), le clone la représente et le dit (« machine d'origine à
+  rechercher »). Excel : variantes en fin de la feuille « Systèmes », en gris, sans niveau ni action.
+- Vérifié : `test_etat_regroupement.py` (noms, numéros, copies multi-nœuds, représentant, tests isolés, règles
+  manuelles, planning, Excel), `test_etat_plan.py`, `test_z_etat.py`, `test_etat_audit_reseau.py`, tests du hub.
+  Non vérifié : sur les noms réels (une règle manuelle corrige tout cas mal deviné).
+
 ## 2026-10-27 — État des lieux pour les décideurs : temps estimé par action (marge ×3) et planning en Gantt par regroupements de dépendances (livraison #878)
 
 - `etat_plan.py` : estimation brute de chaque action, tests compris (mise à niveau du système selon l'écart de versions,
