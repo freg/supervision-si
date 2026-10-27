@@ -5,6 +5,7 @@
 // Données : si-agent-api /latency (commande `latency` des agents 0.5.73). Logique pure : latencyLib.js.
 import { useCallback, useEffect, useState } from "react";
 import { fetchLatency, fetchLatencyHistory, saveLatencyTarget, saveLatencyPoint, deleteLatency, saveLatencySettings, runLatency, fetchLatencyConfig, importLatencyConfig } from "./siAgentClient.js";
+import IpPing from "./IpPing.jsx";
 import {
   MODES, fmtMs, cell, groups, pointsFor, pointLabel, worst, counts, accessCommand, emptyTarget, emptyPoint, targetToForm, formToTarget, formToPoint,
   parseConfig, sparkPoints,
@@ -162,7 +163,7 @@ export default function LatencyView({ onBack, siAgentApiBase: api, username }) {
               <tr key={`g-${g.grp}`} className="lat-grp"><td colSpan={pts.length + 1}>{g.grp}</td></tr>,
               ...g.targets.map((t) => (
                 <tr key={t.id}>
-                  <td className={`lat-target ${worst(v, t.id) || ""}`}><b>{t.label}</b><small>{t.ip}{t.names?.length ? ` · ${t.names.join(", ")}` : ""}</small></td>
+                  <td className={`lat-target ${worst(v, t.id) || ""}`}><b>{t.label}</b><small><IpPing ip={t.ip}>{t.ip}</IpPing>{t.names?.length ? ` · ${t.names.join(", ")}` : ""}</small></td>
                   {pts.map((p) => (pointsFor([p], t.id).length ? <Cell key={p.id} c={cell(v, t.id, p.id)} onOpen={() => setOpen({ t: t.id, p: p.id })} /> : <td key={p.id} className="infra-muted">·</td>))}
                 </tr>)),
             ])}</tbody>
@@ -174,7 +175,7 @@ export default function LatencyView({ onBack, siAgentApiBase: api, username }) {
           <button onClick={() => setEditT(emptyTarget())}>+ Ajouter une IP publique</button>
           {editT && <TargetForm initial={editT} onCancel={() => setEditT(null)} onSave={(t) => act(async () => { const r = await saveLatencyTarget(api, t, username); if (!r?.error) setEditT(null); return r; })} />}
           <table className="infra-table"><thead><tr><th>libellé</th><th>IP</th><th>ports</th><th>noms</th><th>groupe</th><th>active</th><th></th></tr></thead><tbody>
-            {(v.targets || []).map((t) => <tr key={t.id}><td>{t.label}</td><td>{t.ip}</td><td>{t.ports.join(", ")}</td><td>{t.names.join(", ")}</td><td>{t.grp}</td><td>{t.enabled ? "oui" : "non"}</td>
+            {(v.targets || []).map((t) => <tr key={t.id}><td>{t.label}</td><td><IpPing ip={t.ip}>{t.ip}</IpPing></td><td>{t.ports.join(", ")}</td><td>{t.names.join(", ")}</td><td>{t.grp}</td><td>{t.enabled ? "oui" : "non"}</td>
               <td><button className="secondary mig-small" onClick={() => setEditT(t)}>Modifier</button><button className="secondary mig-small" disabled={busy} onClick={() => act(() => deleteLatency(api, "target", t.id))}>Supprimer</button></td></tr>)}
           </tbody></table>
         </>

@@ -3,6 +3,7 @@ import { fetchProxmox, fetchProxmoxHistory, vmAction, fetchCommand } from "./siA
 import { hubLink } from "./hubLinks.js";
 import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary, hostHealthSummary } from "./proxmoxLib.js";
 
+import IpPing from "./IpPing.jsx";
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Proxmox » (livraison #488) : vue dédiée des hyperviseurs
 // remontés par le plugin si-agent « proxmox » (#487) -- arbre hôte →
@@ -248,7 +249,7 @@ function VmDetail({ vm, history }) {
               <thead><tr><th>Nom</th><th>Appris via</th><th>Résolution</th></tr></thead>
               <tbody>{urls.map((u) => (
                 <tr key={u.host}>
-                  <td><code>{u.host}</code></td>
+                  <td><IpPing ip={u.host} /></td>
                   <td className="muted" style={{ fontSize: 12 }}>{u.sources.join(", ")}</td>
                   <td style={{ fontSize: 12 }}>
                     {!u.resolves ? <Tone tone="warning">ne résout pas</Tone>

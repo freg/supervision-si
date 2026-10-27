@@ -5,6 +5,8 @@ WORKDIR /app
 # Chemins RELATIFS À LA RACINE du projet (context: .) -- piège corrigé
 # en #409 sur file-manager-api, jamais `COPY app.py .` ici.
 COPY si-agent/api/requirements.txt .
+# #868 : commande ping (bouton de test de connectivité du hub) ; repli TCP si absente
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 
 COPY si-agent/api/app.py .
@@ -75,6 +77,7 @@ COPY si-agent/agent/si_agent/emulctl.py ./si_agent_emulctl.py
 COPY si-agent/agent/si_agent/orchctl.py ./si_agent_orchctl.py
 COPY si-agent/api/migration.py .
 COPY si-agent/api/maint.py .
+COPY si-agent/api/ping.py .
 # #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,
 # sans secret) construite ICI et servie par GET /package ; #522 : c'est la
 # version que les agents reçoivent par la mise à jour contrôlée.

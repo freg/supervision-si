@@ -4014,3 +4014,6 @@ automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) d
   fichiers, NAS… (hôtes avec agent : relevé local ; sans agent : relevé par ssh, comme pve-remote) ; Windows compris.
 - À partir des analyses permanentes du réseau (sonde voisinage, postes Windows, connexions des postes), dresser la liste
   des serveurs et services utilisés par les postes, et les ajouter aux dépendances.
+- Ping (#868, suite) : test « depuis un agent » vers une IP tierce (commande signée à l'agent, résultat dans la fiche) ;
+  bouton ping dans les vues d'exploration de données (fusion IP/MAC, exploration réseau, supervision historique) ;
+  authentification Keycloak des routes de gestion de si-agent-api (aujourd'hui seule une limite de débit protège /ping).

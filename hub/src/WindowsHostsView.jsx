@@ -7,6 +7,7 @@ import { matchWindowsHosts, accessLinks } from "./campusCards.js";
 import { rankFilter } from "./textFilter.js";
 import { hubLink } from "./hubLinks.js";
 
+import IpPing from "./IpPing.jsx";
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const SEV = { warning: "var(--warning)", critical: "var(--danger)", info: "var(--muted)" };
 
@@ -59,7 +60,7 @@ export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "
           {hosts.map((h) => (
             <tr key={h.ip}>
               <td><strong>{h.name || <span className="muted">?</span>}</strong></td>
-              <td><code>{h.ip}</code></td>
+              <td><IpPing ip={h.ip} /></td>
               <td>{h.asset ? <span title={h.asset.lab}>{h.asset.name} <span className="muted">· {h.asset.lab || ""}</span></span> : <span className="muted">—</span>}</td>
               <td>{h.workgroup || <span className="muted">—</span>}</td>
               <td><code style={{ fontSize: 11 }}>{h.mac || "—"}</code></td>

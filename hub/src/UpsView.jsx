@@ -11,6 +11,7 @@ import {
 import { buildLinePath } from "./netprobeAgents.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
 
+import IpPing from "./IpPing.jsx";
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « UPS » (livraison #415), demandée en urgence : liste des
 // onduleurs (site / IP / utilisateur / mot de passe), relevé automatique
@@ -359,7 +360,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                   <tr key={d.id} className={`ups-row${selectedId === d.id ? " active" : ""}${d.enabled ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)}>
                     <td><strong>{d.name}</strong>{d.notes && <div className="muted" style={{ fontSize: 11 }}>{d.notes}</div>}</td>
                     <td>{d.site || <span className="muted">—</span>}</td>
-                    <td><code>{d.host}</code>{d.method === "snmp" && <span className="muted" style={{ fontSize: 11 }}> · SNMP</span>}</td>
+                    <td><IpPing ip={d.host} />{d.method === "snmp" && <span className="muted" style={{ fontSize: 11 }}> · SNMP</span>}</td>
                     <td><Tone tone={st.tone}>{st.text}</Tone>{d.stale && <div className="muted" style={{ fontSize: 11 }} title={d.stale}>relevé en retard</div>}</td>
                     <td>{(d.active_alerts || []).length === 0 ? <span className="muted">—</span> : d.active_alerts.map((a) => <div key={a.id}><Tone tone={a.acked_at ? "neutral" : alertTone(a.severity)}>{alertKindLabel(a.kind)}</Tone></div>)}</td>
                     <td className="muted" title={when(d.last_polled_at)}>{age == null ? "—" : `il y a ${formatAge(age)}`}</td>

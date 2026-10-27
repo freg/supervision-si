@@ -7,6 +7,7 @@ import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecis
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
+import IpPing from "./IpPing.jsx";
 function Tendance({ t }) {
   if (!t || t.length < 2) return <span className="infra-muted">Suivi commencé : la courbe apparaît à partir du deuxième jour.</span>;
   const cles = ["urgent", "à planifier", "à surveiller"];
@@ -162,7 +163,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
       <div className="infra-card">
         <b>Serveurs utilisés mais non suivis ({(d.non_suivis || []).length})</b>
         <table className="infra-table"><thead><tr><th>Adresse</th><th>Services</th><th>Utilisé par</th><th>dont postes</th><th>Connexions</th></tr></thead>
-          <tbody>{(d.non_suivis || []).map((x) => <tr key={x.ip}><td><b>{x.ip}</b> <span className="infra-muted">{x.interne ? "réseau interne" : "Internet"}</span></td>
+          <tbody>{(d.non_suivis || []).map((x) => <tr key={x.ip}><td><IpPing ip={x.ip}><b>{x.ip}</b></IpPing> <span className="infra-muted">{x.interne ? "réseau interne" : "Internet"}</span></td>
             <td>{x.natures.join(", ")} <span className="infra-muted">({x.ports.join(", ")})</span></td><td>{x.clients} système(s) <span className="infra-muted">{x.utilise_par.map((k) => noms[k] || k).join(", ")}</span></td>
             <td>{x.postes}</td><td>{x.connexions}</td></tr>)}</tbody></table>
         <p className="infra-muted">Relevés à partir des connexions des systèmes et des postes suivis. Un serveur interne de cette liste (serveur de fichiers, NAS…) s'ajoute au suivi dans <code>/etc/si-agent/systemes-remote.json</code> de l'agent qui le joint (sonde systemes) -- pas de lien : opération manuelle.</p>

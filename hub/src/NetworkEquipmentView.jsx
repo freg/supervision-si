@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import IpPing from "./IpPing.jsx";
 import {
   fetchNeStatus, fetchEquipment, fetchEquipmentDetail, updateEquipment, deleteEquipment, importNetworkAgent,
   identifyEquipment, identifyBatch, pollEquipment, fetchProfiles, fetchTopology, fetchFdb, importZenossFile, importOuiFile, createEquipment,
@@ -353,7 +354,7 @@ function EquipmentDetail({ detail, access, setAccess, busy, apiBase, onIdentify,
   const zen = detail.zenoss || {};
   return (
     <div className="panel">
-      <h3 style={{ margin: "0 0 6px" }}>{displayName(detail)} <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>#{detail.id}{detail.ip ? ` · ${detail.ip}` : ""}{detail.mac ? ` · ${detail.mac}` : ""}</span></h3>
+      <h3 style={{ margin: "0 0 6px" }}>{displayName(detail)} <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>#{detail.id}{detail.ip ? <> · <IpPing ip={detail.ip}>{detail.ip}</IpPing></> : ""}{detail.mac ? ` · ${detail.mac}` : ""}</span></h3>
       <p style={{ margin: "0 0 8px" }}>
         <strong>{detail.vendor || "constructeur inconnu"}</strong> {detail.model || ""} {detail.os && <span className="muted">· {detail.os} {detail.os_version || ""}</span>}
         <br />{kindLabel(detail.kind)} · <Tone tone={generationTone(detail.generation)}>{generationLabel(detail.generation)}</Tone>{detail.generation_reason && <span className="muted"> ({detail.generation_reason})</span>}

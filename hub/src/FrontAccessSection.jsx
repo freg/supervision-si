@@ -3,6 +3,7 @@
 // par IP publique, chemins, lenteurs, erreurs 5xx, constats.
 import { useState } from "react";
 
+import IpPing from "./IpPing.jsx";
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
 const ms = (v) => (v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`);
@@ -35,7 +36,7 @@ export default function FrontAccessSection({ latest, when }) {
                 {clients.length === 0 && <tr><td colSpan={8} className="muted">aucun accès dans la fenêtre</td></tr>}
                 {clients.map((c) => (
                   <tr key={c.ip} style={c.errors ? { color: "var(--danger)" } : undefined}>
-                    <td><code>{c.ip}</code></td><td>{c.count}</td><td>{c.auth_refused ? <Tone tone="warn">{c.auth_refused}</Tone> : 0}</td><td>{c.errors ? <Tone tone="bad">{c.errors}</Tone> : 0}</td>
+                    <td><IpPing ip={c.ip} /></td><td>{c.count}</td><td>{c.auth_refused ? <Tone tone="warn">{c.auth_refused}</Tone> : 0}</td><td>{c.errors ? <Tone tone="bad">{c.errors}</Tone> : 0}</td>
                     <td>{Math.round((c.bytes || 0) / 1024)} Ko</td><td>{c.ua}</td><td><code style={{ fontSize: 12 }}>{c.top_path}</code></td><td className="muted">{c.last ? c.last.replace("T", " ") : "—"}</td>
                   </tr>
                 ))}

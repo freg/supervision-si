@@ -59,6 +59,7 @@ import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
 import genealogie  # noqa: E402  -- #854 : généalogie des modèles (histoire, filiations, mode d'emploi)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
+import ping as ping_lib  # noqa: E402  -- #868 : test de connectivité rapide (bouton ping à côté des IP)
 import copies as copies_lib  # noqa: E402  -- #856 : inventaire de toutes les copies et distance à la source
 import acces as acces_lib  # noqa: E402  -- #856 : accessibilité des services des CT / VM
 import risque as risque_lib  # noqa: E402  -- #856 : récapitulatif permanent du risque (Migration › Risques)
@@ -451,6 +452,22 @@ def proxmox_history_route():
 @app.route("/risks", methods=["GET"])
 def risks_route():
     return jsonify({"risks": store.fleet_risks(DB_PATH, site=request.args.get("site"))}), 200
+
+
+@app.route("/ping", methods=["GET", "POST"])
+def ping_route():
+    """#868 : GET ?host=… (un hôte) ou POST {"hosts": [...]} (64 max) -> joignable / délai, ICMP puis TCP."""
+    client = _client_ip()
+    if request.method == "GET":
+        if not ping_lib.allow(client, 1):
+            return jsonify({"error": "trop de tests, réessayer dans une minute"}), 429
+        return jsonify(ping_lib.ping(request.args.get("host", ""))), 200
+    body = request.get_json(silent=True) or {}
+    hosts = [h for h in dict.fromkeys(body.get("hosts") or []) if isinstance(h, str)][:ping_lib.MAX_BATCH]
+    if not ping_lib.allow(client, max(1, len(hosts))):
+        return jsonify({"error": "trop de tests, réessayer dans une minute", "results": []}), 429
+    _log.info("ping : %d hôte(s) demandé(s) depuis %s", len(hosts), client)
+    return jsonify({"results": ping_lib.ping_many(hosts)}), 200
 
 
 @app.route("/agents", methods=["GET"])

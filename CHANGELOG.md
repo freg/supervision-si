@@ -1,3 +1,15 @@
+## 2026-10-27 — Bouton « ping » à côté des IP de gestion du hub (livraison #868)
+
+- `si-agent-api` : `GET /ping?host=` et `POST /ping {"hosts": [...]}` (64 max). Le test part du hub (API centrale) :
+  ICMP (`iputils-ping` ajouté à l'image), puis repli TCP sur 22/443/80/3389/8006/161 (un refus TCP compte comme
+  « joignable »). Hôte validé avant tout appel, pas de shell, cache de 3 s, limite de 120 tests par client et par minute.
+- Hub : composant `IpPing.jsx` (IP + bouton « ping » + résultat ✓ délai / ✗, détail au survol). Il est placé dans :
+  Agents (nouvelle colonne IP = adresse de contact, fiche « dernière IP »), Proxmox, onduleurs, postes Windows, accès
+  au frontal, Infra PVE/PBS, latence, état des lieux, équipements réseau.
+- Vérifié : `test_ping.py` (validation dont tentatives d'injection, analyse de la sortie ping, repli TCP ouvert/fermé,
+  lot dédoublonné et borné, limite de débit) ; syntaxe JSX des 10 fichiers (parseur Babel).
+- Non vérifié : route Flask et rendu dans le navigateur (pas de Flask ni de build Vite ici) ; ICMP depuis le conteneur.
+
 ## 2026-10-27 — Installeur unique des hôtes anciens : Debian 4.0, 5.0 et suivantes (livraison #867)
 
 - `si-agent/agent/ancien/install-ancien.sh` : détecte le système ; hôte récent -> agent complet (`install.sh`) ;

@@ -1,4 +1,5 @@
 import { normalizeBase, caFingerprintOf, installLines, oldHostLines, pushHistory, loadHistory, saveHistory } from "./agentInstallLib.js";
+import IpPing from "./IpPing.jsx";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { viewParams, clearViewParams } from "./hubLinks.js";
 import {
@@ -66,8 +67,11 @@ function Gauge({ percent, label }) {
 }
 
 // #698 : colonnes du tableau des agents -- largeur à la souris, masquables, mémorisées par compte
+// #868 : last_ip = X-Forwarded-For complet (« agent, relais, frontal ») -> la première adresse est celle de l'agent
+const contactIp = (v) => (v || "").split(",")[0].trim() || null;
+
 const AGENT_COLUMNS = [
-  { id: "agent", label: "Agent", fixed: true }, { id: "site", label: "Site" }, { id: "host", label: "Hôte" }, { id: "contact", label: "Contact" },
+  { id: "agent", label: "Agent", fixed: true }, { id: "site", label: "Site" }, { id: "host", label: "Hôte" }, { id: "ip", label: "IP", title: "Adresse par laquelle l'agent contacte le hub (peut être celle d'un routeur / NAT) -- « ping » teste depuis le hub (#868)" }, { id: "contact", label: "Contact" },
   { id: "cpu", label: "CPU" }, { id: "mem", label: "Mémoire" }, { id: "disk", label: "Disque (max)" },
   { id: "footprint", label: "Impact agent", title: "Empreinte de l'agent lui-même : % d'un cœur (moyenne de la fenêtre) · mémoire résidente" },
   { id: "risks", label: "Risques" }, { id: "plugins", label: "Sondes" },
@@ -499,6 +503,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         )}
                         {agentCols.show("site") && <td>{a.site}</td>}
                         {agentCols.show("host") && <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>}
+                        {agentCols.show("ip") && <td onClick={(e) => e.stopPropagation()}><IpPing ip={contactIp(a.last_ip)} /></td>}
                         {agentCols.show("contact") && (
                         <td>
                           <Tone tone={contactTone(a.online)} title={when(a.last_seen_at)}>{CONTACT_LABELS[a.online] || a.online}</Tone>
@@ -670,7 +675,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         )}
                         <div><span className="muted">Mémoire</span>{formatBytes(host.memory?.total_bytes != null && host.memory?.available_bytes != null ? host.memory.total_bytes - host.memory.available_bytes : null)} / {formatBytes(host.memory?.total_bytes)} ({host.memory?.used_percent ?? "—"} %){host.memory?.swap_total_bytes > 0 && <> · swap {host.memory.swap_used_percent} %</>}</div>
                         <div><span className="muted">Comptes</span>{host.system?.os_id === "windows" ? "administrateurs" : "sudo"} : {(host.accounts?.sudoers || []).join(", ") || "—"} · {host.system?.os_id === "windows" ? "locaux actifs" : "interactifs"} : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
-                        <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP {detail.last_ip || "—"}{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
+                        <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP <IpPing ip={contactIp(detail.last_ip)} />{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
                         {/* #549 : la page que l'agent publie sur son LAN, vue d'ici (même gabarit, même contenu) */}
                         {detail.publish?.enabled && (
                           <div><span className="muted">Publication</span>page « {detail.publish.title} » sur le port {detail.publish.port} du poste · {publishedPageUrl(detail) && <><a href={publishedPageUrl(detail)} target="_blank" rel="noopener noreferrer">ouvrir sur le site ↗</a> (depuis le réseau du site) · </>}<a href={`${siAgentApiBase}/agents/${encodeURIComponent(selectedId)}/publish/preview`} target="_blank" rel="noopener noreferrer">aperçu depuis le hub ↗</a></div>
