@@ -1,7 +1,7 @@
 // #884 : onglet « VPN » -- serveurs WireGuard relevés en lecture seule (sonde wireguard) : pairs et état courant,
 // historique des connexions reconstitué par le hub (WireGuard ne journalise pas les connexions).
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchVpn, fetchSyslog } from "./siAgentClient.js";
+import { fetchVpn, fetchSyslog, fetchWgSyslog } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import IpPing from "./IpPing.jsx";
 import { operateur, stabilite } from "./vpnLib.js";
@@ -26,8 +26,8 @@ function SyslogWireguard({ days }) {
   if (!s) return null;
   const info = s.info || {};
   return (
-    <section className="infra-card" style={{ margin: "12px 0" }}>
-      <h3 style={{ margin: "0 0 4px" }}>Journal WireGuard reçu en syslog</h3>
+    <details className="infra-card" style={{ margin: "12px 0" }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600 }}>Lignes WireGuard brutes reçues en syslog ({s.messages.length})</summary>
       <div className="infra-muted" style={{ fontSize: 12, marginBottom: 6 }}>
         écoute UDP {info.port_udp || 5514} sur le hub · émetteurs autorisés : {(info.autorises || []).join(", ") || "tous (RSYSLOG_ALLOWED vide)"}
         {" · "}reçus de : {(info.emetteurs || []).map((e) => `${e.hote || e.ip} (${e.ip})`).join(", ") || "personne pour l'instant"}
@@ -41,20 +41,30 @@ function SyslogWireguard({ days }) {
               <td style={{ whiteSpace: "nowrap" }}>{new Date(m.t * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</td>
               <td>{m.hote || m.ip}</td><td>{m.niveau}</td><td>{m.app}</td><td style={{ fontFamily: "monospace", fontSize: 12 }}>{m.msg}</td>
             </tr>))}</tbody></table></div>)}
-    </section>
+    </details>
   );
 }
 
 export default function VpnView({ onBack, siAgentApiBase }) {
   const [d, setD] = useState(null);
+  const [wgs, setWgs] = useState(null);   // #895 : WireGuard d'après le syslog du routeur
   const [days, setDays] = useState(30);
   const [q, setQ] = useState("");
   const load = useCallback(() => fetchVpn(siAgentApiBase, days).then(setD), [siAgentApiBase, days]);
   useEffect(() => { load(); const t = setInterval(load, 120000); return () => clearInterval(t); }, [load]);
+  useEffect(() => {
+    let vivant = true;
+    const go = () => fetchWgSyslog(Math.min(days, 90) * 24).then((r) => { if (vivant) setWgs(r); });
+    go(); const t = setInterval(go, 60000); return () => { vivant = false; clearInterval(t); };
+  }, [days]);
   const sessions = useMemo(() => {
     const f = q.trim().toLowerCase();
-    return (d?.sessions || []).filter((s) => !f || [s.nom, s.public_key, s.origine, s.nom_origine, s.poste, s.protocole, s.interface, ...(s.adresses || [])].join(" ").toLowerCase().includes(f));
-  }, [d, q]);
+    const iso = (t) => (t ? new Date(t * 1000).toISOString() : null);
+    const wsess = (wgs?.sessions || []).map((s) => ({ type: "wg-syslog", relais: s.routeur, interface: s.interface, nom: s.nom, public_key: s.cle, origine: s.origine, nom_origine: s.nom_origine,
+      adresses: [], debut: iso(s.debut), fin: iso(s.fin), duree_s: s.duree_s, en_cours: s.en_cours, rx: null, tx: null, pertes: s.pertes, echecs: s.echecs,
+      protocole: (s.origines || []).length > 1 ? `${s.origines.length} adresses d'origine` : "" }));
+    return [...(d?.sessions || []), ...wsess].sort((a, b) => String(b.debut || "").localeCompare(String(a.debut || ""))).filter((s) => !f || [s.nom, s.public_key, s.origine, s.nom_origine, s.poste, s.protocole, s.interface, ...(s.adresses || [])].join(" ").toLowerCase().includes(f));
+  }, [d, q, wgs]);
   const stab = useMemo(() => stabilite(sessions), [sessions]);
   return (
     <div className="infra-page">
@@ -63,6 +73,24 @@ export default function VpnView({ onBack, siAgentApiBase }) {
         <h2 style={{ margin: 0 }}>VPN</h2>
         <span className="infra-muted">en lecture seule : WireGuard (sonde wireguard, connexions reconstituées) et SoftEther (sonde softether, journaux du serveur)</span>
       </div>
+      {wgs && (wgs.pairs.length > 0 || wgs.error) && (
+        <section className="infra-card" style={{ margin: "12px 0" }}>
+          <h3 style={{ margin: "0 0 6px" }}>WireGuard · journaux du routeur <span className="infra-muted" style={{ fontSize: 13 }}>
+            · {wgs.pairs.filter((p) => p.connecte).length} connecté(s) sur {wgs.pairs.length} · sessions, échecs et pertes de contact reconstitués du syslog</span></h3>
+          {wgs.error ? <div className="np-tone bad">{wgs.error}</div> : (
+            <table className="infra-table"><thead><tr><th>Pair</th><th>État</th><th>Origine</th><th>Opérateur</th><th>Adresses vues</th><th>Dernière poignée de main réussie</th><th>Échecs</th><th>Pertes de contact</th><th>Interface · routeur</th></tr></thead>
+              <tbody>{wgs.pairs.map((p) => (
+                <tr key={`${p.routeur}-${p.cle}`}>
+                  <td>{p.nom || <span className="infra-muted">{cle(p.cle)}</span>} <span className="infra-muted" title={p.cle}>{cle(p.cle)}</span></td>
+                  <td className={`np-tone ${p.connecte ? "good" : "neutral"}`}>{p.connecte ? "connecté" : "déconnecté"}</td>
+                  <td title={p.nom_origine || ""}>{hote(p.origine) || "—"}</td><td title={p.nom_origine || ""}>{opLib({ origine: hote(p.origine), nom_origine: p.nom_origine }) || "—"}</td>
+                  <td title={(p.origines || []).join(", ")}>{(p.origines || []).length}</td>
+                  <td>{p.derniere_reussite ? `il y a ${age(Math.round(Date.now() / 1000 - p.derniere_reussite))}` : "aucune sur la période"}</td>
+                  <td className={p.echecs ? "np-tone warn" : ""}>{p.echecs}</td><td className={p.pertes ? "np-tone warn" : ""}>{p.pertes}</td>
+                  <td>{p.interface} · {p.routeur}</td>
+                </tr>))}</tbody></table>)}
+        </section>
+      )}
       <SyslogWireguard days={days} />
       {d === null ? <p className="infra-muted">lecture…</p> : d.serveurs.length === 0 ? (
         <div className="infra-muted">
@@ -143,8 +171,9 @@ export default function VpnView({ onBack, siAgentApiBase }) {
                 <tr key={k}>
                   <td>{s.nom || <span className="infra-muted">{cle(s.public_key)}</span>}</td><td>{date(s.debut)}</td>
                   <td>{s.en_cours ? <span className="np-tone good">en cours</span> : date(s.fin)}</td><td>{duree(s.duree_s)}</td>
-                  <td title={s.nom_origine || ""}>{hote(s.origine) || "—"}</td><td title={s.nom_origine || ""}>{opLib({ ...s, origine: hote(s.origine) }) || "—"}</td><td>{s.type === "softether" ? `${(s.protocole || "").replace("Legacy VPN - ", "")}${s.poste ? ` · ${s.poste}` : ""}` : "WireGuard"}</td>
-                  <td>{vol(s.rx)} / {vol(s.tx)}</td><td>{s.relais} · {s.interface}</td>
+                  <td title={s.nom_origine || ""}>{hote(s.origine) || "—"}</td><td title={s.nom_origine || ""}>{opLib({ ...s, origine: hote(s.origine) }) || "—"}</td><td>{s.type === "softether" ? `${(s.protocole || "").replace("Legacy VPN - ", "")}${s.poste ? ` · ${s.poste}` : ""}`
+                    : s.type === "wg-syslog" ? `WireGuard (journaux)${s.pertes ? ` · ${s.pertes} perte(s)` : ""}${s.echecs ? ` · ${s.echecs} échec(s)` : ""}${s.protocole ? ` · ${s.protocole}` : ""}` : "WireGuard"}</td>
+                  <td>{s.rx == null && s.tx == null ? "—" : `${vol(s.rx)} / ${vol(s.tx)}`}</td><td>{s.relais} · {s.interface}</td>
                 </tr>))}</tbody></table>
           </div>
         </section>

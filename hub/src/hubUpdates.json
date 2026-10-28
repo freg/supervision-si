@@ -1,5 +1,11 @@
 [
  {
+  "n": 895,
+  "from": 895,
+  "date": "2026-10-28",
+  "title": "Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik"
+ },
+ {
   "n": 894,
   "from": 894,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 856,
   "date": "2026-10-26",
   "title": "Migration : inventaire permanent de toutes les copies et de leur distance à la source ; récapitulatif permanent du risque"
- },
- {
-  "n": 855,
-  "from": 855,
-  "date": "2026-10-24",
-  "title": "Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés"
  }
 ]

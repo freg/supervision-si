@@ -15,6 +15,7 @@ SEV = ["urgence", "alerte", "critique", "erreur", "avertissement", "notice", "in
 PRI = re.compile(r"^<(\d{1,3})>")
 R3164 = re.compile(r"^<\d{1,3}>(?:[A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d )?(?:(\S+) )?([^:\[\s]+)(?:\[\d+\])?: ?(.*)$", re.S)
 R5424 = re.compile(r"^<\d{1,3}>1 \S+ (\S+) (\S+) \S+ \S+ (?:-|\[.*?\]) ?(.*)$", re.S)
+ROS = re.compile(r"^<\d{1,3}>([a-z0-9_-]+(?:,[a-z0-9_-]+)+) ([^\s:]+): (.*)$", re.S)
 _IP_SURE = re.compile(r"^[0-9a-fA-F:.]+$")
 
 
@@ -43,12 +44,16 @@ def analyser(texte):
     pri = int(m.group(1)) if m else 13
     sev, fac = pri % 8, pri // 8
     hote, app, msg = "", "", texte
-    r = R5424.match(texte) or R3164.match(texte)
-    if r:
+    sujet = ""
+    ros = ROS.match(texte)
+    r = None if ros else (R5424.match(texte) or R3164.match(texte))
+    if ros:   # #895 : RouterOS sans en-tête bsd-syslog : « <PRI>sujet1,sujet2 application: message »
+        sujet, app, msg = ros.group(1), ros.group(2), ros.group(3)
+    elif r:
         hote, app, msg = (r.group(1) or "").strip("-"), (r.group(2) or "").strip("-"), r.group(3)
     elif m:
         msg = texte[m.end():]
-    return {"sev": sev, "niveau": SEV[sev], "fac": fac, "hote": hote, "app": app, "msg": msg.strip()[:4000]}
+    return {"sev": sev, "niveau": SEV[sev], "fac": fac, "hote": hote, "app": app, "sujet": sujet, "msg": msg.strip()[:4000]}
 
 
 def decoder(data):

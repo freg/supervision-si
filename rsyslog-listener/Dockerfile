@@ -9,6 +9,7 @@ COPY rsyslog-listener/api/app.py .
 COPY rsyslog-listener/api/listener.py .
 COPY rsyslog-listener/api/syslog_parser.py .
 COPY rsyslog-listener/api/journal.py .
+COPY rsyslog-listener/api/wgsyslog.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

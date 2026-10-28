@@ -152,6 +152,52 @@ def journaux():
     return jsonify({"messages": JOURNAL.chercher(emetteur=em, q=a.get("q"), sev_max=sev, depuis=_time.time() - heures * 3600, limite=limite)}), 200
 
 
+@app.route("/wireguard", methods=["GET"])
+def wireguard():
+    """#895 : pairs et sessions WireGuard reconstitués d'après le syslog du routeur ; ?heures=24 (1..2160)."""
+    import wgsyslog
+    if JOURNAL is None:
+        return jsonify({"error": "conservation désactivée (RSYSLOG_DATA_DIR absent)"}), 503
+    try:
+        heures = max(1, min(24 * 90, int(_request.args.get("heures", 24))))
+    except ValueError:
+        return jsonify({"error": "heures invalide"}), 400
+    maintenant = _time.time()
+    msgs = JOURNAL.chercher(depuis=maintenant - heures * 3600, limite=300000)
+    r = wgsyslog.sessions(msgs, maintenant)
+    noms = _noms_inverses({(x.get("origine") or "").rsplit(":", 1)[0] for x in r["pairs"] + r["sessions"]} - {""})
+    for x in r["pairs"] + r["sessions"]:
+        x["nom_origine"] = noms.get((x.get("origine") or "").rsplit(":", 1)[0], "")
+    return jsonify(dict(r, heures=heures)), 200
+
+
+_NOMS = {}
+
+
+def _noms_inverses(ips, delai=3.0):
+    """Nom inverse des adresses d'origine (opérateur : Starlink, 4G…) ; cache 24 h, délai global borné."""
+    import concurrent.futures
+    import socket as _socket
+    maintenant = _time.time()
+    a_faire = [ip for ip in ips if ip not in _NOMS or maintenant - _NOMS[ip][1] > 86400][:64]
+    if a_faire:
+        def un(ip):
+            try:
+                return ip, _socket.gethostbyaddr(ip.strip("[]"))[0]
+            except (OSError, UnicodeError):
+                return ip, ""
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+        futurs = [ex.submit(un, ip) for ip in a_faire]
+        try:
+            for f in concurrent.futures.as_completed(futurs, timeout=delai):
+                ip, nom = f.result()
+                _NOMS[ip] = (nom, maintenant)
+        except concurrent.futures.TimeoutError:
+            pass
+        ex.shutdown(wait=False)
+    return {ip: _NOMS.get(ip, ("", 0))[0] for ip in ips}
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "listening_on_udp_port": LISTEN_PORT}), 200

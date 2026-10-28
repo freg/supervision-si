@@ -1,3 +1,16 @@
+## 2026-10-28 — Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik (livraison #895)
+
+- Remplace la sonde wireguard pour le routeur du bureau (l'administrateur envoie ses journaux plutôt que d'ouvrir
+  l'API) : `rsyslog-listener` analyse les lignes du sujet wireguard (`wgsyslog.py`) -> pairs (nom RouterOS, état,
+  origine, adresses vues, dernière poignée de main réussie, échecs, pertes de contact) et sessions (ouverture à la
+  première poignée de main réussie, fermeture à l'effacement des clés ou après 5 min sans activité). Plus complet
+  que l'API sur les incidents (échecs, pertes, changements d'adresse) ; pas de volumes. Nom inverse des adresses
+  d'origine résolu (cache 24 h) pour la colonne Opérateur. Forme RouterOS sans en-tête reconnue (`sujet`).
+- Onglet VPN : carte « WireGuard · journaux du routeur », sessions fusionnées dans l'historique et la stabilité
+  par utilisateur, lignes brutes repliées.
+- Vérifié : `test_wgsyslog.py` sur des lignes au format réel rendues fictives (réussites, échec, perte, doublon des
+  deux formes, nouvelle adresse, session en cours puis close), `test_journal.py`, syntaxe JSX. Non vérifié : en réel.
+
 ## 2026-10-28 — Réception syslog conservée, journal WireGuard du routeur dans l'onglet VPN (livraison #894)
 
 - `rsyslog-listener` (écoute UDP 5514 existante, #177) : conservation sur disque d'un fichier par émetteur et par

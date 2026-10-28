@@ -52,6 +52,15 @@ export async function fetchSyslog(params = {}) {
   } catch (err) { return { info: {}, messages: [], error: String(err) }; }
 }
 
+/** #895 : pairs et sessions WireGuard reconstitués d'après le syslog du routeur (rsyslog-listener). */
+export async function fetchWgSyslog(heures = 24) {
+  try {
+    const r = await fetch(`/api/rsyslog-listener/wireguard?heures=${heures}`, { credentials: "include" });
+    const d = await r.json();
+    return { pairs: d?.pairs || [], sessions: d?.sessions || [], error: d?.error || null };
+  } catch (err) { return { pairs: [], sessions: [], error: String(err) }; }
+}
+
 /** #883 : NAS relevés par SNMP (sonde nas-snmp). */
 export async function fetchNas(apiBase) {
   try {

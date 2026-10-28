@@ -92,3 +92,10 @@ refusés sont comptés (`/journaux/emetteurs`). Le tampon partagé de 200 messag
 API : `GET /journaux/emetteurs` ; `GET /journaux?emetteur=&q=&niveau=0..7&heures=24&limite=500`.
 Décodage UTF-8 avec repli Windows-1252 (RouterOS). Routeur MikroTik : `/system logging action` distante vers
 l'adresse du hub, port 5514, puis `/system logging` des sujets voulus (ex. `wireguard`, `system`, `account`) vers cette action.
+
+## WireGuard d'après le syslog d'un MikroTik (#895)
+
+`GET /wireguard?heures=24` : pairs (nom, état, origine et nom inverse, adresses vues, dernière poignée de main
+réussie, échecs, pertes de contact) et sessions reconstituées (`wgsyslog.py`) à partir des lignes du sujet
+`wireguard` (niveaux info et debug) ; les deux formes RouterOS (avec et sans en-tête bsd-syslog) sont reconnues
+et les doublons écartés. Pas de volumes : RouterOS ne les journalise pas.
