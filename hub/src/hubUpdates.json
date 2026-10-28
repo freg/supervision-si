@@ -1,5 +1,29 @@
 [
  {
+  "n": 910,
+  "from": 910,
+  "date": "2026-10-28",
+  "title": "Parc IA : téléchargement automatique des modèles utilisables, noté /10 par contexte"
+ },
+ {
+  "n": 909,
+  "from": 909,
+  "date": "2026-10-28",
+  "title": "Parc IA : répartition des usages des modèles sur les machines et GPU"
+ },
+ {
+  "n": 908,
+  "from": 908,
+  "date": "2026-10-28",
+  "title": "Parc IA : revue du jour des modèles (urgence et dédicace apprentissage)"
+ },
+ {
+  "n": 907,
+  "from": 907,
+  "date": "2026-10-28",
+  "title": "Sonde sockets : utilisateur résolu par le PID sous Linux"
+ },
+ {
   "n": 905,
   "from": 905,
   "date": "2026-10-28",
@@ -214,29 +238,5 @@
   "from": 870,
   "date": "2026-10-27",
   "title": "Lectures « dernière mesure par sonde » indexées : État des lieux et vues des sondes"
- },
- {
-  "n": 869,
-  "from": 869,
-  "date": "2026-10-27",
-  "title": "Base des agents verrouillée par salves : purge et fusion guest-usage par petits lots"
- },
- {
-  "n": 868,
-  "from": 868,
-  "date": "2026-10-27",
-  "title": "Bouton « ping » à côté des IP de gestion du hub"
- },
- {
-  "n": 867,
-  "from": 867,
-  "date": "2026-10-27",
-  "title": "Installeur unique des hôtes anciens : Debian 4.0, 5.0 et suivantes"
- },
- {
-  "n": 866,
-  "from": 866,
-  "date": "2026-10-26",
-  "title": "Relevé à distance des serveurs anciens : ports, adresses et services corrigés"
  }
 ]

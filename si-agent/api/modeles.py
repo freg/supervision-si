@@ -486,6 +486,135 @@ def bancs(dossier):
     return out
 
 
+# -- téléchargement automatique (#910) -- auto DÉSACTIVÉ par défaut côté supervision (production : étude + action manuelle)
+QUANT_DEFAUT = "Q4_K_M"
+_GGUF = re.compile(r"(?i)[-_.]gguf(?![a-z])")
+AUTO_DEFAUT = {"actif": False, "max_go": 20, "max_par_passe": 1, "intervalle_h": 24, "note_min": 6}
+CONTEXTES = {"dev": "assistance développement", "reseau_systeme": "ingénierie réseau et système",
+             "modelisation_3d": "3D modélisation", "impression_3d": "3D impression", "neopays": "NéoPays (toutes dimensions)"}
+CTX_REGLES = {
+    "dev": {"mots": {"coder": 5, "code": 4, "devstral": 5, "starcoder": 4, "deepseek": 2, "instruct": 2, "qwen": 1},
+            "pipes": {"text-generation": 3}, "ideal": (7, 34)},
+    "reseau_systeme": {"mots": {"instruct": 3, "reasoning": 2, "r1": 2, "tool": 2, "nemotron": 2, "mixtral": 2, "qwen": 1, "llama": 1},
+                       "pipes": {"text-generation": 3}, "ideal": (7, 34)},
+    "modelisation_3d": {"mots": {"vision": 4, "vl": 4, "image": 3, "multimodal": 3, "cad": 5, "3d": 4},
+                        "pipes": {"image-text-to-text": 5, "visual-question-answering": 4, "any-to-any": 4}, "ideal": (3, 32)},
+    "impression_3d": {"mots": {"vision": 3, "gcode": 5, "3d": 3, "mini": 2, "small": 2},
+                      "pipes": {"image-text-to-text": 3, "text-generation": 1}, "ideal": (1, 8)},
+    "neopays": {"mots": {"instruct": 2, "reasoning": 2, "multilingual": 3, "french": 3, "agent": 3, "tool": 2, "mistral": 2, "qwen": 1},
+                "pipes": {"text-generation": 3, "any-to-any": 2}, "ideal": (4, 34)},
+}
+
+
+def taille_go(params_b):
+    return round(params_b * 0.6, 1) if params_b else None
+
+
+def est_gguf(m):
+    return bool(_GGUF.search((m.get("id") or "").split("/")[-1]))
+
+
+def ref_ollama(mid, quant=QUANT_DEFAUT):
+    return "hf.co/%s:%s" % (mid, quant)
+
+
+def note_contexte(m, ctx, machines=None):
+    r = CTX_REGLES.get(ctx)
+    if not r:
+        return 0
+    if machines is not None and not machines_ok(m.get("params_b"), machines):
+        return 0
+    nom = (m.get("id") or "").lower()
+    note = sum(w for mot, w in r["mots"].items() if mot in nom)
+    note += r["pipes"].get(m.get("pipeline"), 0)
+    pb = m.get("params_b") or 0
+    lo, hi = r["ideal"]
+    if lo <= pb <= hi:
+        note += 2
+    elif pb and pb < lo:
+        note += 1
+    if (m.get("ouverture") or 0) >= 2:
+        note += 1
+    return min(10, note)
+
+
+def notes_contextes(m, machines=None):
+    return {c: note_contexte(m, c, machines) for c in CONTEXTES}
+
+
+def _nom_ollama(mid):
+    return (mid or "").split("/")[-1].lower().replace("-gguf", "")
+
+
+def candidats_auto(catalogue, machines, installes, budget=None):
+    """Modèles utilisables (tiennent sur une machine), pertinents, GGUF, non installés, sous plafond ; triés intérêt/légèreté."""
+    budget = budget or {}
+    inst = {str(n).lower() for n in installes or []}
+    out = []
+    for m in catalogue:
+        if m.get("disparu") or m.get("ecarte") or m.get("pipeline") not in PERTINENTS or not est_gguf(m):
+            continue
+        if not machines_ok(m.get("params_b"), machines):
+            continue
+        base = _nom_ollama(m.get("id"))
+        if any(base and (base in n or n.split("/")[-1].split(":")[0] == base) for n in inst):
+            continue
+        go = taille_go(m.get("params_b"))
+        if budget.get("max_go") and go and go > budget["max_go"]:
+            continue
+        notes = notes_contextes(m, machines)
+        nmax = max(notes.values()) if notes else 0
+        if nmax < (budget.get("note_min") or 0):
+            continue
+        out.append({"id": m["id"], "ref": ref_ollama(m["id"]), "params_b": m.get("params_b"), "go": go,
+                    "pipeline": m.get("pipeline"), "licence": m.get("licence"), "ouverture": m.get("ouverture"),
+                    "notes": notes, "note_max": nmax, "machines": machines_ok(m.get("params_b"), machines)})
+    out.sort(key=lambda x: (-x["note_max"], x.get("go") or 99))
+    return out
+
+
+def pour_auto(installes, budget=None, jours=365):
+    c = cnx()
+    rows = lignes(c.execute("SELECT * FROM modeles ORDER BY COALESCE(cree, premier_vu) DESC LIMIT 2000"))
+    recents = [m for m in rows if (m.get("cree") or m.get("premier_vu") or 0) >= time.time() - jours * 86400]
+    return candidats_auto(recents, machines(), installes, budget)
+
+
+def auto_config(c):
+    return {**AUTO_DEFAUT, **(etat_get(c, "auto_dl", {}) or {})}
+
+
+def _installes():
+    try:
+        return [m.get("name") for m in (ollama_tags() or []) if m.get("name")]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _ollama_pull(ref):
+    req = urllib.request.Request(OLLAMA + "/api/pull", method="POST",
+                                 data=json.dumps({"model": ref, "stream": False}).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=6 * 3600) as r:
+        return (r.read() or b"").decode()[:300]
+
+
+def _passe_auto(c):
+    cfg = auto_config(c)
+    if not cfg.get("actif"):
+        return
+    d = etat_get(c, "auto_derniere") or {}
+    if time.time() - (d.get("at") or 0) < (cfg.get("intervalle_h") or 24) * 3600:
+        return
+    cand = pour_auto(_installes(), {"max_go": cfg.get("max_go"), "note_min": cfg.get("note_min")})[:cfg.get("max_par_passe") or 1]
+    for m in cand:
+        try:
+            _ollama_pull(m["ref"])
+        except Exception:  # noqa: BLE001
+            pass
+    etat_set(c, "auto_derniere", {"at": time.time(), "n": len(cand), "refs": [m["ref"] for m in cand]})
+    c.commit()
+
+
 # -- API -----------------------------------------------------------------------------------------------------------
 @bp.get("/modeles/etat")
 def etat():
@@ -544,6 +673,38 @@ def repartition_api():
                     vus.add(u)
                     besoins.append({"usage": u, "modele": r.get("nom"), "params_b": pb})
     return jsonify(repartir(besoins, machines()))
+
+
+@bp.get("/modeles/auto")
+def auto_etat_api():
+    """Téléchargement auto (#910) : config, candidats classés + note /10 par contexte, dernière passe. Prod : auto désactivé."""
+    c = cnx()
+    cfg = auto_config(c)
+    cand = pour_auto(_installes(), {"max_go": cfg.get("max_go"), "note_min": cfg.get("note_min")})
+    return jsonify({"config": cfg, "contextes": CONTEXTES, "candidats": cand[:40], "derniere": etat_get(c, "auto_derniere")})
+
+
+@bp.post("/modeles/auto")
+def auto_regler_api():
+    b = request.get_json(silent=True) or {}
+    c = cnx()
+    if "config" in b:
+        cfg = {**auto_config(c), **{k: v for k, v in (b["config"] or {}).items() if k in AUTO_DEFAUT}}
+        etat_set(c, "auto_dl", cfg)
+        c.commit()
+    lances = []
+    if b.get("lancer"):
+        cfg = auto_config(c)
+        refs = b.get("refs") or [m["ref"] for m in pour_auto(_installes(), {"max_go": cfg.get("max_go"), "note_min": cfg.get("note_min")})[:int(b.get("n") or cfg.get("max_par_passe") or 1)]]
+        for r in refs:
+            try:
+                _ollama_pull(r)
+                lances.append({"ref": r, "ok": True})
+            except Exception as e:  # noqa: BLE001
+                lances.append({"ref": r, "ok": False, "erreur": str(e)[:200]})
+        etat_set(c, "auto_derniere", {"at": time.time(), "n": len(lances), "manuel": True})
+        c.commit()
+    return jsonify({"config": auto_config(c), "lances": lances})
 
 
 @bp.get("/modeles/revue")
@@ -665,6 +826,10 @@ def _boucle():
                 c = cnx()
                 if a_relever(c):
                     relever(c)
+                try:
+                    _passe_auto(c)
+                except Exception:  # noqa: BLE001
+                    pass
                 c.close()
                 fcntl.flock(fh, fcntl.LOCK_UN)
         except Exception:  # noqa: BLE001 -- la veille des modèles ne fait jamais tomber l'API

@@ -1,3 +1,32 @@
+## 2026-10-28 — Parc IA : téléchargement automatique des modèles utilisables, noté /10 par contexte (livraison #910)
+
+- Onglet « Téléchargement auto » (Parc IA ▸ Veille des modèles) : propose les modèles **utilisables sur l'hôte**
+  (tiennent en VRAM Q4), pertinents, disponibles en GGUF et non déjà installés, bornés (taille max, nombre par
+  passe, intervalle) pour ne pas saturer le disque. Chaque candidat reçoit une **note /10 par contexte** — assistance
+  développement, ingénierie réseau et système, 3D modélisation, 3D impression, NéoPays — et le tri privilégie
+  l'intérêt puis la légèreté. Les modèles tirés (pull Ollama `hf.co/<dépôt>:<quant>`) apparaissent dans le parc.
+- **Hôte de production : automatisme désactivé par défaut** (`actif=false`) et le geste n'agit que sur Ollama,
+  aucune modification système. Routes `GET/POST /modeles/auto` (réglages bornés au schéma, pull à la demande),
+  passe périodique branchée sur la boucle de relève.
+- Vérifié : sélection et exclusions (trop gros pour les GPU, non-GGUF, déjà installé, plafond de taille), notes par
+  contexte (coder → dev 10, vision → 3D 10), tri, défaut OFF, routes GET/POST (schéma borné, persistance).
+
+## 2026-10-28 — Parc IA : répartition des usages des modèles sur les machines et GPU (livraison #909)
+
+- Nouvel onglet « Répartition GPU » : place les usages déclarés (modèles actifs) sur les GPU des machines, un usage
+  par GPU de préférence (on dédie un GPU à un mode, jamais le même usage sur deux GPU), tenue en VRAM Q4, charge
+  étalée, le plus gros d'abord. Machines et GPU réglés par `MODELES_MACHINES` (plusieurs GPU avec « + »).
+- Vérifié : affectation (gros sur grand GPU, GPU vide dédié), non-placés, unicité d'usage par GPU, route
+  `POST /modeles/repartition`.
+
+## 2026-10-28 — Parc IA : revue du jour des modèles (urgence et dédicace apprentissage) (livraison #908)
+
+- Nouvel onglet « Revue du jour » : classe les modèles par urgence de téléchargement (avant disparition ou passage
+  payant / accès restreint) et met en avant les modèles légers exécutables sur les machines et GPU du parc. Dédicace
+  spéciale aux modèles affinables (niveau d'apprentissage 0-3), l'idéal étant ceux qui apprennent **et** désapprennent
+  dynamiquement. Colonne `apprend` ajoutée (migration).
+- Vérifié : niveau d'apprentissage, risque de disparition, score et tri de la revue, route `GET /modeles/revue`.
+
 ## 2026-10-28 — Sonde sockets : utilisateur résolu par le PID sous Linux (livraison #907)
 
 - `ss` récent (Debian 13) n'émet pas toujours `uid:` (ino/sk/cgroup seulement, et omet uid:0) : la colonne

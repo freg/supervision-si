@@ -16,7 +16,7 @@ async function api(path, { methode = "GET", corps } = {}) {
   if (!r.ok) throw new Error(j?.error || j?.erreur || (r.status === 404 ? "HTTP 404 : si-agent-api sans la veille des modèles (#821) -- reconstruire si-agent-api" : `HTTP ${r.status}`));
   return j;
 }
-const ONGLETS = [["revue", "Revue du jour"], ["repartition", "Répartition GPU"], ["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
+const ONGLETS = [["revue", "Revue du jour"], ["repartition", "Répartition GPU"], ["auto", "Téléchargement auto"], ["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
 // #908 : urgence de téléchargement (avant disparition / passage payant) et dédicace apprentissage.
 const RISQUE = { 2: ["🔻 à télécharger", "bad", "accès restreint (gated) — peut être révoqué, fermé ou passer payant"], 1: ["⏳ à surveiller", "warn", "poids sous conditions — licence révocable"] };
 const APP = { 1: ["enrichissable", "poids ouverts : adaptable par fine-tuning"], 2: ["⚙ outillé", "adaptation légère déjà outillée (LoRA / PEFT / TRL)"], 3: ["★ apprend & désapprend", "édition de connaissances / désapprentissage dynamique — l'idéal recherché"] };
@@ -268,6 +268,62 @@ function Repartition({ etat, setErr }) {
   );
 }
 
+// #910 : téléchargement automatique des modèles utilisables sur l'hôte Ollama (tiennent en VRAM, pertinents, GGUF, non
+// installés), classés par une note /10 par contexte (dev, réseau/système, 3D modé, 3D impression, NéoPays). Sur un hôte de
+// PRODUCTION l'automatisme est désactivé par défaut et n'agit que sur Ollama (pull hf.co) -- aucune modification système.
+const CTX_COURT = { dev: "dev", reseau_systeme: "rés/sys", modelisation_3d: "3D modé", impression_3d: "3D impr", neopays: "NéoPays" };
+function AutoTelechargement({ setErr }) {
+  const [d, setD] = useState(null);
+  const [occ, setOcc] = useState("");
+  const charger = useCallback(() => api("/modeles/auto").then(setD).catch((x) => setErr(x.message)), [setErr]);
+  useEffect(() => { charger(); const i = setInterval(charger, 10000); return () => clearInterval(i); }, [charger]);
+  async function majConfig(k, v) {
+    const config = { ...(d.config || {}), [k]: v };
+    setD((x) => ({ ...x, config }));
+    try { await api("/modeles/auto", { methode: "POST", corps: { config } }); } catch (x) { setErr(x.message); }
+  }
+  async function tirer(refs) {
+    setOcc(refs ? refs[0] : "tout");
+    try { await api("/modeles/auto", { methode: "POST", corps: { lancer: true, ...(refs ? { refs } : {}) } }); setErr(""); charger(); }
+    catch (x) { setErr(x.message); }
+    setOcc("");
+  }
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const c = d.config || {};
+  const ctxs = Object.keys(d.contextes || CTX_COURT);
+  return (
+    <div className="veille-bloc">
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <p className="infra-muted" style={{ flex: 1, margin: 0 }}>Télécharge les modèles <b>utilisables sur l'hôte</b> (tiennent en VRAM), pertinents et disponibles en GGUF, non déjà installés, bornés pour ne pas saturer le disque. Les modèles tirés apparaissent dans le parc Ollama. <b>Hôte de production :</b> automatisme désactivé par défaut ; n'agit que sur Ollama (pull <code>hf.co</code>), aucune modification système.</p>
+        <label className="np-tone good" style={{ padding: "3px 8px", whiteSpace: "nowrap" }}><input type="checkbox" checked={!!c.actif} onChange={(e) => majConfig("actif", e.target.checked)} /> automatisme actif</label>
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", fontSize: ".86rem", margin: "8px 0" }}>
+        <label>taille max <input type="number" style={{ width: 70 }} value={c.max_go ?? 20} onChange={(e) => majConfig("max_go", Number(e.target.value))} /> Go</label>
+        <label>par passe <input type="number" style={{ width: 55 }} value={c.max_par_passe ?? 1} onChange={(e) => majConfig("max_par_passe", Number(e.target.value))} /></label>
+        <label>intervalle <input type="number" style={{ width: 55 }} value={c.intervalle_h ?? 24} onChange={(e) => majConfig("intervalle_h", Number(e.target.value))} /> h</label>
+        <label>note min <input type="number" style={{ width: 55 }} value={c.note_min ?? 6} onChange={(e) => majConfig("note_min", Number(e.target.value))} /> /10</label>
+        <span style={{ flex: 1 }} />
+        {d.derniere?.at && <small className="infra-muted">dernière passe {dateCourte ? dateCourte(d.derniere.at) : new Date(d.derniere.at * 1000).toLocaleString("fr-FR")} · {d.derniere.n} modèle(s)</small>}
+        <button type="button" className="primary" disabled={!d.candidats?.length || !!occ} onClick={() => tirer(null)}>{occ === "tout" ? "lancement…" : "Télécharger la sélection"}</button>
+      </div>
+      <table className="infra-table">
+        <thead><tr><th>Modèle</th><th>Taille</th><th>Machines</th>{ctxs.map((k) => <th key={k} title={d.contextes?.[k]}>{CTX_COURT[k] || k}</th>)}<th></th></tr></thead>
+        <tbody>
+          {!d.candidats?.length && <tr><td colSpan={ctxs.length + 4} className="infra-muted">Aucun candidat (relancer la veille, baisser la note min, ou tout est déjà installé).</td></tr>}
+          {(d.candidats || []).map((m) => (
+            <tr key={m.id}>
+              <td><a href={`https://huggingface.co/${m.id}`} target="_blank" rel="noreferrer">{m.id}</a></td>
+              <td><small>{md(m.params_b)}{m.go ? ` · ${go(m.go)}` : ""}</small></td>
+              <td><small>{(m.machines || []).join(", ") || "—"}</small></td>
+              {ctxs.map((k) => { const n = m.notes?.[k] ?? 0; return <td key={k} style={{ textAlign: "center", fontWeight: n >= 7 ? 600 : 400, color: n >= 7 ? "var(--ok, #6ad67a)" : n >= 4 ? "var(--warn, #ffb454)" : "var(--mut, #9aa7b4)" }}>{n}</td>; })}
+              <td><button type="button" className="secondary" disabled={!!occ} onClick={() => tirer([m.ref])}>{occ === m.ref ? "…" : "Télécharger"}</button></td>
+            </tr>))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function ModelesVeille({ base }) {
   BASE = base || "";
   const [onglet, setOnglet] = useState(() => { const v = viewParams().onglet; if (v && ONGLETS.some(([k]) => k === v)) return v; try { return localStorage.getItem("iapark.modeles.onglet") || "revue"; } catch { return "revue"; } });
@@ -292,6 +348,7 @@ export default function ModelesVeille({ base }) {
       <div className="infra-tabs">{ONGLETS.map(([id, t]) => <button key={id} type="button" className={onglet === id ? "active" : ""} onClick={() => setOnglet(id)}>{t}{id === "alertes" && etat?.alertes ? ` (${etat.alertes})` : ""}</button>)}</div>
       {onglet === "revue" && <Revue setErr={setErr} />}
       {onglet === "repartition" && <Repartition etat={etat} setErr={setErr} />}
+      {onglet === "auto" && <AutoTelechargement setErr={setErr} />}
       {onglet === "alertes" && <div className="veille-bloc"><div className="veille-ligne"><span className="infra-muted">Nouveaux modèles utilisables et pertinents, passages ouvert ↔ fermé, accès restreints, disparitions.</span><span style={{ flex: 1 }} />
         <button className="secondary" type="button" disabled={!evts.some((e) => !e.vu)} onClick={() => marquerVu(null)}>Tout marquer vu</button></div>
         <Evenements liste={evts} alertes marquerVu={marquerVu} /></div>}

@@ -208,5 +208,35 @@ class Repartition(unittest.TestCase):   # #909 : répartition des usages sur mac
         self.assertEqual(r["affectations"][0]["usage"], "code")
 
 
+class AutoTelechargement(unittest.TestCase):   # #910 : téléchargement auto des modèles utilisables (note /10 par contexte)
+    def test_candidats_notes_et_exclusions(self):
+        mach = M.lire_machines("pcia:24+8")
+        coder = M.normaliser(item("org/Coder-7B-GGUF", total=7_000_000_000))
+        vision = M.normaliser(item("org/VL-8B-GGUF", total=8_000_000_000, pipe="image-text-to-text"))
+        gros = M.normaliser(item("org/Geant-400B-GGUF", total=400_000_000_000))
+        nongguf = M.normaliser(item("org/Clair-7B", total=7_000_000_000))
+        cat = [coder, vision, gros, nongguf]
+        ids = [c["id"] for c in M.candidats_auto(cat, mach, installes=[])]
+        self.assertIn("org/Coder-7B-GGUF", ids)          # GGUF, tient en VRAM, pertinent
+        self.assertIn("org/VL-8B-GGUF", ids)
+        self.assertNotIn("org/Geant-400B-GGUF", ids)     # ne tient sur aucun GPU
+        self.assertNotIn("org/Clair-7B", ids)            # pas de GGUF
+        cand = M.candidats_auto(cat, mach, installes=[])
+        ncoder = next(c for c in cand if c["id"] == "org/Coder-7B-GGUF")["notes"]
+        nvision = next(c for c in cand if c["id"] == "org/VL-8B-GGUF")["notes"]
+        self.assertGreaterEqual(ncoder["dev"], 7)                                    # coder -> dev élevé
+        self.assertGreater(nvision["modelisation_3d"], ncoder["modelisation_3d"])    # vision -> 3D élevé
+        inst = ["hf.co/org/Coder-7B-GGUF:Q4_K_M"]
+        self.assertNotIn("org/Coder-7B-GGUF", [c["id"] for c in M.candidats_auto(cat, mach, inst)])   # déjà installé
+        self.assertEqual(M.candidats_auto(cat, mach, [], {"max_go": 3}), [])         # plafond taille (7B ~4,2 Go)
+
+    def test_auto_defaut_off_et_route(self):
+        self.assertFalse(M.AUTO_DEFAUT["actif"])     # production : automatisme désactivé par défaut
+        r = A.app.test_client().get("/modeles/auto").get_json()
+        self.assertFalse(r["config"]["actif"])
+        self.assertIn("dev", r["contextes"])
+        self.assertIn("candidats", r)
+
+
 if __name__ == "__main__":
     unittest.main()
