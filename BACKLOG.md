@@ -4017,3 +4017,18 @@ automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) d
 - Ping (#868, suite) : test « depuis un agent » vers une IP tierce (commande signée à l'agent, résultat dans la fiche) ;
   bouton ping dans les vues d'exploration de données (fusion IP/MAC, exploration réseau, supervision historique) ;
   authentification Keycloak des routes de gestion de si-agent-api (aujourd'hui seule une limite de débit protège /ping).
+
+### 140. Connexions, montages et erreurs d'accès des serveurs de fichiers : NAS, ownCloud, ancien Samba -- à faire (noté le 28/10/2026)
+
+Origine : une collègue en VPN (SoftEther, r2d2) s'est vu redemander son mot de passe par le Finder pour le NAS alors
+que le web l'acceptait ; sans journal centralisé, on ne sait ni qui monte quoi, ni d'où, ni pourquoi c'est refusé.
+À suivre pour chacun : qui se connecte (utilisateur, poste, adresse, VPN ou LAN), quel partage / dossier, protocole
+(SMB / AFP / WebDAV / web / client de synchro), durée, et surtout les ÉCHECS (mot de passe, droit d'application,
+compte bloqué / expiré, version SMB refusée), avec alerte sur échecs répétés et croisement avec les sessions VPN (#884, #885).
+- NAS QNAP (nas-grpi-1) : QuLog Center (journaux d'accès et de connexion) -- par SNMP impossible ; voie d'accès
+  à étudier (syslog distant vers un agent, ou export des journaux) sans modifier les réglages Zenoss (#883).
+- ownCloud 9.1.8 (Debian 8) : table oc_authtoken / journal owncloud.log (connexions, échecs), clients de synchro.
+- Ancien serveur Samba : smbstatus (sessions et fichiers ouverts) et journaux log.smbd (échecs d'authentification),
+  par l'agent (installeur des hôtes anciens #867 si besoin).
+Restitution : un onglet « Accès aux fichiers » (ou une extension de l'onglet VPN) par utilisateur et par serveur ;
+lecture seule partout, réglages de journalisation à proposer séparément si un serveur ne journalise pas assez.
