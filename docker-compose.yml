@@ -1624,8 +1624,7 @@ services:
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - MESSAGES_ADMIN_GROUPS=${MESSAGES_ADMIN_GROUPS:-administrateurs}
-    depends_on:
-      - keycloak
+    # pas de depends_on keycloak : il vit dans gateway/docker-compose.yml (voir #135)
     restart: unless-stopped
 
   notify-api:
