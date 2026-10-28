@@ -74,6 +74,15 @@ CREATE TABLE IF NOT EXISTS modeles_etat (cle TEXT PRIMARY KEY, valeur TEXT);
 
 
 # -- pur ---------------------------------------------------------------------------------------------------------
+def _params_nom(nom):
+    """Milliards de paramètres devinés depuis un nom de modèle Ollama (« qwen3:30b-a3b » -> 30, « qwen3:4b » -> 4)."""
+    m = _TAILLE.search(str(nom or "").replace(":", "-"))
+    if not m:
+        return None
+    v = float(m.group(1))
+    return round(v / 1000.0, 3) if m.group(2).lower() == "m" else v
+
+
 def params_depuis(item):
     """Milliards de paramètres : safetensors.total, sinon le nom (« Qwen3-30B-A3B » -> 30 ; « 0.6B » ; « 270M »)."""
     st = (item or {}).get("safetensors") or {}
@@ -108,21 +117,58 @@ def vram_q4(params_b):
 
 
 def lire_machines(spec):
-    """« pcia:24,superia:20 » -> [{"nom", "vram"}] (Go)."""
+    """Machines et leurs GPU (Go). « pcia:24 » (un GPU), « pcia:24+12 » (deux GPU), « pcia:b60=24+k2200=4 » (nommés),
+    « superia:20,prodia:20 » (plusieurs machines). Renvoie [{"nom", "vram" (plus gros GPU, pour « tient sur »),
+    "vram_totale", "gpus": [{"nom", "vram"}]}]. Rétro-compatible avec l'ancien « nom:vram »."""
     out = []
     for x in str(spec or "").split(","):
-        nom, _, v = x.strip().partition(":")
-        try:
-            if nom:
-                out.append({"nom": nom, "vram": float(v)})
-        except ValueError:
+        nom, _, reste = x.strip().partition(":")
+        if not nom:
             continue
+        gpus = []
+        for i, part in enumerate(reste.split("+")):
+            gn, sep, gv = part.strip().partition("=")
+            if not sep:
+                gn, gv = "%s-gpu%d" % (nom, i), gn
+            try:
+                gpus.append({"nom": gn.strip() or ("%s-gpu%d" % (nom, i)), "vram": float(gv)})
+            except ValueError:
+                continue
+        if gpus:
+            out.append({"nom": nom, "vram": max(g["vram"] for g in gpus),
+                        "vram_totale": round(sum(g["vram"] for g in gpus), 2), "gpus": gpus})
     return out
 
 
 def machines_ok(params_b, machines):
     v = vram_q4(params_b)
     return [m["nom"] for m in machines if v is not None and v <= m["vram"]]
+
+
+def repartir(besoins, machines):
+    """Répartit des usages sur les GPU : un usage par GPU de préférence (on dédie un GPU à un mode, jamais le même
+    usage sur deux GPU), tenue en VRAM (Q4), charge étalée. `besoins` = [{"usage", "modele"?, "vram"? | "params_b"?}].
+    Les plus gros d'abord ; à égalité on choisit le GPU le moins chargé puis le plus libre. Renvoie affectations,
+    non_places (ne tiennent nulle part) et l'état des GPU."""
+    gpus = []
+    for m in machines:
+        for g in (m.get("gpus") or [{"nom": m["nom"], "vram": m.get("vram")}]):
+            gpus.append({"machine": m["nom"], "gpu": g["nom"], "vram": g["vram"], "libre": g["vram"], "usages": []})
+    prep = sorted(({**b, "vram": b.get("vram") if b.get("vram") is not None else vram_q4(b.get("params_b"))}
+                   for b in besoins), key=lambda b: -(b["vram"] or 0))
+    affect, non = [], []
+    for b in prep:
+        v = b["vram"]
+        cand = [g for g in gpus if v is not None and v <= g["libre"]]
+        if not cand:
+            non.append({"usage": b.get("usage"), "modele": b.get("modele"), "vram": v})
+            continue
+        cand.sort(key=lambda g: (len(g["usages"]), -g["libre"]))
+        g = cand[0]
+        g["libre"] = round(g["libre"] - v, 2)
+        g["usages"].append(b.get("usage"))
+        affect.append({"usage": b.get("usage"), "modele": b.get("modele"), "vram": v, "machine": g["machine"], "gpu": g["gpu"]})
+    return {"affectations": affect, "non_places": non, "gpus": gpus}
 
 
 def _ts(iso):
@@ -480,6 +526,24 @@ def catalogue():
             continue
         out.append(m)
     return jsonify({"modeles": out[:1000], "total": len(out)})
+
+
+@bp.post("/modeles/repartition")
+def repartition_api():
+    """Plan de répartition des usages sur les machines/GPU (#909). Corps : {"besoins": [{usage, modele?, params_b?|vram?}]}
+    ou rien (dérivé des modèles actifs déclarés par usage). Machines : réglage MODELES_MACHINES (GPU avec « + »)."""
+    b = request.get_json(silent=True) or {}
+    besoins = b.get("besoins")
+    if not besoins:
+        c = cnx()
+        besoins, vus = [], set()
+        for r in lignes(c.execute("SELECT * FROM modeles_mes WHERE actif=1 ORDER BY maj DESC")):
+            pb = _params_nom(r.get("nom"))
+            for u in json.loads(r.get("usages") or "[]"):
+                if u in USAGES and u not in vus:
+                    vus.add(u)
+                    besoins.append({"usage": u, "modele": r.get("nom"), "params_b": pb})
+    return jsonify(repartir(besoins, machines()))
 
 
 @bp.get("/modeles/revue")

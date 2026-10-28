@@ -178,5 +178,35 @@ class Apprentissage(unittest.TestCase):   # #908 : dédicace apprentissage + urg
         self.assertEqual(d["classement"][0]["apprend"], 1)
 
 
+class Repartition(unittest.TestCase):   # #909 : répartition des usages sur machines/GPU
+    def test_machines_gpu_retro(self):
+        self.assertEqual([m["nom"] for m in M.lire_machines("pcia:24, bad:x,prodia:20")], ["pcia", "prodia"])
+        mm = M.lire_machines("pcia:24+4,prodia:b1=20")
+        self.assertEqual((mm[0]["vram"], mm[0]["vram_totale"], len(mm[0]["gpus"])), (24, 28, 2))
+        self.assertEqual(mm[1]["gpus"][0]["nom"], "b1")
+        self.assertEqual(sorted(M.machines_ok(30, mm)), ["pcia", "prodia"])   # 19,5 Go tient sur 24 et sur 20
+        self.assertEqual(M.machines_ok(35, mm), ["pcia"])                     # 22,5 Go : tient sur 24, pas sur 20
+
+    def test_params_nom(self):
+        self.assertEqual((M._params_nom("qwen3:30b-a3b"), M._params_nom("qwen3:4b"), M._params_nom("x:270m")), (30, 4, 0.27))
+        self.assertIsNone(M._params_nom("sans-taille"))
+
+    def test_repartir_dedicace_etalement_et_route(self):
+        mach = M.lire_machines("pcia:24+8")
+        plan = M.repartir([{"usage": "code", "params_b": 30}, {"usage": "decideur", "params_b": 4},
+                           {"usage": "vision", "params_b": 8}, {"usage": "gros", "params_b": 400}], mach)
+        aff = {a["usage"]: a["gpu"] for a in plan["affectations"]}
+        self.assertEqual(aff["code"], "pcia-gpu0")           # le plus gros d'abord sur le grand GPU
+        self.assertEqual(aff["vision"], "pcia-gpu1")         # GPU vide dédié
+        self.assertEqual([n["usage"] for n in plan["non_places"]], ["gros"])
+        par_usage = {}
+        for a in plan["affectations"]:
+            par_usage.setdefault(a["usage"], set()).add(a["gpu"])
+        self.assertTrue(all(len(v) == 1 for v in par_usage.values()))   # jamais le même usage sur deux GPU
+        cl = A.app.test_client()
+        r = cl.post("/modeles/repartition", json={"besoins": [{"usage": "code", "params_b": 8}]}).get_json()
+        self.assertEqual(r["affectations"][0]["usage"], "code")
+
+
 if __name__ == "__main__":
     unittest.main()

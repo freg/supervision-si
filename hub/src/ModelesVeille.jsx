@@ -13,7 +13,7 @@ async function api(path, { methode = "GET", corps } = {}) {
   if (!r.ok) throw new Error(j?.error || j?.erreur || (r.status === 404 ? "HTTP 404 : si-agent-api sans la veille des modèles (#821) -- reconstruire si-agent-api" : `HTTP ${r.status}`));
   return j;
 }
-const ONGLETS = [["revue", "Revue du jour"], ["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
+const ONGLETS = [["revue", "Revue du jour"], ["repartition", "Répartition GPU"], ["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
 // #908 : urgence de téléchargement (avant disparition / passage payant) et dédicace apprentissage.
 const RISQUE = { 2: ["🔻 à télécharger", "bad", "accès restreint (gated) — peut être révoqué, fermé ou passer payant"], 1: ["⏳ à surveiller", "warn", "poids sous conditions — licence révocable"] };
 const APP = { 1: ["enrichissable", "poids ouverts : adaptable par fine-tuning"], 2: ["⚙ outillé", "adaptation légère déjà outillée (LoRA / PEFT / TRL)"], 3: ["★ apprend & désapprend", "édition de connaissances / désapprentissage dynamique — l'idéal recherché"] };
@@ -231,6 +231,40 @@ function Revue({ setErr }) {
   );
 }
 
+function Repartition({ etat, setErr }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { api("/modeles/repartition", { methode: "POST", corps: {} }).then(setD).catch((x) => setErr(x.message)); }, [setErr]);
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const parGpu = {};
+  (d.gpus || []).forEach((g) => { parGpu[`${g.machine}/${g.gpu}`] = { ...g, aff: [] }; });
+  (d.affectations || []).forEach((a) => { const k = `${a.machine}/${a.gpu}`; (parGpu[k] = parGpu[k] || { machine: a.machine, gpu: a.gpu, aff: [] }).aff.push(a); });
+  return (
+    <div className="veille-bloc">
+      <p className="infra-muted">Plan de répartition des usages déclarés (onglet « Usages », modèles actifs) sur les GPU : un usage par GPU de préférence (on dédie un GPU à un mode, jamais le même usage sur deux GPU), tenue en VRAM Q4, charge étalée. Machines et GPU : réglage <code>MODELES_MACHINES</code> (plusieurs GPU avec « + », ex. <code>pcia:b60=24+k2200=4</code>).</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        {Object.entries(parGpu).map(([k, g]) => (
+          <div key={k} className="card" style={{ minWidth: 220, flex: "1 1 220px" }}>
+            <div><b>{g.machine}</b> <span className="infra-muted">· {g.gpu}</span></div>
+            <div className="infra-muted" style={{ fontSize: ".82rem" }}>{g.vram} Go{g.libre != null ? ` · ${g.libre} Go libre` : ""}</div>
+            {g.aff.length ? g.aff.map((a) => (
+              <div key={a.usage} className="np-tone good" style={{ display: "block", marginTop: 6, padding: "3px 8px" }}>
+                {a.usage} <span className="infra-muted">— {a.modele || "?"} · {a.vram} Go</span>
+              </div>
+            )) : <div className="infra-muted" style={{ marginTop: 6 }}>libre</div>}
+          </div>
+        ))}
+      </div>
+      {(d.non_places || []).length > 0 && (
+        <div className="lede" style={{ borderLeftColor: "var(--bad, #ff6b6b)", marginTop: 12 }}>
+          <b className="np-tone bad">Ne tiennent sur aucun GPU</b>
+          <div style={{ marginTop: 6 }}>{d.non_places.map((n) => <span key={n.usage} className="np-tone bad" style={{ marginRight: 6, display: "inline-block", marginBottom: 4 }}>{n.usage} <span className="infra-muted">{n.modele || ""} · {n.vram || "?"} Go</span></span>)}</div>
+        </div>
+      )}
+      {!(d.affectations || []).length && !(d.non_places || []).length && <p className="infra-muted">Aucun usage déclaré (onglet « Usages »). Déclarez des modèles actifs et leurs usages pour voir le plan.</p>}
+    </div>
+  );
+}
+
 export default function ModelesVeille({ base }) {
   BASE = base || "";
   const [onglet, setOnglet] = useState(() => { const v = viewParams().onglet; if (v && ONGLETS.some(([k]) => k === v)) return v; try { return localStorage.getItem("iapark.modeles.onglet") || "revue"; } catch { return "revue"; } });
@@ -254,6 +288,7 @@ export default function ModelesVeille({ base }) {
       {err && <p className="infra-error" onClick={() => setErr("")}>{err}</p>}
       <div className="infra-tabs">{ONGLETS.map(([id, t]) => <button key={id} type="button" className={onglet === id ? "active" : ""} onClick={() => setOnglet(id)}>{t}{id === "alertes" && etat?.alertes ? ` (${etat.alertes})` : ""}</button>)}</div>
       {onglet === "revue" && <Revue setErr={setErr} />}
+      {onglet === "repartition" && <Repartition etat={etat} setErr={setErr} />}
       {onglet === "alertes" && <div className="veille-bloc"><div className="veille-ligne"><span className="infra-muted">Nouveaux modèles utilisables et pertinents, passages ouvert ↔ fermé, accès restreints, disparitions.</span><span style={{ flex: 1 }} />
         <button className="secondary" type="button" disabled={!evts.some((e) => !e.vu)} onClick={() => marquerVu(null)}>Tout marquer vu</button></div>
         <Evenements liste={evts} alertes marquerVu={marquerVu} /></div>}
