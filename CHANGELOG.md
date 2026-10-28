@@ -1,3 +1,13 @@
+## 2026-10-28 — Onglet VPN : WireGuard d'un routeur MikroTik par l'API RouterOS (livraison #889)
+
+- Sonde `wireguard` (agent 0.6.12) : `--mikrotik /etc/si-agent/mikrotik-wg.json` {host, user, password, port, tls}.
+  Client RouterOS sans dépendance (`routeros.py`, compatible Python 3.5) : connexion nom + mot de passe (repli défi
+  MD5 des anciens RouterOS), uniquement des commandes `…/print` (toute autre est refusée). Interfaces et pairs
+  WireGuard : nom (name ou comment), adresse d'origine courante, adresses VPN, dernière poignée de main, volumes ;
+  pairs désactivés écartés, clé privée jamais renvoyée. Un compte du groupe « read » suffit.
+- Vérifié : `test_routeros.py` contre un faux routeur (encodage des longueurs, login, !re / !done / !trap, durées
+  RouterOS, refus d'écriture, mauvais mot de passe sans fuite) et tests WireGuard existants. Non vérifié : sur le routeur réel.
+
 ## 2026-10-28 — Onglet VPN : opérateur d'origine et stabilité des connexions par utilisateur (livraison #888)
 
 - Opérateur et type d'accès tirés du nom inverse de l'adresse d'origine (Starlink · satellite, Orange · mobile / fixe,

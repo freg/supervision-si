@@ -9,8 +9,12 @@ de main, octets reçus / émis, connecté si poignée de main < 3 min). Les noms
 fichiers /etc/wireguard/*.conf (mode local : « # Name = x » ou « # x » dans / juste avant le bloc [Peer]) ou d'un
 fichier JSON {clé_publique: nom} (--names). Le hub reconstitue l'historique des connexions à partir des relevés.
 
+MikroTik (#889) : --mikrotik /etc/si-agent/mikrotik-wg.json (root seulement) {"host", "user", "password", "port", "tls"} ;
+lecture par l'API RouterOS (routeros.py, commandes …/print uniquement), compte du groupe « read » suffisant ;
+noms des pairs = champ name ou comment du routeur.
+
 Arguments : [--ssh compte@hote] [--ssh-key chemin] [--ssh-port 22] [--conf-dir /etc/wireguard] [--names fichier.json]
-            [--connected-s 180]
+            [--mikrotik fichier.json] [--connected-s 180]
 """
 import argparse
 import glob
@@ -73,6 +77,43 @@ def noms_conf(conf_dir):
     return noms
 
 
+def _int(v):
+    try:
+        return int(str(v).split()[0])
+    except (TypeError, ValueError, IndexError):
+        return 0
+
+
+def lire_mikrotik(cfg, connecter=None, now=None, connected_s=180):
+    """Routeur MikroTik (RouterOS 7) -> même structure que parse_dump ; aucune clé privée lue ni renvoyée."""
+    import routeros
+    now = now or time.time()
+    api = (connecter or routeros.connecter)(cfg["host"], cfg.get("port"), bool(cfg.get("tls")))
+    try:
+        api.login(cfg["user"], cfg["password"])
+        ifs = {i.get("name"): {"interface": i.get("name"), "public_key": i.get("public-key"), "port": _int(i.get("listen-port")) or None, "peers": [],
+                               "actif": i.get("disabled") != "true" and i.get("running", "true") != "false"}
+               for i in api.lire("/interface/wireguard/print")}
+        for p in api.lire("/interface/wireguard/peers/print"):
+            if p.get("disabled") == "true":
+                continue
+            age = routeros.duree_s(p.get("last-handshake"))
+            adr, port = p.get("current-endpoint-address") or p.get("endpoint-address"), p.get("current-endpoint-port") or p.get("endpoint-port")
+            ifs.setdefault(p.get("interface"), {"interface": p.get("interface"), "peers": []})["peers"].append({
+                "public_key": p.get("public-key"), "name": (p.get("name") or p.get("comment") or "")[:60],
+                "endpoint": ("%s:%s" % (adr, port) if port and port != "0" else adr) if adr else None,
+                "allowed_ips": [x for x in (p.get("allowed-address") or "").split(",") if x],
+                "handshake_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - age)) if age is not None else None,
+                "handshake_age_s": age, "rx": _int(p.get("rx")), "tx": _int(p.get("tx")),
+                "connected": age is not None and age <= connected_s})
+        return list(ifs.values())
+    finally:
+        try:
+            api.s.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def lire(a, runner=subprocess.run, which=shutil.which):
     if a.ssh:
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", "-p", str(a.ssh_port)]
@@ -90,7 +131,7 @@ def lire(a, runner=subprocess.run, which=shutil.which):
     return p.stdout
 
 
-def main(argv=None, runner=subprocess.run, which=shutil.which, now=None):
+def main(argv=None, runner=subprocess.run, which=shutil.which, now=None, connecter=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ssh")
     ap.add_argument("--ssh-key")
@@ -98,14 +139,21 @@ def main(argv=None, runner=subprocess.run, which=shutil.which, now=None):
     ap.add_argument("--conf-dir", default="/etc/wireguard")
     ap.add_argument("--names")
     ap.add_argument("--connected-s", type=int, default=180)
+    ap.add_argument("--mikrotik")
     a = ap.parse_args(argv)
     out = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "source": a.ssh or "local", "interfaces": [], "alerts": []}
     try:
-        ifs = parse_dump(lire(a, runner, which), now=now, connected_s=a.connected_s)
+        if a.mikrotik:
+            with open(a.mikrotik, encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            out["source"] = "mikrotik:%s" % cfg.get("host")
+            ifs = lire_mikrotik(cfg, connecter, now=now, connected_s=a.connected_s)
+        else:
+            ifs = parse_dump(lire(a, runner, which), now=now, connected_s=a.connected_s)
     except Exception as e:  # noqa: BLE001
         out["alerts"].append({"code": "vpn-lecture", "severity": "warning", "message": "état WireGuard illisible (%s) : %s" % (out["source"], str(e)[:150])})
         return out
-    noms = {} if a.ssh else noms_conf(a.conf_dir)
+    noms = {} if (a.ssh or a.mikrotik) else noms_conf(a.conf_dir)
     if a.names:
         try:
             with open(a.names, encoding="utf-8") as fh:
@@ -114,7 +162,7 @@ def main(argv=None, runner=subprocess.run, which=shutil.which, now=None):
             out["alerts"].append({"code": "vpn-noms", "severity": "info", "message": "fichier des noms illisible : %s" % e})
     for i in ifs:
         for p in i["peers"]:
-            p["name"] = noms.get(p["public_key"]) or ""
+            p["name"] = noms.get(p["public_key"]) or p.get("name") or ""
     out["interfaces"] = ifs
     if not ifs:
         out["alerts"].append({"code": "vpn-aucune-interface", "severity": "warning", "message": "aucune interface WireGuard active (%s)" % out["source"]})

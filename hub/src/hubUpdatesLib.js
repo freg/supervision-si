@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  889: [{ view: "vpn", hint: "onglet VPN : WireGuard d'un routeur MikroTik par l'API RouterOS (compte en lecture seule)" }],
   888: [{ view: "vpn", hint: "onglet VPN : opérateur d'origine (Starlink, 4G…) et stabilité par utilisateur (sessions courtes, reconnexions)" }],
   885: [{ view: "vpn", hint: "onglet VPN : sessions SoftEther (r2d2) par hub, utilisateur, protocole, poste, volumes ; échecs d'authentification" }],
   884: [{ view: "vpn", hint: "onglet VPN : pairs WireGuard et historique des connexions reconstitué (lecture seule)" }],

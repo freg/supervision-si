@@ -38,6 +38,8 @@ export default function VpnView({ onBack, siAgentApiBase }) {
           <p>Aucun serveur VPN relevé. Activer la sonde <b>wireguard</b> (<a href={hubLink("si-agent", { tab: "catalogue" })}>Agents › Sondes</a>) :</p>
           <ul>
             <li><b>SoftEther</b> (ex. r2d2) : sonde <b>softether</b> sur l'agent du serveur, sans argument ni mot de passe (lecture des journaux de sécurité).</li>
+            <li><b>WireGuard sur routeur MikroTik</b> : sonde wireguard sur un agent autorisé par le routeur, argument <code>--mikrotik /etc/si-agent/mikrotik-wg.json</code>
+              (compte RouterOS du groupe « read », API 8728 / 8729 ; pas de lien : fichier à créer sur l'hôte de l'agent, root seulement).</li>
             <li><b>WireGuard, agent installé sur le serveur VPN</b> : sonde wireguard, aucun argument ; les noms des pairs viennent des commentaires de /etc/wireguard/*.conf.</li>
             <li><b>Serveur géré par un autre administrateur</b> : il installe la commande forcée <code>wg-etat.sh</code> (fournie avec la sonde : lecture seule, clés privées masquées) ;
               arguments <code>--ssh wgetat@&lt;serveur&gt; --ssh-key &lt;clé&gt; [--names noms.json]</code> (pas de lien : opération manuelle sur le serveur VPN).</li>
