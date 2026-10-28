@@ -140,5 +140,43 @@ class Supervision(unittest.TestCase):   # #823 : usages par hôte, notification 
         self.assertIn("apache-2.0 -> other", vus[0][0])
 
 
+class Apprentissage(unittest.TestCase):   # #908 : dédicace apprentissage + urgence + revue du jour
+    def test_apprend_niveau(self):
+        base = item("org/Mod-7B", total=7_000_000_000)                       # poids ouverts + apache -> 1
+        self.assertEqual(M.apprend_niveau(base), 1)
+        outille = dict(base); outille["tags"] = base["tags"] + ["lora", "peft"]
+        self.assertEqual(M.apprend_niveau(outille), 2)
+        dyn = item("org/Llama-Unlearning-8B", total=8_000_000_000)           # mot distinctif dans le nom -> 3
+        self.assertEqual(M.apprend_niveau(dyn), 3)
+        ferme = item("org/Clos-7B", lic=None)                                # ni safetensors ni licence -> 0
+        self.assertEqual(M.apprend_niveau(ferme), 0)
+        edit = item("org/Mod-7B", total=7_000_000_000); edit["tags"] += ["knowledge-editing"]
+        self.assertEqual(M.apprend_niveau(edit), 3)
+        self.assertEqual(M.normaliser(outille)["apprend"], 2)
+
+    def test_risque_et_revue(self):
+        mach = M.lire_machines("pcia:24")
+        leger = M.enrichir(M.normaliser(item("org/Leger-4B", total=4_000_000_000)), mach)       # tient, libre -> risque 0
+        gated = M.enrichir(M.normaliser(item("org/Gated-7B", total=7_000_000_000, gated="manual")), mach)  # restreint -> 2
+        cond = M.enrichir(M.normaliser(item("org/Cond-7B", lic="llama3.1", total=7_000_000_000)), mach)    # conditions -> 1
+        gros = M.enrichir(M.normaliser(item("org/Gros-400B", total=400_000_000_000)), mach)     # ne tient pas
+        self.assertEqual((leger["risque"], gated["risque"], cond["risque"]), (0, 2, 1))
+        self.assertEqual(leger["apprend_lib"], "enrichissable")
+        maintenant = __import__("time").time()
+        r = M.revue([leger, gated, cond, gros], maintenant=maintenant, jours=2)
+        self.assertEqual([m["id"] for m in r["a_telecharger"]], ["org/Gated-7B"])   # restreint ET tient chez nous
+        self.assertTrue(all(m["machines"] for m in r["legers"]))
+        self.assertNotIn("org/Gros-400B", [m["id"] for m in r["legers"]])
+        self.assertEqual(r["classement"][0]["id"], gated["id"])                      # léger + urgence -> en tête
+
+    def test_route_revue(self):
+        c = M.cnx()
+        c.execute("DELETE FROM modeles"); c.commit()
+        M.enregistrer(c, [item("org/Neuf-4B", total=4_000_000_000, cree="2026-10-27T10:00:00.000Z")], maintenant=__import__("time").time())
+        d = A.app.test_client().get("/modeles/revue?jours=30").get_json()
+        self.assertIn("org/Neuf-4B", [m["id"] for m in d["classement"]])
+        self.assertEqual(d["classement"][0]["apprend"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

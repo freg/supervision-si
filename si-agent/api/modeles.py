@@ -52,12 +52,18 @@ LIBRES = {"apache-2.0", "mit", "bsd", "bsd-2-clause", "bsd-3-clause", "bsd-3-cla
           "creativeml-openrail-m", "postgresql", "zlib"}
 OUVERTURE = {2: "libre", 1: "poids ouverts sous conditions", 0: "fermé / inconnu"}
 VARIANTE = re.compile(r"(?i)[-_.](gguf|awq|gptq|fp8|fp4|int4|int8|mlx|bnb|4bit|8bit|exl2|onnx|nvfp4|w4a16|w8a8|qat)(?![a-z])")
+# Dédicace « apprentissage » (#908) : niveau d'enrichissement possible du modèle.
+#   1 enrichissable (poids ouverts exploitables) · 2 outillé (adaptation LoRA/PEFT/TRL déclarée) · 3 apprend ET désapprend (l'idéal).
+NIV_APPREND = {0: "", 1: "enrichissable", 2: "outillé (LoRA/PEFT)", 3: "apprend & désapprend"}
+APPREND_OUTILS = {"peft", "lora", "qlora", "adapter", "adapters", "trl", "sft", "dpo", "orpo", "unsloth", "autotrain"}
+APPREND_DYNAMIQUE = ("unlearn", "knowledge-editing", "knowledge-edit", "model-editing", "continual-learning",
+                     "lifelong-learning", "online-learning", "incremental-learning", "concept-erasure", "self-correcting")
 _TAILLE = re.compile(r"(?i)(?<![a-z\d.])(\d+(?:\.\d+)?)\s?([bm])(?![a-z])")
 EXPAND = ["createdAt", "lastModified", "gated", "safetensors", "tags", "pipeline_tag", "downloads", "likes", "cardData"]
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS modeles (id TEXT PRIMARY KEY, auteur TEXT, cree REAL, maj REAL, params_b REAL, licence TEXT,
-  ouverture INTEGER, gated TEXT, pipeline TEXT, telechargements INTEGER, likes INTEGER, variante INTEGER DEFAULT 0,
+  ouverture INTEGER, gated TEXT, pipeline TEXT, telechargements INTEGER, likes INTEGER, variante INTEGER DEFAULT 0, apprend INTEGER DEFAULT 0,
   premier_vu REAL, dernier_vu REAL, disparu REAL, suivi INTEGER DEFAULT 0, ecarte INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS modeles_hist (id INTEGER PRIMARY KEY, modele TEXT NOT NULL, at REAL, evenement TEXT, avant TEXT,
   apres TEXT, alerte INTEGER DEFAULT 0, vu INTEGER DEFAULT 0);
@@ -128,6 +134,33 @@ def _ts(iso):
         return None
 
 
+def apprend_niveau(item):
+    """Niveau d'enrichissement par apprentissage (0..3, cf. NIV_APPREND) : 3 si désapprentissage / édition de
+    connaissances / apprentissage continu (mots distinctifs dans le nom ou les tags -- l'idéal recherché) ;
+    2 si une adaptation légère est déjà outillée (LoRA, PEFT, TRL...) ; 1 si les poids sont ouverts et exploitables
+    (safetensors présents, licence au moins sous conditions) ; 0 sinon."""
+    tags = [str(t).lower() for t in (item or {}).get("tags") or []]
+    blob = str((item or {}).get("id") or "").lower().replace("/", " ") + " " + " ".join(tags)
+    if any(mot in blob for mot in APPREND_DYNAMIQUE):
+        return 3
+    if any(t in APPREND_OUTILS for t in tags):
+        return 2
+    st = (item or {}).get("safetensors") or {}
+    if isinstance(st, dict) and st.get("total") and ouverture(licence_de(item)) >= 1:
+        return 1
+    return 0
+
+
+def risque_dispo(m):
+    """Urgence de téléchargement (avant disparition / passage payant) : 2 sans tarder (accès restreint « gated », qui
+    peut être révoqué ou fermé) · 1 à surveiller (poids sous conditions, licence révocable) · 0 rien · -1 déjà indisponible."""
+    if m.get("disparu"):
+        return -1
+    if m.get("gated"):
+        return 2
+    return 1 if (m.get("ouverture") or 0) == 1 else 0
+
+
 def normaliser(item):
     mid = str(item.get("id") or item.get("modelId") or "")
     lic = licence_de(item)
@@ -136,7 +169,7 @@ def normaliser(item):
             "maj": _ts(item.get("lastModified")), "params_b": params_depuis(item), "licence": lic, "ouverture": ouverture(lic),
             "gated": "" if g in (None, False, "false") else str(g), "pipeline": item.get("pipeline_tag") or "",
             "telechargements": int(item.get("downloads") or 0), "likes": int(item.get("likes") or 0),
-            "variante": 1 if VARIANTE.search(mid.split("/")[-1]) else 0}
+            "variante": 1 if VARIANTE.search(mid.split("/")[-1]) else 0, "apprend": apprend_niveau(item)}
 
 
 def comparer(ancien, nouveau):
@@ -166,9 +199,17 @@ def alerte(evenement, m, machines, initial=False):
 
 
 # -- base ----------------------------------------------------------------------------------------------------------
+def _migrer(c):
+    cols = {r[1] for r in c.execute("PRAGMA table_info(modeles)")}
+    if "apprend" not in cols:   # #908 : niveau d'enrichissement par apprentissage, recalculé à la prochaine relève
+        c.execute("ALTER TABLE modeles ADD COLUMN apprend INTEGER DEFAULT 0")
+        c.commit()
+
+
 def cnx():
     c = stockage.cnx()
     c.executescript(SCHEMA)
+    _migrer(c)
     return c
 
 
@@ -239,12 +280,12 @@ def enregistrer(c, items, maintenant=None, initial=False):
         consigner(c, m, evts, maintenant, initial)
         n += len(evts)
         c.execute("""INSERT INTO modeles (id, auteur, cree, maj, params_b, licence, ouverture, gated, pipeline, telechargements, likes,
-                     variante, premier_vu, dernier_vu, disparu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)
+                     variante, apprend, premier_vu, dernier_vu, disparu) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)
                      ON CONFLICT(id) DO UPDATE SET maj=excluded.maj, params_b=COALESCE(excluded.params_b, modeles.params_b),
                      licence=excluded.licence, ouverture=excluded.ouverture, gated=excluded.gated, pipeline=excluded.pipeline,
-                     telechargements=excluded.telechargements, likes=excluded.likes, dernier_vu=excluded.dernier_vu, disparu=NULL""",
+                     telechargements=excluded.telechargements, likes=excluded.likes, apprend=excluded.apprend, dernier_vu=excluded.dernier_vu, disparu=NULL""",
                   (m["id"], m["auteur"], m["cree"], m["maj"], m["params_b"], m["licence"], m["ouverture"], m["gated"], m["pipeline"],
-                   m["telechargements"], m["likes"], m["variante"], maintenant, maintenant))
+                   m["telechargements"], m["likes"], m["variante"], m["apprend"], maintenant, maintenant))
     c.commit()
     return n
 
@@ -296,7 +337,46 @@ def enrichir(m, mach):
     m["vram_q4"] = vram_q4(m.get("params_b"))
     m["machines"] = machines_ok(m.get("params_b"), mach)
     m["ouverture_lib"] = OUVERTURE.get(m.get("ouverture") or 0)
+    m["risque"] = risque_dispo(m)
+    m["apprend_lib"] = NIV_APPREND.get(m.get("apprend") or 0)
     return m
+
+
+def _recent(m, maintenant, jours):
+    t = m.get("cree") or m.get("premier_vu") or 0
+    return (maintenant - t) <= jours * 86400
+
+
+def score_revue(m):
+    """Mérite d'être vu aujourd'hui (plus c'est haut, mieux c'est). Dans l'ordre des priorités demandées :
+    tenir sur une de nos machines (légèreté, priorité visuelle forte), urgence de téléchargement, capacité
+    d'apprentissage (l'idéal 3 ressort), un bonus de popularité."""
+    s = 0.0
+    nb = len(m.get("machines") or [])
+    if nb:
+        s += 40 + 6 * nb
+        s += max(0.0, 24 - (m.get("vram_q4") or 24))   # plus c'est léger, plus ça monte
+    r = m.get("risque") or 0
+    s += 30 if r >= 2 else 12 if r == 1 else 0
+    s += 14 * (m.get("apprend") or 0)
+    s += min(10.0, (m.get("likes") or 0) / 20.0)
+    return round(s, 1)
+
+
+def revue(modeles, maintenant=None, jours=2):
+    """Revue synthétique du jour à partir de modèles déjà enrichis : un classement global et des listes ciblées
+    (nouveautés récentes, à télécharger sans tarder, légers qui tiennent chez nous, apprentissage, idéal)."""
+    maintenant = maintenant or time.time()
+    base = [dict(m) for m in modeles if m.get("pipeline") in PERTINENTS and not m.get("variante") and not m.get("ecarte")]
+    for m in base:
+        m["score"] = score_revue(m)
+    classes = sorted(base, key=lambda m: (-m["score"], -(m.get("cree") or m.get("premier_vu") or 0)))
+    return {"at": maintenant, "jours": jours, "total": len(classes), "classement": classes[:60],
+            "nouveaux": [m for m in classes if _recent(m, maintenant, jours)][:40],
+            "a_telecharger": [m for m in classes if (m.get("risque") or 0) >= 2 and m.get("machines")][:20],
+            "legers": sorted([m for m in classes if m.get("machines")], key=lambda m: (m.get("vram_q4") or 99, -m["score"]))[:40],
+            "apprentissage": [m for m in classes if (m.get("apprend") or 0) >= 2][:30],
+            "ideal": [m for m in classes if (m.get("apprend") or 0) >= 3][:20]}
 
 
 # -- mes modèles (Ollama) ----------------------------------------------------------------------------------------
@@ -400,6 +480,23 @@ def catalogue():
             continue
         out.append(m)
     return jsonify({"modeles": out[:1000], "total": len(out)})
+
+
+@bp.get("/modeles/revue")
+def revue_api():
+    """Revue du jour (#908) : classement synthétique des modèles récents, priorité aux légers qui tiennent sur nos
+    machines, urgence de téléchargement et dédicace apprentissage. `jours` = fenêtre « nouveautés », `fenetre` = profondeur du classement."""
+    c = cnx()
+    a = request.args
+    try:
+        jours = float(a.get("jours") or 2)
+        fenetre = float(a.get("fenetre") or 120)
+    except ValueError:
+        return jsonify({"erreur": "paramètre invalide"}), 400
+    mach = machines()
+    rows = lignes(c.execute("SELECT * FROM modeles WHERE disparu IS NULL AND COALESCE(cree, premier_vu) >= ? "
+                            "ORDER BY COALESCE(cree, premier_vu) DESC", (time.time() - fenetre * 86400,)))
+    return jsonify(revue([enrichir(m, mach) for m in rows], jours=jours))
 
 
 @bp.get("/modeles/historique")
