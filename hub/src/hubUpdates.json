@@ -1,5 +1,11 @@
 [
  {
+  "n": 902,
+  "from": 902,
+  "date": "2026-10-28",
+  "title": "Fiche agent : diagnostic Windows « rien ne remonte » à copier"
+ },
+ {
   "n": 901,
   "from": 901,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 863,
   "date": "2026-10-26",
   "title": "Pour les décideurs : où, quand, combien -- serveurs concernés et organisation du chantier par phase"
- },
- {
-  "n": 862,
-  "from": 862,
-  "date": "2026-10-26",
-  "title": "Excel décideurs et audit : chantiers en cours et décisions à prendre"
  }
 ]

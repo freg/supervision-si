@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  902: [{ view: "si-agent", hint: "fiche d'un agent Windows : bloc de diagnostic « l'agent est installé mais rien ne remonte » à copier" }],
   900: [{ view: "si-agent", hint: "Windows : le fichier .cmd d'installation se suffit à lui-même (télécharge et vérifie l'agent)" }],
   899: [{ view: "si-agent", hint: "accueil sans connexion : « Nouvel agent » (installation ouverte agent par agent, fiche › Installation) et « Accès sécurisé »" }],
   897: [{ view: "si-agent", hint: "Agents › Installation : étape Windows « téléchargement, vérification et décompression » (PowerShell)" }],

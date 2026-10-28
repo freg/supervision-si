@@ -1,3 +1,10 @@
+## 2026-10-28 — Fiche agent : diagnostic Windows « rien ne remonte » à copier (livraison #902)
+
+- Panneau d'installation d'un agent Windows : bloc dépliable « l'agent est installé mais rien ne remonte » avec les
+  commandes PowerShell (tâche planifiée, processus python, agent.json, 30 dernières lignes du journal) à copier d'un
+  clic, et la lecture du résultat (tâche OK, contact du hub, sonde à activer). Évite de recopier à vue.
+- Vérifié : syntaxe JSX.
+
 ## 2026-10-28 — Keycloak : déconnexion depuis le nom public du hub (livraison #901)
 
 - « L'URI de redirection est invalide » à la déconnexion depuis le nom public : les adresses de retour après

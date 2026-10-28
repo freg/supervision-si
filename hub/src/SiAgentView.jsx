@@ -98,6 +98,13 @@ function AccueilOuverture({ base, agentId }) {
   );
 }
 
+const WINDOWS_DIAG = [
+  "Get-ScheduledTask si-agent | Get-ScheduledTaskInfo | Format-List TaskName,LastRunTime,LastTaskResult,NextRunTime",
+  "Get-Process python* -ErrorAction SilentlyContinue | Format-Table Id,StartTime",
+  "if (Test-Path C:\\ProgramData\\si-agent\\agent.json) { (Get-Content C:\\ProgramData\\si-agent\\agent.json | ConvertFrom-Json).agent_id } else { 'agent.json ABSENT : enrolement non fait' }",
+  "Get-Content C:\\ProgramData\\si-agent\\agent.log -Tail 30 -ErrorAction SilentlyContinue",
+].join("\n");
+
 export default function SiAgentView({ onBack, siAgentApiBase }) {
   const agentCols = useTableColumns("si-agent.agents", AGENT_COLUMNS);
   const [status, setStatus] = useState(null);
@@ -646,6 +653,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   )}
                   {install.install_command_windows && (
                     <>
+                      <details style={{ margin: "8px 0" }}>
+                        <summary style={{ cursor: "pointer" }}>Windows — l'agent est installé mais rien ne remonte : diagnostic sur le poste</summary>
+                        <p className="muted" style={{ margin: "4px 0", fontSize: 12 }}>Sur le poste, Terminal <b>administrateur</b> (PowerShell), copier ce bloc : tâche planifiée, processus, journal, enrôlement.</p>
+                        <pre className="np-secret">{WINDOWS_DIAG}</pre>
+                        <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                          <b>LastTaskResult 0</b> + un processus <code>python</code> = l'agent tourne. Journal « central » / « flush » = il joint le hub.
+                          Si <code>agent.json</code> manque : l'installation a échoué (relancer le .cmd, il montre son journal).
+                          S'il tourne mais rien ici : activer la sonde <b>poste-windows</b> (Commandes ci-dessous) — sans sonde, seul l'inventaire de base remonte.</p>
+                      </details>
                       {(() => {
                         const lan = ((String(install.install_command || "").match(/--central\s+'?([^'\s]+)/) || [])[1]) || "";
                         const b = normalizeBase(hubAddr) || [...hubHistory, lan, `${window.location.origin}/api/si-agent`].map(normalizeBase).filter(Boolean)[0] || "";
