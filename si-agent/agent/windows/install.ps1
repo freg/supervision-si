@@ -217,7 +217,7 @@ $cfg = [ordered]@{
   queue_path = (Join-Path $DataDir "queue.db"); plugins_dir = (Join-Path $DataDir "plugins")
   state_path = (Join-Path $DataDir "state.json"); block_file = (Join-Path $DataDir "BLOCKED")
 }
-if (Test-Path $caFile) { $cfg.ca_file = $caFile }
+if ((Test-Path $caFile) -and -not $SystemCa) { $cfg.ca_file = $caFile }   # #905 : en principal public (SystemCa), la CA interne récupérée ne sert qu une fois au secours (fallback_ca_file), pas au principal
 if ($SystemCa) { $cfg.ca_system_bundle = $true; $cfg.ca_refresh_script = (Join-Path $InstallDir "central-ca.ps1") }   # #682 : l'agent régénère le faisceau si la vérification échoue
 if ($Fallback) {   # #904 : itinérance -- l'agent bascule seul vers le secours quand le principal est injoignable, et revient au principal dès qu'il répond
   $fb = $Fallback.TrimEnd("/"); $cfg.central_fallback_url = $fb

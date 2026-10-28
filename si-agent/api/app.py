@@ -124,6 +124,7 @@ RETENTION_DAYS = int(os.environ.get("SI_AGENT_RETENTION_DAYS", "90"))
 TASK_RETENTION = {k.strip(): int(v) for k, v in (x.split("=", 1) for x in os.environ.get(
     "SI_AGENT_RETENTION_TASKS", "plugin:guest-usage=3").split(",") if "=" in x) if v.strip().isdigit()}
 PUBLIC_URL = os.environ.get("SI_AGENT_PUBLIC_URL", "").rstrip("/")
+INTERNAL_URL = os.environ.get("SI_AGENT_INTERNAL_URL", "").rstrip("/")   # #905 : adresse LAN du central (itinérance : secours)
 CA_FILE = os.environ.get("SI_AGENT_CA_FILE", "/ca/ca.crt")
 EVENTS_RETENTION_DAYS = int(os.environ.get("SI_AGENT_EVENTS_RETENTION_DAYS", "365"))
 MEMCACHED_HOST = os.environ.get("MEMCACHED_HOST", "memcached")
@@ -778,6 +779,25 @@ def _ps_quote(s):
     return '"' + re.sub(r'["$`]', "", str(s)) + '"'
 
 
+def _win_tls_fallback(central):
+    """#905 : argument(s) TLS d'install.ps1 pour `central` (URL principale), avec itinérance si une adresse interne
+    distincte est connue (SI_AGENT_INTERNAL_URL). L'agent bascule seul entre principal et secours (#474).
+    - principal public + interne connu -> principal magasin système (-SystemCa), CA interne épinglée pour le
+      secours interne (-Fallback) : le portable passe du nom public (Internet) à l'adresse LAN tout seul ;
+    - principal interne -> CA interne épinglée (-CaFingerprint), secours public si distinct ;
+    - sinon -> magasin système."""
+    sha = _ca_info().get("sha256")
+    pub_central = not _pin_internal_ca(central)
+    if pub_central and INTERNAL_URL and INTERNAL_URL != central and _pin_internal_ca(INTERNAL_URL) and sha:
+        return " -SystemCa -CaFingerprint %s -Fallback %s" % (sha, INTERNAL_URL)
+    if not pub_central:
+        tls = (" -CaFingerprint %s" % sha) if sha else " -Ca C:\\chemin\\ca.crt"
+        if PUBLIC_URL and PUBLIC_URL != central and not _pin_internal_ca(PUBLIC_URL):
+            tls += " -Fallback %s" % PUBLIC_URL
+        return tls
+    return " -SystemCa"
+
+
 def _install_command_windows(agent_id, secret, site):
     """Variante Windows 10/11 (#440, même archive). #446 : passe par
     `powershell -ExecutionPolicy Bypass -File` -- un poste Windows refuse
@@ -785,15 +805,8 @@ def _install_command_windows(agent_id, secret, site):
     le .ps1 dans le Bloc-notes ; `windows/install.cmd` fait la même chose
     avec élévation automatique en administrateur."""
     central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
-    ca = _ca_info()
-    # #904 : central public (nom de domaine, frontal Let's Encrypt) -> magasin Windows (-SystemCa) ;
-    # central interne (IP, nom local) -> CA du projet épinglée, comme install.sh et le MSI.
-    if not _pin_internal_ca(central):
-        tls = " -SystemCa"
-    else:
-        tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
     return "powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
-        _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), tls)
+        _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), _win_tls_fallback(central))
 
 
 def _ascii(s):
@@ -857,7 +870,7 @@ def _install_cmd_windows(agent_id, secret, site):
         'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable apres telechargement. & pause & exit /b 1 )',
         ":pret",
         'set "LOG=%TEMP%\\si-agent-install.log"',
-        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, ("-CaFingerprint " + ca["sha256"]) if interne else "-SystemCa", central),
+        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, _win_tls_fallback(central).strip(), central),
         'if not "%errorlevel%"=="0" goto :erreur',
         "echo OK - agent %s installe et demarre (journal : %%LOG%%)" % aid,
         "timeout /t 10 >nul",

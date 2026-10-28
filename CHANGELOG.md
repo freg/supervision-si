@@ -1,3 +1,16 @@
+## 2026-10-28 — Itinérance automatique à l'installation Windows (livraison #905)
+
+- Le hub connaît désormais son adresse interne (`SI_AGENT_INTERNAL_URL`, par défaut `https://HOST_IP:GATEWAY_PORT/api/si-agent`)
+  en plus du nom public. Les commandes d'installation Windows (`.ps1` et `.cmd` de l'accueil / de la fiche agent)
+  écrivent automatiquement un central de secours : principal = nom public (magasin système, joignable d'Internet),
+  secours = adresse interne (CA du projet épinglée, récupérée via le nom public qui est joignable partout). L'agent
+  bascule seul (#474) : il passe au secours quand le principal est injoignable et revient dès qu'il répond. Un portable
+  comme pc-paul joint ainsi le central par Internet (sans VPN) et par le LAN, sans configuration manuelle.
+- `install.ps1` (#905) : en principal public (`-SystemCa`), la CA interne récupérée pour le secours n'écrase plus la
+  confiance du principal (`ca_file` réservé au cas non-SystemCa). `-Fallback` / `-FallbackCa` (#904) inchangés.
+- Vérifié : génération `.ps1` / `.cmd` pour central public + interne connu (-> -SystemCa -CaFingerprint -Fallback),
+  central interne, central public sans interne ; syntaxe. Non vérifié : sur un vrai Windows itinérant.
+
 ## 2026-10-28 — Installation Windows : CA du central public corrigée, et itinérance (central de secours) (livraison #904)
 
 - Correctif : le fichier `.cmd` et la commande d'installation Windows générés par le hub forçaient toujours
