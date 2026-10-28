@@ -1,5 +1,11 @@
 [
  {
+  "n": 887,
+  "from": 887,
+  "date": "2026-10-28",
+  "title": "Page Agents : ligne d'installation avec un site contenant des espaces"
+ },
+ {
   "n": 886,
   "from": 886,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 848,
   "date": "2026-10-23",
   "title": "si-onglets : la fenêtre de terminal et ses onglets rouverts à l'ouverture de la session"
- },
- {
-  "n": 847,
-  "from": 847,
-  "date": "2026-10-23",
-  "title": "Veille de santé du réseau du campus : Nebula + agents internes, VLAN à usage mixte"
  }
 ]

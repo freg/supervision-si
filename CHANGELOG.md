@@ -1,3 +1,10 @@
+## 2026-10-28 — Page Agents : ligne d'installation avec un site contenant des espaces (livraison #887)
+
+- La ligne `./install.sh …` régénérée par le hub pour l'adresse choisie laissait le site sans guillemets :
+  « bureau/optline service/téléport 2 » se coupait en plusieurs arguments (« argument inconnu »). Le site et
+  l'identifiant sont désormais protégés pour le shell (`shq`), comme le faisait déjà la ligne fournie par l'API.
+- Vérifié : test `agentInstallLib` (espaces, accents, apostrophe) et découpage réel par bash.
+
 ## 2026-10-28 — Sondes softether, wireguard et nas-snmp compatibles Python 3.5 (livraison #886)
 
 - r2d2 (Debian 9, i686) a Python 3.5.3 : `datetime.fromisoformat` et `subprocess.run(capture_output, text)`

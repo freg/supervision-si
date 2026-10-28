@@ -22,6 +22,13 @@ export function caFingerprintOf(installCommand) {
   return ((String(installCommand || "").match(/--ca-fingerprint\s+(\S+)/) || [])[1]) || "";
 }
 
+/** Argument de shell : tel quel s'il est sûr, sinon entre apostrophes (#887 : site « bureau/optline service/téléport 2 »
+ * collé tel quel cassait la commande en plusieurs arguments). */
+export function shq(v) {
+  const s = String(v ?? "");
+  return /^[A-Za-z0-9._\/:@%+=,-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
 export function installLines({ base, agentId, site, pkg, caFp }) {
   const b = normalizeBase(base);
   const internal = isInternal(b);
@@ -30,7 +37,7 @@ export function installLines({ base, agentId, site, pkg, caFp }) {
     const folder = pkg.name.replace(/\.tar\.gz$/, "");
     out.download = `curl -fsS${internal ? "k" : "L"} -o ${pkg.name} ${b}/package && echo '${pkg.sha256}  ${pkg.name}' | sha256sum -c && tar xzf ${pkg.name} && cd ${folder}`;
   }
-  out.install = `./install.sh --agent ${agentId} --secret "$TOKEN" --central ${b} --site ${site || "default"}` + (internal && caFp ? ` --ca-fingerprint ${caFp}` : "");
+  out.install = `./install.sh --agent ${shq(agentId)} --secret "$TOKEN" --central ${b} --site ${shq(site || "default")}` + (internal && caFp ? ` --ca-fingerprint ${caFp}` : "");
   return out;
 }
 

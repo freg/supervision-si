@@ -39,3 +39,12 @@ test("hôte ancien : Python autonome puis la même ligne avec --python", () => {
   assert.match(l[2], /UV_PYTHON_INSTALL_DIR=\/opt\/pyagent/);
   assert.equal(oldHostLines("sudo ./install.sh --agent a")[4], 'sudo ./install.sh --python "$PYAGENT" --agent a');
 });
+
+test("#887 : site avec espaces / accents / apostrophe protégé pour le shell", async () => {
+  const { installLines, shq } = await import("../src/agentInstallLib.js");
+  assert.equal(shq("optline/teleport2"), "optline/teleport2");
+  assert.equal(shq("bureau/optline service/téléport 2"), "'bureau/optline service/téléport 2'");
+  assert.equal(shq("l'atelier"), "'l'\\''atelier'");
+  const l = installLines({ base: "https://192.0.2.10:6443", agentId: "pc-1", site: "bureau/optline service/téléport 2", caFp: "ab" });
+  assert.match(l.install, / --site 'bureau\/optline service\/téléport 2' --ca-fingerprint ab$/);
+});
