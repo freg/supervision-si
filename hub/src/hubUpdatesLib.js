@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  899: [{ view: "si-agent", hint: "accueil sans connexion : « Nouvel agent » (installation ouverte agent par agent, fiche › Installation) et « Accès sécurisé »" }],
   897: [{ view: "si-agent", hint: "Agents › Installation : étape Windows « téléchargement, vérification et décompression » (PowerShell)" }],
   896: [{ view: "postes-windows", hint: "tuile Postes Windows : réinstallation (partages, abonnements, logiciels, messagerie) et diagnostic de panne ; tests de charge à la demande" }],
   895: [{ view: "vpn", hint: "onglet VPN : pairs et sessions WireGuard reconstitués des journaux du routeur (échecs, pertes de contact, adresses d'origine)" }],

@@ -10,6 +10,7 @@ import { vueInitiale, memoriserVue, usePositionMemorisee, restaurerPosition } fr
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
+import Accueil from "./Accueil.jsx";   // #899 : accueil sans authentification
 import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
@@ -1339,34 +1340,10 @@ export default function App() {
     );
   }
 
-  if (auth.error) {
-    return (
-      <div className="hub-shell hub-center">
-        <div className="hub-card hub-error-card">
-          <h2>⚠️ Erreur de connexion</h2>
-          <p>{auth.error.message}</p>
-          <button className="primary" onClick={() => auth.signinRedirect()}>
-            Réessayer
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!auth.isAuthenticated) {
-    return (
-      <div className="hub-shell hub-center">
-        <div className="hub-card">
-          <h1>Hub SI</h1>
-          <p className="muted">
-            Portail d'accès — connexion via l'annuaire de l'entreprise (Keycloak / LDAP).
-          </p>
-          <button className="primary" onClick={() => auth.signinRedirect()}>
-            🔐 Se connecter
-          </button>
-        </div>
-      </div>
-    );
+  // #899 : visite non authentifiée (ou reconnexion silencieuse en échec) -> accueil à deux entrées, jamais une erreur seule
+  if (auth.error || !auth.isAuthenticated) {
+    return <Accueil apiBase={SI_AGENT_API_BASE_URL || "/api/si-agent"} onConnexion={() => auth.signinRedirect()}
+      erreur={auth.error && !/login[_ ]required|interaction[_ ]required|consent[_ ]required/i.test(String(auth.error.message)) ? auth.error.message : null} />;
   }
 
   const profile = auth.user?.profile || {};

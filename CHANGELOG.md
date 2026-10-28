@@ -1,3 +1,16 @@
+## 2026-10-28 — Accueil du hub sans connexion : « Nouvel agent » et « Accès sécurisé » (livraison #899)
+
+- Une visite non authentifiée (ou une reconnexion silencieuse en échec) n'affiche plus d'erreur mais un accueil à deux
+  entrées : « Nouvel agent » (nom du poste pré-configuré) et « Accès sécurisé » (mire Keycloak). Le message d'erreur
+  n'apparaît, discret, que s'il ne s'agit pas d'une simple absence de session.
+- « Nouvel agent » : un administrateur OUVRE l'installation de cet agent (fiche › Installation : 2 h ou 24 h, 72 h au
+  plus) ; tant qu'elle est ouverte et que l'agent n'a pas contacté le central depuis, le nom exact remet l'archive,
+  le fichier .cmd (Windows, détecté) et les lignes Linux / macOS. Refermée d'elle-même au premier contact ou à
+  l'échéance ; même refus que l'agent existe ou non ; 10 demandes / 10 min par adresse ; chaque remise journalisée.
+  Routes publiques `GET /accueil/agent?nom=` et `/accueil/agent.cmd?nom=` ; `GET/PUT /agents/<id>/accueil`.
+- Vérifié : `test_accueil.py` (ouverture, échéance, plafond, fermeture au premier contact, réinstallation d'un agent
+  vu avant l'ouverture, nom invalide, limiteur), syntaxe Python et JSX. Non vérifié : en réel.
+
 ## 2026-10-28 — Fichier d'installation Windows (.cmd) : archive trouvée à côté ou en dossier double (livraison #898)
 
 - Le `.cmd` silencieux exigeait d'être posé à la racine de l'archive décompressée. Il trouve désormais

@@ -4,7 +4,7 @@ import React, { Fragment, useCallback, useEffect, useMemo, useState } from "reac
 import { viewParams, clearViewParams, hubLink } from "./hubLinks.js";
 import {
   fetchSiAgentStatus, fetchFleet, fetchRelayedHosts, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
-  rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
+  rotateAgentSecret, fetchInstall, installCmdUrl, agentAccueil, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
   unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
   fetchEvents, fetchEventsSummary, testNotifications, fetchUpdates, saveUpdates, applyUpdates, fetchEventsMuted,
 } from "./siAgentClient.js";
@@ -79,6 +79,24 @@ const AGENT_COLUMNS = [
   { id: "risks", label: "Risques" }, { id: "plugins", label: "Sondes" },
   { id: "actions", label: "", fixed: true, className: "ups-actions-head", noResize: true },
 ];
+
+// #899 : installation depuis l'accueil du hub, sans connexion -- ouverte pour CET agent, durée bornée, refermée au premier contact
+function AccueilOuverture({ base, agentId }) {
+  const [e, setE] = useState(null);
+  useEffect(() => { agentAccueil(base, agentId).then(setE); }, [base, agentId]);
+  const regler = async (h) => setE(await agentAccueil(base, agentId, h));
+  if (!e || e.error) return null;
+  return (
+    <div className="hub-settings-row" style={{ margin: "8px 0 0", alignItems: "center" }}>
+      <label>Installation depuis l'accueil (sans connexion)</label>
+      {e.ouvert ? <Tone tone="warn">ouverte jusqu'au {new Date(e.jusqua).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</Tone>
+        : <span className="muted" style={{ fontSize: 12 }}>fermée{e.motif && e.motif !== "inconnu ou non ouvert" ? ` (${e.motif})` : ""}</span>}
+      {e.ouvert ? <button className="secondary" onClick={() => regler(0)}>Fermer</button>
+        : <><button className="secondary" onClick={() => regler(2)}>Ouvrir 2 h</button><button className="secondary" onClick={() => regler(24)}>Ouvrir 24 h</button></>}
+      <span className="muted" style={{ fontSize: 12 }}>sur le poste : page d'accueil du hub › « Nouvel agent » › nom <code>{agentId}</code> ; se referme dès que l'agent contacte le hub</span>
+    </div>
+  );
+}
 
 export default function SiAgentView({ onBack, siAgentApiBase }) {
   const agentCols = useTableColumns("si-agent.agents", AGENT_COLUMNS);
@@ -648,6 +666,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       )}
                     </>
                   )}
+                  <AccueilOuverture base={siAgentApiBase} agentId={selectedId} />
                   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                     <button className="secondary" onClick={() => handleRotate(selectedId)}>Nouveau secret</button>
                     <button className="secondary" onClick={() => setInstall(null)}>Masquer</button>

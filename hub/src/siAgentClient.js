@@ -128,6 +128,15 @@ export const deleteAgent = (apiBase, agentId, purge) => fetchJson(apiBase, `/age
 export const rotateAgentSecret = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/rotate-secret`, json("POST", {}));
 export const fetchInstall = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/install`);
 // #446 : fichier .cmd silencieux (secret inclus) généré par le central
+/** #899 : installation depuis l'accueil sans connexion -- état, ouverture ({heures}) ou fermeture (0). */
+export async function agentAccueil(apiBase, agentId, heures) {
+  try {
+    const r = await fetch(`${apiBase}/agents/${encodeURIComponent(agentId)}/accueil`, heures === undefined ? { credentials: "include" }
+      : { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ heures }) });
+    return await r.json();
+  } catch (err) { return { error: String(err) }; }
+}
+
 export const installCmdUrl = (apiBase, agentId) => `${apiBase}/agents/${encodeURIComponent(agentId)}/install.cmd`;
 
 export async function fetchAgentMeasurements(apiBase, agentId, { task, limit = 200, since } = {}) {

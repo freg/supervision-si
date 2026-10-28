@@ -859,6 +859,77 @@ def install_cmd_route(agent_id):
     return Response(body, mimetype="text/plain", headers={"Content-Disposition": 'attachment; filename="si-agent-install-%s.cmd"' % re.sub(r"[^A-Za-z0-9_.-]", "_", agent_id)})
 
 
+# ---- #899 : installation depuis l'accueil du hub, sans authentification (fenêtre ouverte par un administrateur) --
+import accueil as _accueil
+_ACCUEIL_LIMITE = _accueil.Limiteur(n=10, fenetre_s=600)
+
+
+@app.route("/agents/<agent_id>/accueil", methods=["GET", "PUT"])
+def agent_accueil_route(agent_id):
+    """Hub (administrateur) : état ou ouverture / fermeture ({heures: 24 | 0}) de l'installation depuis l'accueil."""
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    if request.method == "PUT":
+        heures = (request.get_json(silent=True) or {}).get("heures", 24)
+        try:
+            heures = float(heures)
+        except (TypeError, ValueError):
+            return jsonify({"error": "heures : nombre attendu"}), 400
+        store.set_setting(DB_PATH, _accueil.CLE, _accueil.ouvrir(store.get_setting(DB_PATH, _accueil.CLE, {}), agent_id, heures))
+        _event("accueil-installation", "info", "installation sans connexion %s pour l'agent %s" % ("ouverte %g h" % heures if heures > 0 else "fermée", agent_id), agent_id=agent_id)
+    etat = store.get_setting(DB_PATH, _accueil.CLE, {}) or {}
+    ouvert, motif = _accueil.statut(etat, agent_id, a)
+    f = etat.get(agent_id) or {}
+    return jsonify({"agent_id": agent_id, "ouvert": ouvert, "motif": motif,
+                    "jusqua": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(f["jusqua"])) if f.get("jusqua") else None}), 200
+
+
+def _accueil_agent():
+    """Contrôles communs des deux routes publiques -> (agent avec secret, None) ou (None, réponse d'erreur)."""
+    ip = _client_ip()
+    if not _ACCUEIL_LIMITE.accepte(ip):
+        return None, (jsonify({"error": "trop de demandes : réessayer dans quelques minutes"}), 429)
+    nom = (request.args.get("nom") or "").strip()
+    if not _accueil.NOM.match(nom):
+        return None, (jsonify({"error": "nom de poste invalide"}), 400)
+    a = store.get_agent(DB_PATH, nom, with_secret=True)
+    ouvert, motif = _accueil.statut(store.get_setting(DB_PATH, _accueil.CLE, {}) or {}, nom, a)
+    if not ouvert:
+        _log.warning("accueil : installation refusée pour « %s » depuis %s (%s)", nom, ip, motif)
+        # même réponse que l'agent existe ou non : le nom d'un agent ne se devine pas par l'accueil
+        return None, (jsonify({"error": "aucune installation ouverte pour ce nom : demander à un administrateur de l'ouvrir dans le hub (fiche de l'agent › Installation)"}), 404)
+    _event("accueil-installation-lue", "warning", "éléments d'installation de l'agent %s remis depuis l'accueil (sans connexion) à %s" % (nom, ip), agent_id=nom)
+    return a, None
+
+
+@app.route("/accueil/agent", methods=["GET"])
+def accueil_agent_route():
+    """PUBLIC (#899) : ?nom= -> éléments d'installation de l'agent si son installation est ouverte."""
+    a, err = _accueil_agent()
+    if err:
+        return err
+    aid = a["agent_id"]
+    return jsonify({"agent_id": aid, "site": a["site"], "secret": a["secret"], "central_url": PUBLIC_URL or None,
+                    "package": package.package_info(package.find_package()),
+                    "install_command": _install_command(aid, a["secret"], a["site"]),
+                    "install_command_windows": _install_command_windows(aid, a["secret"], a["site"]),
+                    "install_command_macos": _install_command_macos(aid, a["secret"], a["site"]),
+                    "install_cmd_available": _install_cmd_windows(aid, a["secret"], a["site"]) is not None}), 200
+
+
+@app.route("/accueil/agent.cmd", methods=["GET"])
+def accueil_agent_cmd_route():
+    """PUBLIC (#899) : ?nom= -> le .cmd silencieux de l'agent si son installation est ouverte."""
+    a, err = _accueil_agent()
+    if err:
+        return err
+    body = _install_cmd_windows(a["agent_id"], a["secret"], a["site"])
+    if body is None:
+        return jsonify({"error": "fichier .cmd indisponible (CA interne absente ou caractère interdit)"}), 409
+    return Response(body, mimetype="text/plain", headers={"Content-Disposition": 'attachment; filename="si-agent-install-%s.cmd"' % re.sub(r"[^A-Za-z0-9_.-]", "_", a["agent_id"])})
+
+
 @app.route("/agents/<agent_id>/install", methods=["GET"])
 def install_route(agent_id):
     """Secret + commande d'installation prête à coller sur l'hôte -- la
