@@ -1,5 +1,11 @@
 [
  {
+  "n": 896,
+  "from": 896,
+  "date": "2026-10-28",
+  "title": "Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge"
+ },
+ {
   "n": 895,
   "from": 895,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 857,
   "date": "2026-10-26",
   "title": "État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs"
- },
- {
-  "n": 856,
-  "from": 856,
-  "date": "2026-10-26",
-  "title": "Migration : inventaire permanent de toutes les copies et de leur distance à la source ; récapitulatif permanent du risque"
  }
 ]

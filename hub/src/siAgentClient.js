@@ -61,6 +61,15 @@ export async function fetchWgSyslog(heures = 24) {
   } catch (err) { return { pairs: [], sessions: [], error: String(err) }; }
 }
 
+/** #896 : postes Windows (configuration à réinstaller, diagnostic, tests de charge). */
+export async function fetchPostesWindows(apiBase, agent = "") {
+  try {
+    const r = await fetch(`${apiBase}/postes-windows${agent ? `?agent=${encodeURIComponent(agent)}` : ""}`, { credentials: "include" });
+    const d = await r.json();
+    return Array.isArray(d?.postes) ? d.postes : [];
+  } catch { return []; }
+}
+
 /** #883 : NAS relevés par SNMP (sonde nas-snmp). */
 export async function fetchNas(apiBase) {
   try {

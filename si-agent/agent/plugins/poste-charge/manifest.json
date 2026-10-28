@@ -1,0 +1,13 @@
+{
+  "id": "poste-charge",
+  "version": "1",
+  "runner": "python",
+  "entry": "poste_charge.py",
+  "interval_seconds": 315360000,
+  "timeout_seconds": 1800,
+  "args": ["--cpu-s", "300", "--mem-pct", "60", "--mem-max-mo", "8192", "--disque-mo", "2048"],
+  "enabled": false,
+  "description": "Tests de charge À LA DEMANDE (#896), à ne pas activer : fiche de l'agent › Sondes › Exécuter… Processeur 100 % sur tous les cœurs (5 min, calcul vérifié), mémoire (60 % de la mémoire libre, motif écrit puis relu), disque (2 Go écrits, relus et comparés, débits), et sous Windows températures et évènements critiques apparus pendant le test. Verdict « défaut reproduit » si une erreur apparaît. Le poste est très ralenti pendant une dizaine de minutes : prévenir l'utilisateur.",
+  "source": "bundled",
+  "privileged": true
+}

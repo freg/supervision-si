@@ -415,6 +415,31 @@ def vpn_route():
     return jsonify({"serveurs": serveurs + se_serveurs, "sessions": sessions[:3000], "days": days}), 200
 
 
+@app.route("/postes-windows", methods=["GET"])
+def postes_windows_route():
+    """#896 : postes Windows (sonde poste-windows) et derniers tests de charge (poste-charge) ; ?agent= pour un seul."""
+    seul = (request.args.get("agent") or "").strip()
+    conn = store._connect(DB_PATH)
+    try:
+        cfg = {a: (h, at, d) for a, h, at, d in infra.latest(conn, "plugin:poste-windows")}
+        charge = {a: (at, d) for a, _h, at, d in infra.latest(conn, "plugin:poste-charge")}
+    finally:
+        conn.close()
+    out = []
+    for a in sorted(set(cfg) | set(charge)):
+        if seul and a != seul:
+            continue
+        h, at, d = cfg.get(a, (None, None, None))
+        d = d or {}
+        c = charge.get(a)
+        e = {"agent": a, "hote": h, "at": at, "poste": d.get("poste"), "alertes": d.get("alerts") or [],
+             "charge": dict(c[1] or {}, at=c[0]) if c else None}
+        if seul:
+            e.update(reinstallation=d.get("reinstallation"), diagnostic=d.get("diagnostic"))
+        out.append(e)
+    return jsonify({"postes": out}), 200
+
+
 @app.route("/nas", methods=["GET"])
 def nas_route():
     """#883 : NAS relevés par SNMP (sonde nas-snmp) -> {nas: [{… relevé, relais, at}]} (dernière mesure de chaque agent)."""

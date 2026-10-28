@@ -1,3 +1,21 @@
+## 2026-10-28 — Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge (livraison #896)
+
+- Sonde `poste-windows` (agent 0.6.15, lecture seule, toutes les 6 h, désactivée par défaut) : relevé PowerShell 5.1
+  (`collecte.ps1`, sortie UTF-8) analysé en Python. Réinstallation : partages servis, lecteurs et raccourcis réseau
+  par utilisateur, imprimantes, Office Click-to-Run, comptes Microsoft 365, profils et fichiers Outlook, Thunderbird
+  (comptes, serveurs d'envoi, agendas Google / CalDAV / locaux, d'après prefs.js), licences Windows et Office (clé
+  partielle), antivirus (état décodé), logiciels machine et par utilisateur. Diagnostic sur 30 jours : chronologie des
+  évènements critiques (arrêts brutaux, écrans bleus, WHEA, disque, NTFS, pilote graphique, mémoire épuisée,
+  diagnostic mémoire), journaux regroupés, plantages d'applications avec module en cause, vidages, fiabilité des
+  disques, volumes, indice de stabilité, températures ; constats correspondants. Aucun mot de passe lu ; profils non
+  connectés signalés (limite du compte SYSTEM).
+- Sonde `poste-charge`, À LA DEMANDE seulement : processeur (calcul vérifié sur tous les cœurs), mémoire (motif écrit
+  et relu), disque (écrit, relu, comparé, débits), températures et évènements critiques pendant le test ; verdict.
+- API `GET /postes-windows[?agent=]` ; tuile « Postes Windows » (liste, diagnostic, réinstallation, impression).
+- Vérifié : `test_poste_windows.py` (Thunderbird, antivirus, doublons, constats, sortie PowerShell avec BOM, échec de
+  collecte), `test_poste_charge.py` (épreuves réduites, fichier effacé), syntaxe JSX, tests de l'agent.
+  NON vérifié : collecte.ps1 sur un vrai Windows (aucun PowerShell ici) -- premier relevé à contrôler.
+
 ## 2026-10-28 — Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik (livraison #895)
 
 - Remplace la sonde wireguard pour le routeur du bureau (l'administrateur envoie ses journaux plutôt que d'ouvrir
