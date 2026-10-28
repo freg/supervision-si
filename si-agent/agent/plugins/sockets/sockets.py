@@ -29,7 +29,19 @@ def _user_linux(uid):
         return str(uid)
 
 
-def parse_ss(texte, user_de_uid=_user_linux):
+def _user_de_pid(pid):
+    """Propriétaire d'un processus par son PID (/proc/<pid>/status -> Uid). ss récent n'émet pas toujours uid: (omet uid:0)."""
+    try:
+        with open("/proc/%s/status" % pid) as fh:
+            for ligne in fh:
+                if ligne.startswith("Uid:"):
+                    return _user_linux(ligne.split()[1])
+    except (OSError, IndexError, ValueError):
+        pass
+    return None
+
+
+def parse_ss(texte, user_de_uid=_user_linux, user_de_pid=_user_de_pid):
     """Sortie de `ss -Htaupne` -> [socket]. Colonnes : Netid State Recv-Q Send-Q Local Peer [Process …]."""
     out = []
     for ligne in (texte or "").splitlines():
@@ -43,6 +55,8 @@ def parse_ss(texte, user_de_uid=_user_linux):
         ra, rp = (peer.rsplit(":", 1) + [""])[:2] if ":" in peer else (peer, "")
         mu = USERS.search(ligne)
         muid = UID.search(ligne)
+        pid = int(mu.group(2)) if mu else None
+        user = user_de_uid(muid.group(1)) if muid else (user_de_pid(pid) if pid else None)
         try:
             lp = int(lp)
         except ValueError:
@@ -50,8 +64,7 @@ def parse_ss(texte, user_de_uid=_user_linux):
         la = la.strip("[]")
         out.append({"proto": proto, "etat": etat, "local_ip": la, "local_port": lp,
                     "remote_ip": ra.strip("[]"), "remote_port": int(rp) if rp.isdigit() else None,
-                    "process": mu.group(1) if mu else None, "pid": int(mu.group(2)) if mu else None,
-                    "user": user_de_uid(muid.group(1)) if muid else None,
+                    "process": mu.group(1) if mu else None, "pid": pid, "user": user,
                     "ecoute": etat in ("LISTEN", "UNCONN"),
                     "expose": etat in ("LISTEN", "UNCONN") and la in EXPOSE})
     return out

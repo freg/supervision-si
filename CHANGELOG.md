@@ -1,3 +1,9 @@
+## 2026-10-28 — Sonde sockets : utilisateur résolu par le PID sous Linux (livraison #907)
+
+- `ss` récent (Debian 13) n'émet pas toujours `uid:` (ino/sk/cgroup seulement, et omet uid:0) : la colonne
+  utilisateur restait vide. Résolue désormais par le PID (`/proc/<pid>/status`). Agent 0.6.17.
+- Vérifié : parsing d'une ligne ss réelle sans uid: -> utilisateur « root ».
+
 ## 2026-10-28 — Itinérance automatique à l'installation Windows (livraison #905)
 
 - Le hub connaît désormais son adresse interne (`SI_AGENT_INTERNAL_URL`, par défaut `https://HOST_IP:GATEWAY_PORT/api/si-agent`)

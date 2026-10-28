@@ -13,7 +13,8 @@ SS = (
 
 class Sockets(unittest.TestCase):
     def test_parse_ss(self):
-        r = sk.parse_ss(SS, user_de_uid=lambda u: {"0":"root","107":"bind","109":"mysql"}.get(str(u), str(u)))
+        r = sk.parse_ss(SS, user_de_uid=lambda u: {"0":"root","107":"bind","109":"mysql"}.get(str(u), str(u)),
+                        user_de_pid=lambda pid: {800:"root",1200:"root",900:"bind",1000:"mysql"}.get(pid))
         self.assertEqual(len(r), 4)
         s0 = r[0]
         self.assertEqual((s0["proto"], s0["etat"], s0["local_port"], s0["process"], s0["pid"], s0["user"], s0["ecoute"], s0["expose"]),
@@ -23,6 +24,12 @@ class Sockets(unittest.TestCase):
         mysql = r[3]
         self.assertFalse(mysql["expose"])          # 127.0.0.1 : pas exposé
         self.assertEqual(mysql["user"], "mysql")
+
+    def test_user_par_pid(self):
+        # ss récent sans uid: (ino/sk/cgroup seulement) -> utilisateur résolu via le PID
+        ligne = 'udp UNCONN 0 0 0.0.0.0:111 0.0.0.0:* users:(("rpcbind",pid=2374804,fd=5),("systemd",pid=1,fd=164)) ino:94 sk:3 cgroup:/system.slice/rpcbind.socket\n'
+        r = sk.parse_ss(ligne, user_de_pid=lambda pid: "root" if pid == 2374804 else None)
+        self.assertEqual((r[0]["process"], r[0]["pid"], r[0]["user"], r[0]["expose"]), ("rpcbind", 2374804, "root", True))
 
     def test_analyse(self):
         a = sk.analyse(sk.parse_ss(SS, user_de_uid=str))
