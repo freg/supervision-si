@@ -1,3 +1,10 @@
+## 2026-10-28 — Agents › Mises à jour : bouton « Tout mettre à jour » (livraison #891)
+
+- Envoie la mise à jour à chaque agent en retard (éligible, non éligible ou en échec), comme le bouton de sa ligne,
+  après une confirmation qui liste les agents ; bilan des échecs éventuels. Indépendant du canal bêta et de
+  l'activation générale, qui ne servent qu'à la planification automatique : infobulle ajoutée sur la colonne « Bêta ».
+- Vérifié : syntaxe JSX. Non vérifié : en réel.
+
 ## 2026-10-28 — MikroTik : mot de passe accentué (livraison #890)
 
 - RouterOS compare des octets dans le codage du poste qui a saisi le mot de passe (Winbox : Windows-1252) ; un « é »

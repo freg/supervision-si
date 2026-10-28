@@ -1226,6 +1226,20 @@ function UpdatesTab({ base }) {
     setBusy(true);
     take(await applyUpdates(base, agentId, "hub")); setBusy(false);
   };
+  // #891 : « Tout mettre à jour » -- même geste que le bouton de chaque ligne, enchaîné sur tous les agents en retard
+  // (éligibles, non éligibles, en échec), sans dépendre du canal bêta ni de l'activation générale.
+  const enRetard = (data?.agents || []).filter((a) => ["eligible", "not-eligible", "failed"].includes(a.status));
+  const applyAll = async () => {
+    if (!enRetard.length || !window.confirm(`Mettre à jour ${enRetard.length} agent(s) vers ${pkg.version} maintenant ?\n${enRetard.map((a) => a.agent_id).join(", ")}`)) return;
+    setBusy(true);
+    let ok = 0, ko = [];
+    for (const a of enRetard) {
+      const r = await applyUpdates(base, a.agent_id, "hub");
+      if (r && r.error) ko.push(`${a.agent_id} : ${r.error}`); else ok += 1;
+    }
+    setError(ko.length ? `${ok} commande(s) envoyée(s), ${ko.length} échec(s) — ${ko.join(" ; ")}` : null);
+    take(await fetchUpdates(base)); setBusy(false);
+  };
   const toggleBeta = (id) => {
     const beta = new Set(s.beta_agents || []);
     if (beta.has(id)) beta.delete(id); else beta.add(id);
@@ -1240,6 +1254,8 @@ function UpdatesTab({ base }) {
       <div className="ups-toolbar" style={{ marginTop: 0 }}>
         <h2 style={{ margin: 0 }}>Mises à jour des agents</h2>
         <button className="secondary" onClick={load} disabled={busy}>⟳</button>
+        {pkg && <button onClick={applyAll} disabled={busy || !enRetard.length} title="envoie la mise à jour à chaque agent en retard, comme le bouton de sa ligne">
+          {busy ? "envoi…" : enRetard.length ? `Tout mettre à jour (${enRetard.length})` : "Tous à jour"}</button>}
         {error && <Tone tone="bad">{error}</Tone>}
       </div>
       <p className="muted" style={{ fontSize: 13 }}>
@@ -1260,7 +1276,7 @@ function UpdatesTab({ base }) {
         {s.updated_at && <span className="muted" style={{ fontSize: 12 }}> · réglages modifiés {formatAge(ageSeconds(s.updated_at))} par {s.updated_by || "?"}</span>}
       </div>
       <AutoColumns id="SiAgentView.17"><table className="sa-table">
-        <thead><tr><th>Bêta</th><th>Agent</th><th>Hôte</th><th>Site</th><th>Version</th><th>État</th><th>Dernière commande</th><th></th></tr></thead>
+        <thead><tr><th title="canal bêta : ces agents reçoivent une nouvelle version en premier, lors de la planification automatique ; sans effet sur les boutons « Mettre à jour »">Bêta ⓘ</th><th>Agent</th><th>Hôte</th><th>Site</th><th>Version</th><th>État</th><th>Dernière commande</th><th></th></tr></thead>
         <tbody>
           {orderItems(agents, "alpha", { name: (a) => a.agent_id }).map((a) => {
             const [label, tone] = STATUS[a.status] || [a.status, "neutral"];
