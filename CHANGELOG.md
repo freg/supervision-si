@@ -1,3 +1,12 @@
+## 2026-10-28 — Onglet VPN : opérateur d'origine et stabilité des connexions par utilisateur (livraison #888)
+
+- Opérateur et type d'accès tirés du nom inverse de l'adresse d'origine (Starlink · satellite, Orange · mobile / fixe,
+  SFR, Free, Bouygues, Nordnet, hébergeurs ; à défaut le domaine) : colonne « Opérateur » de l'historique.
+- Tableau « Stabilité par utilisateur » (période et filtre de l'historique) : sessions, sessions courtes (< 5 min),
+  reconnexions rapprochées (< 5 min après la fin de la précédente), durée médiane, temps total, opérateurs ;
+  clic = filtre l'historique sur l'utilisateur. Sert au diagnostic des déconnexions (liaison de l'utilisateur ou serveur).
+- Vérifié : `vpnLib.test.mjs` (opérateurs, type d'accès, courtes / reconnexions, session en cours exclue), syntaxe JSX.
+
 ## 2026-10-28 — Page Agents : ligne d'installation avec un site contenant des espaces (livraison #887)
 
 - La ligne `./install.sh …` régénérée par le hub pour l'adresse choisie laissait le site sans guillemets :

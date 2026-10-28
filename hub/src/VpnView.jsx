@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchVpn } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import IpPing from "./IpPing.jsx";
+import { operateur, stabilite } from "./vpnLib.js";
+
+const opLib = (s) => { const o = operateur(s.nom_origine, s.origine); return o.operateur ? `${o.operateur}${o.acces ? ` · ${o.acces}` : ""}` : ""; };
 
 const vol = (o) => (!o ? "0" : o >= 1e9 ? `${(o / 1e9).toFixed(1).replace(".", ",")} Go` : o >= 1e6 ? `${Math.round(o / 1e6)} Mo` : `${Math.round(o / 1e3)} Ko`);
 const duree = (s) => (s == null ? "—" : s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")}`);
@@ -22,6 +25,7 @@ export default function VpnView({ onBack, siAgentApiBase }) {
     const f = q.trim().toLowerCase();
     return (d?.sessions || []).filter((s) => !f || [s.nom, s.public_key, s.origine, s.nom_origine, s.poste, s.protocole, s.interface, ...(s.adresses || [])].join(" ").toLowerCase().includes(f));
   }, [d, q]);
+  const stab = useMemo(() => stabilite(sessions), [sessions]);
   return (
     <div className="infra-page">
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -71,6 +75,19 @@ export default function VpnView({ onBack, siAgentApiBase }) {
                   </tr>))}</tbody></table>
             </section>);
         }))}
+        {stab.length > 0 && (
+          <section className="infra-card" style={{ margin: "12px 0" }}>
+            <h3 style={{ margin: "0 0 4px" }}>Stabilité par utilisateur</h3>
+            <div className="infra-muted" style={{ fontSize: 12, marginBottom: 6 }}>sur la période et le filtre choisis ci-dessous · courte : terminée en moins de 5 min · reconnexion : nouvelle session moins de 5 min après la fin de la précédente ; à rapprocher de l'opérateur (satellite, 4G…)</div>
+            <div style={{ maxHeight: 260, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Utilisateur / pair</th><th>Opérateur(s)</th><th>Sessions</th><th>Courtes</th><th>Reconnexions</th><th>Durée médiane</th><th>Temps total</th><th>Dernière</th></tr></thead>
+              <tbody>{stab.map((u) => (
+                <tr key={u.nom} style={{ cursor: "pointer" }} onClick={() => setQ(u.nom)} title="filtrer l'historique sur cet utilisateur">
+                  <td>{u.nom}</td><td>{u.operateurs.join(", ") || "—"}</td><td>{u.sessions}</td>
+                  <td className={u.courtes ? "np-tone warn" : ""}>{u.courtes}</td><td className={u.reconnexions ? "np-tone warn" : ""}>{u.reconnexions}</td>
+                  <td>{duree(u.mediane_s)}</td><td>{duree(u.total_s)}</td><td>{date(u.dernier)}</td>
+                </tr>))}</tbody></table></div>
+          </section>
+        )}
         <section className="infra-card" style={{ margin: "12px 0" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0 }}>Historique des connexions</h3>
@@ -81,12 +98,12 @@ export default function VpnView({ onBack, siAgentApiBase }) {
             <span className="infra-muted">{sessions.length} session(s) · reconstituées à partir des relevés (précision 2 min)</span>
           </div>
           <div style={{ maxHeight: 420, overflow: "auto", marginTop: 6 }}>
-            <table className="infra-table"><thead><tr><th>Pair / utilisateur</th><th>Début</th><th>Fin</th><th>Durée</th><th>Origine</th><th>Protocole · poste</th><th>Reçu / émis</th><th>Serveur</th></tr></thead>
+            <table className="infra-table"><thead><tr><th>Pair / utilisateur</th><th>Début</th><th>Fin</th><th>Durée</th><th>Origine</th><th>Opérateur</th><th>Protocole · poste</th><th>Reçu / émis</th><th>Serveur</th></tr></thead>
               <tbody>{sessions.map((s, k) => (
                 <tr key={k}>
                   <td>{s.nom || <span className="infra-muted">{cle(s.public_key)}</span>}</td><td>{date(s.debut)}</td>
                   <td>{s.en_cours ? <span className="np-tone good">en cours</span> : date(s.fin)}</td><td>{duree(s.duree_s)}</td>
-                  <td title={s.nom_origine || ""}>{hote(s.origine) || "—"}</td><td>{s.type === "softether" ? `${(s.protocole || "").replace("Legacy VPN - ", "")}${s.poste ? ` · ${s.poste}` : ""}` : "WireGuard"}</td>
+                  <td title={s.nom_origine || ""}>{hote(s.origine) || "—"}</td><td title={s.nom_origine || ""}>{opLib({ ...s, origine: hote(s.origine) }) || "—"}</td><td>{s.type === "softether" ? `${(s.protocole || "").replace("Legacy VPN - ", "")}${s.poste ? ` · ${s.poste}` : ""}` : "WireGuard"}</td>
                   <td>{vol(s.rx)} / {vol(s.tx)}</td><td>{s.relais} · {s.interface}</td>
                 </tr>))}</tbody></table>
           </div>
