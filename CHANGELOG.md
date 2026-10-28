@@ -1,3 +1,9 @@
+## 2026-10-28 — Sonde wireguard : réglages MikroTik pris d'office (livraison #893)
+
+- L'agent ne transmet pas d'arguments propres à un hôte (ceux du manifeste seulement) : `--mikrotik` était
+  inapplicable. La sonde prend désormais /etc/si-agent/mikrotik-wg.json s'il existe (comme nas-snmp). Agent 0.6.14.
+- Vérifié : test (fichier présent -> routeur MikroTik, absent -> lecture locale) et tests WireGuard / RouterOS.
+
 ## 2026-10-28 — Onglet VPN : erreur de lecture d'un serveur WireGuard visible (livraison #892)
 
 - Un serveur WireGuard sans interface lue (routeur MikroTik injoignable, mot de passe refusé…) n'apparaissait pas :

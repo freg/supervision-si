@@ -130,3 +130,18 @@ class Accent(unittest.TestCase):
         for a, b in paires:
             a.close()
             b.close()
+
+
+class Defaut(unittest.TestCase):
+    def test_fichier_mikrotik_pris_d_office(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "mk.json")
+            with open(p, "w") as fh:
+                json.dump({"host": "192.0.2.1", "user": "u", "password": "x"}, fh)
+            def connecter(h, pt, t):
+                raise socket.timeout("timed out")
+            out = wg.main(["--mikrotik-default", p], connecter=connecter, which=lambda x: None, now=NOW)
+            self.assertEqual(out["source"], "mikrotik:192.0.2.1")
+            self.assertIn("timed out", out["alerts"][0]["message"])
+            out = wg.main(["--mikrotik-default", os.path.join(d, "absent.json")], which=lambda x: None, now=NOW)
+            self.assertEqual(out["source"], "local")

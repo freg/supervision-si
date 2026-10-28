@@ -9,7 +9,7 @@ de main, octets reçus / émis, connecté si poignée de main < 3 min). Les noms
 fichiers /etc/wireguard/*.conf (mode local : « # Name = x » ou « # x » dans / juste avant le bloc [Peer]) ou d'un
 fichier JSON {clé_publique: nom} (--names). Le hub reconstitue l'historique des connexions à partir des relevés.
 
-MikroTik (#889) : --mikrotik /etc/si-agent/mikrotik-wg.json (root seulement) {"host", "user", "password", "port", "tls"} ;
+MikroTik (#889, #893 : pris d'office s'il existe, sans argument) : /etc/si-agent/mikrotik-wg.json (root seulement) {"host", "user", "password", "port", "tls"} ;
 lecture par l'API RouterOS (routeros.py, commandes …/print uniquement), compte du groupe « read » suffisant ;
 noms des pairs = champ name ou comment du routeur.
 
@@ -158,7 +158,11 @@ def main(argv=None, runner=subprocess.run, which=shutil.which, now=None, connect
     ap.add_argument("--names")
     ap.add_argument("--connected-s", type=int, default=180)
     ap.add_argument("--mikrotik")
+    ap.add_argument("--mikrotik-default", default="/etc/si-agent/mikrotik-wg.json")
     a = ap.parse_args(argv)
+    # #893 : l'agent ne passe pas d'argument propre à un hôte -> le fichier de réglages MikroTik est pris s'il existe
+    if not a.ssh and not a.mikrotik and a.mikrotik_default and os.path.exists(a.mikrotik_default):
+        a.mikrotik = a.mikrotik_default
     out = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "source": a.ssh or "local", "interfaces": [], "alerts": []}
     try:
         if a.mikrotik:
