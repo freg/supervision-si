@@ -21,10 +21,10 @@ def enc_len(n):
     return b"\xf0" + n.to_bytes(4, "big")
 
 
-def phrase(mots):
+def phrase(mots, codage="utf-8"):
     out = b""
     for m in mots:
-        b = m.encode("utf-8")
+        b = m.encode(codage, "replace")
         out += enc_len(len(b)) + b
     return out + b"\x00"
 
@@ -32,6 +32,7 @@ def phrase(mots):
 class Api:
     def __init__(self, sock):
         self.s = sock
+        self.codage = "utf-8"   # #890 : RouterOS garde les chaînes dans le codage du client (Winbox : Windows-1252)
 
     def _lire(self, n):
         buf = b""
@@ -60,11 +61,15 @@ class Api:
             n = self._len()
             if n == 0:
                 return mots
-            mots.append(self._lire(n).decode("utf-8", "replace"))
+            brut = self._lire(n)
+            try:
+                mots.append(brut.decode("utf-8"))
+            except UnicodeDecodeError:
+                mots.append(brut.decode("cp1252", "replace"))
 
     def cmd(self, mots):
         """-> (lignes !re en dicts, attributs de !done) ; !trap -> RuntimeError."""
-        self.s.sendall(phrase(mots))
+        self.s.sendall(phrase(mots, self.codage))
         lignes, erreur = [], None
         while True:
             p = self._phrase()
@@ -84,11 +89,12 @@ class Api:
                     raise RuntimeError(erreur or attrs.get("message") or " ".join(p[1:]) or "erreur fatale RouterOS")
                 return lignes, attrs
 
-    def login(self, user, pwd):
+    def login(self, user, pwd, codage="utf-8"):
+        self.codage = codage
         _, fin = self.cmd(["/login", "=name=" + user, "=password=" + pwd])
         if "ret" in fin:   # RouterOS < 6.43 : défi MD5
             defi = bytes.fromhex(fin["ret"])
-            rep = "00" + hashlib.md5(b"\x00" + pwd.encode("utf-8") + defi).hexdigest()
+            rep = "00" + hashlib.md5(b"\x00" + pwd.encode(codage, "replace") + defi).hexdigest()
             self.cmd(["/login", "=name=" + user, "=response=" + rep])
 
     def lire(self, chemin):

@@ -93,3 +93,40 @@ class RouterOs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Accent(unittest.TestCase):
+    def test_mot_de_passe_accentue_en_cp1252(self):
+        """Le routeur attend « é » en Windows-1252 : 1er essai UTF-8 refusé, 2e essai Windows-1252 accepté."""
+        essais = []
+
+        def routeur(sock):
+            api = routeros.Api(sock)
+            try:
+                while True:
+                    n = api._len()
+                    mots = []
+                    while n:
+                        mots.append(api._lire(n))
+                        n = api._len()
+                    if mots[0] == b"/login":
+                        essais.append(mots[2])
+                        ok = mots[2] == b"=password=" + "été".encode("cp1252")
+                        sock.sendall(routeros.phrase(["!done"]) if ok else routeros.phrase(["!trap", "=message=invalid user name or password (6)"]) + routeros.phrase(["!done"]))
+                    else:
+                        sock.sendall(routeros.phrase(["!done"]))
+            except (ConnectionError, OSError, IndexError):
+                pass
+        paires = []
+
+        def connecter(h, p, t):
+            a, b = socket.socketpair()
+            paires.append((a, b))
+            threading.Thread(target=routeur, args=(b,), daemon=True).start()
+            return routeros.Api(a)
+        ifs = wg.lire_mikrotik({"host": "192.0.2.1", "user": "supervision", "password": "été"}, connecter=connecter, now=NOW)
+        self.assertEqual(ifs, [])
+        self.assertEqual(essais, [b"=password=" + "été".encode("utf-8"), b"=password=" + "été".encode("cp1252")])
+        for a, b in paires:
+            a.close()
+            b.close()

@@ -1,3 +1,11 @@
+## 2026-10-28 — MikroTik : mot de passe accentué (livraison #890)
+
+- RouterOS compare des octets dans le codage du poste qui a saisi le mot de passe (Winbox : Windows-1252) ; un « é »
+  envoyé en UTF-8 était refusé. Connexion essayée en UTF-8 puis Windows-1252 (une connexion chacune), ou avec le
+  seul codage imposé par "encoding" dans le fichier de réglages ; l'erreur finale cite les codages essayés.
+  Réponses du routeur décodées en UTF-8 avec repli Windows-1252. Agent 0.6.13.
+- Vérifié : test contre un faux routeur qui n'accepte « été » qu'en Windows-1252 (refus UTF-8 puis succès).
+
 ## 2026-10-28 — Onglet VPN : WireGuard d'un routeur MikroTik par l'API RouterOS (livraison #889)
 
 - Sonde `wireguard` (agent 0.6.12) : `--mikrotik /etc/si-agent/mikrotik-wg.json` {host, user, password, port, tls}.

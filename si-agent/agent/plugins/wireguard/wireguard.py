@@ -88,9 +88,27 @@ def lire_mikrotik(cfg, connecter=None, now=None, connected_s=180):
     """Routeur MikroTik (RouterOS 7) -> même structure que parse_dump ; aucune clé privée lue ni renvoyée."""
     import routeros
     now = now or time.time()
-    api = (connecter or routeros.connecter)(cfg["host"], cfg.get("port"), bool(cfg.get("tls")))
+    connecter = connecter or routeros.connecter
+    pwd = cfg["password"]
+    # #890 : mot de passe accentué -- RouterOS compare des octets dans le codage du poste qui l'a saisi (Winbox :
+    # Windows-1252) ; on essaie UTF-8 puis Windows-1252 (ou le seul codage imposé par "encoding"), une connexion chacun.
+    codages = [cfg["encoding"]] if cfg.get("encoding") else (["utf-8"] if all(ord(c) < 128 for c in pwd + cfg["user"]) else ["utf-8", "cp1252"])
+    api, erreur = None, None
+    for codage in codages:
+        api = connecter(cfg["host"], cfg.get("port"), bool(cfg.get("tls")))
+        try:
+            api.login(cfg["user"], pwd, codage)
+            erreur = None
+            break
+        except RuntimeError as e:
+            erreur = e
+            try:
+                api.s.close()
+            except Exception:  # noqa: BLE001
+                pass
+    if erreur is not None:
+        raise RuntimeError("%s (codages essayés : %s)" % (erreur, ", ".join(codages)))
     try:
-        api.login(cfg["user"], cfg["password"])
         ifs = {i.get("name"): {"interface": i.get("name"), "public_key": i.get("public-key"), "port": _int(i.get("listen-port")) or None, "peers": [],
                                "actif": i.get("disabled") != "true" and i.get("running", "true") != "false"}
                for i in api.lire("/interface/wireguard/print")}
