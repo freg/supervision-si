@@ -1,5 +1,11 @@
 [
  {
+  "n": 901,
+  "from": 901,
+  "date": "2026-10-28",
+  "title": "Keycloak : déconnexion depuis le nom public du hub"
+ },
+ {
   "n": 900,
   "from": 900,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 862,
   "date": "2026-10-26",
   "title": "Excel décideurs et audit : chantiers en cours et décisions à prendre"
- },
- {
-  "n": 861,
-  "from": 861,
-  "date": "2026-10-26",
-  "title": "État des lieux : SI interne hors Proxmox (serveurs, NAS, postes) et serveurs utilisés par les postes"
  }
 ]

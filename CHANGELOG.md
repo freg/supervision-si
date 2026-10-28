@@ -1,3 +1,10 @@
+## 2026-10-28 — Keycloak : déconnexion depuis le nom public du hub (livraison #901)
+
+- « L'URI de redirection est invalide » à la déconnexion depuis le nom public : les adresses de retour après
+  déconnexion du client `supervision-hub` ne reprenaient que l'adresse d'origine. Modèle du royaume : `+` (= les
+  URI de redirection valides). Royaume déjà importé : même réglage à faire à la main (client supervision-hub ›
+  « Valid post logout redirect URIs » = `+`).
+
 ## 2026-10-28 — Fichier d'installation Windows autonome (livraison #900)
 
 - Constat sur le poste de Paul : `.cmd` lancé depuis Téléchargements sans archive décompressée -> « install.ps1

@@ -212,7 +212,7 @@
       "webOrigins": ["__HUB_PUBLIC_URL__"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "__HUB_PUBLIC_URL__/*"
+        "post.logout.redirect.uris": "+"
       },
       "protocolMappers": [
         {
