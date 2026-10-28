@@ -5,6 +5,9 @@ import GenealogieModeles from "./GenealogieModeles.jsx";   // #854
 
 // #821 Parc IA, onglet « Veille des modèles » (même module que la tuile Modèles IA du hub maison) : veille des sorties (Hugging Face, éditeurs suivis) avec historique et alertes (nouveau modèle
 // utilisable et pertinent, passage ouvert <-> fermé), usages des modèles des hôtes (cases à cocher, types d'usage), bancs.
+const fr = (n) => (n == null || n === "" ? "—" : String(n).replace(".", ","));
+const md = (b) => (b == null || b === "" ? "—" : `${fr(b)} Md`);   // milliards de paramètres (francisé : « B » anglais -> « Md »)
+const go = (g) => (g == null || g === "" ? "—" : `${fr(g)} Go`);
 const fmtTaille = (o) => (o == null ? "—" : o < 1048576 ? `${Math.round(o / 1024)} ko` : o < 1073741824 ? `${(o / 1048576).toFixed(0)} Mo` : `${(o / 1073741824).toFixed(1).replace(".", ",")} Go`);
 let BASE = "";
 async function api(path, { methode = "GET", corps } = {}) {
@@ -33,7 +36,7 @@ function Evenements({ liste, alertes, marquerVu }) {
           <td><a href={hf(e.modele)} target="_blank" rel="noreferrer">{e.modele}</a> <span className="infra-muted">{e.pipeline || ""}</span></td>
           <td className={/fermeture|restreint|disparu/.test(e.evenement) ? "infra-status critical" : /ouverture|libre/.test(e.evenement) ? "infra-status good" : ""}>{EVT[e.evenement] || e.evenement}</td>
           <td><span className="infra-muted">{e.avant || "—"} → {e.apres || "—"}</span></td>
-          <td><span className="infra-muted">{e.params_b ? `${e.params_b} B` : "—"}</span></td>
+          <td><span className="infra-muted">{md(e.params_b)}</span></td>
           {alertes && <td>{!e.vu && <button className="secondary" type="button" onClick={() => marquerVu([e.id])}>vu</button>}</td>}
         </tr>))}</tbody>
     </table>
@@ -69,8 +72,8 @@ function Veille({ etat, setErr }) {
             <td><span className="infra-muted">{dateCourte(m.cree || m.premier_vu)}</span></td>
             <td><a href={hf(m.id)} target="_blank" rel="noreferrer">{m.id}</a>{m.disparu ? <span className="infra-muted"> · disparu</span> : null}{m.gated ? <span className="infra-muted"> · accès restreint</span> : null}</td>
             <td><span className="infra-muted">{m.pipeline || "—"}</span></td>
-            <td><span className="infra-muted">{m.params_b ? `${m.params_b} B` : "—"}</span></td>
-            <td><span className="infra-muted">{m.vram_q4 ? `${m.vram_q4} Go` : "—"}</span></td>
+            <td><span className="infra-muted">{md(m.params_b)}</span></td>
+            <td><span className="infra-muted">{go(m.vram_q4)}</span></td>
             <td><span className="infra-muted">{m.machines.join(", ") || "—"}</span></td>
             <td><span className={`np-tone ${OUV[m.ouverture || 0][1]}`} title={m.licence || "licence non déclarée"}>{OUV[m.ouverture || 0][0]}</span> <span className="infra-muted">{m.licence || ""}</span></td>
             <td><span className="infra-muted">{m.telechargements}</span></td>
@@ -175,8 +178,8 @@ function LigneRevue({ m, i }) {
     <tr style={{ opacity: fit ? 1 : 0.55, background: (m.apprend || 0) >= 3 ? "rgba(106,214,122,.09)" : undefined }}>
       <td className="infra-muted">{i + 1}</td>
       <td><a href={hf(m.id)} target="_blank" rel="noreferrer">{m.id}</a></td>
-      <td><span className="infra-muted">{m.params_b ? `${m.params_b} B` : "—"}</span></td>
-      <td>{m.vram_q4 ? <b className={fit ? "" : "infra-muted"}>{m.vram_q4} Go</b> : <span className="infra-muted">—</span>}</td>
+      <td><span className="infra-muted">{md(m.params_b)}</span></td>
+      <td>{m.vram_q4 ? <b className={fit ? "" : "infra-muted"}>{go(m.vram_q4)}</b> : <span className="infra-muted">—</span>}</td>
       <td>{fit ? <span className="np-tone good" title="tient en Q4 dans la VRAM de ces machines">✓ {m.machines.join(", ")}</span> : <span className="infra-muted">trop lourd</span>}</td>
       <td>{risque ? <span className={`np-tone ${risque[1]}`} title={risque[2]}>{risque[0]}</span> : <span className="infra-muted">libre</span>}</td>
       <td>{app ? <span className={(m.apprend || 0) >= 3 ? "np-tone good" : (m.apprend || 0) >= 2 ? "np-tone warn" : "infra-muted"} title={app[1]}>{app[0]}</span> : <span className="infra-muted">—</span>}</td>
@@ -193,7 +196,7 @@ function Revue({ setErr }) {
   if (!d) return <p className="infra-muted">chargement…</p>;
   const neufsIds = new Set((d.nouveaux || []).map((m) => m.id));
   const liste = (neufs ? (d.nouveaux || []) : (d.classement || []));
-  const chip = (m) => <a key={m.id} href={hf(m.id)} target="_blank" rel="noreferrer" className="np-tone warn" style={{ textDecoration: "none", marginRight: 6, display: "inline-block", marginBottom: 4 }} title={`${m.params_b || "?"} B · ${m.vram_q4 || "?"} Go · tient sur ${m.machines.join(", ") || "—"}`}>{m.id.split("/").pop()} <span className="infra-muted">{m.vram_q4 ? `${m.vram_q4} Go` : ""}</span></a>;
+  const chip = (m) => <a key={m.id} href={hf(m.id)} target="_blank" rel="noreferrer" className="np-tone warn" style={{ textDecoration: "none", marginRight: 6, display: "inline-block", marginBottom: 4 }} title={`${md(m.params_b)} · ${go(m.vram_q4)} · tient sur ${m.machines.join(", ") || "—"}`}>{m.id.split("/").pop()} <span className="infra-muted">{m.vram_q4 ? go(m.vram_q4) : ""}</span></a>;
   return (
     <div className="veille-bloc">
       <div className="veille-ligne">
@@ -245,10 +248,10 @@ function Repartition({ etat, setErr }) {
         {Object.entries(parGpu).map(([k, g]) => (
           <div key={k} className="card" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <div><b>{g.machine}</b> <span className="infra-muted">· {g.gpu}</span></div>
-            <div className="infra-muted" style={{ fontSize: ".82rem" }}>{g.vram} Go{g.libre != null ? ` · ${g.libre} Go libre` : ""}</div>
+            <div className="infra-muted" style={{ fontSize: ".82rem" }}>{go(g.vram)}{g.libre != null ? ` · ${fr(g.libre)} Go libre` : ""}</div>
             {g.aff.length ? g.aff.map((a) => (
               <div key={a.usage} className="np-tone good" style={{ display: "block", marginTop: 6, padding: "3px 8px" }}>
-                {a.usage} <span className="infra-muted">— {a.modele || "?"} · {a.vram} Go</span>
+                {a.usage} <span className="infra-muted">— {a.modele || "?"} · {go(a.vram)}</span>
               </div>
             )) : <div className="infra-muted" style={{ marginTop: 6 }}>libre</div>}
           </div>
@@ -257,7 +260,7 @@ function Repartition({ etat, setErr }) {
       {(d.non_places || []).length > 0 && (
         <div className="lede" style={{ borderLeftColor: "var(--bad, #ff6b6b)", marginTop: 12 }}>
           <b className="np-tone bad">Ne tiennent sur aucun GPU</b>
-          <div style={{ marginTop: 6 }}>{d.non_places.map((n) => <span key={n.usage} className="np-tone bad" style={{ marginRight: 6, display: "inline-block", marginBottom: 4 }}>{n.usage} <span className="infra-muted">{n.modele || ""} · {n.vram || "?"} Go</span></span>)}</div>
+          <div style={{ marginTop: 6 }}>{d.non_places.map((n) => <span key={n.usage} className="np-tone bad" style={{ marginRight: 6, display: "inline-block", marginBottom: 4 }}>{n.usage} <span className="infra-muted">{n.modele || ""} · {go(n.vram)}</span></span>)}</div>
         </div>
       )}
       {!(d.affectations || []).length && !(d.non_places || []).length && <p className="infra-muted">Aucun usage déclaré (onglet « Usages »). Déclarez des modèles actifs et leurs usages pour voir le plan.</p>}
