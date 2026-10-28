@@ -786,7 +786,12 @@ def _install_command_windows(agent_id, secret, site):
     avec élévation automatique en administrateur."""
     central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
     ca = _ca_info()
-    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
+    # #904 : central public (nom de domaine, frontal Let's Encrypt) -> magasin Windows (-SystemCa) ;
+    # central interne (IP, nom local) -> CA du projet épinglée, comme install.sh et le MSI.
+    if not _pin_internal_ca(central):
+        tls = " -SystemCa"
+    else:
+        tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
     return "powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
         _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), tls)
 
@@ -807,9 +812,10 @@ def _install_cmd_windows(agent_id, secret, site):
     code OEM) ; l'empreinte de la CA interne est obligatoire (jamais
     `-Insecure` en silence)."""
     ca = _ca_info()
-    if not ca.get("sha256"):
-        return None
     central = _ascii(PUBLIC_URL or "https://<VM>:6443/api/si-agent")
+    interne = _pin_internal_ca(central)
+    if interne and not ca.get("sha256"):
+        return None   # central interne sans CA épinglée : pas d'installation silencieuse (jamais -Insecure)
     aid, sec, st = _ascii(agent_id), _ascii(secret), _ascii(site or "default")
     for v in (aid, sec, central, st):
         if re.search(r'["%!^&<>|]', v):
@@ -851,7 +857,7 @@ def _install_cmd_windows(agent_id, secret, site):
         'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable apres telechargement. & pause & exit /b 1 )',
         ":pret",
         'set "LOG=%TEMP%\\si-agent-install.log"',
-        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" -CaFingerprint %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, ca["sha256"], central),
+        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, ("-CaFingerprint " + ca["sha256"]) if interne else "-SystemCa", central),
         'if not "%errorlevel%"=="0" goto :erreur',
         "echo OK - agent %s installe et demarre (journal : %%LOG%%)" % aid,
         "timeout /t 10 >nul",

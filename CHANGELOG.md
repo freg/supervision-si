@@ -1,3 +1,19 @@
+## 2026-10-28 — Installation Windows : CA du central public corrigée, et itinérance (central de secours) (livraison #904)
+
+- Correctif : le fichier `.cmd` et la commande d'installation Windows générés par le hub forçaient toujours
+  `-CaFingerprint` (CA interne), même pour un central public (`supervision.optline.fr`) servi par un certificat
+  Let's Encrypt -> `CERTIFICATE_VERIFY_FAILED` sur les postes (cas rencontré sur pc-paul). Ils choisissent désormais
+  `-SystemCa` (magasin Windows) pour un nom public et `-CaFingerprint` pour un central interne, comme le MSI et les
+  flux d'enrôlement par jeton (`_pin_internal_ca`).
+- Itinérance : `install.ps1` accepte `-Fallback <url>` (et `-FallbackCa`) et écrit `central_fallback_url` /
+  `fallback_ca_file` dans `agent.json`. L'agent gère déjà la bascule (#474) : il essaie le principal, passe au
+  secours quand il est injoignable, et revient au principal dès qu'il répond. Confiance du secours déduite : magasin
+  système si public, CA interne si interne. Un portable (ex. pc-paul, souvent à distance, parfois sans VPN) peut
+  ainsi joindre le central par le nom public d'Internet et par l'adresse interne sur le LAN/VPN.
+- Le MSI (#824) gérait déjà correctement le choix `-CaFingerprint` / `-SystemCa` ; inchangé.
+- Vérifié : génération des commandes `.ps1` / `.cmd` pour un central public (-> -SystemCa) et interne (-> -CaFingerprint)
+  hors Flask ; syntaxe Python. Non vérifié : `-Fallback` sur un vrai Windows.
+
 ## 2026-10-28 — Tuile Messages : blog interne du hub (livraison #903)
 
 - Nouveau service `messages-api` et tuile « Messages » (thème « services/hub ») : déposer un mot pour tout le monde

@@ -28,6 +28,8 @@ param(
   [switch]$Insecure,
   [string]$EnrollToken,   # #616 : enrôlement par jeton de site (agent nommé d'après la machine, secret délivré ici)
   [switch]$SystemCa,      # #616 : central au certificat public (frontal Let's Encrypt) : magasin Windows, pas de CA épinglée
+  [string]$Fallback,      # #904 : central de SECOURS pour l'itinérance (ex. nom public joignable d'Internet quand le LAN/VPN est absent)
+  [string]$FallbackCa,    # #904 : confiance TLS du secours (défaut : magasin système si le secours est public, CA interne si interne)
   [string[]]$EnablePlugin = @(),
   [string]$LogLevel = "INFO",
   [string]$InstallDir = (Join-Path $env:ProgramFiles "si-agent"),
@@ -217,6 +219,14 @@ $cfg = [ordered]@{
 }
 if (Test-Path $caFile) { $cfg.ca_file = $caFile }
 if ($SystemCa) { $cfg.ca_system_bundle = $true; $cfg.ca_refresh_script = (Join-Path $InstallDir "central-ca.ps1") }   # #682 : l'agent régénère le faisceau si la vérification échoue
+if ($Fallback) {   # #904 : itinérance -- l'agent bascule seul vers le secours quand le principal est injoignable, et revient au principal dès qu'il répond
+  $fb = $Fallback.TrimEnd("/"); $cfg.central_fallback_url = $fb
+  $fbHost = ([regex]::Replace($fb, "^https?://", "")).Split("/")[0].Split(":")[0].Trim("[]")
+  $fbInterne = ($fbHost -match "^\d{1,3}(\.\d{1,3}){3}$") -or (-not $fbHost.Contains(".")) -or ($fbHost -match "\.(local|lan|home|internal)$")
+  if ($FallbackCa) { $cfg.fallback_ca_file = $FallbackCa }
+  elseif ($fbInterne -and (Test-Path $caFile)) { $cfg.fallback_ca_file = $caFile }
+  # secours public : fallback_ca_file absent = magasin système (Let's Encrypt)
+}
 [IO.File]::WriteAllText($cfgPath, ($cfg | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
 } elseif ($SystemCa -and (Test-Path $cfgPath) -and (Test-Path $caFile)) {
   # #682 : mise à jour d'un agent installé en -SystemCa avant le faisceau : on ajoute ca_file / ca_system_bundle
