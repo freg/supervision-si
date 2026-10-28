@@ -84,10 +84,17 @@ class Analyse:
         self.sessions = {k: s for k, s in self.sessions.items() if s["debut"] >= limite or s["en_cours"]}
         self.ouvertes = {k: v for k, v in self.ouvertes.items() if v in self.sessions}
         self.echecs = [e for e in self.echecs if e["at"] >= limite][-5000:]
-        self.essais = dict(list(self.essais.items())[-500:])
+        if len(self.essais) > 500:   # tentatives sans suite : on ne garde que les plus récentes (CID croissants)
+            garde = sorted(self.essais, key=lambda k: int(k.rsplit("-", 1)[-1]) if k.rsplit("-", 1)[-1].isdigit() else 0)[-500:]
+            self.essais = {k: self.essais[k] for k in garde}
 
     def etat(self):
         return {"sessions": self.sessions, "ouvertes": self.ouvertes, "essais": self.essais, "echecs": self.echecs}
+
+
+def _date(s):
+    """« AAAA-MM-JJTHH:MM:SS » -> datetime (fromisoformat n'existe qu'à partir de Python 3.7 ; r2d2 est en 3.5)."""
+    return datetime.strptime(s[:19], "%Y-%m-%dT%H:%M:%S")
 
 
 def _user_sid(sid):
@@ -154,9 +161,9 @@ def main(argv=None, now=None):
     sess = sorted((s for s in an.sessions.values() if s["debut"] >= limite or s["en_cours"]), key=lambda s: s["debut"], reverse=True)
     for s in sess:
         if s.get("fin"):
-            s["duree_s"] = int((datetime.fromisoformat(s["fin"]) - datetime.fromisoformat(s["debut"])).total_seconds())
+            s["duree_s"] = int((_date(s["fin"]) - _date(s["debut"])).total_seconds())
         else:
-            s["duree_s"] = int((now - datetime.fromisoformat(s["debut"])).total_seconds())
+            s["duree_s"] = int((now - _date(s["debut"])).total_seconds())
     out["sessions"] = sess[:5000]
     out["hubs"] = sorted({os.path.basename(os.path.dirname(p)) for p in glob.glob(os.path.join(a.dir, "security_log", "*", "sec_*.log"))})
     out["echecs"] = [e for e in an.echecs if e["at"] >= limite][-500:]

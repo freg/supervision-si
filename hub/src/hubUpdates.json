@@ -1,5 +1,11 @@
 [
  {
+  "n": 886,
+  "from": 886,
+  "date": "2026-10-28",
+  "title": "Sondes softether, wireguard et nas-snmp compatibles Python 3.5"
+ },
+ {
   "n": 885,
   "from": 885,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 847,
   "date": "2026-10-23",
   "title": "Veille de santé du réseau du campus : Nebula + agents internes, VLAN à usage mixte"
- },
- {
-  "n": 846,
-  "from": 846,
-  "date": "2026-10-23",
-  "title": "Univers du hub : recherche par nom du site, mots-clés, adresse IP ou MAC"
  }
 ]

@@ -80,7 +80,10 @@ def releve(d, warn_pct=80, crit_pct=90, hours_old=50000):
     if not volumes:
         volumes = table(d, OLD + ".3.17.1", {2: "nom", 4: "ko", 5: "libre_ko", 6: "etat"})
     # SMART : les lignes sont rangées par disque (/dev/sda…) dans l'ordre des disques présents
-    devs = list(dict.fromkeys(s.get("dev") for s in smart if s.get("dev")))
+    devs = []
+    for s in smart:   # ordre d'apparition (Python 3.5 : dict non ordonné)
+        if s.get("dev") and s["dev"] not in devs:
+            devs.append(s["dev"])
     par_dev = {dev: [s for s in smart if s.get("dev") == dev] for dev in devs}
     for i, disque in enumerate(disques):
         attrs = par_dev.get(devs[i], []) if i < len(devs) else []
@@ -149,12 +152,12 @@ def lire(cible, runner=subprocess.run, exe="snmpwalk"):
     args = [exe, "-v", str(cible.get("version") or "2c"), "-c", cible["community"], "-On", "-t", "5", "-r", "1", cible["host"]]
     texte = ""
     for base in (Q, OLD + ".3", OLD + ".4"):
-        p = runner(args + [base], capture_output=True, text=True, timeout=120)
+        p = runner(args + [base], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
         if p.returncode != 0 and not p.stdout:
             raise RuntimeError((p.stderr or "snmpwalk en échec").strip()[:200])
         texte += p.stdout
     sget = runner([exe.replace("snmpwalk", "snmpget")] + args[1:] + ["%s.12.%d.0" % (Q, n) for n in (3, 4, 6, 7, 10, 11, 19)],
-                  capture_output=True, text=True, timeout=60)
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60)
     return texte + (sget.stdout or "")
 
 

@@ -84,7 +84,7 @@ def lire(a, runner=subprocess.run, which=shutil.which):
         if not wg:
             raise RuntimeError("commande wg absente (paquet wireguard-tools)")
         cmd = [wg, "show", "all", "dump"]
-    p = runner(cmd, capture_output=True, text=True, timeout=60)
+    p = runner(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60)
     if p.returncode != 0:
         raise RuntimeError((p.stderr or "échec").strip()[:200])
     return p.stdout

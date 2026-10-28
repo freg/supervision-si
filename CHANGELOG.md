@@ -1,3 +1,11 @@
+## 2026-10-28 — Sondes softether, wireguard et nas-snmp compatibles Python 3.5 (livraison #886)
+
+- r2d2 (Debian 9, i686) a Python 3.5.3 : `datetime.fromisoformat` et `subprocess.run(capture_output, text)`
+  (Python 3.7) remplacés par `strptime` et `stdout=PIPE, universal_newlines` ; plus aucun ordre de dictionnaire
+  supposé (non garanti avant 3.6). Agent 0.6.11.
+- Vérifié : tests des trois sondes ; absence de f-string, d'annotation de variable et de `:=` (analyse syntaxique).
+  Non vérifié : exécution sous un vrai Python 3.5.
+
 ## 2026-10-28 — Onglet VPN : sessions SoftEther lues dans les journaux du serveur (livraison #885)
 
 - Sonde `softether` (agent 0.6.10, désactivée par défaut), sans mot de passe d'administration : lecture
