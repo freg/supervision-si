@@ -159,3 +159,6 @@ groupware/dav-data/
 
 # #830 : mise à jour en cours (scripts/run.sh)
 .maj-en-cours.json
+
+rsyslog-listener/data/*
+!rsyslog-listener/data/.gitkeep

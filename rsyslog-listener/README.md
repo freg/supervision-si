@@ -82,3 +82,13 @@ restreint ici) — à tester en priorité une fois déployé, notamment le
 comportement sous un VRAI volume de trafic (le throttle
 d'enregistrement et la taille du tampon, 200 entrées par défaut,
 n'ont été exercés qu'avec un faible nombre de paquets ici).
+
+
+## Conservation et émetteurs autorisés (#894)
+
+Chaque datagramme d'un émetteur autorisé (`RSYSLOG_ALLOWED`, adresses ou réseaux ; vide = tous) est conservé dans
+`data/<adresse>/<AAAA-MM-JJ>.jsonl` (hors dépôt), purgé au-delà de `RSYSLOG_RETENTION_DAYS` (90 j). Les émetteurs
+refusés sont comptés (`/journaux/emetteurs`). Le tampon partagé de 200 messages (tuile Logs) est inchangé.
+API : `GET /journaux/emetteurs` ; `GET /journaux?emetteur=&q=&niveau=0..7&heures=24&limite=500`.
+Décodage UTF-8 avec repli Windows-1252 (RouterOS). Routeur MikroTik : `/system logging action` distante vers
+l'adresse du hub, port 5514, puis `/system logging` des sujets voulus (ex. `wireguard`, `system`, `account`) vers cette action.

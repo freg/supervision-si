@@ -40,6 +40,18 @@ export async function fetchVpn(apiBase, days = 30) {
   } catch { return { serveurs: [], sessions: [] }; }
 }
 
+/** #894 : messages syslog conservés par rsyslog-listener (même origine que le hub, via tls-proxy). */
+export async function fetchSyslog(params = {}) {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString();
+  try {
+    const [e, m] = await Promise.all([
+      fetch("/api/rsyslog-listener/journaux/emetteurs", { credentials: "include" }).then((r) => r.json()),
+      fetch(`/api/rsyslog-listener/journaux?${q}`, { credentials: "include" }).then((r) => r.json()),
+    ]);
+    return { info: e || {}, messages: m?.messages || [], error: m?.error || null };
+  } catch (err) { return { info: {}, messages: [], error: String(err) }; }
+}
+
 /** #883 : NAS relevés par SNMP (sonde nas-snmp). */
 export async function fetchNas(apiBase) {
   try {

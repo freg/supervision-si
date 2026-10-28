@@ -43,7 +43,7 @@ MAX_DATAGRAM_SIZE = 8192  # RFC 5424 recommande >= 2048 -- large marge
 _REGISTER_THROTTLE_SECONDS = 300
 
 
-def run_listener(host, port, source_name, memcache_client_factory, append_fn, register_fn, registry_key, buffer_size, log_fn=None, socket_factory=None, max_iterations=None):
+def run_listener(host, port, source_name, memcache_client_factory, append_fn, register_fn, registry_key, buffer_size, log_fn=None, socket_factory=None, max_iterations=None, datagram_fn=None):
     """Boucle BLOQUANTE -- à lancer dans un thread daemon dédié (voir
     app.py). `socket_factory` et `max_iterations` injectables pour
     les tests (jamais un vrai socket réseau ni une boucle infinie
@@ -62,6 +62,15 @@ def run_listener(host, port, source_name, memcache_client_factory, append_fn, re
             if log_fn:
                 log_fn("Écoute syslog UDP : erreur socket : %s", exc)
             continue
+
+        # #894 : conservation sur disque et liste d'émetteurs autorisés -- datagram_fn(ip, octets) -> False = refusé
+        if datagram_fn is not None:
+            try:
+                if datagram_fn(_addr[0], data) is False:
+                    continue
+            except Exception as exc:  # noqa: BLE001 -- la conservation ne doit jamais arrêter l'écoute
+                if log_fn:
+                    log_fn("Écoute syslog UDP : conservation impossible : %s", exc)
 
         text = data.decode("utf-8", errors="replace")
         entry_data = parse_syslog_message(text, source_name)

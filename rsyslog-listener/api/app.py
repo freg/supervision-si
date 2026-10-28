@@ -85,6 +85,27 @@ PUSHED_LOG_SOURCES_REGISTRY_KEY = "pushed_log_sources"
 # module (donc avant que Gunicorn ne commence à servir /health) --
 # jamais conditionné à une requête HTTP, ce service N'A DE RAISON
 # D'ÊTRE QUE pour cette écoute permanente.
+# #894 : conservation des messages reçus (un fichier par émetteur et par jour) et émetteurs autorisés.
+import collections as _collections
+import time as _time
+import journal as _journal
+from flask import request as _request
+DATA_DIR = os.environ.get("RSYSLOG_DATA_DIR", "/data")
+RETENTION_DAYS = int(os.environ.get("RSYSLOG_RETENTION_DAYS", "90") or 90)
+ALLOWED = _journal.reseaux(os.environ.get("RSYSLOG_ALLOWED", ""))
+JOURNAL = _journal.Journal(DATA_DIR, RETENTION_DAYS) if os.path.isdir(DATA_DIR) else None
+REFUSES = _collections.Counter()
+
+
+def _datagram(ip, data):
+    if not _journal.autorise(ip, ALLOWED):
+        REFUSES[ip] += 1
+        return False
+    if JOURNAL is not None:
+        JOURNAL.ecrire(ip, _journal.decoder(data))
+    return True
+
+
 if append_shared_log_entry and register_shared_log_source:
     _listener_thread = threading.Thread(
         target=listener.run_listener,
@@ -93,7 +114,7 @@ if append_shared_log_entry and register_shared_log_source:
             append_shared_log_entry, register_shared_log_source,
             PUSHED_LOG_SOURCES_REGISTRY_KEY, LOG_BUFFER_SIZE,
         ),
-        kwargs={"log_fn": app.logger.warning},
+        kwargs={"log_fn": app.logger.warning, "datagram_fn": _datagram},
         daemon=True,
     )
     _listener_thread.start()
@@ -103,6 +124,32 @@ if append_shared_log_entry and register_shared_log_source:
 def get_logs():
     entries = read_shared_log_buffer(SERVICE_NAME, get_memcache_client, buffer_size=LOG_BUFFER_SIZE) if read_shared_log_buffer else []
     return jsonify({"service": SERVICE_NAME, "entries": entries}), 200
+
+
+@app.route("/journaux/emetteurs", methods=["GET"])
+def journaux_emetteurs():
+    """#894 : émetteurs conservés (adresse, nom d'hôte annoncé, dernier message, jours) et émetteurs refusés."""
+    return jsonify({"conservation": JOURNAL is not None, "retention_jours": RETENTION_DAYS, "port_udp": LISTEN_PORT,
+                    "autorises": [str(n) for n in ALLOWED], "emetteurs": JOURNAL.emetteurs() if JOURNAL else [],
+                    "refuses": [{"ip": ip, "paquets": n} for ip, n in REFUSES.most_common(50)]}), 200
+
+
+@app.route("/journaux", methods=["GET"])
+def journaux():
+    """#894 : ?emetteur=&q=&niveau=0..7 (gravité maximale)&heures=24&limite=500 -> messages, plus récents d'abord."""
+    if JOURNAL is None:
+        return jsonify({"error": "conservation désactivée (RSYSLOG_DATA_DIR absent)"}), 503
+    a = _request.args
+    try:
+        heures = max(1, min(24 * 400, int(a.get("heures", 24))))
+        sev = max(0, min(7, int(a.get("niveau", 7))))
+        limite = max(1, min(5000, int(a.get("limite", 500))))
+    except ValueError:
+        return jsonify({"error": "paramètre numérique invalide"}), 400
+    em = (a.get("emetteur") or "").strip() or None
+    if em and not _journal._IP_SURE.match(em):
+        return jsonify({"error": "émetteur invalide"}), 400
+    return jsonify({"messages": JOURNAL.chercher(emetteur=em, q=a.get("q"), sev_max=sev, depuis=_time.time() - heures * 3600, limite=limite)}), 200
 
 
 @app.route("/health", methods=["GET"])

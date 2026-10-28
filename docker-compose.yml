@@ -559,6 +559,13 @@ services:
       # dans ce projet.
       - RSYSLOG_LISTEN_PORT=5514
       - RSYSLOG_SOURCE_NAME=${RSYSLOG_SOURCE_NAME:-rsyslog}
+      # #894 : conservation sur disque (un fichier par émetteur et par jour, hors dépôt) et émetteurs autorisés
+      # (adresses ou réseaux séparés par des virgules ; vide = tous, déconseillé : le port est ouvert sur l'hôte).
+      - RSYSLOG_DATA_DIR=/data
+      - RSYSLOG_RETENTION_DAYS=${RSYSLOG_RETENTION_DAYS:-90}
+      - RSYSLOG_ALLOWED=${RSYSLOG_ALLOWED:-}
+    volumes:
+      - ./rsyslog-listener/data:/data
     ports:
       # RSYSLOG_LISTENER_PORT (.env, optionnel) : port UDP PUBLIÉ sur
       # l'hôte -- une machine distante pousse ses logs syslog

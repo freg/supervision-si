@@ -1,3 +1,14 @@
+## 2026-10-28 — Réception syslog conservée, journal WireGuard du routeur dans l'onglet VPN (livraison #894)
+
+- `rsyslog-listener` (écoute UDP 5514 existante, #177) : conservation sur disque d'un fichier par émetteur et par
+  jour (`rsyslog-listener/data/`, hors dépôt), purge à 90 jours, émetteurs autorisés (`RSYSLOG_ALLOWED`) avec
+  compte des refusés, décodage Windows-1252 de repli, API `/journaux/emetteurs` et `/journaux` (filtres émetteur,
+  texte, gravité, période). Choix de l'administrateur réseau : le MikroTik envoie ses journaux plutôt que d'ouvrir son API.
+- Onglet VPN : section « Journal WireGuard reçu en syslog » (lignes du sujet wireguard, émetteurs reçus et refusés).
+  L'analyse en sessions viendra après observation des lignes réelles de RouterOS (format non garanti).
+- Vérifié : `test_journal.py` (analyse RFC 3164 / 5424, autorisés, écriture, recherche, purge, nom d'émetteur non
+  conforme refusé), syntaxe Python et JSX. Non vérifié : réception réelle depuis le routeur.
+
 ## 2026-10-28 — Sonde wireguard : réglages MikroTik pris d'office (livraison #893)
 
 - L'agent ne transmet pas d'arguments propres à un hôte (ceux du manifeste seulement) : `--mikrotik` était

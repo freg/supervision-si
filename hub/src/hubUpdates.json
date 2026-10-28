@@ -1,5 +1,11 @@
 [
  {
+  "n": 894,
+  "from": 894,
+  "date": "2026-10-28",
+  "title": "Réception syslog conservée, journal WireGuard du routeur dans l'onglet VPN"
+ },
+ {
   "n": 893,
   "from": 893,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 855,
   "date": "2026-10-24",
   "title": "Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés"
- },
- {
-  "n": 854,
-  "from": 854,
-  "date": "2026-10-23",
-  "title": "Parc IA : généalogie des modèles depuis l'origine, tenue à jour"
  }
 ]

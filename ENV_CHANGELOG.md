@@ -12,6 +12,14 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+
+## #894 (28/10/2026) — rsyslog-listener : conservation et émetteurs autorisés
+
+- `RSYSLOG_ALLOWED` (nouveau, **à renseigner**) : adresses ou réseaux autorisés à envoyer du syslog, séparés par
+  des virgules, ex. `RSYSLOG_ALLOWED=192.168.0.182`. Vide = tout émetteur accepté (le port UDP est ouvert sur l'hôte).
+- `RSYSLOG_RETENTION_DAYS` (nouveau, optionnel, 90 par défaut) : durée de conservation des messages reçus.
+- Port inchangé : `RSYSLOG_LISTENER_PORT` (5514/udp par défaut).
+
 ## 2026-10-22 — priorités, modèles par usage (livraison #823)
 
 Ajoutée (facultative) : `PRIORITES_LLM_HOTE=` (identifiant de l'agent de l'hôte qui sert le LLM des priorités).

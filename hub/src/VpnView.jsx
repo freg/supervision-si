@@ -1,7 +1,7 @@
 // #884 : onglet « VPN » -- serveurs WireGuard relevés en lecture seule (sonde wireguard) : pairs et état courant,
 // historique des connexions reconstitué par le hub (WireGuard ne journalise pas les connexions).
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchVpn } from "./siAgentClient.js";
+import { fetchVpn, fetchSyslog } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import IpPing from "./IpPing.jsx";
 import { operateur, stabilite } from "./vpnLib.js";
@@ -14,6 +14,36 @@ const age = (s) => (s == null ? "jamais" : s < 120 ? `${s} s` : s < 7200 ? `${Ma
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 const cle = (k) => (k ? `${k.slice(0, 8)}…` : "");
 const hote = (ep) => (ep ? ep.replace(/:\d+$/, "").replace(/^\[|\]$/g, "") : "");
+
+// #894 : lignes WireGuard reçues en syslog (routeur MikroTik : sujet « wireguard »), en attendant l'analyse en sessions
+function SyslogWireguard({ days }) {
+  const [s, setS] = useState(null);
+  useEffect(() => {
+    let vivant = true;
+    const go = () => fetchSyslog({ q: "wireguard", heures: Math.min(days, 30) * 24, limite: 300 }).then((r) => { if (vivant) setS(r); });
+    go(); const t = setInterval(go, 60000); return () => { vivant = false; clearInterval(t); };
+  }, [days]);
+  if (!s) return null;
+  const info = s.info || {};
+  return (
+    <section className="infra-card" style={{ margin: "12px 0" }}>
+      <h3 style={{ margin: "0 0 4px" }}>Journal WireGuard reçu en syslog</h3>
+      <div className="infra-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+        écoute UDP {info.port_udp || 5514} sur le hub · émetteurs autorisés : {(info.autorises || []).join(", ") || "tous (RSYSLOG_ALLOWED vide)"}
+        {" · "}reçus de : {(info.emetteurs || []).map((e) => `${e.hote || e.ip} (${e.ip})`).join(", ") || "personne pour l'instant"}
+        {(info.refuses || []).length > 0 && <span className="np-tone warn"> · refusés : {info.refuses.map((r) => `${r.ip} (${r.paquets})`).join(", ")}</span>}
+        {info.conservation === false && <span className="np-tone bad"> · conservation désactivée</span>}
+      </div>
+      {s.error ? <div className="np-tone bad">{s.error}</div> : s.messages.length === 0 ? <div className="infra-muted">aucune ligne « wireguard » sur la période (côté routeur : /system logging, sujet wireguard vers l'action distante).</div> : (
+        <div style={{ maxHeight: 320, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Date</th><th>Émetteur</th><th>Niveau</th><th>Sujet</th><th>Message</th></tr></thead>
+          <tbody>{s.messages.map((m, k) => (
+            <tr key={k} className={m.sev <= 3 ? "np-tone bad" : m.sev === 4 ? "np-tone warn" : ""}>
+              <td style={{ whiteSpace: "nowrap" }}>{new Date(m.t * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</td>
+              <td>{m.hote || m.ip}</td><td>{m.niveau}</td><td>{m.app}</td><td style={{ fontFamily: "monospace", fontSize: 12 }}>{m.msg}</td>
+            </tr>))}</tbody></table></div>)}
+    </section>
+  );
+}
 
 export default function VpnView({ onBack, siAgentApiBase }) {
   const [d, setD] = useState(null);
@@ -33,6 +63,7 @@ export default function VpnView({ onBack, siAgentApiBase }) {
         <h2 style={{ margin: 0 }}>VPN</h2>
         <span className="infra-muted">en lecture seule : WireGuard (sonde wireguard, connexions reconstituées) et SoftEther (sonde softether, journaux du serveur)</span>
       </div>
+      <SyslogWireguard days={days} />
       {d === null ? <p className="infra-muted">lecture…</p> : d.serveurs.length === 0 ? (
         <div className="infra-muted">
           <p>Aucun serveur VPN relevé. Activer la sonde <b>wireguard</b> (<a href={hubLink("si-agent", { tab: "catalogue" })}>Agents › Sondes</a>) :</p>
