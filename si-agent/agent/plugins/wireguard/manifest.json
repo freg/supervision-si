@@ -1,0 +1,13 @@
+{
+  "id": "wireguard",
+  "version": "1",
+  "runner": "python",
+  "entry": "wireguard.py",
+  "interval_seconds": 120,
+  "timeout_seconds": 90,
+  "args": [],
+  "enabled": false,
+  "description": "VPN WireGuard en lecture seule (#884) : interfaces et pairs (nom, adresse d'origine, adresses VPN, dernière poignée de main, volumes, connecté) ; le hub en tire l'historique des connexions (onglet VPN). Local (agent sur le serveur VPN, ex. r2d2 ; nom des pairs pris dans les commentaires de /etc/wireguard/*.conf) ou à distance : --ssh compte@hote --ssh-key chemin, vers la commande forcée wg-etat.sh installée par l'administrateur du VPN (clés privées masquées à la source). Noms des pairs en mode distant : --names fichier.json {clé_publique: nom}. Privilégié (wg exige root).",
+  "source": "bundled",
+  "privileged": true
+}

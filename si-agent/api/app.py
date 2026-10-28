@@ -390,6 +390,26 @@ def ca_route():
     return pem, 200, {"Content-Type": "application/x-pem-file"}
 
 
+@app.route("/vpn", methods=["GET"])
+def vpn_route():
+    """#884 : VPN WireGuard (sonde wireguard) -> {serveurs: [état courant par agent], sessions: [historique reconstitué]}.
+    ?days=30 (1..365, borné par la rétention des mesures). Aucune clé privée n'est stockée (écartée par la sonde)."""
+    import vpn
+    try:
+        days = max(1, min(365, int(request.args.get("days", 30))))
+    except ValueError:
+        days = 30
+    conn = store._connect(DB_PATH)
+    try:
+        courant = infra.latest(conn, vpn.TASK)
+        rel = vpn.releves(conn, days)
+    finally:
+        conn.close()
+    serveurs = [{"relais": a, "hote": h, "at": at, "source": (d or {}).get("source"), "interfaces": (d or {}).get("interfaces") or [],
+                 "alertes": (d or {}).get("alerts") or []} for a, h, at, d in courant]
+    return jsonify({"serveurs": serveurs, "sessions": vpn.sessions(rel)[:2000], "days": days}), 200
+
+
 @app.route("/nas", methods=["GET"])
 def nas_route():
     """#883 : NAS relevés par SNMP (sonde nas-snmp) -> {nas: [{… relevé, relais, at}]} (dernière mesure de chaque agent)."""

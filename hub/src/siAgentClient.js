@@ -31,6 +31,15 @@ const json = (method, body) => ({
 
 export const fetchSiAgentStatus = (apiBase) => fetchJson(apiBase, "/status");
 
+/** #884 : VPN WireGuard (état courant + sessions reconstituées). */
+export async function fetchVpn(apiBase, days = 30) {
+  try {
+    const r = await fetch(`${apiBase}/vpn?days=${days}`, { credentials: "include" });
+    const d = await r.json();
+    return { serveurs: d?.serveurs || [], sessions: d?.sessions || [] };
+  } catch { return { serveurs: [], sessions: [] }; }
+}
+
 /** #883 : NAS relevés par SNMP (sonde nas-snmp). */
 export async function fetchNas(apiBase) {
   try {

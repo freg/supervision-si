@@ -100,6 +100,7 @@ export const PATHS = {
   "view:infra": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #749 : vue d'ensemble PVE / PBS
   "view:htop": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #800 : htop en direct
   "view:nas": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #883 : NAS (SNMP)
+  "view:vpn": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #884 : VPN WireGuard
   "view:guest-usage": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #769 : activité des CT / VM
   "view:edge": ["equipements/reseau", "services/internet"],   // #776 : proxys d'entrée interchangeables
   "view:latency": ["equipements/reseau", "etats/feux"],   // #775 : latence des IP publiques

@@ -1,3 +1,16 @@
+## 2026-10-28 — Onglet VPN : WireGuard en lecture seule et historique des connexions (livraison #884)
+
+- Sonde `wireguard` (agent 0.6.9, désactivée par défaut) : `wg show all dump`, en local (agent sur le serveur VPN,
+  noms des pairs tirés des commentaires de /etc/wireguard/*.conf) ou à distance par SSH vers la commande forcée
+  `wg-etat.sh`, à installer par l'administrateur du VPN (lecture seule, clés privées et partagées masquées à la source,
+  écartées une seconde fois par la sonde). Noms en mode distant : `--names` {clé publique: nom}.
+- API `GET /vpn?days=` : état courant par serveur et sessions reconstituées (WireGuard ne journalise pas les
+  connexions) : début / fin d'après les poignées de main, durée, origine, volumes, session en cours, pair retiré.
+- Onglet « VPN » : pairs (connecté, origine, adresses VPN avec ping, dernière poignée de main, volumes) ;
+  historique filtrable (24 h, 7, 30, 90 jours).
+- Vérifié : `test_wireguard.py` (dump, noms, aucune clé privée en sortie, mode SSH), `test_vpn.py` (sessions,
+  compteurs remis à zéro, pair retiré), syntaxe JSX, tests de l'agent. Non vérifié : sur un serveur WireGuard réel.
+
 ## 2026-10-27 — Tuile NAS : état et alertes par SNMP en lecture seule (QNAP), étape 1 (livraison #883)
 
 - Sonde `nas-snmp` (agent 0.6.8, désactivée par défaut) : lit l'agent SNMP déjà actif du NAS avec ses réglages existants

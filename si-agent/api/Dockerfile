@@ -55,6 +55,7 @@ COPY si-agent/api/etat.py .
 COPY si-agent/api/etat_excel.py .
 COPY si-agent/api/etat_rapport.py .
 COPY si-agent/api/etat_plan.py .
+COPY si-agent/api/vpn.py .
 COPY si-agent/api/priorites.py .
 COPY si-agent/api/modeles.py .
 COPY si-agent/api/diffusion.py .

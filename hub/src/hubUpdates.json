@@ -1,5 +1,11 @@
 [
  {
+  "n": 884,
+  "from": 884,
+  "date": "2026-10-28",
+  "title": "Onglet VPN : WireGuard en lecture seule et historique des connexions"
+ },
+ {
   "n": 883,
   "from": 883,
   "date": "2026-10-27",
@@ -232,11 +238,5 @@
   "from": 845,
   "date": "2026-10-23",
   "title": "si-veille : icône dans la barre du haut, dernière alerte, maillons, alertes récentes et journal"
- },
- {
-  "n": 844,
-  "from": 844,
-  "date": "2026-10-23",
-  "title": "si-mailbox : STARTTLS, jeton local sans dépendre du cookie, démarrage avec la session graphique"
  }
 ]
