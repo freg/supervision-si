@@ -1,3 +1,11 @@
+## 2026-10-28 — Fichier d'installation Windows (.cmd) : archive trouvée à côté ou en dossier double (livraison #898)
+
+- Le `.cmd` silencieux exigeait d'être posé à la racine de l'archive décompressée. Il trouve désormais
+  `windows\install.ps1` aussi dans un dossier `si-agent-agent-*` voisin (fichier laissé dans Téléchargements à côté
+  de l'archive) et dans le dossier en double que crée l'Explorateur (`si-agent-agent-x\si-agent-agent-x\windows`),
+  et son message d'erreur dit quoi faire. Concerne aussi les installations à distance (campus).
+- Vérifié : texte généré (fonction extraite de app.py et exécutée hors Flask). Non vérifié : sur un vrai Windows.
+
 ## 2026-10-28 — Agents › Installation : téléchargement de l'archive sous Windows (livraison #897)
 
 - Le guide Windows supposait l'archive déjà décompressée. Nouvelle étape 1 (PowerShell, administrateur) :

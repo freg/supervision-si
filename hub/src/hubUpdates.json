@@ -1,5 +1,11 @@
 [
  {
+  "n": 898,
+  "from": 898,
+  "date": "2026-10-28",
+  "title": "Fichier d'installation Windows (.cmd) : archive trouvée à côté ou en dossier double"
+ },
+ {
   "n": 897,
   "from": 897,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 859,
   "date": "2026-10-26",
   "title": "État des lieux : VM arrêtées lues hors ligne (système, paquets, services, adresses)"
- },
- {
-  "n": 858,
-  "from": 858,
-  "date": "2026-10-26",
-  "title": "État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés"
  }
 ]

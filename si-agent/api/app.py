@@ -816,12 +816,16 @@ def _install_cmd_windows(agent_id, secret, site):
     lines = [
         "@echo off",
         "rem si-agent -- installation silencieuse de l'agent %s (fichier genere par le central, contient le secret : s'efface apres succes)." % aid,
-        "rem A placer a la racine de l'archive si-agent-agent-<version> decompressee (a cote de windows\\), puis double-cliquer (UAC demande une fois).",
+        "rem A placer a cote de l'archive si-agent-agent-<version> decompressee (ou a sa racine), puis double-cliquer (UAC demande une fois).",
         "setlocal",
         'cd /d "%~dp0"',
         'set "PS1=%~dp0windows\\install.ps1"',
         'if not exist "%PS1%" set "PS1=%~dp0install.ps1"',
-        'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable -- placer ce fichier a la racine de l\'archive decompressee. & pause & exit /b 1 )',
+        # #898 : .cmd laissé dans Téléchargements à côté de l'archive décompressée, ou dossier en double créé par
+        # l'Explorateur (si-agent-agent-x\\si-agent-agent-x\\windows) : on cherche sur deux niveaux de sous-dossiers.
+        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do if exist "%%D\\windows\\install.ps1" set "PS1=%%D\\windows\\install.ps1"',
+        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do for /d %%E in ("%%D\\si-agent-agent-*") do if exist "%%E\\windows\\install.ps1" set "PS1=%%E\\windows\\install.ps1"',
+        'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable -- decompresser l\'archive si-agent-agent-^<version^> dans le meme dossier que ce fichier. & pause & exit /b 1 )',
         "net session >nul 2>&1",
         'if not "%errorlevel%"=="0" (',
         '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
