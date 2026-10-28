@@ -78,3 +78,24 @@ def releves(conn, days=30, now=None):
             continue
         out.append((r["agent_id"], r["at"], d))
     return out
+
+
+TASK_SE = "plugin:softether"
+
+
+def softether(courant):
+    """Dernière mesure de chaque agent softether -> (serveurs, sessions au format commun de l'onglet VPN).
+    Sessions et échecs viennent directement des journaux de SoftEther (heures du serveur, sans fuseau)."""
+    serveurs, sessions = [], []
+    for agent_id, hote, at, d in courant:
+        d = d or {}
+        ss = d.get("sessions") or []
+        serveurs.append({"type": "softether", "relais": agent_id, "hote": hote, "at": at, "hubs": d.get("hubs") or [],
+                         "en_cours": [s for s in ss if s.get("en_cours")], "echecs": (d.get("echecs") or [])[-200:], "alertes": d.get("alerts") or []})
+        for s in ss:
+            sessions.append({"type": "softether", "relais": agent_id, "interface": s.get("hub"), "nom": s.get("utilisateur") or "",
+                             "public_key": s.get("sid"), "origine": s.get("origine"), "nom_origine": s.get("nom_origine") or "",
+                             "adresses": [s["adresse_vpn"]] if s.get("adresse_vpn") else [], "protocole": s.get("protocole") or "",
+                             "poste": s.get("poste") or "", "debut": s.get("debut"), "fin": s.get("fin"), "duree_s": s.get("duree_s"),
+                             "rx": s.get("recu"), "tx": s.get("emis"), "en_cours": bool(s.get("en_cours"))})
+    return serveurs, sessions

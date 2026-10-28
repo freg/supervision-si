@@ -1,3 +1,16 @@
+## 2026-10-28 — Onglet VPN : sessions SoftEther lues dans les journaux du serveur (livraison #885)
+
+- Sonde `softether` (agent 0.6.10, désactivée par défaut), sans mot de passe d'administration : lecture
+  incrémentale des journaux de sécurité de chaque hub (security_log/<hub>/sec_*.log), historique conservé sur
+  l'hôte (400 jours) et renvoyé sur 90 jours. Par session : hub, utilisateur, adresse et nom d'origine, protocole
+  (L2TP, SSTP, OpenVPN, SoftEther), poste client, adresse VPN attribuée, début, fin, durée, volumes, en cours.
+  Constat : échecs d'authentification répétés depuis une même adresse (5 par heure par défaut).
+- API `/vpn` : serveurs SoftEther et sessions fusionnées avec celles de WireGuard. Onglet VPN : carte par serveur
+  (hubs, sessions en cours, échecs récents), historique commun avec colonne protocole · poste, filtre étendu.
+- Vérifié : `test_softether.py` sur un journal fictif au format réel (session close, reprise incrémentale sans
+  doublon, session en cours, échecs et alerte, fichiers hors conservation ignorés), `test_vpn.py`, syntaxe JSX.
+  Non vérifié : sur r2d2.
+
 ## 2026-10-28 — Onglet VPN : WireGuard en lecture seule et historique des connexions (livraison #884)
 
 - Sonde `wireguard` (agent 0.6.9, désactivée par défaut) : `wg show all dump`, en local (agent sur le serveur VPN,

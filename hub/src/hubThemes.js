@@ -62,7 +62,7 @@ export const THEMES = [
       { view: "infra", label: "Infra PVE / PBS (vue d'ensemble)" },   // #749
       { view: "htop", label: "htop en direct (VM, CT, Proxmox ; capacité d'un nœud)" },   // #800
       { view: "nas", label: "NAS (volumes, disques, alertes)" },   // #883
-      { view: "vpn", label: "VPN (WireGuard : pairs, connexions)" },   // #884
+      { view: "vpn", label: "VPN (WireGuard, SoftEther : sessions, connexions)" },   // #884
       { view: "guest-usage", label: "Activité des VM (accès web, MySQL, connexions, CPU)" },   // #769
       { view: "migration", label: "Migration 2026-2027 (suivi et pilotage pas à pas)" },   // #774
       { view: "journal", label: "Journal des chantiers (actes, surveillances, interventions)" },   // #795

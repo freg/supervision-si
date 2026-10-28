@@ -394,6 +394,7 @@ def ca_route():
 def vpn_route():
     """#884 : VPN WireGuard (sonde wireguard) -> {serveurs: [état courant par agent], sessions: [historique reconstitué]}.
     ?days=30 (1..365, borné par la rétention des mesures). Aucune clé privée n'est stockée (écartée par la sonde)."""
+    import datetime as _dt
     import vpn
     try:
         days = max(1, min(365, int(request.args.get("days", 30))))
@@ -403,11 +404,15 @@ def vpn_route():
     try:
         courant = infra.latest(conn, vpn.TASK)
         rel = vpn.releves(conn, days)
+        se_serveurs, se_sessions = vpn.softether(infra.latest(conn, vpn.TASK_SE))   # #885
     finally:
         conn.close()
     serveurs = [{"relais": a, "hote": h, "at": at, "source": (d or {}).get("source"), "interfaces": (d or {}).get("interfaces") or [],
                  "alertes": (d or {}).get("alerts") or []} for a, h, at, d in courant]
-    return jsonify({"serveurs": serveurs, "sessions": vpn.sessions(rel)[:2000], "days": days}), 200
+    depuis = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
+    sessions = vpn.sessions(rel) + [s for s in se_sessions if (s.get("debut") or "") >= depuis or s.get("en_cours")]
+    sessions.sort(key=lambda s: s.get("debut") or "", reverse=True)
+    return jsonify({"serveurs": serveurs + se_serveurs, "sessions": sessions[:3000], "days": days}), 200
 
 
 @app.route("/nas", methods=["GET"])

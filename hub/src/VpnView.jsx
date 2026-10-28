@@ -20,26 +20,39 @@ export default function VpnView({ onBack, siAgentApiBase }) {
   useEffect(() => { load(); const t = setInterval(load, 120000); return () => clearInterval(t); }, [load]);
   const sessions = useMemo(() => {
     const f = q.trim().toLowerCase();
-    return (d?.sessions || []).filter((s) => !f || [s.nom, s.public_key, s.origine, ...(s.adresses || [])].join(" ").toLowerCase().includes(f));
+    return (d?.sessions || []).filter((s) => !f || [s.nom, s.public_key, s.origine, s.nom_origine, s.poste, s.protocole, s.interface, ...(s.adresses || [])].join(" ").toLowerCase().includes(f));
   }, [d, q]);
   return (
     <div className="infra-page">
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         {onBack && <button type="button" className="secondary" onClick={onBack}>◀ Retour</button>}
         <h2 style={{ margin: 0 }}>VPN</h2>
-        <span className="infra-muted">WireGuard en lecture seule (sonde wireguard, toutes les 2 min) ; connexions reconstituées par le hub</span>
+        <span className="infra-muted">en lecture seule : WireGuard (sonde wireguard, connexions reconstituées) et SoftEther (sonde softether, journaux du serveur)</span>
       </div>
       {d === null ? <p className="infra-muted">lecture…</p> : d.serveurs.length === 0 ? (
         <div className="infra-muted">
           <p>Aucun serveur VPN relevé. Activer la sonde <b>wireguard</b> (<a href={hubLink("si-agent", { tab: "catalogue" })}>Agents › Sondes</a>) :</p>
           <ul>
-            <li><b>Agent installé sur le serveur VPN</b> (ex. r2d2) : aucun argument ; les noms des pairs viennent des commentaires de /etc/wireguard/*.conf.</li>
+            <li><b>SoftEther</b> (ex. r2d2) : sonde <b>softether</b> sur l'agent du serveur, sans argument ni mot de passe (lecture des journaux de sécurité).</li>
+            <li><b>WireGuard, agent installé sur le serveur VPN</b> : sonde wireguard, aucun argument ; les noms des pairs viennent des commentaires de /etc/wireguard/*.conf.</li>
             <li><b>Serveur géré par un autre administrateur</b> : il installe la commande forcée <code>wg-etat.sh</code> (fournie avec la sonde : lecture seule, clés privées masquées) ;
               arguments <code>--ssh wgetat@&lt;serveur&gt; --ssh-key &lt;clé&gt; [--names noms.json]</code> (pas de lien : opération manuelle sur le serveur VPN).</li>
           </ul>
         </div>
       ) : <>
-        {d.serveurs.map((sv) => (sv.interfaces || []).map((i) => {
+        {d.serveurs.filter((sv) => sv.type === "softether").map((sv) => (
+          <section key={`se-${sv.relais}`} className="infra-card" style={{ margin: "12px 0" }}>
+            <h3 style={{ margin: "0 0 6px" }}>SoftEther · {sv.hote || sv.relais} <span className="infra-muted" style={{ fontSize: 13 }}>
+              · hubs : {(sv.hubs || []).join(", ") || "—"} · {(sv.en_cours || []).length} session(s) en cours · {date(sv.at)}</span></h3>
+            {(sv.alertes || []).map((a, k) => <div key={k} className="np-tone warn">• {a.message}</div>)}
+            {(sv.en_cours || []).length > 0 && <table className="infra-table"><thead><tr><th>Utilisateur</th><th>Hub</th><th>Protocole</th><th>Poste</th><th>Origine</th><th>Adresse VPN</th><th>Depuis</th></tr></thead>
+              <tbody>{sv.en_cours.map((s) => <tr key={s.sid}><td>{s.utilisateur}</td><td>{s.hub}</td><td>{s.protocole}</td><td>{s.poste || "—"}</td>
+                <td title={s.nom_origine}>{s.origine}</td><td>{s.adresse_vpn ? <IpPing ip={s.adresse_vpn} /> : "—"}</td><td>{date(s.debut)} ({duree(s.duree_s)})</td></tr>)}</tbody></table>}
+            {(sv.echecs || []).length > 0 && <details style={{ marginTop: 6 }}><summary>{sv.echecs.length} échec(s) d'authentification récents</summary>
+              <table className="infra-table"><thead><tr><th>Date</th><th>Hub</th><th>Utilisateur</th><th>Origine</th></tr></thead>
+                <tbody>{[...sv.echecs].reverse().slice(0, 100).map((e, k) => <tr key={k}><td>{date(e.at)}</td><td>{e.hub}</td><td>{e.utilisateur || "—"}</td><td>{e.ip || "—"}</td></tr>)}</tbody></table></details>}
+          </section>))}
+        {d.serveurs.filter((sv) => sv.type !== "softether").map((sv) => (sv.interfaces || []).map((i) => {
           const peers = [...(i.peers || [])].sort((a, b) => (b.connected - a.connected) || String(a.name || "~").localeCompare(String(b.name || "~")));
           return (
             <section key={`${sv.relais}-${i.interface}`} className="infra-card" style={{ margin: "12px 0" }}>
@@ -68,12 +81,13 @@ export default function VpnView({ onBack, siAgentApiBase }) {
             <span className="infra-muted">{sessions.length} session(s) · reconstituées à partir des relevés (précision 2 min)</span>
           </div>
           <div style={{ maxHeight: 420, overflow: "auto", marginTop: 6 }}>
-            <table className="infra-table"><thead><tr><th>Pair</th><th>Début</th><th>Fin</th><th>Durée</th><th>Origine</th><th>Reçu / émis</th><th>Serveur</th></tr></thead>
+            <table className="infra-table"><thead><tr><th>Pair / utilisateur</th><th>Début</th><th>Fin</th><th>Durée</th><th>Origine</th><th>Protocole · poste</th><th>Reçu / émis</th><th>Serveur</th></tr></thead>
               <tbody>{sessions.map((s, k) => (
                 <tr key={k}>
                   <td>{s.nom || <span className="infra-muted">{cle(s.public_key)}</span>}</td><td>{date(s.debut)}</td>
                   <td>{s.en_cours ? <span className="np-tone good">en cours</span> : date(s.fin)}</td><td>{duree(s.duree_s)}</td>
-                  <td>{hote(s.origine) || "—"}</td><td>{vol(s.rx)} / {vol(s.tx)}</td><td>{s.relais} · {s.interface}</td>
+                  <td title={s.nom_origine || ""}>{hote(s.origine) || "—"}</td><td>{s.type === "softether" ? `${(s.protocole || "").replace("Legacy VPN - ", "")}${s.poste ? ` · ${s.poste}` : ""}` : "WireGuard"}</td>
+                  <td>{vol(s.rx)} / {vol(s.tx)}</td><td>{s.relais} · {s.interface}</td>
                 </tr>))}</tbody></table>
           </div>
         </section>

@@ -40,3 +40,13 @@ class Sessions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SoftEther(unittest.TestCase):
+    def test_conversion(self):
+        d = {"hubs": ["Bureau"], "sessions": [{"hub": "Bureau", "sid": "SID-A-1", "utilisateur": "alice", "origine": "198.51.100.7", "protocole": "Legacy VPN - L2TP",
+                                               "poste": "mac.local", "adresse_vpn": "192.168.30.10", "debut": "2026-10-28T09:11:20", "fin": None,
+                                               "recu": 5, "emis": 6, "en_cours": True, "duree_s": 60}], "echecs": [], "alerts": []}
+        sv, ss = vpn.softether([("ag", "r2d2", "2026-10-28T09:20:00Z", d)])
+        self.assertEqual((sv[0]["type"], len(sv[0]["en_cours"])), ("softether", 1))
+        self.assertEqual((ss[0]["nom"], ss[0]["adresses"], ss[0]["rx"], ss[0]["interface"]), ("alice", ["192.168.30.10"], 5, "Bureau"))
