@@ -13,6 +13,13 @@ que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
 
+
+## #903 (28/10/2026) — messages-api (blog du hub)
+
+- `MESSAGES_ADMIN_GROUPS` (optionnel, défaut `administrateurs`) : groupes Keycloak dont les membres peuvent supprimer
+  n'importe quel message (sinon, chacun ne supprime que les siens). `MESSAGES_DATA_DIR` (optionnel, défaut
+  `./messages/data`). Aucun secret.
+
 ## #894 (28/10/2026) — rsyslog-listener : conservation et émetteurs autorisés
 
 - `RSYSLOG_ALLOWED` (nouveau, **à renseigner**) : adresses ou réseaux autorisés à envoyer du syslog, séparés par

@@ -1,3 +1,15 @@
+## 2026-10-28 — Tuile Messages : blog interne du hub (livraison #903)
+
+- Nouveau service `messages-api` et tuile « Messages » (thème « services/hub ») : déposer un mot pour tout le monde
+  ou pour soi seul, permanent ou à durée de vie automatique (1 h, 1 jour, 1 semaine ; effacé seul à l'échéance),
+  et le supprimer. Format « commande » : bloc copiable d'un clic, pour se passer une ligne d'un poste à l'autre sans
+  la recopier à vue. Ouvert à tout utilisateur connecté (jeton Keycloak du hub) ; seuls l'auteur et les membres des
+  groupes administrateurs suppriment. Les notes « pour moi » ne sont visibles que de leur auteur.
+- `auth.py` partagé : « * » dans la liste des utilisateurs autorisés ouvre un service à tout compte authentifié,
+  sans changer le comportement des services qui donnent une liste explicite.
+- Vérifié : `test_store.py` (portée, visibilité, expiration, suppression auteur / admin), ouverture « * » et maintien
+  de la restriction par liste, syntaxe Python et JSX. Non vérifié : routes Flask (Flask non installable ici) ni en réel.
+
 ## 2026-10-28 — Fiche agent : diagnostic Windows « rien ne remonte » à copier (livraison #902)
 
 - Panneau d'installation d'un agent Windows : bloc dépliable « l'agent est installé mais rien ne remonte » avec les

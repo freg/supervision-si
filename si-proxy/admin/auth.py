@@ -34,6 +34,8 @@ class KeycloakVerifier(object):
                  expected_azp=None, allowed_groups=None, what="le bastion"):
         self.jwks_url = jwks_url
         self.allowed_users = set(u.strip().lower() for u in (allowed_users or []) if u and u.strip())
+        # #903 : « * » dans la liste = tout utilisateur authentifié est accepté (service ouvert à tous les connectés)
+        self.tous = "*" in self.allowed_users
         # #589 : droits gérés EN INTERNE -- un groupe Keycloak (claim `groups`, tuile
         # « Comptes et groupes ») suffit, sans toucher au .env.
         self.allowed_groups = set(g.strip() for g in (allowed_groups or []) if g and g.strip())
@@ -102,7 +104,7 @@ class KeycloakVerifier(object):
         if not username:
             raise AuthError("jeton sans preferred_username")
         groups = [str(g).strip("/") for g in (claims.get("groups") or [])]
-        if username not in self.allowed_users and not (self.allowed_groups & set(groups)):
+        if not self.tous and username not in self.allowed_users and not (self.allowed_groups & set(groups)):
             hint = (" (ou membre du groupe %s)" % " / ".join(sorted(self.allowed_groups))) if self.allowed_groups else ""
             raise AuthError("utilisateur « %s » non autorisé sur %s%s" % (username, self.what, hint), 403)
         return {"username": username, "name": claims.get("name") or username, "groups": groups}

@@ -1612,6 +1612,22 @@ services:
     depends_on:
       - si-proxy
 
+  messages-api:
+    # #903 : « blog » du hub -- tuile Messages (un mot pour tous ou pour soi, permanent ou à durée de vie, effaçable).
+    # Ouvert à tout utilisateur connecté (jeton Keycloak) ; seuls l'auteur et les administrateurs suppriment.
+    build:
+      context: .
+      dockerfile: messages/api/Dockerfile
+    volumes:
+      - ${MESSAGES_DATA_DIR:-./messages/data}:/data
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      - MESSAGES_ADMIN_GROUPS=${MESSAGES_ADMIN_GROUPS:-administrateurs}
+    depends_on:
+      - keycloak
+    restart: unless-stopped
+
   notify-api:
     # Livraison #590 (backlog item 92) -- notifications par courriel des
     # actions du hub (routeurs, tour de contrôle...) et GESTIONNAIRE D'ENVOI
@@ -2224,6 +2240,7 @@ services:
       - VITE_SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}
       # Notifications (livraison #590) -- tuile « Notifications » (groupe administrateurs).
       - VITE_NOTIFY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/notify
+      - VITE_MESSAGES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/messages
       - VITE_LICENSES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/licenses   # #595
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog

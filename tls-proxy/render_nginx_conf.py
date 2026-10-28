@@ -250,6 +250,7 @@ SERVICES = [
     ("RSYSLOG_LISTENER_API_PORT", "rsyslog-listener", 5000, "/api/rsyslog-listener/", "api"),
     ("LDAP_ADMIN_API_PORT", "ldap-admin-api", 5000, "/api/ldap-admin/", "api"),
     ("PREFS_API_PORT", "prefs-api", 5000, "/api/prefs/", "api"),
+    ("MESSAGES_API_PORT", "messages-api", 5000, "/api/messages/", "api"),   # #903 : blog du hub
     ("VAULT_API_PORT", "vault-api", 5000, "/api/vault/", "api"),
     ("SUPERVISION_FRONTEND_PORT", "frontend", 5173, "/app/", "spa"),
     # projeqtor-app (livraison #476) — fork de ProjeQtOr (Apache/PHP).

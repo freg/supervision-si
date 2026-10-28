@@ -162,3 +162,6 @@ groupware/dav-data/
 
 rsyslog-listener/data/*
 !rsyslog-listener/data/.gitkeep
+
+messages/data/*
+!messages/data/.gitkeep
