@@ -4042,6 +4042,12 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   connectent, et inversement par poste la liste des services consommés. Les agents serveurs fournissent le côté
   offre (écoute + connexions entrantes), les postes le côté usage (connexions sortantes) : on recoupe les deux bouts
   du lien client<->service. Historique (évolution de l'usage dans le temps) depuis les relevés horodatés.
+  - Hôtes SANS agent (VM/serveurs non instrumentés) : combiner nmap et tcpdump. nmap (sonde `lan-audit` #873 déjà là)
+    donne les services ouverts par hôte/VM (offre) ; tcpdump donne les flux ip-client/port/ip-serveur (usage).
+    `capture-relay` capture déjà en tcpdump borné vers network-agent-api -> en extraire les tuples de flux (src, dst,
+    port, proto, compteurs) ou une sonde `flux` légère qui ne remonte que ces tuples (pas le pcap complet). Fusionner :
+    agent `sockets` (processus/PID/utilisateur) là où un agent existe ; nmap+tcpdump ailleurs. Service nommé en
+    croisant hôte:port avec l'État des lieux.
 - Onglet « services en ligne » : même idée au niveau applicatif, à partir des journaux/API des services eux-mêmes
   (connexions, sessions), cibles immédiates ownCloud, Roundcube / Postfix (smtpd) / Dovecot (imapd), GED.
 - Prérequis d'ergonomie : la fiche de l'agent est devenue trop lourde (noté le 28/10) -> la retravailler et/ou la
