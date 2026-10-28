@@ -1,3 +1,12 @@
+## 2026-10-28 — Fichier d'installation Windows autonome (livraison #900)
+
+- Constat sur le poste de Paul : `.cmd` lancé depuis Téléchargements sans archive décompressée -> « install.ps1
+  introuvable ». Le `.cmd` se suffit désormais : élévation d'abord, puis archive décompressée à côté si présente,
+  sinon téléchargement depuis le central (`curl.exe`), contrôle de l'empreinte SHA-256 inscrite par le central
+  (arrêt si elle diffère), décompression (`tar`) dans %TEMP%, installation. Accueil et fiche : un seul fichier à
+  télécharger, avertissement « Éditeur inconnu » expliqué.
+- Vérifié : texte généré (fonction extraite et exécutée hors Flask), syntaxe JSX. Non vérifié : sur un vrai Windows.
+
 ## 2026-10-28 — Accueil du hub sans connexion : « Nouvel agent » et « Accès sécurisé » (livraison #899)
 
 - Une visite non authentifiée (ou une reconnexion silencieuse en échec) n'affiche plus d'erreur mais un accueil à deux

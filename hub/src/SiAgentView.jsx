@@ -659,7 +659,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       <pre className="np-secret">{install.install_command_windows}</pre>
                       {install.install_cmd_available ? (
                         <p className="muted" style={{ margin: "4px 0 2px", fontSize: 12 }}>
-                          Sans intervention : <a href={installCmdUrl(siAgentApiBase, selectedId)} download={`si-agent-install-${selectedId}.cmd`}>télécharger <code>si-agent-install-{selectedId}.cmd</code></a> (secret et empreinte inclus), le déposer à la racine de l'archive décompressée et double-cliquer : UAC une fois, puis « OK » ; le fichier s'efface après succès.
+                          Sans intervention : <a href={installCmdUrl(siAgentApiBase, selectedId)} download={`si-agent-install-${selectedId}.cmd`}>télécharger <code>si-agent-install-{selectedId}.cmd</code></a> (secret et empreinte inclus) et double-cliquer, où qu'il soit : « Éditeur inconnu » › Exécuter, UAC une fois ; il télécharge l'agent s'il n'est pas décompressé à côté, l'installe, affiche « OK » et s'efface.
                         </p>
                       ) : (
                         <p className="muted" style={{ margin: "4px 0 2px", fontSize: 12 }}>Fichier .cmd silencieux indisponible : CA interne absente sur le central (empreinte requise) ou caractère interdit dans l'identifiant / le site.</p>

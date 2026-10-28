@@ -801,8 +801,9 @@ def _install_cmd_windows(agent_id, secret, site):
     incluses, élévation UAC, install.ps1 sans question (sortie dans un
     journal), « OK » à la fin puis le fichier s'efface (il contient le
     secret) ; en erreur, le journal est affiché et la fenêtre reste
-    ouverte. À déposer à la racine de l'archive décompressée (à côté du
-    dossier windows) et double-cliquer. ASCII seul (cmd.exe lit la page de
+    ouverte. #899 : se suffit à lui-même -- archive décompressée à côté
+    utilisée si présente, sinon téléchargée depuis le central (curl.exe,
+    empreinte SHA-256 inscrite ici) et décompressée (tar) ; double-cliquer. ASCII seul (cmd.exe lit la page de
     code OEM) ; l'empreinte de la CA interne est obligatoire (jamais
     `-Insecure` en silence)."""
     ca = _ca_info()
@@ -813,24 +814,42 @@ def _install_cmd_windows(agent_id, secret, site):
     for v in (aid, sec, central, st):
         if re.search(r'["%!^&<>|]', v):
             return None
+    pkg = package.package_info(package.find_package()) or {}
+    sha = re.sub(r"[^0-9A-Fa-f]", "", str(pkg.get("sha256") or "")).upper()
     lines = [
         "@echo off",
         "rem si-agent -- installation silencieuse de l'agent %s (fichier genere par le central, contient le secret : s'efface apres succes)." % aid,
-        "rem A placer a cote de l'archive si-agent-agent-<version> decompressee (ou a sa racine), puis double-cliquer (UAC demande une fois).",
+        "rem #899 : se suffit a lui-meme -- double-cliquer (UAC une fois) ; l'archive de l'agent est utilisee si elle est deja decompressee a cote, sinon telechargee depuis le central et verifiee (SHA-256).",
         "setlocal",
-        'cd /d "%~dp0"',
-        'set "PS1=%~dp0windows\\install.ps1"',
-        'if not exist "%PS1%" set "PS1=%~dp0install.ps1"',
-        # #898 : .cmd laissé dans Téléchargements à côté de l'archive décompressée, ou dossier en double créé par
-        # l'Explorateur (si-agent-agent-x\\si-agent-agent-x\\windows) : on cherche sur deux niveaux de sous-dossiers.
-        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do if exist "%%D\\windows\\install.ps1" set "PS1=%%D\\windows\\install.ps1"',
-        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do for /d %%E in ("%%D\\si-agent-agent-*") do if exist "%%E\\windows\\install.ps1" set "PS1=%%E\\windows\\install.ps1"',
-        'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable -- decompresser l\'archive si-agent-agent-^<version^> dans le meme dossier que ce fichier. & pause & exit /b 1 )',
+        # élévation d'abord : l'instance administrateur refait tout le reste
         "net session >nul 2>&1",
         'if not "%errorlevel%"=="0" (',
         '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
         "  exit /b",
         ")",
+        'cd /d "%~dp0"',
+        'set "PS1=%~dp0windows\\install.ps1"',
+        'if not exist "%PS1%" set "PS1=%~dp0install.ps1"',
+        # #898 : archive décompressée à côté, ou dossier en double créé par l'Explorateur
+        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do if exist "%%D\\windows\\install.ps1" set "PS1=%%D\\windows\\install.ps1"',
+        'if not exist "%PS1%" for /d %%D in ("%~dp0si-agent-agent-*") do for /d %%E in ("%%D\\si-agent-agent-*") do if exist "%%E\\windows\\install.ps1" set "PS1=%%E\\windows\\install.ps1"',
+        'if exist "%PS1%" goto :pret',
+        # #899 : sinon, téléchargement depuis le central (curl.exe et tar sont livrés avec Windows 10 / 11)
+        'set "WORK=%TEMP%\\si-agent-pkg"',
+        'if exist "%WORK%" rmdir /s /q "%WORK%"',
+        'mkdir "%WORK%"',
+        "echo Telechargement de l'agent depuis %s ..." % central,
+        'curl.exe -fsSk -o "%%WORK%%\\agent.tgz" "%s/package"' % central,
+        'if not "%errorlevel%"=="0" ( echo ERREUR : telechargement impossible depuis le central. & pause & exit /b 1 )',
+    ] + ([
+        # -k ci-dessus (CA interne non encore installée) : l'intégrité est garantie par l'empreinte inscrite ici par le central
+        'powershell -NoProfile -Command "if ((Get-FileHash \'%%WORK%%\\agent.tgz\' -Algorithm SHA256).Hash -ne \'%s\') { exit 1 }"' % sha,
+        'if not "%errorlevel%"=="0" ( echo ERREUR : archive alteree ^(empreinte SHA-256 differente^) -- installation abandonnee. & pause & exit /b 1 )',
+    ] if sha else []) + [
+        'tar -xzf "%WORK%\\agent.tgz" -C "%WORK%"',
+        'for /d %%D in ("%WORK%\\si-agent-agent-*") do if exist "%%D\\windows\\install.ps1" set "PS1=%%D\\windows\\install.ps1"',
+        'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable apres telechargement. & pause & exit /b 1 )',
+        ":pret",
         'set "LOG=%TEMP%\\si-agent-install.log"',
         'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" -CaFingerprint %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, ca["sha256"], central),
         'if not "%errorlevel%"=="0" goto :erreur',

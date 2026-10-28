@@ -47,10 +47,13 @@ export default function Accueil({ apiBase, onConnexion, erreur }) {
             <h3>Installation de l'agent « {d.agent_id} » (site {d.site})</h3>
             {estWindows ? (<>
               <ol style={{ lineHeight: 1.7 }}>
-                <li>Télécharger <a href={`${apiBase}/package`} download>l'archive de l'agent</a>{d.package?.name ? <> (<code>{d.package.name}</code>)</> : null}, puis clic droit › <b>Extraire tout</b>, dans Téléchargements.</li>
-                {d.install_cmd_available
-                  ? <li>Télécharger <a href={lienCmd} download={`si-agent-install-${d.agent_id}.cmd`}>le fichier d'installation</a>, le laisser dans Téléchargements et le <b>double-cliquer</b> (accepter l'élévation). Il s'efface après succès.</li>
-                  : <li>Terminal <b>administrateur</b> dans le dossier extrait : <pre className="np-secret">{d.install_command_windows}</pre></li>}
+                {d.install_cmd_available ? (<>
+                  <li>Télécharger <a href={lienCmd} download={`si-agent-install-${d.agent_id}.cmd`}>le fichier d'installation</a>.</li>
+                  <li>Le <b>double-cliquer</b> dans Téléchargements : « Éditeur inconnu » › <b>Exécuter</b>, puis accepter l'élévation. Il télécharge l'agent, l'installe, affiche « OK » et s'efface.</li>
+                </>) : (<>
+                  <li>Télécharger <a href={`${apiBase}/package`} download>l'archive de l'agent</a>, clic droit › <b>Extraire tout</b>.</li>
+                  <li>Terminal <b>administrateur</b> dans le dossier extrait : <pre className="np-secret">{d.install_command_windows}</pre></li>
+                </>)}
               </ol>
               <details><summary>Autres systèmes</summary><pre className="np-secret">{`TOKEN='${d.secret}'`}</pre><pre className="np-secret">{d.install_command}</pre></details>
             </>) : (<>
