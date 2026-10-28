@@ -1,5 +1,11 @@
 [
  {
+  "n": 892,
+  "from": 892,
+  "date": "2026-10-28",
+  "title": "Onglet VPN : erreur de lecture d'un serveur WireGuard visible"
+ },
+ {
   "n": 891,
   "from": 891,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 853,
   "date": "2026-10-23",
   "title": "Pauses planifiées des alertes : fermeture de site, travaux, coupure électrique"
- },
- {
-  "n": 852,
-  "from": 852,
-  "date": "2026-10-23",
-  "title": "Nebula : recherche sur tout, module d'action surveillé (impact, chien de garde, retour arrière, journal) ; sondes livrées sous Windows"
  }
 ]

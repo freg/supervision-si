@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  892: [{ view: "vpn", hint: "onglet VPN : un serveur WireGuard illisible (routeur injoignable…) s'affiche avec son erreur" }],
   891: [{ view: "si-agent", params: { tab: "updates" }, hint: "Agents › Mises à jour : bouton « Tout mettre à jour »" }],
   889: [{ view: "vpn", hint: "onglet VPN : WireGuard d'un routeur MikroTik par l'API RouterOS (compte en lecture seule)" }],
   888: [{ view: "vpn", hint: "onglet VPN : opérateur d'origine (Starlink, 4G…) et stabilité par utilisateur (sessions courtes, reconnexions)" }],

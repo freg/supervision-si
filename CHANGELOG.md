@@ -1,3 +1,9 @@
+## 2026-10-28 — Onglet VPN : erreur de lecture d'un serveur WireGuard visible (livraison #892)
+
+- Un serveur WireGuard sans interface lue (routeur MikroTik injoignable, mot de passe refusé…) n'apparaissait pas :
+  les cartes n'étaient tracées que par interface. Carte du serveur avec son erreur.
+- Vérifié : syntaxe JSX.
+
 ## 2026-10-28 — Agents › Mises à jour : bouton « Tout mettre à jour » (livraison #891)
 
 - Envoie la mise à jour à chaque agent en retard (éligible, non éligible ou en échec), comme le bouton de sa ligne,

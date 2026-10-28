@@ -58,6 +58,13 @@ export default function VpnView({ onBack, siAgentApiBase }) {
               <table className="infra-table"><thead><tr><th>Date</th><th>Hub</th><th>Utilisateur</th><th>Origine</th></tr></thead>
                 <tbody>{[...sv.echecs].reverse().slice(0, 100).map((e, k) => <tr key={k}><td>{date(e.at)}</td><td>{e.hub}</td><td>{e.utilisateur || "—"}</td><td>{e.ip || "—"}</td></tr>)}</tbody></table></details>}
           </section>))}
+        {d.serveurs.filter((sv) => sv.type !== "softether" && !(sv.interfaces || []).length).map((sv) => (
+          <section key={`wg-vide-${sv.relais}`} className="infra-card" style={{ margin: "12px 0" }}>
+            <h3 style={{ margin: "0 0 6px" }}>WireGuard · {sv.source && sv.source !== "local" ? sv.source : sv.hote || sv.relais} <span className="infra-muted" style={{ fontSize: 13 }}>
+              · relevé par {sv.relais} · {date(sv.at)}</span></h3>
+            {(sv.alertes || []).length ? sv.alertes.map((a, k) => <div key={k} className={`np-tone ${a.severity === "info" ? "neutral" : "bad"}`}>• {a.message}</div>)
+              : <div className="infra-muted">aucune interface WireGuard lue</div>}
+          </section>))}
         {d.serveurs.filter((sv) => sv.type !== "softether").map((sv) => (sv.interfaces || []).map((i) => {
           const peers = [...(i.peers || [])].sort((a, b) => (b.connected - a.connected) || String(a.name || "~").localeCompare(String(b.name || "~")));
           return (
