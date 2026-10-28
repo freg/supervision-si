@@ -1,3 +1,10 @@
+## 2026-10-28 — Agents › Installation : téléchargement de l'archive sous Windows (livraison #897)
+
+- Le guide Windows supposait l'archive déjà décompressée. Nouvelle étape 1 (PowerShell, administrateur) :
+  `curl.exe` (livré avec Windows 10 / 11 ; `-k` pour une adresse interne, `-L` sinon), contrôle de l'empreinte
+  SHA-256 par `Get-FileHash` (arrêt si elle diffère), `tar -xzf`, puis `cd` dans le dossier ; l'installation devient l'étape 2.
+- Vérifié : test `agentInstallLib` (adresse interne et publique, sans archive), syntaxe JSX. Non vérifié : sur un vrai Windows.
+
 ## 2026-10-28 — Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge (livraison #896)
 
 - Sonde `poste-windows` (agent 0.6.15, lecture seule, toutes les 6 h, désactivée par défaut) : relevé PowerShell 5.1

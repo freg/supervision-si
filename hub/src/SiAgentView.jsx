@@ -628,7 +628,16 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   )}
                   {install.install_command_windows && (
                     <>
-                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 — Terminal (administrateur), depuis l'archive décompressée (ne pas double-cliquer le .ps1 : le Bloc-notes s'ouvre ; <code>windows\install.cmd</code> fait l'élévation et accepte les mêmes arguments, ou pose les questions en double-clic) :</p>
+                      {(() => {
+                        const lan = ((String(install.install_command || "").match(/--central\s+'?([^'\s]+)/) || [])[1]) || "";
+                        const b = normalizeBase(hubAddr) || [...hubHistory, lan, `${window.location.origin}/api/si-agent`].map(normalizeBase).filter(Boolean)[0] || "";
+                        const W = installLines({ base: b, agentId: install.agent_id, site: install.site, pkg: install.package, caFp: caFingerprintOf(install.install_command) });
+                        return W.downloadWindows ? (<>
+                          <p className="muted" style={{ margin: "8px 0 2px", fontSize: 12 }}>Windows 10 / 11 — 1. téléchargement, vérification et décompression de l'archive (Terminal <b>administrateur</b>, PowerShell, dans un dossier de travail, ex. <code>cd $env:TEMP</code>) :</p>
+                          <pre className="np-secret">{W.downloadWindows}</pre>
+                        </>) : null;
+                      })()}
+                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 — 2. installation : Terminal (administrateur), depuis l'archive décompressée (ne pas double-cliquer le .ps1 : le Bloc-notes s'ouvre ; <code>windows\install.cmd</code> fait l'élévation et accepte les mêmes arguments, ou pose les questions en double-clic) :</p>
                       <pre className="np-secret">{install.install_command_windows}</pre>
                       {install.install_cmd_available ? (
                         <p className="muted" style={{ margin: "4px 0 2px", fontSize: 12 }}>

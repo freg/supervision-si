@@ -1,5 +1,11 @@
 [
  {
+  "n": 897,
+  "from": 897,
+  "date": "2026-10-28",
+  "title": "Agents › Installation : téléchargement de l'archive sous Windows"
+ },
+ {
   "n": 896,
   "from": 896,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 858,
   "date": "2026-10-26",
   "title": "État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés"
- },
- {
-  "n": 857,
-  "from": 857,
-  "date": "2026-10-26",
-  "title": "État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs"
  }
 ]

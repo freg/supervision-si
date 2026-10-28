@@ -37,6 +37,14 @@ export function installLines({ base, agentId, site, pkg, caFp }) {
     const folder = pkg.name.replace(/\.tar\.gz$/, "");
     out.download = `curl -fsS${internal ? "k" : "L"} -o ${pkg.name} ${b}/package && echo '${pkg.sha256}  ${pkg.name}' | sha256sum -c && tar xzf ${pkg.name} && cd ${folder}`;
   }
+  if (pkg && pkg.name) {
+    // #897 : même étape sous Windows 10 / 11 (PowerShell) : curl.exe et tar sont livrés avec Windows ; -k pour une
+    // adresse interne (CA du projet) compensé, comme sous Linux, par le contrôle de l'empreinte SHA-256 de l'archive.
+    const folder = pkg.name.replace(/\.tar\.gz$/, "");
+    out.downloadWindows = `curl.exe -fsS${internal ? "k" : "L"} -o ${pkg.name} ${b}/package; `
+      + `if ((Get-FileHash .\\${pkg.name} -Algorithm SHA256).Hash -ne '${String(pkg.sha256 || "").toUpperCase()}') { throw 'empreinte SHA-256 differente : archive alteree' }; `
+      + `tar -xzf .\\${pkg.name}; cd .\\${folder}`;
+  }
   out.install = `./install.sh --agent ${shq(agentId)} --secret "$TOKEN" --central ${b} --site ${shq(site || "default")}` + (internal && caFp ? ` --ca-fingerprint ${caFp}` : "");
   return out;
 }

@@ -48,3 +48,15 @@ test("#887 : site avec espaces / accents / apostrophe protégé pour le shell", 
   const l = installLines({ base: "https://192.0.2.10:6443", agentId: "pc-1", site: "bureau/optline service/téléport 2", caFp: "ab" });
   assert.match(l.install, / --site 'bureau\/optline service\/téléport 2' --ca-fingerprint ab$/);
 });
+
+test("#897 : téléchargement de l'archive sous Windows (PowerShell)", async () => {
+  const { installLines } = await import("../src/agentInstallLib.js");
+  const pkg = { name: "si-agent-agent-0.6.15.tar.gz", sha256: "ab12" };
+  const l = installLines({ base: "https://192.0.2.10:6443/api/si-agent", agentId: "pc-paul", site: "bureau", pkg, caFp: "ff" });
+  assert.equal(l.downloadWindows, "curl.exe -fsSk -o si-agent-agent-0.6.15.tar.gz https://192.0.2.10:6443/api/si-agent/package; "
+    + "if ((Get-FileHash .\\si-agent-agent-0.6.15.tar.gz -Algorithm SHA256).Hash -ne 'AB12') { throw 'empreinte SHA-256 differente : archive alteree' }; "
+    + "tar -xzf .\\si-agent-agent-0.6.15.tar.gz; cd .\\si-agent-agent-0.6.15");
+  const p = installLines({ base: "https://hub.exemple.fr/api/si-agent", agentId: "pc-paul", site: "bureau", pkg });
+  assert.match(p.downloadWindows, /^curl\.exe -fsSL /);
+  assert.equal(installLines({ base: "https://192.0.2.10:6443", agentId: "x" }).downloadWindows, undefined);
+});
