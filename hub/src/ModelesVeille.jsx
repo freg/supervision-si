@@ -211,13 +211,13 @@ function Revue({ setErr }) {
       <p className="infra-muted" style={{ margin: "2px 0 10px" }}>Classement du jour : priorité aux modèles <b>légers qui tiennent sur nos machines</b>, repère de <b>téléchargement avant disparition / passage payant</b>, et dédicace aux modèles <b>enrichissables par apprentissage</b> (★ apprennent et désapprennent dynamiquement). Machines : réglage MODELES_MACHINES.</p>
 
       {(d.a_telecharger || []).length > 0 && !neufs && (
-        <div className="lede" style={{ borderLeftColor: "var(--bad, #ff6b6b)" }}>
+        <div className="lede" style={{ borderLeftColor: "var(--danger)" }}>
           <b className="np-tone bad">🔻 À télécharger sans tarder</b> <span className="infra-muted">— accès restreint et utilisables chez nous, susceptibles de fermer :</span>
           <div style={{ marginTop: 6 }}>{d.a_telecharger.map(chip)}</div>
         </div>
       )}
       {(d.ideal || []).length > 0 && (
-        <div className="lede" style={{ borderLeftColor: "var(--ok, #6ad67a)" }}>
+        <div className="lede" style={{ borderLeftColor: "var(--ok)" }}>
           <b className="np-tone good">★ Apprend &amp; désapprend</b> <span className="infra-muted">— l'idéal recherché (édition de connaissances, désapprentissage) :</span>
           <div style={{ marginTop: 6 }}>{d.ideal.map((m) => <a key={m.id} href={hf(m.id)} target="_blank" rel="noreferrer" className="np-tone good" style={{ textDecoration: "none", marginRight: 6, display: "inline-block", marginBottom: 4 }}>{m.id}</a>)}</div>
         </div>
@@ -258,7 +258,7 @@ function Repartition({ etat, setErr }) {
         ))}
       </div>
       {(d.non_places || []).length > 0 && (
-        <div className="lede" style={{ borderLeftColor: "var(--bad, #ff6b6b)", marginTop: 12 }}>
+        <div className="lede" style={{ borderLeftColor: "var(--danger)", marginTop: 12 }}>
           <b className="np-tone bad">Ne tiennent sur aucun GPU</b>
           <div style={{ marginTop: 6 }}>{d.non_places.map((n) => <span key={n.usage} className="np-tone bad" style={{ marginRight: 6, display: "inline-block", marginBottom: 4 }}>{n.usage} <span className="infra-muted">{n.modele || ""} · {go(n.vram)}</span></span>)}</div>
         </div>
@@ -315,7 +315,7 @@ function AutoTelechargement({ setErr }) {
               <td><a href={`https://huggingface.co/${m.id}`} target="_blank" rel="noreferrer">{m.id}</a></td>
               <td><small>{md(m.params_b)}{m.go ? ` · ${go(m.go)}` : ""}</small></td>
               <td><small>{(m.machines || []).join(", ") || "—"}</small></td>
-              {ctxs.map((k) => { const n = m.notes?.[k] ?? 0; return <td key={k} style={{ textAlign: "center", fontWeight: n >= 7 ? 600 : 400, color: n >= 7 ? "var(--ok, #6ad67a)" : n >= 4 ? "var(--warn, #ffb454)" : "var(--mut, #9aa7b4)" }}>{n}</td>; })}
+              {ctxs.map((k) => { const n = m.notes?.[k] ?? 0; return <td key={k} style={{ textAlign: "center", fontWeight: n >= 7 ? 600 : 400, color: n >= 7 ? "var(--ok)" : n >= 4 ? "var(--warning)" : "var(--muted)" }}>{n}</td>; })}
               <td><button type="button" className="secondary" disabled={!!occ} onClick={() => tirer([m.ref])}>{occ === m.ref ? "…" : "Télécharger"}</button></td>
             </tr>))}
         </tbody>
