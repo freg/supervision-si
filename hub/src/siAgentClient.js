@@ -61,6 +61,17 @@ export async function fetchWgSyslog(heures = 24) {
   } catch (err) { return { pairs: [], sessions: [], error: String(err) }; }
 }
 
+/** #906 : sockets (netstat) des hôtes agentés. Sans agent -> liste des hôtes ; avec agent -> relevé + historique. */
+export async function fetchSockets(apiBase, agent = "", at = "") {
+  const q = new URLSearchParams();
+  if (agent) q.set("agent", agent);
+  if (at) q.set("at", at);
+  try {
+    const r = await fetch(`${apiBase}/sockets${q.toString() ? "?" + q : ""}`, { credentials: "include" });
+    return await r.json();
+  } catch { return agent ? { agent, sockets: [], counts: {}, historique: [] } : { hotes: [] }; }
+}
+
 /** #896 : postes Windows (configuration à réinstaller, diagnostic, tests de charge). */
 export async function fetchPostesWindows(apiBase, agent = "") {
   try {

@@ -4032,3 +4032,17 @@ compte bloqué / expiré, version SMB refusée), avec alerte sur échecs répét
   par l'agent (installeur des hôtes anciens #867 si besoin).
 Restitution : un onglet « Accès aux fichiers » (ou une extension de l'onglet VPN) par utilisateur et par serveur ;
 lecture seule partout, réglages de journalisation à proposer séparément si un serveur ne journalise pas assez.
+
+### 141. Vue inversée « Services du LAN » et services en ligne, à partir des sockets -- à faire (noté le 28/10/2026)
+
+Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et sondes `partages-reseau` / `partages-samba`
+(#902). But : passer de la vision « par hôte » à la vision « par service ».
+- Tuile « Services du LAN » : agréger les sockets de TOUS les agents (postes ET serveurs sur les LAN) pour obtenir,
+  par service (hôte:port en écoute, croisé avec l'État des lieux pour le nommer), la liste des postes/clients qui s'y
+  connectent, et inversement par poste la liste des services consommés. Les agents serveurs fournissent le côté
+  offre (écoute + connexions entrantes), les postes le côté usage (connexions sortantes) : on recoupe les deux bouts
+  du lien client<->service. Historique (évolution de l'usage dans le temps) depuis les relevés horodatés.
+- Onglet « services en ligne » : même idée au niveau applicatif, à partir des journaux/API des services eux-mêmes
+  (connexions, sessions), cibles immédiates ownCloud, Roundcube / Postfix (smtpd) / Dovecot (imapd), GED.
+- Prérequis d'ergonomie : la fiche de l'agent est devenue trop lourde (noté le 28/10) -> la retravailler et/ou la
+  relier à une tuile « postes agentés » qui regroupe fiche, postes Windows, sockets, par poste.

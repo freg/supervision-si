@@ -416,6 +416,36 @@ def vpn_route():
     return jsonify({"serveurs": serveurs + se_serveurs, "sessions": sessions[:3000], "days": days}), 200
 
 
+@app.route("/sockets", methods=["GET"])
+def sockets_route():
+    """#906 : sockets des hôtes (sonde sockets, à la demande). Sans param -> dernier relevé de chaque agent (compteurs).
+    ?agent=X -> relevé complet de X + horodatages disponibles (historique). ?agent=X&at=<iso> -> le relevé de cet instant."""
+    agent = (request.args.get("agent") or "").strip()
+    at = (request.args.get("at") or "").strip()
+    conn = store._connect(DB_PATH)
+    try:
+        if not agent:
+            rows = infra.latest(conn, "plugin:sockets")
+            hotes = [{"agent": a, "hote": h, "at": t, "counts": (d or {}).get("counts") or {}, "alertes": (d or {}).get("alerts") or []}
+                     for a, h, t, d in rows]
+            hotes.sort(key=lambda x: x["agent"])
+            return jsonify({"hotes": hotes}), 200
+        hist = [r["at"] for r in conn.execute(
+            "SELECT at FROM measurements WHERE agent_id = ? AND task = 'plugin:sockets' ORDER BY at DESC LIMIT 200", (agent,)).fetchall()]
+        if at:
+            row = conn.execute("SELECT at, data FROM measurements WHERE agent_id = ? AND task = 'plugin:sockets' AND at = ? LIMIT 1", (agent, at)).fetchone()
+        else:
+            row = conn.execute("SELECT at, data FROM measurements WHERE agent_id = ? AND task = 'plugin:sockets' ORDER BY at DESC LIMIT 1", (agent,)).fetchone()
+        if not row:
+            return jsonify({"agent": agent, "at": None, "sockets": [], "counts": {}, "historique": hist}), 200
+        import json as _json
+        d = _json.loads(row["data"]) if isinstance(row["data"], str) else (row["data"] or {})
+        return jsonify({"agent": agent, "at": row["at"], "sockets": (d or {}).get("sockets") or [],
+                        "counts": (d or {}).get("counts") or {}, "historique": hist}), 200
+    finally:
+        conn.close()
+
+
 @app.route("/postes-windows", methods=["GET"])
 def postes_windows_route():
     """#896 : postes Windows (sonde poste-windows) et derniers tests de charge (poste-charge) ; ?agent= pour un seul."""

@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  906: [{ view: "sockets", hint: "tuile Sockets : netstat -laputen des hôtes agentés (écoute et établies, processus, PID, utilisateur), à la demande avec historique" }],
   903: [{ view: "messages", hint: "tuile Messages : blog interne du hub (un mot pour tous ou pour soi, permanent ou à durée de vie, copiable)" }],
   902: [{ view: "si-agent", hint: "fiche d'un agent Windows : bloc de diagnostic « l'agent est installé mais rien ne remonte » à copier" }],
   900: [{ view: "si-agent", hint: "Windows : le fichier .cmd d'installation se suffit à lui-même (télécharge et vérifie l'agent)" }],

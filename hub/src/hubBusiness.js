@@ -102,6 +102,7 @@ export const PATHS = {
   "view:nas": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #883 : NAS (SNMP)
   "view:vpn": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #884 : VPN WireGuard
   "view:postes-windows": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #896 : postes Windows
+  "view:sockets": ["etats/maintenant", "equipements/reseau"],   // #906 : sockets (netstat)
   "view:messages": ["services/hub", "etats/maintenant"],   // #903 : blog interne du hub
   "view:guest-usage": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #769 : activité des CT / VM
   "view:edge": ["equipements/reseau", "services/internet"],   // #776 : proxys d'entrée interchangeables

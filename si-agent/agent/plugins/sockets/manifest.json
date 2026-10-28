@@ -1,0 +1,13 @@
+{
+  "id": "sockets",
+  "version": "1",
+  "runner": "python",
+  "entry": "sockets.py",
+  "interval_seconds": 315360000,
+  "timeout_seconds": 150,
+  "args": [],
+  "enabled": false,
+  "description": "Sockets réseau de l'hôte façon netstat -laputen (#906), À LA DEMANDE (horodaté, historique côté hub) : en écoute ET établies, TCP ET UDP, avec processus, PID et utilisateur. Linux (ss) et Windows (Get-NetTCPConnection / Get-NetUDPEndpoint). Lecture seule. À exécuter depuis la fiche de l'agent ; vue « Connexions / sockets ».",
+  "source": "bundled",
+  "privileged": true
+}

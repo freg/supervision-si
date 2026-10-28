@@ -1,5 +1,17 @@
 [
  {
+  "n": 905,
+  "from": 905,
+  "date": "2026-10-28",
+  "title": "Itinérance automatique à l'installation Windows"
+ },
+ {
+  "n": 904,
+  "from": 904,
+  "date": "2026-10-28",
+  "title": "Installation Windows : CA du central public corrigée, et itinérance (central de secours)"
+ },
+ {
   "n": 903,
   "from": 903,
   "date": "2026-10-28",
@@ -226,17 +238,5 @@
   "from": 866,
   "date": "2026-10-26",
   "title": "Relevé à distance des serveurs anciens : ports, adresses et services corrigés"
- },
- {
-  "n": 865,
-  "from": 865,
-  "date": "2026-10-26",
-  "title": "État des lieux : relevé à distance des serveurs très anciens (Debian 4 et suivants)"
- },
- {
-  "n": 864,
-  "from": 864,
-  "date": "2026-10-26",
-  "title": "Page Agents : installation sur un hôte ancien (Python autonome), relance exacte proposée par install.sh"
  }
 ]
