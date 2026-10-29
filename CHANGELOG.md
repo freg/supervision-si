@@ -1,3 +1,16 @@
+## 2026-10-29 — Agents Windows -SystemCa : poser ca_file (faisceau #682), fin du CERTIFICATE_VERIFY_FAILED (livraison #915)
+
+- Un agent Windows installé `-SystemCa` (central à certificat **public**, ex. Let's Encrypt) restait avec
+  `ca_file=null` : le Python de l'agent ne voit pas les racines que Windows télécharge à la demande (intermédiaire LE
+  récent, p. ex. `YR2`) → `CERTIFICATE_VERIFY_FAILED: unable to get local issuer`, et la régénération auto du faisceau
+  était inopérante (`refresh_ca` exige `ca_file`). Constaté sur pc-paul : central injoignable, aucune sonde ni
+  commande reçue (d'où l'absence de `poste-charge` pilotable sur ce poste).
+- Correctif `install.ps1` : en `-SystemCa`, `ca_file` pointe désormais sur le faisceau construit par `central-ca.ps1`
+  (chaîne live du central + magasins Root/AuthRoot/CA de la machine) ; l'agent le charge et la régénération horaire
+  fonctionne. Agent **0.6.20**.
+- Vérifié : accolades équilibrées, mécanisme #682 relu. Non vérifié : pas de `pwsh` ici (analyse syntaxique), ni sur
+  Windows réel. Correctif manuel immédiat pour un poste déjà déployé : reconstruire le faisceau + poser `ca_file`.
+
 ## 2026-10-29 — Mise à jour auto des agents Windows : arrêt avant copie, fin de la boucle (livraison #914)
 
 - `install.ps1 -Upgrade` recopiait `si_agent\` par-dessus l'ancien pendant que l'agent (`python.exe`) tournait

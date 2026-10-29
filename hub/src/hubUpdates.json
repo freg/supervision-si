@@ -1,5 +1,11 @@
 [
  {
+  "n": 915,
+  "from": 915,
+  "date": "2026-10-29",
+  "title": "Agents Windows -SystemCa : poser ca_file (faisceau #682), fin du CERTIFICATE_VERIFY_FAILED"
+ },
+ {
   "n": 914,
   "from": 914,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 875,
   "date": "2026-10-27",
   "title": "Notes de mise à jour : liens vers les écrans des livraisons #867 à #874"
- },
- {
-  "n": 874,
-  "from": 874,
-  "date": "2026-10-27",
-  "title": "Contexte de navigation : un rechargement revient sur la page consultée, son onglet et sa position"
  }
 ]
