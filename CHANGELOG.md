@@ -1,3 +1,16 @@
+## 2026-10-29 — MAJ auto des agents Windows : l'installeur ne se tue plus avec l'agent (livraison #918)
+
+- Constat (pc-paul, 0.6.17 → 0.6.21) : « installeur lancé, sans effet ». L'agent lance l'installeur depuis sa tâche
+  planifiée, donc dans le même « job » Windows ; l'arrêt de la tâche ajouté en #914 tuait l'installeur en même temps
+  que l'agent. Les postes Linux (pc-numeria, pcia) sont passés en 0.6.21 sans souci.
+- Correctif `install.ps1` : en `-Upgrade` sous le compte SYSTEM (= lancé par l'agent), l'installeur se relance dans une
+  tâche ponctuelle indépendante `si-agent-update` (journal `update-relance.log`) puis rend la main ; lancé à la main par
+  un administrateur, il continue directement. Le correctif est dans l'installeur du NOUVEAU paquet : il vaut donc aussi
+  pour les vieux agents (pc-willy en 0.4.3). `uninstall.ps1` retire la tâche ponctuelle. Agent **0.6.22**.
+- Vérifié : accolades/parenthèses équilibrées, tests de l'agent module par module. Non vérifié : pas de PowerShell ici,
+  ni Windows réel — premier essai réel : pc-willy. Hors sujet, préexistant : `test_p2v_direct` échoue seulement quand
+  toute la suite tourne ensemble (dossier temporaire global laissé par un autre test).
+
 ## 2026-10-29 — Hub bloqué par une accolade manquante dans le CSS de la tuile Hermes (livraison #917)
 
 - `hub.css` : bloc `@media(max-width:820px)` de la tuile Hermes (#912) non fermé → Vite refusait toute la feuille

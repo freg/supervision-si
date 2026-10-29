@@ -36,7 +36,8 @@ param(
   [string]$DataDir = (Join-Path $env:ProgramData "si-agent"),
   [string]$PythonUrl = "https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip",
   [switch]$NoDownload,
-  [string]$TaskName = "si-agent"
+  [string]$TaskName = "si-agent",
+  [switch]$Relance        # #918 : instance relancée hors de la tâche de l'agent (usage interne)
 )
 $ErrorActionPreference = "Stop"
 if (-not $Upgrade -and -not $EnrollToken -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -EnrollToken + -Central, ou -Upgrade pour une mise à jour)" }
@@ -108,11 +109,28 @@ if (-not $PythonExe) {
   Write-Host "Python embarqué installé : $PythonExe"
 }
 
+# --- 1a. mise à jour lancée PAR L'AGENT : se relancer hors de sa tâche (#918) ---------------
+# L'agent (tâche « si-agent », compte SYSTEM) lance l'installeur dans le « job » Windows de sa tâche : l'arrêt de la
+# tâche (#914, plus bas) tuait l'installeur avec l'agent -> « installeur lancé, sans effet » (pc-paul, 0.6.17 -> 0.6.21).
+# Sous SYSTEM, on se relance donc dans une tâche ponctuelle indépendante « <TaskName>-update » et on rend la main.
+# Lancé à la main par un administrateur, l'installeur n'est dans aucun job : il continue directement.
+if ($Upgrade -and -not $Relance -and [Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) {
+  $relLog = Join-Path $DataDir "update-relance.log"
+  $relArgs = "-NoProfile -ExecutionPolicy Bypass -Command `"& '$PSCommandPath' -Upgrade -Relance *> '$relLog'`""
+  $relAct = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $relArgs
+  $relPri = New-ScheduledTaskPrincipal -UserId "S-1-5-18" -LogonType ServiceAccount -RunLevel Highest
+  $relSet = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+  Register-ScheduledTask -TaskName "$TaskName-update" -Action $relAct -Principal $relPri -Settings $relSet -Force | Out-Null
+  Start-ScheduledTask -TaskName "$TaskName-update"
+  Write-Host "mise a jour relancee hors de la tache $TaskName (tache ponctuelle $TaskName-update, journal $relLog)"
+  exit 0
+}
+
 # --- 1b. mise à jour : ARRÊTER l'agent AVANT de copier ses fichiers (#914) --------------
 # L'agent tourne encore et python.exe verrouille ses .py sous $InstallDir : sans cet arrêt la copie ci-dessous
 # échoue en silence (journal vide, version inchangée) et le central replanifie la MAJ toutes les 6 h -- boucle
-# constatée sur pc-paul, résolue en arrêtant l'agent avant la copie (0.6.15 -> 0.6.17). L'installeur est détaché,
-# il survit à l'arrêt de l'agent. Filet : toute erreur terminante pendant un -Upgrade relance l'agent (la tâche
+# constatée sur pc-paul, résolue en arrêtant l'agent avant la copie (0.6.15 -> 0.6.17). Lancé par l'agent, l'installeur
+# s'est d'abord relancé hors de la tâche (1a, #918) : cet arrêt ne le tue donc pas. Filet : toute erreur terminante pendant un -Upgrade relance l'agent (la tâche
 # existe toujours) pour ne jamais laisser le poste sans agent.
 trap {
   if ($Upgrade) {
