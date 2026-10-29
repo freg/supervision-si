@@ -1,5 +1,11 @@
 [
  {
+  "n": 920,
+  "from": 920,
+  "date": "2026-10-29",
+  "title": "Agents Windows : les sondes PowerShell démarrent enfin (environnement) et les accents sont lisibles"
+ },
+ {
   "n": 919,
   "from": 919,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 880,
   "date": "2026-10-27",
   "title": "Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT"
- },
- {
-  "n": 879,
-  "from": 879,
-  "date": "2026-10-27",
-  "title": "État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin"
  }
 ]

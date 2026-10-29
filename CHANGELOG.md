@@ -1,3 +1,21 @@
+## 2026-10-29 — Agents Windows : les sondes PowerShell démarrent enfin (environnement) et les accents sont lisibles (livraison #920)
+
+- Constat (pc-paul, sonde poste-windows) : « relevÃ© PowerShell illisible : Erreur Windows PowerShell interne. Le
+  chargement de Windows PowerShell managï¿½ a ï¿½chouï¿½ avec l'erreur 8009001d ».
+- Cause 1 (toute la flotte Windows) : l'environnement minimal des sondes (#440) gardait les variables système par
+  comparaison EXACTE de leur nom, alors que Python présente sous Windows les clés en MAJUSCULES : SystemRoot, windir,
+  ProgramFiles, PSModulePath… n'étaient jamais transmises, et PowerShell sans SystemRoot ne démarre pas (8009001d).
+  Comparaison désormais sans casse, plus quelques chemins système (ProgramFiles(x86), ALLUSERSPROFILE, APPDATA…),
+  toujours sans aucune autre variable du service.
+- Cause 2 : l'agent lisait la sortie des sondes avec la page ANSI du poste alors que poste-windows écrit en UTF-8
+  (« relevÃ© ») ; la sonde lisait en UTF-8 le message natif de powershell.exe, écrit en page OEM (« ï¿½ »). Sondes
+  Python forcées en UTF-8 (PYTHONIOENCODING) ; sortie décodée UTF-8 puis OEM, côté agent comme côté sonde.
+- Analyse à distance (#919) : la garde écrit sa sortie en octets UTF-8 et laisse la console en page OEM, pour que
+  PowerShell décode correctement la sortie des outils natifs français (chkdsk, powercfg, ipconfig…).
+- Agent **0.6.24**. Vérifié : nouveau test reproduisant l'environnement Windows en majuscules (SystemRoot gardé,
+  variables du service écartées), décodage UTF-8 / OEM / BOM, garde rejouée sous PowerShell 7 ; tests agent, sonde
+  poste-windows, central et hub au vert. Non vérifié : Windows réel (pc-paul après mise à jour).
+
 ## 2026-10-29 — Analyse technique à distance : commandes PowerShell par l'agent, résultats interprétés dans le hub (livraison #919)
 
 - Demande : ne plus taper de commandes sur le poste ; les faire passer par l'agent, récupérer et interpréter les

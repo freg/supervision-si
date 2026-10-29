@@ -35,6 +35,24 @@ class CmdResult(object):
         self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
 
 
+def decode_sortie(b):
+    """#920 : sortie d'une sonde sous Windows -- UTF-8 (sondes Python : PYTHONIOENCODING), sinon page de code OEM de la
+    console (PowerShell, outils natifs : chkdsk, ipconfig...). Une chaîne déjà décodée est rendue telle quelle."""
+    if not b:
+        return ""
+    if isinstance(b, str):
+        return b
+    try:
+        return b.decode("utf-8").lstrip("\ufeff")
+    except UnicodeDecodeError:
+        for codec in ("oem", "cp850"):       # « oem » n'existe que sous Windows
+            try:
+                return b.decode(codec, "replace")
+            except LookupError:
+                continue
+        return b.decode("latin-1")
+
+
 def run_cmd(argv, timeout=DEFAULT_TIMEOUT, env=None, confined=None):
     """Exécution réelle ; jamais d'exception (binaire absent → -127, délai
     → -124), même contrat que netprobe_agent.tasks.run_cmd. `env` :
@@ -53,13 +71,16 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT, env=None, confined=None):
         if not confined:
             p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=full_env)
             return CmdResult(p.returncode, p.stdout, p.stderr)
-        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=full_env,
+        brut = bool(confined.get("encoding"))   # #920 : octets décodés par decode_sortie (et non la page ANSI du poste)
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=not brut, env=full_env,
                                 cwd=confined.get("cwd"), preexec_fn=confined.get("preexec_fn"))
         try:
             out, err = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             return CmdResult(-124, "", "délai dépassé (%ss) : %s" % (timeout, " ".join(argv)))
+        if brut:
+            out, err = decode_sortie(out), decode_sortie(err)
         return CmdResult(proc.returncode, out, err)
     except FileNotFoundError:
         return CmdResult(-127, "", "binaire introuvable : %s" % argv[0])

@@ -1633,7 +1633,8 @@ class Agent(object):
             # #440 : pas de setuid/rlimit sous Windows -- environnement propre,
             # dossier de la sonde, délai (tue le processus) ; documenté.
             return {"env": control.plugin_env(self.agent_id, self.cfg.get("site"), manifest["id"], manifest.get("env"), base_env=os.environ),
-                    "preexec_fn": None, "cwd": os.path.dirname(manifest.get("path") or "") or None}
+                    "preexec_fn": None, "cwd": os.path.dirname(manifest.get("path") or "") or None,
+                    "encoding": "auto"}   # #920 : sortie décodée UTF-8 puis OEM (et non la page ANSI : « relevÃ© »)
         run_as = control.resolve_run_user(manifest, self.cfg.get("plugins_user"), _euid(), self._lookup_user)
         return {"env": control.plugin_env(self.agent_id, self.cfg.get("site"), manifest["id"], manifest.get("env")),
                 "preexec_fn": control.make_preexec(int(manifest.get("timeout_seconds") or 60),

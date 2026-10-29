@@ -19,14 +19,22 @@ param(
   [switch]$Verifier
 )
 $ErrorActionPreference = "Continue"
-try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
-$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+# Sortie : octets UTF-8 écrits directement sur la sortie standard (indépendamment de l'encodage de la console).
+# Sous Windows, la console reste en page OEM pour que PowerShell DÉCODE correctement la sortie des outils natifs
+# (chkdsk, powercfg, ipconfig... écrivent en OEM : « analysé », « Disponibilité ») -- #920.
+$flux = [Console]::OpenStandardOutput()
+function Ecrire-Ligne([string]$l) { $o = [Text.Encoding]::UTF8.GetBytes($l + "`n"); $flux.Write($o, 0, $o.Length); $flux.Flush() }
+if ($env:OS -eq 'Windows_NT') {
+  try { [Console]::OutputEncoding = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage) } catch { }
+} else {
+  try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
+}
 
 $src = [IO.File]::ReadAllText($Script, [Text.Encoding]::UTF8)
 $jetons = $null; $erreurs = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseInput($src, [ref]$jetons, [ref]$erreurs)
 if ($erreurs -and $erreurs.Count -gt 0) {
-  foreach ($e in $erreurs) { "SI-SHELL-REFUS : syntaxe, ligne $($e.Extent.StartLineNumber) : $($e.Message)" }
+  foreach ($e in $erreurs) { Ecrire-Ligne "SI-SHELL-REFUS : syntaxe, ligne $($e.Extent.StartLineNumber) : $($e.Message)" }
   exit 3
 }
 
@@ -160,11 +168,11 @@ if ($Mode -eq "lecture") {
 }
 
 if ($refus.Count -gt 0) {
-  $refus | Select-Object -Unique | ForEach-Object { "SI-SHELL-REFUS : $_" }
+  $refus | Select-Object -Unique | ForEach-Object { Ecrire-Ligne "SI-SHELL-REFUS : $_" }
   exit 3
 }
-if ($Verifier) { "SI-SHELL-OK"; exit 0 }
+if ($Verifier) { Ecrire-Ligne "SI-SHELL-OK"; exit 0 }
 
 $sb = [scriptblock]::Create($src)
-& $sb *>&1 | Out-String -Stream -Width 300
+& $sb *>&1 | Out-String -Stream -Width 300 | ForEach-Object { Ecrire-Ligne $_ }
 exit 0

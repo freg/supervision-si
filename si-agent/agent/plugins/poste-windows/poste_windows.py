@@ -207,6 +207,22 @@ def analyse(raw, maintenant=None):
     }
 
 
+def _texte(b):
+    """#920 : sortie de PowerShell -- UTF-8 (collecte.ps1 l'impose) ; mais le message d'erreur natif de powershell.exe
+    (avant même le chargement du script) est en page OEM : « managé », « échoué » ne doivent plus devenir « ï¿½ »."""
+    if not b:
+        return ""
+    try:
+        return b.decode("utf-8").lstrip("\ufeff")
+    except UnicodeDecodeError:
+        for codec in ("oem", "cp850"):
+            try:
+                return b.decode(codec, "replace")
+            except LookupError:
+                continue
+        return b.decode("latin-1")
+
+
 def main(argv=None, runner=subprocess.run, plateforme=sys.platform):
     ap = argparse.ArgumentParser()
     ap.add_argument("--jours", type=int, default=30)
@@ -216,14 +232,14 @@ def main(argv=None, runner=subprocess.run, plateforme=sys.platform):
     ps = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
     p = runner([ps if os.path.exists(ps) else "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
                 os.path.join(ICI, "collecte.ps1"), "-Jours", str(a.jours)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=540)
-    sortie = (p.stdout or b"").decode("utf-8", "replace").lstrip("\ufeff")
+    sortie = _texte(p.stdout)
     debut = sortie.find("{")
     try:
         raw = json.loads(sortie[debut:]) if debut >= 0 else None
     except ValueError:
         raw = None
     if raw is None:
-        err = (p.stderr or b"").decode("utf-8", "replace")[:300] or sortie[:300]
+        err = _texte(p.stderr).strip()[:300] or sortie[:300]
         return {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "alerts": [{"code": "poste-windows-collecte", "severity": "warning", "message": "relevé PowerShell illisible : %s" % err}]}
     out = analyse(raw)
     out["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

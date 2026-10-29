@@ -187,7 +187,13 @@ def make_event(agent_id, kind, severity, message, details=None, now=None):
 # -- confinement de l'exécution ----------------------------------------------
 
 _WINDOWS_ENV_KEEP = ("SystemRoot", "windir", "SystemDrive", "ProgramData", "ProgramFiles", "PATH", "Path", "PATHEXT", "COMSPEC", "ComSpec",
-                     "TEMP", "TMP", "PSModulePath", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "COMPUTERNAME", "USERPROFILE")
+                     "TEMP", "TMP", "PSModulePath", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "COMPUTERNAME", "USERPROFILE",
+                     # #920 : chemins système dont les sondes PowerShell / Python ont aussi besoin (aucun secret)
+                     "ProgramFiles(x86)", "ProgramW6432", "CommonProgramFiles", "CommonProgramFiles(x86)", "CommonProgramW6432",
+                     "ALLUSERSPROFILE", "PUBLIC", "APPDATA", "LOCALAPPDATA", "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL",
+                     "PROCESSOR_REVISION", "OS", "USERNAME", "USERDOMAIN")
+# #920 : sous Windows, os.environ présente ses clés EN MAJUSCULES (SYSTEMROOT, WINDIR...) : comparaison sans casse.
+_WINDOWS_ENV_KEEP_UP = frozenset(k.upper() for k in _WINDOWS_ENV_KEEP)
 
 
 def plugin_env(agent_id, site, plugin_id, extra=None, base_env=None):
@@ -196,8 +202,12 @@ def plugin_env(agent_id, site, plugin_id, extra=None, base_env=None):
     Windows) : environnement dont seules les variables système
     indispensables (SystemRoot, PATH, TEMP…) sont reprises."""
     if base_env is not None:
-        env = {k: str(v) for k, v in base_env.items() if k in _WINDOWS_ENV_KEEP}
-        env.update({"SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id)})
+        # #920 : la comparaison exacte perdait SystemRoot, windir, ProgramFiles, PSModulePath... (clés en majuscules sous
+        # Windows) -> PowerShell refusait de démarrer (« Erreur Windows PowerShell interne ... 8009001d ») et Python
+        # exige aussi SystemRoot. Sortie des sondes Python imposée en UTF-8 (décodée comme telle par host.run_cmd).
+        env = {k: str(v) for k, v in base_env.items() if str(k).upper() in _WINDOWS_ENV_KEEP_UP}
+        env.update({"SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id),
+                    "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
     else:
         env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8",
                "HOME": "/tmp", "SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id)}
