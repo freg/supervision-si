@@ -85,6 +85,13 @@ class Poste(unittest.TestCase):
 
 
 class Robustesse923(unittest.TestCase):
+    def test_lignes_prefs_en_objets_powershell_51(self):
+        # forme réelle relevée sur un poste (pc-paul) : chaque ligne de prefs.js est un objet, pas un texte
+        ligne = {"value": 'user_pref("mail.server.server1.hostname", "imap.exemple.fr");', "PSPath": "C:\\x\\prefs.js", "ReadCount": 12}
+        typ = {"value": 'user_pref("mail.server.server1.type", "imap");', "ReadCount": 13}
+        tb = pw.thunderbird([{"utilisateur": "alice", "profil": "x", "prefs": [ligne, typ]}])
+        self.assertEqual(tb[0]["comptes"][0]["serveur"], "imap.exemple.fr")
+
     def test_erreur_et_delai_deviennent_des_constats(self):
         def casse(*a, **k):
             raise TypeError("'>' not supported between instances of 'NoneType' and 'int'")

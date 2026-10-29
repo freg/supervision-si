@@ -65,7 +65,9 @@ def thunderbird(profils):
     for p in profils or []:
         prefs = {}
         for l in p.get("prefs") or []:
-            m = PREF.match(l.strip())
+            if isinstance(l, dict):  # #923 : Windows PowerShell 5.1 sérialise une ligne de Get-Content en {value, PSPath, ReadCount...}
+                l = l.get("value") or ""
+            m = PREF.match(str(l).strip())
             if m:
                 prefs[m.group(1)] = _val(m.group(2))
         serveurs, idents, smtp, agendas = {}, {}, {}, {}

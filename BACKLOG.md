@@ -4065,3 +4065,9 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   détail au survol ; actions en micro-symboles (⤓ ⛔ ⏸ 🗑) ; localisation raccourcie, complète au survol.
   Reste (à faire) : appliquer le même principe aux autres fiches longues (Postes Windows, Infra PVE/PBS) et la tuile
   « postes agentés » ci-dessus.
+
+- Règle d'ergonomie PERMANENTE (29/10) : une info-bulle importante (erreur, trace, motif de refus, détail d'un état)
+  a toujours son équivalent -- un mini bouton coloré selon l'urgence (rouge critique, orange alerte, bleu info),
+  visible sur la ligne survolée (toujours sur écran tactile), qui ouvre une fenêtre défilante, sélectionnable, avec
+  « Copier » (composant `hub/src/FenetreTexte.jsx`, #924). Appliqué : résultats de commandes, pastille de collecte,
+  dernier résultat des sondes, hôtes relayés, motifs de l'analyse à distance. À généraliser aux autres vues.

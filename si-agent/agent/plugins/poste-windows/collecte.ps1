@@ -57,7 +57,7 @@ foreach ($p in $profils) {
     foreach ($l in (Get-Content $ini | Where-Object { $_ -like "Path=*" })) {
       $chemin = $l.Substring(5).Replace("/", "\"); if (-not [System.IO.Path]::IsPathRooted($chemin)) { $chemin = Join-Path $base $chemin }
       $prefs = Join-Path $chemin "prefs.js"
-      $lignes = @(); if (Test-Path $prefs) { $lignes = @(Get-Content $prefs -Encoding UTF8 | Where-Object { $_ -match '^user_pref\("(mail\.server\.|mail\.identity\.|mail\.smtpserver\.|mail\.account\.|calendar\.registry\.)' } | Select-Object -First 800) }
+      $lignes = @(); if (Test-Path $prefs) { $lignes = @(Get-Content $prefs -Encoding UTF8 | Where-Object { $_ -match '^user_pref\("(mail\.server\.|mail\.identity\.|mail\.smtpserver\.|mail\.account\.|calendar\.registry\.)' } | Select-Object -First 800 | ForEach-Object { [string]$_ }) }  # #923 : texte brut -- sinon PowerShell 5.1 sérialise chaque ligne en objet {value, PSPath, ReadCount...}
       $thunderbird += [ordered]@{ utilisateur = $p.utilisateur; profil = $chemin; prefs = $lignes }
     }
   }

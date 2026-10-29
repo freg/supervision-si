@@ -1,5 +1,11 @@
 [
  {
+  "n": 924,
+  "from": 924,
+  "date": "2026-10-29",
+  "title": "Info-bulles importantes copiables (mini bouton + fenêtre) ; poste-windows : panne Thunderbird corrigée"
+ },
+ {
   "n": 923,
   "from": 923,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 884,
   "date": "2026-10-28",
   "title": "Onglet VPN : WireGuard en lecture seule et historique des connexions"
- },
- {
-  "n": 883,
-  "from": 883,
-  "date": "2026-10-27",
-  "title": "Tuile NAS : état et alertes par SNMP en lecture seule (QNAP), étape 1"
  }
 ]

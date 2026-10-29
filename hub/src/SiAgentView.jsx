@@ -33,6 +33,7 @@ import MailServerSection from "./MailServerSection.jsx";  // #692
 import OllamaSection from "./OllamaSection.jsx";  // #746
 import { useTableColumns, TableColumnsHead, ColumnsMenu, AutoColumns } from "./TableColumns.jsx";  // #698
 import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } from "./agentFiche.js";   // #922
+import BoutonDetail from "./FenetreTexte.jsx";   // #923 : info-bulle importante -> mini bouton + fenêtre copiable
 import OsActions from "./OsActions.jsx";   // #880
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
@@ -136,7 +137,6 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
-  const [resOuvert, setResOuvert] = useState(null);   // #923 : résultat de commande déplié
   const [onglet, setOnglet] = useState(() => {   // #922 : fiche en onglets -- une section à l'écran, toutes à un clic
     const o = ongletDe(initialParams.section) || "resume";
     clearViewParams();
@@ -542,7 +542,8 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                         {agentCols.show("ip") && <td onClick={(e) => e.stopPropagation()}><IpPing os={false} ip={contactIp(a.last_ip)} /><OsActions label={a.agent_id} ip={contactIp(a.last_ip)} agent={a.agent_id} /></td>}
                         {agentCols.show("contact") && (() => {   /* #922 : collecte = une pastille, le détail au survol */
                           const c = collecte({ ...a, blocked: a.blocked || status?.fleet_blocked }, age);
-                          return <td title={c.lignes.join("\n")}><span className={`sa-pastille ${c.couleur}`} role="img" aria-label={c.lignes[0]} /></td>;
+                          return <td title={c.lignes.join("\n")}><span className={`sa-pastille ${c.couleur}`} role="img" aria-label={c.lignes[0]} />
+                            <BoutonDetail titre={`Collecte : ${a.agent_id}`} urgence={{ rouge: "critique", orange: "alerte", jaune: "alerte" }[c.couleur] || "info"} texte={c.lignes.join("\n")} /></td>;
                         })()}
                         {agentCols.show("cpu") && <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>}
                         {agentCols.show("mem") && <td><Gauge percent={a.summary?.memory_percent} /></td>}
@@ -570,7 +571,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                               {(h.ips || []).length > 0 && <> · <IpPing os={false} ip={h.ips[0]} /><OsActions label={h.name} ip={h.ips[0]} prefer={h.relay} />{h.ips.length > 1 ? <span className="muted"> +{h.ips.length - 1}</span> : null}</>}
                               {h.ports?.length > 0 && <span className="muted"> · ports {h.ports.slice(0, 12).join(", ")}{h.ports.length > 12 ? "…" : ""}</span>}
                               {hAge != null && <span className="muted"> · il y a {hAge < 3600 ? `${Math.round(hAge / 60)} min` : `${Math.round(hAge / 3600)} h`}</span>}
-                              {h.error && <span style={{ color: "var(--danger)" }}> · {h.error}</span>}
+                              {h.error && <span style={{ color: "var(--danger)" }}> · {h.error}</span>}{h.error && <BoutonDetail titre={`Relevé de ${h.name}`} urgence="critique" texte={h.error} />}
                               {" "}<a href={hubLink("migration", { page: "etat" })} onClick={(e) => e.stopPropagation()}>état des lieux</a>
                             </td>
                           </tr>);
@@ -1028,7 +1029,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                                     ) : <span className="muted">—</span>}
                                     {p.blocked_host && <div><Tone tone="bad">bloquée sur l'hôte</Tone></div>}
                                   </td>
-                                  <td className="muted" title={last?.error || ""}>{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
+                                  <td className="muted" title={last?.error || ""}>{last?.error && <BoutonDetail titre={`Dernier résultat : ${p.id}`} urgence={last.ok ? "info" : "critique"} texte={last.error} />}{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
                                   <td className="ups-actions">
                                     {p.assigned && <button className="secondary" onClick={() => handleUnassign(p)}>Retirer</button>}
                                     <button className="secondary" onClick={() => { setCmdType("run_plugin"); setCmdPlugin(p.id); setOnglet("commands"); }}>Exécuter…</button>
@@ -1063,20 +1064,18 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                           <AutoColumns id="SiAgentView.13"><table>
                             <thead><tr><th>Quand</th><th>Commande</th><th>État</th><th>Résultat</th></tr></thead>
                             <tbody>{detail.commands.map((c) => (
-                              <Fragment key={c.id}>
-                              <tr>
+                              <tr key={c.id}>
                                 <td className="muted">{when(c.created_at)}</td>
                                 <td>{COMMAND_TYPES.find((t) => t.type === c.type)?.label || c.type}{c.params?.id && <> <code>{c.params.id}</code></>}</td>
                                 <td><Tone tone={c.status === "done" ? "good" : c.status === "failed" ? "bad" : "warn"}>{c.status === "done" ? "acquittée" : c.status === "failed" ? "échec" : "en attente"}</Tone></td>
-                                <td className="muted" style={{ fontSize: 11, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: c.result ? "pointer" : "default" }}
-                                  title={c.result ? "cliquer pour afficher le résultat complet (sélectionnable)" : ""} onClick={() => c.result && setResOuvert(resOuvert === c.id ? null : c.id)}>
-                                  {c.result && <span aria-hidden="true">{resOuvert === c.id ? "▾ " : "▸ "}</span>}{c.result?.error || (c.result?.result ? JSON.stringify(c.result.result) : "")}
+                                <td className="muted" title={c.result ? JSON.stringify(c.result) : ""}>
+                                  <div className="sa-cel-flex">
+                                    <BoutonDetail titre={`Résultat : ${COMMAND_TYPES.find((t) => t.type === c.type)?.label || c.type}${c.params?.id ? " " + c.params.id : ""} (${when(c.created_at)})`}
+                                      urgence={c.status === "failed" ? "critique" : "info"} texte={c.result ? (c.result.error || JSON.stringify(c.result.result ?? c.result, null, 2)) : ""} />
+                                    <span className="sa-resultat-txt">{c.result?.error || (c.result?.result ? JSON.stringify(c.result.result) : "")}</span>
+                                  </div>
                                 </td>
                               </tr>
-                              {resOuvert === c.id && c.result && (   /* #923 : résultat complet, sélectionnable et copiable */
-                                <tr><td colSpan={4}><pre className="sa-resultat">{c.result.error ? c.result.error : JSON.stringify(c.result.result ?? c.result, null, 2)}</pre></td></tr>
-                              )}
-                              </Fragment>
                             ))}</tbody>
                           </table></AutoColumns>
                         </div>

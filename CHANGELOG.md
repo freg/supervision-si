@@ -1,3 +1,18 @@
+## 2026-10-29 — Info-bulles importantes copiables (mini bouton + fenêtre) ; poste-windows : panne Thunderbird corrigée (livraison #924)
+
+- Demande : « une info-bulle potentiellement importante doit avoir son équivalent sur un mini bouton rouge ou autre
+  selon l'urgence, qui ouvre une fenêtre qu'on peut copier et faire défiler, sur la ligne où on passe la souris ».
+  Composant réutilisable `FenetreTexte.jsx` : mini bouton (rouge critique, orange alerte, bleu info) visible au survol
+  de la ligne (toujours sur écran tactile) ; fenêtre défilante, texte sélectionnable, bouton Copier, Échap ou clic
+  hors de la fenêtre pour fermer. Appliqué aux résultats de commandes (remplace le dépliage de #923), à la pastille de
+  collecte, au dernier résultat des sondes, aux hôtes relayés et aux motifs de l'analyse à distance. Règle notée au
+  BACKLOG pour les autres vues.
+- poste-windows (cause lue sur pc-paul grâce à la trace) : plantage dans l'analyse des profils Thunderbird. Windows
+  PowerShell 5.1 sérialise chaque ligne lue par Get-Content en objet {value, PSPath, ReadCount…} et non en texte ;
+  collecte.ps1 renvoie désormais du texte brut et la sonde (v3) tolère les deux formes. Agent **0.6.27**.
+- Vérifié : test de la forme réelle des lignes (objet PowerShell 5.1), collecte.ps1 analysé par PowerShell, tests
+  agent / sonde / hub (465) au vert. Non vérifié : rendu de la fenêtre dans le navigateur (essai arrêté à ta demande).
+
 ## 2026-10-29 — Postes Windows : accès direct depuis la fiche, résultats complets, sonde poste-windows qui ne plante plus (livraison #923)
 
 - « Où est le diagnostic ? » : la fiche d'un agent Windows mène directement à son poste (Diagnostic, Analyse à
