@@ -1,3 +1,17 @@
+## 2026-10-29 — Mise à jour auto des agents Windows : arrêt avant copie, fin de la boucle (livraison #914)
+
+- `install.ps1 -Upgrade` recopiait `si_agent\` par-dessus l'ancien pendant que l'agent (`python.exe`) tournait
+  encore : ses `.py` étaient verrouillés, la copie échouait **en silence** (journal d'installeur vide, version
+  inchangée) et le central replanifiait la mise à jour toutes les 6 h — boucle `agent-update-started` constatée sur
+  pc-paul (bloqué en 0.6.15). Correctif : en `-Upgrade`, **arrêt de la tâche + du process agent AVANT la copie**
+  (l'installeur est détaché, il survit), avec un `trap` qui **relance l'agent** sur toute erreur terminante (jamais
+  de poste sans agent). Agent **0.6.19**.
+- Confirmé sur pc-paul : agent arrêté → la copie passe (**0.6.15 → 0.6.17**).
+- L'installeur exécuté lors d'une MAJ est celui du **paquet cible** : dès qu'un paquet ≥ 0.6.19 est servi par le
+  central, les agents se mettent à jour avec l'installeur corrigé → boucle levée pour toute la flotte.
+- Vérifié : équilibrage des accolades, base éprouvée (l'installeur vient de tourner sur pc-paul). Non vérifié :
+  pas de `pwsh` ici pour l'analyse syntaxique, ni de MAJ auto de bout en bout sur un vrai Windows.
+
 ## 2026-10-29 — Postes Windows : pilotage des tests de charge en direct (livraison #913)
 
 - Onglet « Tests de charge » (Postes Windows › fiche du poste) : lancer un test `poste-charge` à la demande avec

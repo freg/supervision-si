@@ -1,5 +1,11 @@
 [
  {
+  "n": 914,
+  "from": 914,
+  "date": "2026-10-29",
+  "title": "Mise à jour auto des agents Windows : arrêt avant copie, fin de la boucle"
+ },
+ {
   "n": 913,
   "from": 913,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 874,
   "date": "2026-10-27",
   "title": "Contexte de navigation : un rechargement revient sur la page consultée, son onglet et sa position"
- },
- {
-  "n": 873,
-  "from": 873,
-  "date": "2026-10-27",
-  "title": "Audit réseau du site : hôtes, services, versions et systèmes dans l'état des lieux"
  }
 ]

@@ -108,6 +108,25 @@ if (-not $PythonExe) {
   Write-Host "Python embarqué installé : $PythonExe"
 }
 
+# --- 1b. mise à jour : ARRÊTER l'agent AVANT de copier ses fichiers (#914) --------------
+# L'agent tourne encore et python.exe verrouille ses .py sous $InstallDir : sans cet arrêt la copie ci-dessous
+# échoue en silence (journal vide, version inchangée) et le central replanifie la MAJ toutes les 6 h -- boucle
+# constatée sur pc-paul, résolue en arrêtant l'agent avant la copie (0.6.15 -> 0.6.17). L'installeur est détaché,
+# il survit à l'arrêt de l'agent. Filet : toute erreur terminante pendant un -Upgrade relance l'agent (la tâche
+# existe toujours) pour ne jamais laisser le poste sans agent.
+trap {
+  if ($Upgrade) {
+    Write-Host "ERREUR pendant la mise a jour : $($_.Exception.Message) -- relance de l'agent"
+    try { Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue } catch { }
+  }
+  break
+}
+if ($Upgrade) {
+  Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+}
+
 # --- 2. fichiers -----------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $InstallDir, $DataDir, (Join-Path $DataDir "plugins") | Out-Null
 foreach ($d in @("si_agent", "plugins")) {
