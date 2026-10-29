@@ -416,6 +416,13 @@ class AgentTests(unittest.TestCase):
         self.clock[0] += 60; self.agent.poll_commands()
         self.assertEqual(self.agent._fast_poll, (2.0, self.clock[0] + 900.0))                  # bornes : 2 s, 15 min
 
+    def test_stop_plugin_pose_la_sentinelle_913(self):
+        # #913 : stop_plugin pose la sentinelle d'arrêt du test de charge (lue par poste-charge entre les blocs).
+        r = self.agent.execute_command({"id": "cs", "type": "stop_plugin", "params": {"id": "poste-charge"}})
+        self.assertTrue(r["ok"])
+        self.assertTrue(os.path.exists(os.path.join(self.dir, "poste-charge.stop")))        # _charge_dir = parent de plugins_dir
+        self.assertFalse(self.agent.execute_command({"id": "cz", "type": "stop_plugin", "params": {"id": "autre"}})["ok"])
+
     def test_redemarrage_planifie_et_relance(self):
         # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console
         import datetime as dt

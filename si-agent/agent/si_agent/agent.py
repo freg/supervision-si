@@ -777,8 +777,20 @@ class Agent(object):
                     return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
                 if control.plugin_blocked(self.state, m):
                     return {"ok": False, "error": "sonde bloquée"}
-                meas = self.run_one_plugin(m)
+                meas = self.run_one_plugin(m, args=params.get("args"))
                 return {"ok": bool(meas.get("ok")), "result": meas.get("data"), "error": meas.get("error")}
+            if ctype == "stop_plugin":
+                # #913 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
+                # (En exécution synchrone, effectif surtout en préarmement ; l'arrêt en cours de test suppose
+                # l'exécution en tâche de fond de poste-charge -- incrément agent à valider sur un poste réel.)
+                if str(params.get("id", "")) != "poste-charge":
+                    return {"ok": False, "error": "stop_plugin : seul poste-charge est géré"}
+                try:
+                    with open(os.path.join(self._charge_dir(), "poste-charge.stop"), "w", encoding="utf-8") as fh:
+                        fh.write("stop")
+                    return {"ok": True, "result": {"stop": True}}
+                except OSError as e:
+                    return {"ok": False, "error": str(e)[:200]}
             if ctype in ("enable_plugin", "disable_plugin"):
                 ok = self.store.set_enabled(str(params.get("id", "")), ctype == "enable_plugin")
                 return {"ok": ok, "error": None if ok else "plugin inconnu"}
@@ -1619,7 +1631,58 @@ class Agent(object):
                                                    run_as=run_as),
                 "cwd": os.path.dirname(manifest.get("path") or "") or None, "run_as": run_as}
 
-    def run_one_plugin(self, manifest):
+    def _charge_dir(self):
+        # #913 : dossier (écrivable par l'agent) des fichiers de suivi/arrêt du test de charge -- la racine des données
+        # (parent de plugins_dir ; sous Windows C:\\ProgramData\\si-agent).
+        d = self.cfg.get("plugins_dir") or "."
+        return os.path.dirname(d) or d
+
+    def _charge_pousser_live(self, live_path):
+        # #913 : lit le fichier --live (NDJSON écrit par poste-charge) et pousse la courbe de tension au central
+        # (mesure plugin:poste-charge-live). Appelé APRÈS le test (exécution synchrone) -> courbe disponible au résultat.
+        ech = []
+        try:
+            with open(live_path, encoding="utf-8") as fh:
+                for ligne in fh:
+                    ligne = ligne.strip()
+                    if ligne:
+                        try:
+                            ech.append(json.loads(ligne))
+                        except ValueError:
+                            pass
+        except OSError:
+            return
+        if not ech:
+            return
+        self.queue.put({"task": "plugin:poste-charge-live", "at": _iso(self.clock()), "ok": True, "agent_id": self.agent_id,
+                        "data": {"echantillons": ech[-500:], "fini": any(e.get("phase") == "fini" for e in ech)}})
+
+    def run_one_plugin(self, manifest, args=None):
+        if args is not None:                                  # #913 : arguments imposés par la commande (épreuves, paramètres)
+            try:
+                manifest = dict(manifest, args=[str(x) for x in args])
+            except Exception:  # noqa: BLE001
+                pass
+        live_path = None
+        if manifest.get("id") == "poste-charge":              # #913 : suivi direct (--live) + arrêt (--stop)
+            try:
+                d = self._charge_dir()
+                live_path = os.path.join(d, "poste-charge.live.ndjson")
+                stop_path = os.path.join(d, "poste-charge.stop")
+                for pth in (live_path, stop_path):
+                    try:
+                        os.remove(pth)
+                    except OSError:
+                        pass
+                a = list(manifest.get("args") or [])
+                if "--live" not in a:
+                    a += ["--live", live_path]
+                if "--stop" not in a:
+                    a += ["--stop", stop_path]
+                manifest = dict(manifest, args=a)
+            except Exception:  # noqa: BLE001
+                live_path = None
+                _log.warning("poste-charge : préparation du suivi direct impossible", exc_info=True)
         env = {"SI_AGENT_ID": self.agent_id, "SI_AGENT_SITE": str(self.cfg.get("site") or "")}
         confine = self._confinement(manifest)
         _log.debug("sonde %s : lancement (%s, privilégiée=%s, utilisateur=%s)", manifest["id"], manifest.get("runner"),
@@ -1630,6 +1693,11 @@ class Agent(object):
         meas["agent_id"] = self.agent_id
         self.tracker.record("plugin:%s" % manifest["id"], time.time() - _t0, ok=bool(meas.get("ok")))  # #616
         self.queue.put(meas)
+        if live_path:                                         # #913 : courbe de tension -> central
+            try:
+                self._charge_pousser_live(live_path)
+            except Exception:  # noqa: BLE001
+                _log.warning("poste-charge : poussée du suivi direct impossible", exc_info=True)
         if not meas.get("ok"):
             self.event("plugin-failed", "warning", "sonde %s en échec : %s" % (manifest["id"], (meas.get("error") or "")[:200]),
                        {"plugin": manifest["id"]})
