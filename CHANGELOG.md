@@ -1,3 +1,12 @@
+## 2026-10-29 — Hub bloqué par une accolade manquante dans le CSS de la tuile Hermes (livraison #917)
+
+- `hub.css` : bloc `@media(max-width:820px)` de la tuile Hermes (#912) non fermé → Vite refusait toute la feuille
+  (« Unclosed block », ligne 2847) et le hub ne s'affichait plus. Accolade ajoutée.
+- Nouveau test `hub/tests/css.test.mjs` : chaque feuille CSS du hub est analysée par postcss (le même analyseur que
+  Vite) ; contre-épreuve faite (le test échoue bien sur l'accolade manquante). Les validations précédentes ne
+  couvraient que le JSX.
+- Vérifié : 458 tests du hub. Non vérifié : rendu navigateur de la tuile Hermes.
+
 ## 2026-10-29 — Test de charge exécuté en tâche de fond : suivi en direct et arrêt PENDANT le test (livraison #916)
 
 - #913 posait le plugin interruptible / suivi en direct, mais l'agent exécutait `poste-charge` de façon **synchrone** :

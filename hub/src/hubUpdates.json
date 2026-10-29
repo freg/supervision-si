@@ -1,5 +1,11 @@
 [
  {
+  "n": 917,
+  "from": 917,
+  "date": "2026-10-29",
+  "title": "Hub bloqué par une accolade manquante dans le CSS de la tuile Hermes"
+ },
+ {
   "n": 916,
   "from": 916,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 877,
   "date": "2026-10-27",
   "title": "État des lieux compact avec fiche au clic ; barres de défilement épaisses et contrastées"
- },
- {
-  "n": 876,
-  "from": 876,
-  "date": "2026-10-27",
-  "title": "Flotte : hôtes relevés à distance affichés sous leur agent relais"
  }
 ]
