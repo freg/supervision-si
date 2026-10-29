@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests #896 : épreuves de charge en format réduit (quelques secondes, quelques Mo)."""
+import json
 import os
 import sys
 import tempfile
@@ -32,6 +33,34 @@ class Charge(unittest.TestCase):
             out = pc.main(["--cpu-s", "5", "--mem-pct", "5", "--mem-max-mo", "8", "--disque-mo", "16", "--dossier", d])
         self.assertEqual(out["verdict"], "aucun défaut reproduit")
         self.assertEqual(out["alerts"], [])
+
+
+class ChargePilotage(unittest.TestCase):   # #913 : sélection d'épreuves, interruption, suivi direct
+    def test_selection_epreuves(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = pc.main(["--epreuves", "disque", "--disque-mo", "16", "--dossier", d])
+        self.assertEqual(out["epreuves"], ["disque"])
+        self.assertIsNone(out["processeur"])
+        self.assertIsNone(out["memoire"])
+        self.assertIsNotNone(out["disque"])
+        self.assertEqual(out["verdict"], "aucun défaut reproduit")
+
+    def test_stop_interrompt(self):
+        with tempfile.TemporaryDirectory() as d:
+            stop = os.path.join(d, "stop"); open(stop, "w").close()
+            r = pc.epreuve_disque(4000, d, stop=stop)
+            self.assertEqual(r["statut"], "interrompu")
+            self.assertIsNone(r["identique"])
+            out = pc.main(["--epreuves", "disque", "--disque-mo", "4000", "--stop", stop, "--dossier", d])
+            self.assertEqual(out["verdict"], "interrompu")
+            self.assertEqual(os.listdir(d), ["stop"])              # fichier de test effacé, sentinelle conservée
+
+    def test_live_ndjson(self):
+        with tempfile.TemporaryDirectory() as d:
+            live = os.path.join(d, "live.json")
+            pc.main(["--epreuves", "disque", "--disque-mo", "16", "--live", live, "--dossier", d])
+            phases = {json.loads(l)["phase"] for l in open(live, encoding="utf-8") if l.strip()}
+        self.assertTrue({"début", "disque", "fini"} <= phases)
 
 
 if __name__ == "__main__":
