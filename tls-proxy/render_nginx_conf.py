@@ -207,6 +207,9 @@ SERVICES = [
     # est retiré ici (même mécanique que netprobe). Ajouté dès la
     # première livraison (piège #301).
     ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # hermes-web (livraison #911) -- tuile « Hermes ». Service OPTIONNEL (profil compose « hermes »). Chemin /hermes/
+    # (préfixe retiré) : /hermes/api/... -> hermes-web:8092 /api/... ; type « api-stream » = SANS TAMPON (SSE du chat).
+    ("HERMES_WEB_PORT", "hermes-web", 8092, "/hermes/", "api-stream"),
     # network-equipment-api (livraison #506) -- équipements réseau (identification, profils SNMP).
     ("NETWORK_EQUIPMENT_API_PORT", "network-equipment-api", 5000, "/api/network-equipment/", "api"),
     # si-proxy-admin-api (livraison #454) -- pont de la tuile « Bastion »
@@ -381,6 +384,27 @@ API_LOCATION_TEMPLATE = """\
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 300s;
+    }}
+"""
+
+# SSE / flux (hermes-web, #911) : comme "api" (préfixe retiré) MAIS SANS TAMPON -- un flux Server-Sent Events doit
+# arriver au fil de l'eau (sinon la réponse reste bloquée côté passerelle jusqu'à la fin, piège déjà vécu sur pcia).
+API_STREAM_LOCATION_TEMPLATE = """\
+    location {path} {{
+        set $backend {service}:{container_port};
+        rewrite ^{path}(.*)$ /$1 break;
+        proxy_pass http://$backend$uri$is_args$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        chunked_transfer_encoding on;
+        proxy_read_timeout 960s;
     }}
 """
 
@@ -628,6 +652,8 @@ def build_config(env):
             template = DAV_LOCATION_TEMPLATE
         elif kind == "api-static":
             template = API_LOCATION_TEMPLATE_STATIC
+        elif kind == "api-stream":
+            template = API_STREAM_LOCATION_TEMPLATE
         else:
             template = SPA_LOCATION_TEMPLATE
         locations.append(template.format(path=path, service=service, container_port=container_port))

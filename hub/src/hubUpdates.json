@@ -1,5 +1,11 @@
 [
  {
+  "n": 911,
+  "from": 911,
+  "date": "2026-10-29",
+  "title": "Tuile Hermes (supervision) : service optionnel + route passerelle SSE"
+ },
+ {
   "n": 910,
   "from": 910,
   "date": "2026-10-28",
@@ -232,11 +238,5 @@
   "from": 871,
   "date": "2026-10-27",
   "title": "Pied de page : fin de la boucle de rechargement quand le hub n'est pas reconstruit"
- },
- {
-  "n": 870,
-  "from": 870,
-  "date": "2026-10-27",
-  "title": "Lectures « dernière mesure par sonde » indexées : État des lieux et vues des sondes"
  }
 ]

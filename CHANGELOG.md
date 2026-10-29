@@ -1,3 +1,20 @@
+## 2026-10-29 — Tuile Hermes (supervision) : service optionnel + route passerelle SSE (livraison #911)
+
+- Intégration du harnais Hermes (dépôt séparé ../hermes-web) au hub supervision, côté infrastructure :
+  - `docker-compose.yml` : service `hermes-web` OPTIONNEL (`profiles: [hermes]`) — ignoré par un `up` ordinaire,
+    démarré seulement avec `COMPOSE_PROFILES=hermes` une fois `../hermes-web` cloné à côté du dépôt. Profil
+    « supervision » = LECTURE SEULE (écriture et destructif refusés). Ollama de l'hôte via `HERMES_OLLAMA_URL`
+    (preprodia / prodia : URL propre à chacun), vrai moteur Hermes par défaut.
+  - `tls-proxy/render_nginx_conf.py` : nouveau type de route « api-stream » (préfixe retiré + SANS TAMPON :
+    `proxy_buffering off`, `chunked_transfer_encoding on`) pour le flux SSE du chat ; route `/hermes/` →
+    `hermes-web:8092` `/api/...` (le tampon de la passerelle bloquait le flux — piège déjà vécu au déploiement pcia).
+  - `.env.example` : `HERMES_WEB_PORT` / `HERMES_WEB_MOTEUR` / `HERMES_OLLAMA_URL` / `HERMES_MODELE` / `HERMES_WEB_DATA_DIR`.
+- Déploiement par hôte (après `git clone` de `../hermes-web` à côté du dépôt ; `/opt/data` et `/data` en uid 10000,
+  `chown 10000` + `chmod go-w`) : `COMPOSE_PROFILES=hermes ./scripts/run.sh up -d --build hermes-web`.
+- Vérifié : rendu passerelle (`/hermes/` api-stream, buffering off, réécriture correcte), 2 tests passerelle OK,
+  compose valide (profil hermes, 88 services). Non vérifié : moteur Hermes réel contre un Ollama de prod, rendu
+  navigateur. La TUILE (front du hub) suit en #912.
+
 ## 2026-10-28 — Parc IA : téléchargement automatique des modèles utilisables, noté /10 par contexte (livraison #910)
 
 - Onglet « Téléchargement auto » (Parc IA ▸ Veille des modèles) : propose les modèles **utilisables sur l'hôte**

@@ -1471,6 +1471,29 @@ services:
     ports:
       - "${SI_AGENT_API_PORT:-6129}:5000"
 
+  # hermes-web (livraison #911) -- clone navigateur du harnais Hermes. Dépôt SÉPARÉ, cloné À CÔTÉ du dépôt
+  # (../hermes-web, même code que la tuile Hermes du hub maison ; image officielle nousresearch/hermes-agent).
+  # Profil « supervision » = LECTURE SEULE (écriture/destructif refusés par les garde-fous). Service OPTIONNEL
+  # (profiles: hermes) : IGNORÉ par un `up` ordinaire ; démarré seulement avec COMPOSE_PROFILES=hermes, une fois
+  # ../hermes-web cloné. /opt/data et /data doivent appartenir à l'uid 10000 (chown + chmod go-w) -- voir ../hermes-web/README.md.
+  hermes-web:
+    profiles: ["hermes"]
+    build:
+      context: ../hermes-web
+      dockerfile: deploy/Dockerfile.pcia
+    restart: unless-stopped
+    environment:
+      - HERMES_WEB_HUB=supervision                                 # profil lecture seule (config/supervision.json)
+      - HERMES_WEB_MOTEUR=${HERMES_WEB_MOTEUR:-hermes}             # vrai moteur Hermes (provider Ollama à configurer une fois par hôte)
+      - HERMES_OLLAMA_URL=${HERMES_OLLAMA_URL:-http://ollama:11434} # Ollama de l'hôte (préchauffage) -- preprodia/prodia : URL propre
+      - HERMES_MODELE=${HERMES_MODELE:-qwen3:4b}
+    volumes:
+      - ../hermes-web/config:/app/config:ro
+      - ${HERMES_WEB_DATA_DIR:-./hermes-web-data}/data:/data
+      - ${HERMES_WEB_DATA_DIR:-./hermes-web-data}/opt-data:/opt/data
+    ports:
+      - "${HERMES_WEB_PORT:-8092}:8092"
+
   htop-relais:
     # Livraison #800 -- relais si-htop : reçoit en UDP les relevés signés des émetteurs (VM, CT, Proxmox ; toutes les
     # 2 s), garde l'état et 24 h d'historique, calcule les constats soutenus, les sert à si-agent-api (HTTP interne,
