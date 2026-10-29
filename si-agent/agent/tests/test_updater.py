@@ -42,7 +42,32 @@ class Updater(unittest.TestCase):
         cmd, mode = updater.installer_command("/tmp/r", platform="darwin")
         self.assertTrue(cmd[1].endswith("install-macos.sh") and mode == "setsid")
         cmd, mode = updater.installer_command("C:\\r", platform="win32")
-        self.assertEqual((cmd[0], cmd[-1], mode), ("powershell.exe", "-Upgrade", "detached"))
+        self.assertEqual((cmd[0], cmd[-1], mode), ("powershell.exe", "-Upgrade", "windows-task"))  # #921
+
+    def test_windows_tache_planifiee_921(self):
+        # installeur du paquet qui connaît -Relance (#918) -> passé, puisque la tâche est déjà hors de celle de l'agent
+        root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(root, "windows"))
+        with open(os.path.join(root, "windows", "install.ps1"), "w", encoding="utf-8-sig") as fh:
+            fh.write("param([switch]$Upgrade, [switch]$Relance)\n")
+        cmd, mode = updater.installer_command(root, platform="win32")
+        self.assertEqual((cmd[-2:], mode), (["-Upgrade", "-Relance"], "windows-task"))
+        appels = []
+
+        class R(object):
+            def __init__(self, rc):
+                self.returncode, self.stdout, self.stderr = rc, "", "accès refusé" if rc else ""
+
+        log = os.path.join(root, "update-1.log")
+        env = updater._spawn_tache_windows(cmd, log, run=lambda a, **k: appels.append(a) or R(0))
+        texte = open(env, encoding="utf-8").read()
+        self.assertIn("-Upgrade -Relance", texte)
+        self.assertIn('>> "%s" 2>&1' % log, texte, "toute la sortie de l'installeur va dans le journal")
+        self.assertEqual([a[1] for a in appels], ["/Create", "/Run"])
+        self.assertIn("SYSTEM", appels[0])
+        self.assertEqual(appels[0][appels[0].index("/TR") + 1], '"%s"' % env)
+        with self.assertRaises(OSError):
+            updater._spawn_tache_windows(cmd, log, run=lambda a, **k: R(1))
 
     def test_extraction_refuse_les_chemins_sortants(self):
         data = make_archive(extra=[("si-agent-agent-9.9.9/../../etc/evil", b"x")])

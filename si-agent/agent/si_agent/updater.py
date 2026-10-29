@@ -72,8 +72,17 @@ def installer_command(root, platform=None, which=None, log_path=None, sd_version
     platform = platform or sys.platform
     which = which or shutil.which
     if platform == "win32":
+        # #921 : lancé par une tâche planifiée ponctuelle (voir _spawn_tache_windows), donc déjà HORS de la tâche de
+        # l'agent : -Relance évite la seconde relance de #918 (seulement si l'installeur du paquet la connaît).
         ps1 = os.path.join(root, "windows", "install.ps1")
-        return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1, "-Upgrade"], "detached"
+        argv = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1, "-Upgrade"]
+        try:
+            with open(ps1, encoding="utf-8-sig", errors="replace") as fh:
+                if "$Relance" in fh.read():
+                    argv.append("-Relance")
+        except OSError:
+            pass
+        return argv, "windows-task"
     if platform == "darwin":
         return ["/bin/bash", os.path.join(root, "install-macos.sh"), "--upgrade"], "setsid"
     script = os.path.join(root, "install.sh")
@@ -209,14 +218,50 @@ def run_update(agent, params, fetch, spawn=None, current_version=None):
     return {"ok": True, "result": {"started": True, "from": current_version, "to": target, "installer": mode, "log": log_path}}
 
 
+TACHE_MAJ_WINDOWS = "si-agent-update"
+
+
+def _spawn_tache_windows(cmd, log_path=None, run=subprocess.run):
+    """#921 : l'installeur Windows est lancé par une TÂCHE PLANIFIÉE ponctuelle (compte SYSTEM) qui exécute un petit
+    .cmd redirigeant toute sa sortie (erreurs comprises) dans le journal de mise à jour. Constat sur pc-paul : lancé
+    par l'agent en processus « détaché » (sans console), powershell.exe ne démarrait pas -- journaux update-*.log
+    vides, aucune mise à jour automatique jamais aboutie ; et lancé dans la tâche de l'agent, il serait tué avec lui
+    à l'arrêt de l'agent (#918). Ici : console cachée normale, tâche indépendante de celle de l'agent."""
+    dossier = os.path.dirname(log_path) if log_path else tempfile.gettempdir()
+    enveloppe = os.path.join(dossier, "update-run.cmd")
+    ligne = subprocess.list2cmdline(cmd) + ((' >> "%s" 2>&1' % log_path) if log_path else "")
+    with open(enveloppe, "w", encoding="mbcs" if sys.platform == "win32" else "utf-8", errors="replace", newline="") as fh:
+        fh.write("@echo off\r\n" + ligne + "\r\n")
+    for argv in (["schtasks", "/Create", "/F", "/TN", TACHE_MAJ_WINDOWS, "/RU", "SYSTEM", "/RL", "HIGHEST",
+                  "/SC", "ONCE", "/ST", "00:00", "/TR", '"%s"' % enveloppe],
+                 ["schtasks", "/Run", "/TN", TACHE_MAJ_WINDOWS]):
+        r = run(argv, capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            raise OSError("%s : %s" % (" ".join(argv[:2]), ((r.stdout or "") + (r.stderr or "")).strip()[:300]))
+    return enveloppe
+
+
 def _spawn(cmd, mode, log_path=None):
+    if mode == "windows-task":
+        try:
+            _spawn_tache_windows(cmd, log_path)
+            return
+        except Exception as exc:  # noqa: BLE001 -- repli : lancement direct, console cachée (jamais « détaché »)
+            if log_path:
+                try:
+                    with open(log_path, "a", encoding="utf-8") as fh:
+                        fh.write("tâche planifiée de mise à jour impossible (%s) : lancement direct\n" % exc)
+                except OSError:
+                    pass
+            mode = "windows-direct"
     try:
         out = open(log_path, "ab") if log_path else subprocess.DEVNULL
     except OSError:
         out = subprocess.DEVNULL
     kw = {"stdin": subprocess.DEVNULL, "stdout": out, "stderr": subprocess.STDOUT if out is not subprocess.DEVNULL else subprocess.DEVNULL, "close_fds": True}
-    if mode == "detached" and sys.platform == "win32":
-        kw["creationflags"] = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    if mode in ("detached", "windows-direct") and sys.platform == "win32":
+        # #921 : console cachée (CREATE_NO_WINDOW) et non DETACHED_PROCESS, avec lequel powershell.exe ne démarrait pas
+        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     elif mode == "setsid":
         kw["start_new_session"] = True
     subprocess.Popen(cmd, **kw)

@@ -1,5 +1,11 @@
 [
  {
+  "n": 921,
+  "from": 921,
+  "date": "2026-10-29",
+  "title": "Mise à jour automatique des agents Windows : cause trouvée et corrigée"
+ },
+ {
   "n": 920,
   "from": 920,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 881,
   "date": "2026-10-27",
   "title": "Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image)"
- },
- {
-  "n": 880,
-  "from": 880,
-  "date": "2026-10-27",
-  "title": "Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT"
  }
 ]

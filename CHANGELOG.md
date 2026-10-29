@@ -1,3 +1,20 @@
+## 2026-10-29 — Mise à jour automatique des agents Windows : cause trouvée et corrigée (livraison #921)
+
+- Constat (pc-paul) : aucune mise à jour automatique n'a jamais abouti (0.6.15 → 0.6.17, puis 0.6.21 → 0.6.22, 0.6.23,
+  0.6.24) ; journaux update-*.log VIDES, tâche de relance #918 jamais créée, agent jamais arrêté.
+- Cause CONFIRMÉE sur le poste : l'agent lançait powershell.exe en processus « détaché » (DETACHED_PROCESS, sans
+  console) ; ainsi lancé, PowerShell ne démarre pas (0 octet de sortie), alors qu'avec une console cachée
+  (CREATE_NO_WINDOW) il répond normalement. Les correctifs #914 (arrêt avant copie) et #918 (relance hors de la tâche)
+  visaient des causes secondaires : l'installeur ne démarrait même pas.
+- Correctif : l'agent fait lancer l'installeur par une TÂCHE PLANIFIÉE ponctuelle `si-agent-update` (SYSTEM) via un
+  petit `update-run.cmd` qui redirige toute la sortie, erreurs comprises, dans le journal update-*.log -- console cachée
+  normale et tâche indépendante de celle de l'agent ; repli : lancement direct en console cachée (plus jamais
+  « détaché »). L'installeur reçoit -Relance (déjà hors de la tâche de l'agent). Agent **0.6.25**.
+- Limite : le correctif est dans le code de l'agent qui LANCE la mise à jour ; les agents déjà déployés (pc-paul en
+  0.6.24, pc-willy en 0.4.3) passent encore une fois à la main ou par l'analyse à distance en mode intervention.
+- Vérifié : test du lancement par tâche planifiée (enveloppe .cmd, redirection, schtasks /Create puis /Run, échec
+  remonté), tests agent au vert ; cause confirmée par un essai sur pc-paul. Non vérifié : cycle complet sur Windows.
+
 ## 2026-10-29 — Agents Windows : les sondes PowerShell démarrent enfin (environnement) et les accents sont lisibles (livraison #920)
 
 - Constat (pc-paul, sonde poste-windows) : « relevÃ© PowerShell illisible : Erreur Windows PowerShell interne. Le
