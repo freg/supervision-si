@@ -1721,7 +1721,7 @@ vm === "agent-page" ? (
       ) : vm === "sockets" ? (
         <SocketsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "postes-windows" ? (
-        <PosteWindowsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+        <PosteWindowsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "vpn" ? (
         <VpnView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "nas" ? (
@@ -1935,6 +1935,7 @@ vm === "agent-page" ? (
         />
       ) : vm === "si-agent" ? (
         <SiAgentView
+          actor={loginForLayout}
           onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />

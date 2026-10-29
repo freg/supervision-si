@@ -6,6 +6,7 @@ import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive } from ".
 import { hubLink } from "./hubLinks.js";
 import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
+import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -170,7 +171,7 @@ function ChargePilotage({ agent, base, charge }) {
   );
 }
 
-export default function PosteWindowsView({ onBack, siAgentApiBase }) {
+export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
   const [liste, setListe] = useState(null);
   const [choix, setChoix] = useState("");
   const [detail, setDetail] = useState(null);
@@ -205,10 +206,11 @@ export default function PosteWindowsView({ onBack, siAgentApiBase }) {
               <button className={onglet === "diagnostic" ? "primary" : "secondary"} onClick={() => setOnglet("diagnostic")}>Diagnostic</button>
               <button className={onglet === "charge" ? "primary" : "secondary"} onClick={() => setOnglet("charge")}>Tests de charge</button>
               <button className={onglet === "reinstallation" ? "primary" : "secondary"} onClick={() => setOnglet("reinstallation")}>Réinstallation</button>
+              <button className={onglet === "distance" ? "primary" : "secondary"} onClick={() => setOnglet("distance")} title="commandes PowerShell passées par l'agent, résultats interprétés">Analyse à distance</button>
               <button className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF la fiche affichée">Imprimer</button>
               <button className="secondary" onClick={charger}>⟳</button>
             </div>
-            {onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
+            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
           </section>)}
       </>)}
     </div>

@@ -213,3 +213,18 @@ empreinte / certificat ; délai = filtrage réseau vers le port 6443.
 Pour essayer un agent depuis un poste de travail sans le hub (Mac, Linux) :
 `si-agent/local-central/local_central.py` (voir `si-agent/local-central/README.md`) —
 PKI auto-signée épinglée, archive, jeton, ligne d'amorçage et interface de pilotage.
+
+
+## Commandes à distance (analyse technique, #919)
+
+Depuis le hub (Postes Windows › un poste › **Analyse à distance**), des scripts PowerShell passent par l'agent et
+leurs résultats reviennent interprétés (triage matériel / système / viral, intégrité DISM / SFC / CHKDSK, processus,
+veille, journal de l'agent, réseau, ownCloud et Excel, ou commande libre).
+
+- **Désactivé par défaut.** Réglage par agent dans le hub (fiche de l'agent › Réglages › « Commandes à distance ») :
+  `off`, `lecture` (le poste vérifie AVANT d'exécuter que le script ne modifie rien : `si_agent/garde.ps1`) ou
+  `intervention` (tout script, confirmé dans le hub).
+- **Plafond local** : l'administrateur du poste peut limiter ce que le central autorise, dans `agent.json` :
+  `"remote_shell_max": "lecture"` (ou `"off"`). Le plafond n'élargit jamais le réglage du central.
+- Chaque commande est journalisée sur le poste (journal de l'agent, vue locale) et au central (qui, quand, quoi,
+  empreinte du script). Délai maximal 1 h ; arrêt possible depuis le hub ; 3 commandes simultanées au plus.

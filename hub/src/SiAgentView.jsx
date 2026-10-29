@@ -105,7 +105,7 @@ const WINDOWS_DIAG = [
   "Get-Content C:\\ProgramData\\si-agent\\agent.log -Tail 30 -ErrorAction SilentlyContinue",
 ].join("\n");
 
-export default function SiAgentView({ onBack, siAgentApiBase }) {
+export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const agentCols = useTableColumns("si-agent.agents", AGENT_COLUMNS);
   const [status, setStatus] = useState(null);
   const [fleet, setFleet] = useState([]);
@@ -177,7 +177,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       thresholds: JSON.stringify(d.risk_thresholds || {}, null, 0),
       // #563 : publication d'une page d'état sur le LAN du site (#547), réglable ici et plus seulement par l'API
       pub_enabled: !!pub.enabled, pub_port: pub.port || 8081, pub_title: pub.title || "État du réseau", pub_site_id: pub.site_id || "", pub_hours: pub.hours || 24, pub_hub_url: pub.hub_url || "",
-      filter_enabled: !!d.filter_enabled, filter_group: d.filter_group || "" });  // #607
+      filter_enabled: !!d.filter_enabled, filter_group: d.filter_group || "",  // #607
+      remote_shell: d.remote_shell || "off" });  // #919
   }, [siAgentApiBase]);
 
   useEffect(() => { load(); }, [load]);
@@ -290,6 +291,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       host_interval_seconds: Number(settings.host_interval_seconds) || 60, label: settings.label, site: settings.site, notes: settings.notes, risk_thresholds: thresholds,
       publish: { enabled: !!settings.pub_enabled, port: Number(settings.pub_port) || 8081, title: settings.pub_title || "État du réseau", site_id: settings.pub_site_id || "", hours: Number(settings.pub_hours) || 24, interval_seconds: 60, hub_url: settings.pub_hub_url || "" },
       filter_enabled: !!settings.filter_enabled, filter_group: settings.filter_group || "",  // #607
+      remote_shell: settings.remote_shell || "off", actor,  // #919 : changement de mode journalisé avec son auteur
     });
     if (r?.error) { setError(r.error); return; }
     setNotice("Réglages enregistrés -- appliqués par l'agent à sa prochaine lecture de configuration (5 min au plus).");
@@ -1074,6 +1076,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <label>Seuils de risques (JSON) <input value={settings.thresholds} onChange={(e) => setSettings({ ...settings, thresholds: e.target.value })} placeholder='{"disk_warning_percent": 80}' /></label>
                         <label className="ups-form-wide">Notes <input value={settings.notes} onChange={(e) => setSettings({ ...settings, notes: e.target.value })} /></label>
                         <label><input type="checkbox" checked={!!settings.filter_enabled} onChange={(e) => setSettings({ ...settings, filter_enabled: e.target.checked })} /> Filtrer les alertes (#607)</label>
+                        <label title="#919 : analyse technique à distance (Postes Windows › Analyse à distance). Lecture seule : le poste vérifie lui-même que la commande ne modifie rien.">Commandes à distance <select value={settings.remote_shell || "off"} onChange={(e) => { const v = e.target.value; if (v !== "intervention" || window.confirm("Autoriser les commandes d'INTERVENTION (modification du poste) depuis le hub ? Chaque commande est confirmée et journalisée.")) setSettings({ ...settings, remote_shell: v }); }}>
+                          <option value="off">désactivées</option><option value="lecture">lecture seule (analyse)</option><option value="intervention">intervention (modification)</option></select></label>
                         <label>Groupe de filtres <input value={settings.filter_group} onChange={(e) => setSettings({ ...settings, filter_group: e.target.value })} placeholder="postes-travail" list="sa-filter-groups" /><datalist id="sa-filter-groups"><option value="postes-travail" /><option value="silencieux" /></datalist></label>
                       </div>
                       <h3 style={{ marginTop: 10 }}>Page d'état publiée sur le réseau du site</h3>

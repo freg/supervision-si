@@ -76,6 +76,13 @@ export async function fetchSockets(apiBase, agent = "", at = "") {
 // #913 : pilotage des tests de charge (poste-charge).
 export const lancerCharge = (apiBase, body) => fetchJson(apiBase, "/postes/charge/lancer", json("POST", body));
 export const stopCharge = (apiBase, agent) => fetchJson(apiBase, "/postes/charge/stop", json("POST", { agent }));
+// #919 : analyse technique à distance (PowerShell passé par l'agent, résultats interprétés par le central).
+const _ag = (a) => `/agents/${encodeURIComponent(a)}`;
+export const fetchShellAnalyses = (apiBase) => fetchJson(apiBase, "/shell/analyses");
+export const fetchShellJobs = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/shell`);
+export const fetchShellJob = (apiBase, agent, id) => fetchJson(apiBase, `${_ag(agent)}/shell/${encodeURIComponent(id)}`);
+export const runShell = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/shell`, json("POST", body));
+export const stopShell = (apiBase, agent, id) => fetchJson(apiBase, `${_ag(agent)}/shell/${encodeURIComponent(id)}/stop`, json("POST", {}));
 export async function fetchChargeLive(apiBase, agent) {
   try {
     const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });

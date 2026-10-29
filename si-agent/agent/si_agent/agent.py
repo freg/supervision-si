@@ -97,6 +97,8 @@ DEFAULTS = {
     "plugins_dir": os.path.join(_VAR_DIR, "plugins"),
     "risk_thresholds": {},
     "plugins": {},
+    "remote_shell": "off",       # #919 : commandes à distance (off / lecture / intervention), réglé par le central
+    "remote_shell_max": None,    # #919 : plafond fixé sur le poste (agent.json) -- l'administrateur local a le dernier mot
     "ca_file": None,
     "ca_fingerprint": None,
     "insecure": False,
@@ -450,6 +452,7 @@ class Agent(object):
         self.last_watchdog = None
         self._next_plugin = {}
         self._charge = None          # #916 : test de charge en tâche de fond (live + stop pendant l'exécution)
+        self._shell = {}             # #919 : commandes à distance en cours / à pousser {id: Tache}
         # #547 : publication locale (serveur + dernier contenu reçu du central)
         self._publish_server = None
         self._next_publish = 0
@@ -587,6 +590,9 @@ class Agent(object):
         # la resserre pour le parcours interactif ; le hub laisse la valeur du poste (60 s)
         if isinstance(body.get("commands_poll_seconds"), (int, float)) and body["commands_poll_seconds"] >= 5:
             self.cfg["commands_poll_seconds"] = body["commands_poll_seconds"]
+        if "remote_shell" in body:                      # #919 : mode des commandes à distance réglé dans le hub
+            from . import remoteshell as _rs
+            self.cfg["remote_shell"] = body["remote_shell"] if body["remote_shell"] in _rs.MODES else "off"
         if isinstance(body.get("local_view"), dict):   # #819 : le central peut ouvrir / régler la vue locale
             self.cfg["local_view"] = dict(self.cfg.get("local_view") or {}, **body["local_view"])
         if isinstance(body.get("publish"), dict):
@@ -782,6 +788,8 @@ class Agent(object):
                     return self._charge_lancer(m, params.get("args"))
                 meas = self.run_one_plugin(m, args=params.get("args"))
                 return {"ok": bool(meas.get("ok")), "result": meas.get("data"), "error": meas.get("error")}
+            if ctype == "shell":                        # #919 : analyse technique à distance (PowerShell)
+                return self._shell_commande(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1703,6 +1711,77 @@ class Agent(object):
                 st["final_pushed"] = True
         if st.get("done") and not alive:
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
+
+    # -- #919 : commandes à distance (analyse technique depuis le hub) ---------------------------------------------
+    def _shell_commande(self, params):
+        from . import remoteshell as rs
+        action = str(params.get("action") or "run")
+        tid = str(params.get("id") or "")
+        if not tid or not all(c.isalnum() or c in "-_" for c in tid) or len(tid) > 40:
+            return {"ok": False, "error": "params.id invalide"}
+        if action == "stop":
+            t = self._shell.get(tid)
+            if t is None or t.termine:
+                return {"ok": False, "error": "aucune commande %s en cours" % tid}
+            t.arreter()
+            self.event("remote-shell-stopped", "info", "commande à distance « %s » interrompue depuis le hub" % t.titre, {"id": tid})
+            return {"ok": True, "result": {"stopped": tid}}
+        if action != "run":
+            return {"ok": False, "error": "params.action : run ou stop"}
+        mode = str(params.get("mode") or "lecture")
+        permis = rs.mode_autorise(self.cfg.get("remote_shell"), self.cfg.get("remote_shell_max"))
+        if mode not in ("lecture", "intervention") or rs.rang(mode) > rs.rang(permis):
+            return {"ok": False, "error": "commandes à distance : mode « %s » non autorisé sur ce poste (autorisé : %s%s)"
+                    % (mode, permis, ", plafonné par agent.json" if self.cfg.get("remote_shell_max") in rs.MODES else "")}
+        if self.is_blocked():
+            return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+        script = str(params.get("script") or "")
+        if not script.strip() or len(script) > 20000:
+            return {"ok": False, "error": "script vide ou trop long (20 000 caractères au plus)"}
+        if tid in self._shell:
+            return {"ok": False, "error": "commande %s déjà reçue" % tid}
+        if sum(1 for t in self._shell.values() if not t.termine) >= rs.EN_COURS_MAX:
+            return {"ok": False, "error": "déjà %d commandes à distance en cours sur ce poste" % rs.EN_COURS_MAX}
+        interp = rs.interpreteur()
+        if not interp:
+            return {"ok": False, "error": "PowerShell introuvable sur ce poste"}
+        t = rs.Tache(tid, script, mode=mode, titre=params.get("titre"), delai=params.get("delai"),
+                     dossier=os.path.join(self._charge_dir(), "shell"), fmt=params.get("format") or "texte",
+                     analyse=params.get("analyse"), interp=interp, clock=time.time)
+        t.pousse_version, t.pousse_at = -1, None
+        self._shell[tid] = t
+        t.demarrer()
+        self.event("remote-shell", "warning" if mode == "intervention" else "info",
+                   "commande à distance « %s » lancée depuis le hub (mode %s)" % (t.titre, mode),
+                   {"id": tid, "mode": mode, "sha256": rs.empreinte(script), "par": params.get("par")})
+        return {"ok": True, "result": {"started": tid, "mode": mode}}
+
+    def shell_tick(self):
+        """#919 : pousse au central la sortie des commandes à distance (au plus une mesure par seconde et par
+        commande -- la file locale dédoublonne sur (tâche, instant)), puis oublie les commandes terminées."""
+        if not self._shell:
+            return
+        at = _iso(self.clock())
+        pousse = False
+        for tid, t in list(self._shell.items()):
+            v = t.version
+            if v == t.pousse_version or at == t.pousse_at:
+                continue
+            fini = t.termine                  # lu AVANT l'état : si vrai, l'état lu ensuite est complet ; sinon une fin
+            data = t.etat()                   # survenue entre-temps change la version et sera poussée au tour suivant
+            self.queue.put({"task": "shell:%s" % tid, "at": at, "ok": data["statut"] not in ("erreur", "refuse", "delai"),
+                            "agent_id": self.agent_id, "data": data})
+            t.pousse_version, t.pousse_at, pousse = v, at, True
+            if fini:
+                del self._shell[tid]
+                if t.statut != "fini":
+                    self.event("remote-shell-ended", "info", "commande à distance « %s » : %s%s" % (
+                        t.titre, t.statut, (" (%s)" % t.motif) if t.motif else ""), {"id": tid, "statut": t.statut})
+        if pousse:
+            try:
+                self.flush(force=True)
+            except Exception:  # noqa: BLE001
+                _log.debug("commandes à distance : envoi immédiat impossible", exc_info=True)
 
     def run_one_plugin(self, manifest, args=None):
         if args is not None:                                  # #913 : arguments imposés par la commande (épreuves, paramètres)
@@ -2773,6 +2852,7 @@ class Agent(object):
                 self.collect_self()
                 self.poll_commands()
                 self.charge_tick()
+                self.shell_tick()
                 self.publish_tick()
                 self.local_view_tick()
                 self.flush()

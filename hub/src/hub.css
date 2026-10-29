@@ -2871,3 +2871,23 @@ body { padding-bottom: 36px; }
 .hw-q:hover{color:var(--accent)}
 .hw-repr{cursor:pointer;color:var(--accent);margin-right:4px}
 .hw-rep{color:var(--muted);display:block;margin:2px 0 0 14px;white-space:pre-wrap}
+
+/* #919 : onglet « Analyse à distance » (Postes Windows) -- couleurs du thème uniquement */
+.sh-page { display: flex; flex-direction: column; min-height: 0; }
+.sh-catalogue { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.sh-analyse { display: flex; flex-direction: column; gap: 4px; }
+.sh-script { width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+.sh-grille { display: grid; grid-template-columns: minmax(280px, 2fr) 3fr; gap: 10px; margin-top: 10px; min-height: 0; }
+@media (max-width: 900px) { .sh-grille { grid-template-columns: 1fr; } }
+.sh-grille .infra-table-wrap { max-height: 60vh; }
+.sh-grille .infra-table td:nth-child(2) { white-space: normal; min-width: 160px; }
+.sh-page a { color: var(--accent); }
+.sh-detail { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sh-sortie { margin: 0; max-height: 55vh; overflow: auto; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 12px; line-height: 1.35; white-space: pre; }
+.sh-refus { border: 1px solid var(--danger); border-radius: 6px; padding: 8px 10px; color: var(--text); }
+.sh-refus ul { margin: 4px 0 4px 18px; padding: 0; }
+.sh-synthese { margin: 6px 0; font-weight: 600; }
+.sh-axes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 1100px) { .sh-axes { grid-template-columns: 1fr; } }
+.sh-constats { margin: 0; padding-left: 4px; list-style: none; font-size: 13px; }
+.sh-constats li { margin: 3px 0; }

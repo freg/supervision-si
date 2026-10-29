@@ -16,6 +16,12 @@ import store  # noqa: E402
 
 
 class Charge(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        for a in ("pc-x", "pc-y"):  # #919 : les commandes ne sont créées que pour un agent connu
+            if store.get_agent(A.DB_PATH, a) is None:
+                store.create_agent(A.DB_PATH, a, "siege")
+
     def test_lancer_construit_la_commande(self):
         c = A.app.test_client()
         r = c.post("/postes/charge/lancer", json={"agent": "pc-x", "epreuves": ["disque"], "disque_mo": 64, "max_s": 30})

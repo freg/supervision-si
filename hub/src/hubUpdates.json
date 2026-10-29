@@ -1,5 +1,11 @@
 [
  {
+  "n": 919,
+  "from": 919,
+  "date": "2026-10-29",
+  "title": "Analyse technique à distance : commandes PowerShell par l'agent, résultats interprétés dans le hub"
+ },
+ {
   "n": 918,
   "from": 918,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 879,
   "date": "2026-10-27",
   "title": "État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin"
- },
- {
-  "n": 878,
-  "from": 878,
-  "date": "2026-10-27",
-  "title": "État des lieux pour les décideurs : temps estimé par action (marge ×3) et planning en Gantt par regroupements de dépendances"
  }
 ]

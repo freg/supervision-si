@@ -60,6 +60,7 @@ import genealogie  # noqa: E402  -- #854 : généalogie des modèles (histoire, 
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import ping as ping_lib  # noqa: E402  -- #868 : test de connectivité rapide (bouton ping à côté des IP)
+import shell_analyses  # noqa: E402  -- #919 : analyse technique à distance (catalogue + interprétation)
 import copies as copies_lib  # noqa: E402  -- #856 : inventaire de toutes les copies et distance à la source
 import acces as acces_lib  # noqa: E402  -- #856 : accessibilité des services des CT / VM
 import risque as risque_lib  # noqa: E402  -- #856 : récapitulatif permanent du risque (Migration › Risques)
@@ -471,6 +472,107 @@ def postes_windows_route():
     return jsonify({"postes": out}), 200
 
 
+# ---- #919 : analyse technique à distance (PowerShell par l'agent, résultats interprétés ici) -------------------
+@app.route("/shell/analyses", methods=["GET"])
+def shell_analyses_route():
+    return jsonify({"analyses": shell_analyses.liste()}), 200
+
+
+def _shell_commandes(agent_id, limit=200):
+    return [c for c in store.list_commands(DB_PATH, agent_id, limit=limit)
+            if c["type"] == "shell" and (c.get("params") or {}).get("action", "run") == "run"]
+
+
+def _shell_job(c, mesure):
+    p = c.get("params") or {}
+    d = (mesure or {}).get("data") or {}
+    statut = d.get("statut") or {"pending": "en_attente", "failed": "refuse_agent"}.get(c.get("status"), "lance")
+    return {"id": p.get("id"), "titre": p.get("titre"), "mode": p.get("mode"), "analyse": p.get("analyse"), "format": p.get("format"),
+            "par": p.get("par"), "envoye": c.get("created_at"), "statut": statut, "debut": d.get("debut"), "fin": d.get("fin"),
+            "code": d.get("code"), "motif": d.get("motif") or ((c.get("result") or {}).get("error") if c.get("status") == "failed" else None),
+            "maj": (mesure or {}).get("at")}
+
+
+@app.route("/agents/<agent_id>/shell", methods=["GET"])
+def shell_liste_route(agent_id):
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    latest = store.latest_per_task(DB_PATH, agent_id)
+    jobs = [_shell_job(c, latest.get("shell:%s" % (c.get("params") or {}).get("id"))) for c in _shell_commandes(agent_id)[:50]]
+    return jsonify({"agent": agent_id, "remote_shell": a.get("remote_shell") or "off", "jobs": jobs}), 200
+
+
+@app.route("/agents/<agent_id>/shell", methods=["POST"])
+def shell_lancer_route(agent_id):
+    b = request.get_json(silent=True) or {}
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    ana = None
+    if b.get("analyse"):
+        ana = shell_analyses.analyse(str(b["analyse"]))
+        if ana is None:
+            return jsonify({"error": "analyse inconnue"}), 400
+    script = ana["script"] if ana else b.get("script")
+    mode = "lecture" if ana else str(b.get("mode") or "lecture")
+    permis = a.get("remote_shell") or "off"
+    if permis == "off" or (mode == "intervention" and permis != "intervention"):
+        return jsonify({"error": "commandes à distance %s pour cet agent (réglage dans la fiche de l'agent) -- mode demandé : %s"
+                        % ({"off": "désactivées", "lecture": "limitées à la lecture"}.get(permis, permis), mode)}), 403
+    try:
+        delai = int(ana["delai"] if ana else (b.get("delai") or 300))
+    except (TypeError, ValueError):
+        delai = 300
+    delai = max(5, min(delai, 3600))
+    tid = "sh-" + os.urandom(5).hex()
+    premiere = next((l.strip() for l in str(script or "").splitlines() if l.strip()), "commande")
+    titre = (ana["titre"] if ana else (b.get("titre") or premiere))[:120]
+    actor = (str(b.get("actor") or "")[:64]) or None
+    params = {"action": "run", "id": tid, "script": script, "mode": mode, "delai": delai, "titre": titre,
+              "format": ana["format"] if ana else "texte", "analyse": ana["id"] if ana else None, "par": actor}
+    try:
+        c = store.create_command(DB_PATH, agent_id, "shell", params)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    import hashlib as _h
+    _event("remote-shell-sent", "warning" if mode == "intervention" else "info",
+           "commande à distance « %s » (mode %s) envoyée à %s%s" % (titre, mode, agent_id, (" par %s" % actor) if actor else ""),
+           agent_id=agent_id, details={"id": tid, "mode": mode, "analyse": params["analyse"], "par": actor,
+                                       "sha256": _h.sha256(str(script).encode("utf-8")).hexdigest(), "extrait": str(script)[:300]})
+    return jsonify({"job": tid, "command": c}), 200
+
+
+@app.route("/agents/<agent_id>/shell/<tid>/stop", methods=["POST"])
+def shell_stop_route(agent_id, tid):
+    try:
+        c = store.create_command(DB_PATH, agent_id, "shell", {"action": "stop", "id": tid})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if c is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    return jsonify({"command": c}), 200
+
+
+@app.route("/agents/<agent_id>/shell/<tid>", methods=["GET"])
+def shell_detail_route(agent_id, tid):
+    c = next((x for x in _shell_commandes(agent_id, 500) if (x.get("params") or {}).get("id") == tid), None)
+    if c is None:
+        return jsonify({"error": "commande inconnue"}), 404
+    ms = store.list_measurements(DB_PATH, agent_id, task="shell:%s" % tid, limit=1)
+    mesure = ms[0] if ms else None
+    d = (mesure or {}).get("data") or {}
+    interp = None
+    if d.get("statut") == "fini" and (c.get("params") or {}).get("analyse"):
+        try:
+            interp = shell_analyses.interpreter(c["params"]["analyse"], d.get("sortie") or "")
+        except Exception:  # noqa: BLE001 -- une interprétation ratée ne doit pas masquer la sortie brute
+            _log.exception("interprétation de %s", tid)
+    job = _shell_job(c, mesure)
+    job["script"] = (c.get("params") or {}).get("script")
+    return jsonify({"job": job, "sortie": d.get("sortie") or "", "tronque": bool(d.get("tronque")), "interpretation": interp}), 200
+
+
 @app.route("/postes/charge/lancer", methods=["POST"])
 def postes_charge_lancer():
     """#913 : lance un test de charge poste-charge à la demande -- épreuves et paramètres choisis, suivi en direct."""
@@ -496,6 +598,8 @@ def postes_charge_lancer():
         c = store.create_command(DB_PATH, agent, "run_plugin", {"id": "poste-charge", "args": args})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    if c is None:  # #919 : agent inconnu -> plus de « 200 » sans commande créée
+        return jsonify({"error": "agent inconnu"}), 404
     return jsonify({"command": c, "agent": agent, "epreuves": epreuves, "args": args}), 200
 
 
@@ -507,6 +611,8 @@ def postes_charge_stop():
     if not agent:
         return jsonify({"error": "agent requis"}), 400
     c = store.create_command(DB_PATH, agent, "stop_plugin", {"id": "poste-charge"})
+    if c is None:  # #919
+        return jsonify({"error": "agent inconnu"}), 404
     return jsonify({"command": c, "agent": agent}), 200
 
 
@@ -692,11 +798,16 @@ def update_agent_route(agent_id):
         a = store.update_agent(DB_PATH, agent_id, label=body.get("label"), active=body.get("active"), site=body.get("site"),
                                host_interval_seconds=body.get("host_interval_seconds"),
                                risk_thresholds=body.get("risk_thresholds"), notes=body.get("notes"), publish=body.get("publish"),
-                               filter_enabled=body.get("filter_enabled"), filter_group=body.get("filter_group"))  # #607
+                               filter_enabled=body.get("filter_enabled"), filter_group=body.get("filter_group"),  # #607
+                               remote_shell=body.get("remote_shell"))  # #919
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if a is None:
         return jsonify({"error": "agent inconnu"}), 404
+    if body.get("remote_shell") is not None:  # #919 : changement de mode journalisé (avertissement si intervention)
+        _event("remote-shell-mode", "warning" if body["remote_shell"] == "intervention" else "info",
+               "commandes à distance : %s pour %s%s" % ({"off": "désactivées", "lecture": "lecture seule", "intervention": "intervention autorisée"}[body["remote_shell"]],
+                                                       agent_id, (" (par %s)" % str(body.get("actor"))[:64]) if body.get("actor") else ""), agent_id=agent_id)
     if body.get("active") is not None:
         _event("agent-activated" if body["active"] else "agent-deactivated", "info" if body["active"] else "warning",
                "agent %s %s" % (agent_id, "réactivé" if body["active"] else "désactivé (requêtes refusées)"), agent_id=agent_id)

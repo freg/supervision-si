@@ -153,6 +153,7 @@ MIGRATIONS = [
     ("agents", "publish", "TEXT"),  # #547 : publication d'un tableau sur le LAN du site
     ("agents", "filter_enabled", "INTEGER NOT NULL DEFAULT 0"),  # #607 : filtrage des alertes
     ("agents", "filter_group", "TEXT"),
+    ("agents", "remote_shell", "TEXT NOT NULL DEFAULT 'off'"),  # #919 : commandes à distance (off / lecture / intervention)
     ("events", "muted", "INTEGER NOT NULL DEFAULT 0"),  # #607 : événement filtré (journal seulement)
     ("events", "muted_by", "TEXT"),
 ]
@@ -160,7 +161,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin")  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell")  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
@@ -209,6 +210,7 @@ def _agent_public(r):
     d["blocked"] = bool(d.get("blocked"))
     d["risk_thresholds"] = json.loads(d.get("risk_thresholds") or "{}")
     d["publish"] = publish_lib.normalize_publish(json.loads(d["publish"]) if d.get("publish") else None)
+    d["remote_shell"] = d.get("remote_shell") if d.get("remote_shell") in REMOTE_SHELL_MODES else "off"  # #919
     return d
 
 
@@ -509,8 +511,12 @@ def get_secret(db_path, agent_id):
     return {"secret": r["secret"], "site": r["site"]}
 
 
-def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None, filter_enabled=None, filter_group=None):
+def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None, filter_enabled=None, filter_group=None, remote_shell=None):
     sets, params = [], []
+    if remote_shell is not None:  # #919
+        if remote_shell not in REMOTE_SHELL_MODES:
+            raise ValueError("remote_shell : off, lecture ou intervention")
+        sets.append("remote_shell = ?"); params.append(remote_shell)
     if filter_enabled is not None:  # #607
         sets.append("filter_enabled = ?"); params.append(1 if filter_enabled else 0)
     if filter_group is not None:
@@ -818,6 +824,11 @@ def agent_plugins(db_path, agent_id):
 # Configuration poussée à l'agent (route signée)
 # ------------------------------------------------------------------
 
+def _remote_shell_of(a):
+    v = a["remote_shell"] if "remote_shell" in a.keys() else None
+    return v if v in REMOTE_SHELL_MODES else "off"
+
+
 def config_for_agent(db_path, agent_id):
     """Ce que l'agent reçoit sur GET /api/v1/agents/<id>/config : réglages,
     plugins affectés (manifeste SIGNÉ avec le secret de l'agent + corps),
@@ -841,7 +852,7 @@ def config_for_agent(db_path, agent_id):
     assigned = []
     publish = publish_lib.normalize_publish(json.loads(a["publish"]) if a["publish"] else None)
     fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0),
-                   "publish:%s" % json.dumps(publish, sort_keys=True)]
+                   "publish:%s" % json.dumps(publish, sort_keys=True), "rs:%s" % _remote_shell_of(a)]  # #919
     for r in rows:
         privileged = bool(r["privileged"])
         manifest = {"id": r["id"], "version": r["version"], "runner": r["runner"], "entry": r["entry"],
@@ -870,7 +881,8 @@ def config_for_agent(db_path, agent_id):
     # refuse une configuration plus ancienne que la dernière appliquée (rejeu).
     return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": a["host_interval_seconds"],
             "risk_thresholds": json.loads(a["risk_thresholds"] or "{}"), "plugins": assigned, "remove_plugins": remove,
-            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None, "publish": publish}
+            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None, "publish": publish,
+            "remote_shell": _remote_shell_of(a)}  # #919
 
 
 # ------------------------------------------------------------------
@@ -917,6 +929,27 @@ def _check_audit_params(params):
             raise ValueError("ports de %s : liste de 1 à 32 entiers" % t.get("host"))
 
 
+REMOTE_SHELL_MODES = ("off", "lecture", "intervention")  # #919
+
+
+def _check_shell_params(p):
+    """#919 : commande `shell` -- run {id, script, mode, delai} ou stop {id}."""
+    p = p or {}
+    tid = str(p.get("id") or "")
+    if not tid or len(tid) > 40 or not all(c.isalnum() or c in "-_" for c in tid):
+        raise ValueError("params.id invalide")
+    action = p.get("action", "run")
+    if action == "stop":
+        return
+    if action != "run":
+        raise ValueError("params.action : run ou stop")
+    if p.get("mode", "lecture") not in ("lecture", "intervention"):
+        raise ValueError("params.mode : lecture ou intervention")
+    script = p.get("script")
+    if not isinstance(script, str) or not script.strip() or len(script) > 20000:
+        raise ValueError("params.script requis (20 000 caractères au plus)")
+
+
 def create_command(db_path, agent_id, ctype, params=None):
     if ctype not in COMMAND_TYPES:
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
@@ -936,6 +969,8 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("params.mac requis")
     if ctype == "startup_action" and not ((params or {}).get("kind") and (params or {}).get("name")):
         raise ValueError("params.kind et params.name requis")
+    if ctype == "shell":  # #919
+        _check_shell_params(params)
     if ctype == "power_schedule" and not isinstance(params, dict):
         raise ValueError("params (objet) requis")
     if ctype == "watchdog_config" and not isinstance((params or {}).get("apps"), list):
@@ -1094,6 +1129,8 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
             except sqlite3.IntegrityError:
                 duplicates += 1
                 continue
+            if m["task"].startswith("shell:"):  # #919 : une commande à distance = sa dernière mesure seulement
+                conn.execute("DELETE FROM measurements WHERE agent_id = ? AND task = ? AND at < ?", (agent_id, m["task"], m["at"]))
             if m["task"] == "host" and isinstance(data, dict):
                 s = data.get("system") or {}
                 conn.execute("UPDATE agents SET hostname = COALESCE(?, hostname), os = COALESCE(?, os) WHERE agent_id = ?",

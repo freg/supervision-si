@@ -1,3 +1,29 @@
+## 2026-10-29 — Analyse technique à distance : commandes PowerShell par l'agent, résultats interprétés dans le hub (livraison #919)
+
+- Demande : ne plus taper de commandes sur le poste ; les faire passer par l'agent, récupérer et interpréter les
+  résultats dans le hub. Nouvel onglet **Postes Windows › Analyse à distance** : 7 analyses en un clic (triage
+  matériel / système / viral avec verdict par axe, intégrité DISM / SFC / CHKDSK sans réparation, processus de l'agent
+  et des sondes, veille et alimentation, journal de l'agent, réseau et lecteurs réseau, ownCloud et Excel), commande
+  libre, sortie suivie en direct, interruption, relance, script envoyé consultable.
+- Sécurité : **désactivé par défaut**, réglé par agent (fiche › Réglages › « Commandes à distance » : désactivées /
+  lecture seule / intervention). En lecture seule, **le poste vérifie lui-même** le script avant de l'exécuter
+  (`garde.ps1`, arbre syntaxique PowerShell : cmdlets Get-* et de mise en forme, exécutables de diagnostic aux
+  arguments contrôlés, ni écriture de fichier, ni appel dynamique, ni méthode qui agit, ni affectation de propriété) ;
+  intervention confirmée dans le hub ; plafond local `remote_shell_max` dans agent.json ; tout est journalisé au poste
+  et au central (qui, quoi, empreinte). Une seule mesure gardée par commande au central.
+- Interprétation (central) : triage → constats et niveau par axe, disque amovible distingué du disque système,
+  arrêts brutaux sans écran bleu, Explorateur / ownCloud / Excel / userinit instables, antivirus actif et à jour,
+  éléments non signés dans les dossiers utilisateur ; synthèse classée par nombre d'indices. Intégrité → DISM, SFC et
+  CHKDSK reconnus en français et en anglais.
+- Au passage : `/postes/charge/lancer` et `/stop` (#913) renvoyaient 200 sans rien créer pour un agent inconnu → 404 ;
+  leurs tests (jamais exécutés faute de Flask sur le poste de dev) corrigés.
+- Agent **0.6.23**. Vérifié : garde testée sous PowerShell 7 réel (refus de 23 cas qui modifient, dont ADSI,
+  `chkdsk /f`, `net user /add`, `${C:\x}=`, méthodes .Kill()/.Delete() ; exécution, accents, délai, interruption) ;
+  les 7 scripts du catalogue passent la garde ; tests agent 46 (+ 9 exécutions réelles), central (routes, mode,
+  conservation, interprétation sur un triage réel anonymisé), hub 462 ; rendu de l'onglet vérifié dans Chromium en
+  thème sombre et sur mobile. Non vérifié : Windows PowerShell 5.1 réel (premier essai : pc-paul) ;
+  préexistant hors sujet : `test_z_apprentissage` (500 sur /priorites/decision).
+
 ## 2026-10-29 — MAJ auto des agents Windows : l'installeur ne se tue plus avec l'agent (livraison #918)
 
 - Constat (pc-paul, 0.6.17 → 0.6.21) : « installeur lancé, sans effet ». L'agent lance l'installeur depuis sa tâche
