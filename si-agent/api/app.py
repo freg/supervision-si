@@ -471,6 +471,59 @@ def postes_windows_route():
     return jsonify({"postes": out}), 200
 
 
+@app.route("/postes/charge/lancer", methods=["POST"])
+def postes_charge_lancer():
+    """#913 : lance un test de charge poste-charge à la demande -- épreuves et paramètres choisis, suivi en direct."""
+    b = request.get_json(silent=True) or {}
+    agent = (b.get("agent") or "").strip()
+    if not agent:
+        return jsonify({"error": "agent requis"}), 400
+    epreuves = [e for e in (b.get("epreuves") or ["cpu", "memoire", "disque"]) if e in ("cpu", "memoire", "disque")]
+    if not epreuves:
+        return jsonify({"error": "au moins une épreuve (cpu, memoire, disque)"}), 400
+    def _int(cle, defaut, lo, hi):
+        try:
+            return max(lo, min(int(b.get(cle, defaut)), hi))
+        except (TypeError, ValueError):
+            return defaut
+    args = ["--epreuves", ",".join(epreuves),
+            "--cpu-s", str(_int("cpu_s", 120, 5, 1800)),
+            "--mem-pct", str(_int("mem_pct", 60, 5, 85)),
+            "--mem-max-mo", str(_int("mem_max_mo", 8192, 64, 131072)),
+            "--disque-mo", str(_int("disque_mo", 2048, 16, 16384)),
+            "--max-s", str(_int("max_s", 240, 10, 1800))]
+    try:
+        c = store.create_command(DB_PATH, agent, "run_plugin", {"id": "poste-charge", "args": args})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"command": c, "agent": agent, "epreuves": epreuves, "args": args}), 200
+
+
+@app.route("/postes/charge/stop", methods=["POST"])
+def postes_charge_stop():
+    """#913 : interrompt le test de charge en cours (l'agent pose la sentinelle d'arrêt / coupe l'épreuve)."""
+    b = request.get_json(silent=True) or {}
+    agent = (b.get("agent") or "").strip()
+    if not agent:
+        return jsonify({"error": "agent requis"}), 400
+    c = store.create_command(DB_PATH, agent, "stop_plugin", {"id": "poste-charge"})
+    return jsonify({"command": c, "agent": agent}), 200
+
+
+@app.route("/postes/charge/live", methods=["GET"])
+def postes_charge_live():
+    """#913 : tension/progression en direct (dernière mesure poste-charge-live) + dernier résultat complet."""
+    agent = (request.args.get("agent") or "").strip()
+    if not agent:
+        return jsonify({"error": "agent requis"}), 400
+    tasks = store.latest_per_task(DB_PATH, agent)
+    live = tasks.get("plugin:poste-charge-live") or {}
+    res = tasks.get("plugin:poste-charge") or {}
+    return jsonify({"agent": agent,
+                    "live": {"at": live.get("at"), "data": live.get("data")},
+                    "resultat": {"at": res.get("at"), "data": res.get("data")}}), 200
+
+
 @app.route("/nas", methods=["GET"])
 def nas_route():
     """#883 : NAS relevés par SNMP (sonde nas-snmp) -> {nas: [{… relevé, relais, at}]} (dernière mesure de chaque agent)."""
