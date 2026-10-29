@@ -12,9 +12,11 @@ Robustesse Pi Zero W (carte SD, coupures d'alimentation) : `journal_mode
 carte. Une base corrompue est détectée à l'ouverture et mise de côté
 (renommée) plutôt que de bloquer la sonde pour toujours.
 """
+import functools
 import json
 import os
 import sqlite3
+import threading
 import time
 
 SCHEMA = """
@@ -35,9 +37,20 @@ CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(sent_at, id);
 """
 
 
+def _verrouille(f):
+    """#925 : la file peut être partagée entre plusieurs threads (si-agent : sondes longues en tâche de fond) ->
+    une seule opération SQLite à la fois (transactions jamais entrelacées sur la connexion commune)."""
+    @functools.wraps(f)
+    def g(self, *a, **k):
+        with self._verrou:
+            return f(self, *a, **k)
+    return g
+
+
 class LocalQueue:
     def __init__(self, db_path):
         self.db_path = db_path
+        self._verrou = threading.RLock()
         self._open()
 
     def _open(self):
@@ -62,9 +75,11 @@ class LocalQueue:
             self.conn.execute("PRAGMA journal_mode = WAL")
             self.conn.executescript(SCHEMA)
 
+    @_verrouille
     def close(self):
         self.conn.close()
 
+    @_verrouille
     def put(self, measurement):
         """Insère une mesure ; renvoie True si nouvelle, False si déjà
         présente (même agent/tâche/instant -- idempotent)."""
@@ -84,6 +99,7 @@ class LocalQueue:
     def put_many(self, measurements):
         return sum(1 for m in measurements if self.put(m))
 
+    @_verrouille
     def pending(self, limit=200):
         cur = self.conn.execute(
             "SELECT id, agent_id, task, at, ok, data, error FROM outbox WHERE sent_at IS NULL ORDER BY id LIMIT ?", (limit,))
@@ -95,21 +111,25 @@ class LocalQueue:
             })
         return rows
 
+    @_verrouille
     def pending_count(self):
         return self.conn.execute("SELECT count(*) FROM outbox WHERE sent_at IS NULL").fetchone()[0]
 
+    @_verrouille
     def mark_sent(self, ids):
         if not ids:
             return
         with self.conn:
             self.conn.executemany("UPDATE outbox SET sent_at = ? WHERE id = ?", [(time.time(), i) for i in ids])
 
+    @_verrouille
     def mark_attempt(self, ids):
         if not ids:
             return
         with self.conn:
             self.conn.executemany("UPDATE outbox SET attempts = attempts + 1 WHERE id = ?", [(i,) for i in ids])
 
+    @_verrouille
     def latest(self, task=None, limit=50):
         """Dernières mesures locales (envoyées ou non) -- pour le statut
         local consultable sur place par le technicien."""
@@ -123,6 +143,7 @@ class LocalQueue:
                  "data": json.loads(r[4]) if r[4] else None, "error": r[5], "sent": r[6] is not None}
                 for r in cur.fetchall()]
 
+    @_verrouille
     def purge_sent(self, older_than_seconds=7 * 86400, keep_min=500):
         """Supprime les mesures ENVOYÉES plus vieilles que `older_than_seconds`,
         en gardant toujours les `keep_min` plus récentes (statut local).
@@ -134,6 +155,7 @@ class LocalQueue:
                 "SELECT id FROM outbox ORDER BY id DESC LIMIT ?)", (cutoff, keep_min))
             return cur.rowcount
 
+    @_verrouille
     def stats(self):
         total = self.conn.execute("SELECT count(*) FROM outbox").fetchone()[0]
         pending = self.pending_count()

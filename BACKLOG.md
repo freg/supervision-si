@@ -4071,3 +4071,8 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   visible sur la ligne survolée (toujours sur écran tactile), qui ouvre une fenêtre défilante, sélectionnable, avec
   « Copier » (composant `hub/src/FenetreTexte.jsx`, #924). Appliqué : résultats de commandes, pastille de collecte,
   dernier résultat des sondes, hôtes relayés, motifs de l'analyse à distance. À généraliser aux autres vues.
+
+- Agent bloqué par ses sondes (29/10, pc-paul) -- LIVRÉ #925 : poste-charge et sondes « à la demande » jamais
+  ordonnancées ; sous Windows les sondes longues (> 2 min) en tâche de fond. Reste (à faire) : afficher sur la fiche
+  de l'agent les sondes en cours d'exécution (`sondes_en_fond()` côté agent) ; étudier la même chose sous Linux sans
+  preexec_fn (processus intermédiaire) pour les sondes serveur longues (systemes, lan-audit, copies-inventory).

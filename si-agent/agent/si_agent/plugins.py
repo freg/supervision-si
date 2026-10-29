@@ -195,6 +195,22 @@ class PluginStore(object):
         return True
 
 
+A_LA_DEMANDE_IDS = frozenset(["poste-charge"])
+A_LA_DEMANDE_S = 10 * 365 * 86400
+
+
+def a_la_demande(manifest):
+    """#925 : sonde exécutée UNIQUEMENT sur commande, jamais par l'ordonnanceur même activée : le test de charge
+    (processeur à 100 % plusieurs minutes), `on_demand: true`, ou un intervalle d'au moins 10 ans (convention des
+    sondes « à la demande » : sockets…). Avant : activée sur l'hôte, elle tournait à chaque démarrage de l'agent."""
+    if manifest.get("id") in A_LA_DEMANDE_IDS or manifest.get("on_demand"):
+        return True
+    try:
+        return float(manifest.get("interval_seconds") or 0) >= A_LA_DEMANDE_S
+    except (TypeError, ValueError):
+        return False
+
+
 def is_enabled(manifest, local_overrides=None):
     """Le manifeste décide, la configuration locale l'emporte."""
     local = (local_overrides or {}).get(manifest.get("id")) or {}

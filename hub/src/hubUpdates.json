@@ -1,5 +1,11 @@
 [
  {
+  "n": 925,
+  "from": 925,
+  "date": "2026-10-29",
+  "title": "Agent : le test de charge ne part plus tout seul, les sondes longues ne bloquent plus l'agent"
+ },
+ {
   "n": 924,
   "from": 924,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 885,
   "date": "2026-10-28",
   "title": "Onglet VPN : sessions SoftEther lues dans les journaux du serveur"
- },
- {
-  "n": 884,
-  "from": 884,
-  "date": "2026-10-28",
-  "title": "Onglet VPN : WireGuard en lecture seule et historique des connexions"
  }
 ]

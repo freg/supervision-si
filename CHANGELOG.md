@@ -1,3 +1,22 @@
+## 2026-10-29 — Agent : le test de charge ne part plus tout seul, les sondes longues ne bloquent plus l'agent (livraison #925)
+
+- Constat sur pc-paul après la mise à jour manuelle en 0.6.27 : plus aucun relevé après 17:39, commandes et
+  configuration « en attente ». Cause : poste-charge et poste-windows avaient été activées sur l'hôte ; l'agent
+  exécute ses sondes actives dès son démarrage, l'une après l'autre et en bloquant tout le reste (test de charge de
+  plusieurs minutes à 100 %, puis relevé poste-windows jusqu'à 10 min). Le « aucun défaut reproduit » de l'après-midi
+  venait du même mécanisme.
+- poste-charge ne tourne plus jamais sans commande, même activée, ni les sondes « à la demande » (intervalle d'au moins
+  10 ans comme sockets, ou `on_demand: true`).
+- Sous Windows, une sonde dont le délai dépasse 2 min (poste-windows, windows-probe…) tourne en tâche de fond : l'agent
+  continue de relever, de prendre les commandes et la configuration ; deux sondes longues au plus en même temps, pas
+  de doublon. La commande « Exécuter une sonde » répond aussitôt « lancée » ; le résultat arrive dans la mesure de la
+  sonde. Sous Linux, rien ne change (confinement incompatible avec les threads).
+- La file locale (SQLite) est protégée par un verrou, la boucle et les sondes en tâche de fond y écrivant en même
+  temps (copie commune avec netprobe). Agent **0.6.28**.
+- Vérifié : tests agent (sondes à la demande jamais ordonnancées, sonde longue en fond sans doublon, commande, Linux
+  inchangé, file écrite par 4 threads) et netprobe au vert. Non vérifié sur un vrai poste Windows : à voir sur pc-paul
+  après la mise à jour par le bouton (premier essai réel du lancement par tâche planifiée de #921).
+
 ## 2026-10-29 — Info-bulles importantes copiables (mini bouton + fenêtre) ; poste-windows : panne Thunderbird corrigée (livraison #924)
 
 - Demande : « une info-bulle potentiellement importante doit avoir son équivalent sur un mini bouton rouge ou autre

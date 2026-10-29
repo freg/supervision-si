@@ -48,6 +48,8 @@ from .localqueue import LocalQueue
 # PowerShell livrés) ; le reste du paquet (protocole, file locale, sondes
 # python/powershell, commandes) est commun.
 IS_WINDOWS = sys.platform == "win32"
+FOND_SEUIL_S = 120   # #925 : sonde dont le délai dépasse 2 min -> exécutée en tâche de fond (Windows)
+FOND_MAX = 2         # #925 : sondes longues simultanées au plus
 IS_MACOS = sys.platform == "darwin"
 if IS_WINDOWS:
     from . import winhost as _plat
@@ -451,6 +453,8 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._fond = {}              # #925 : sondes longues en tâche de fond {id: thread}
+        self._fond_autorise = IS_WINDOWS or bool(cfg.get("plugins_background"))
         self._charge = None          # #916 : test de charge en tâche de fond (live + stop pendant l'exécution)
         self._shell = {}             # #919 : commandes à distance en cours / à pousser {id: Tache}
         # #547 : publication locale (serveur + dernier contenu reçu du central)
@@ -786,6 +790,8 @@ class Agent(object):
                     return {"ok": False, "error": "sonde bloquée"}
                 if m.get("id") == "poste-charge":          # #916 : test de charge en tâche de fond -> la boucle reste libre (live + stop pendant l'exécution)
                     return self._charge_lancer(m, params.get("args"))
+                if self._en_fond(m):                       # #925 : sonde longue -> la boucle reste libre (commandes, config)
+                    return self._fond_lancer(m, params.get("args"))
                 meas = self.run_one_plugin(m, args=params.get("args"))
                 return {"ok": bool(meas.get("ok")), "result": meas.get("data"), "error": meas.get("error")}
             if ctype == "shell":                        # #919 : analyse technique à distance (PowerShell)
@@ -1843,7 +1849,12 @@ class Agent(object):
                 continue
             if control.plugin_blocked(self.state, m):
                 continue
+            if plugins.a_la_demande(m):                # #925 : test de charge & co : jamais sans commande
+                continue
             if self._next_plugin.get(m["id"], 0) > now:
+                continue
+            fond = self._en_fond(m)
+            if fond and not self._fond_libre(m["id"]):  # déjà en cours / trop de sondes longues : on repasse au tour suivant
                 continue
             # Échéance fixée AVANT l'exécution : un plugin lent garde son rythme.
             _iv = float(m.get("interval_seconds", 3600))
@@ -1851,8 +1862,55 @@ class Agent(object):
                 from . import introspect as _intro
                 _iv = _intro.forced_interval(_iv, self._bench_factor)
             self._next_plugin[m["id"]] = now + _iv
+            if fond:
+                self._fond_lancer(m)
+                continue
             produced.append(self.run_one_plugin(m))
         return produced
+
+    # -- #925 : sondes longues en tâche de fond -----------------------------------------------------------------
+    def _en_fond(self, m):
+        """Sonde longue (délai > 2 min, ex. poste-windows : 10 min) exécutée dans un thread : la boucle continue de
+        relever, de prendre les commandes et la configuration pendant qu'elle tourne. Avant, un relevé poste-windows
+        bloquait l'agent jusqu'à 10 min (commandes « en attente », « configuration en attente »). Windows seulement
+        par défaut : sous Linux le confinement passe par preexec_fn, non sûr en présence de threads
+        (`plugins_background: true` l'active quand même)."""
+        if not self._fond_autorise or m.get("id") == "poste-charge":
+            return False
+        try:
+            return int(m.get("timeout_seconds") or 60) > FOND_SEUIL_S
+        except (TypeError, ValueError):
+            return False
+
+    def _fond_libre(self, pid):
+        for k, t in list(self._fond.items()):
+            if not t.is_alive():
+                del self._fond[k]
+        return pid not in self._fond and len(self._fond) < FOND_MAX
+
+    def sondes_en_fond(self):
+        """Identifiants des sondes longues en cours (état de l'agent)."""
+        return sorted(k for k, t in self._fond.items() if t.is_alive())
+
+    def _fond_lancer(self, manifest, args=None):
+        import threading
+        pid = manifest["id"]
+        if not self._fond_libre(pid):
+            return {"ok": False, "error": "sonde %s déjà en cours" % pid if pid in self._fond
+                    else "déjà %d sondes longues en cours : réessayer dans quelques minutes" % FOND_MAX}
+
+        def work():
+            try:
+                self.run_one_plugin(manifest, args=args)   # mesure + événement d'échec mis en file depuis ce thread
+            except Exception:  # noqa: BLE001
+                _log.warning("sonde %s (fond) : exécution en échec", pid, exc_info=True)
+
+        t = threading.Thread(target=work, name="si-agent-sonde-%s" % pid, daemon=True)
+        self._fond[pid] = t
+        t.start()
+        _log.info("sonde %s lancée en tâche de fond", pid)
+        return {"ok": True, "result": {"started": True, "en_fond": True,
+                                       "note": "résultat dans la mesure plugin:%s à la fin de l'exécution" % pid}}
 
     # -- publication locale (#547) -------------------------------------------
     def publish_tick(self):

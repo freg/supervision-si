@@ -473,6 +473,85 @@ class AgentTests(unittest.TestCase):
         res = self.agent.queue.latest(task="plugin:poste-charge", limit=1)
         self.assertTrue(res and res[0]["data"]["verdict"] == "ok", "résultat final poussé")
 
+    def test_a_la_demande_jamais_ordonnancee_925(self):
+        # #925 : poste-charge (même activée sur l'hôte) et les sondes « à la demande » (intervalle >= 10 ans,
+        # on_demand) ne tournent JAMAIS sans commande -- avant, elles partaient à chaque démarrage de l'agent.
+        corps = "#!/bin/bash\necho '{\"x\": 1}'\n"
+        for pid, extra in (("poste-charge", {"interval_seconds": 60}), ("sockets", {"interval_seconds": 315360000}),
+                           ("ponctuelle", {"interval_seconds": 60, "on_demand": True}), ("normale", {"interval_seconds": 60})):
+            m = {"id": pid, "version": "1", "runner": "shell", "entry": "run.sh", "timeout_seconds": 30, "enabled": True}
+            m.update(extra)
+            self.agent.store.install(m, corps, source="bundled")
+        self.assertEqual([x["task"] for x in self.agent.run_plugins()], ["plugin:normale"])
+        self.clock[0] += 120
+        self.assertEqual([x["task"] for x in self.agent.run_plugins()], ["plugin:normale"])
+        from si_agent import plugins as _p
+        self.assertTrue(_p.a_la_demande({"id": "x", "interval_seconds": "315360000"}))
+        self.assertFalse(_p.a_la_demande({"id": "x", "interval_seconds": "n/a"}))
+        self.assertFalse(_p.a_la_demande({"id": "lan-audit", "interval_seconds": 604800}))
+
+    def test_sonde_longue_en_fond_925(self):
+        # #925 : une sonde longue (délai > 2 min) tourne dans un thread -> run_plugins rend la main aussitôt, la
+        # mesure arrive à la fin ; pas de doublon tant qu'elle tourne ; la commande run_plugin répond « lancée ».
+        import threading
+        go, vus = threading.Event(), []
+
+        def faux_run(manifest, args=None):
+            vus.append((manifest["id"], args))
+            go.wait(5.0)
+            self.agent.queue.put({"task": "plugin:" + manifest["id"], "at": "t%d" % len(vus), "ok": True,
+                                  "agent_id": self.agent.agent_id, "data": {"fini": True}})
+            return {"ok": True}
+
+        corps = "#!/bin/bash\necho '{}'\n"
+        self.agent.store.install({"id": "longue", "version": "1", "runner": "shell", "entry": "run.sh",
+                                  "interval_seconds": 60, "timeout_seconds": 600, "enabled": True}, corps, source="bundled")
+        self.agent._fond_autorise = True
+        self.agent.run_one_plugin = faux_run
+        self.assertEqual(self.agent.run_plugins(), [], "rend la main aussitôt")
+        self.assertEqual(self.agent.sondes_en_fond(), ["longue"])
+        self.clock[0] += 120                              # échéance dépassée, mais toujours en cours -> pas de 2e lancement
+        self.agent.run_plugins()
+        r = self.agent.execute_command({"id": "c1", "type": "run_plugin", "params": {"id": "longue"}})
+        self.assertFalse(r["ok"])
+        self.assertIn("déjà en cours", r["error"])
+        self.assertEqual(len(vus), 1)
+        go.set()
+        self.agent._fond["longue"].join(5)
+        self.assertEqual(self.agent.sondes_en_fond(), [])
+        self.assertTrue(self.agent.queue.latest(task="plugin:longue", limit=1)[0]["data"]["fini"], "mesure poussée à la fin")
+        r = self.agent.execute_command({"id": "c2", "type": "run_plugin", "params": {"id": "longue", "args": ["--jours", "7"]}})
+        self.assertTrue(r["ok"] and r["result"]["started"] and r["result"]["en_fond"])
+        self.agent._fond["longue"].join(5)
+        self.assertEqual(vus[-1], ("longue", ["--jours", "7"]))
+
+    def test_sonde_longue_synchrone_hors_windows_925(self):
+        # Sous Linux (preexec_fn non sûr avec des threads), comportement inchangé : exécution dans la boucle.
+        self.agent._fond_autorise = False
+        self.agent.store.install({"id": "longue", "version": "1", "runner": "shell", "entry": "run.sh",
+                                  "interval_seconds": 60, "timeout_seconds": 600, "enabled": True},
+                                 "#!/bin/bash\necho '{\"y\": 2}'\n", source="bundled")
+        out = self.agent.run_plugins()
+        self.assertEqual([(x["task"], x["data"]["y"]) for x in out], [("plugin:longue", 2)])
+        self.assertEqual(self.agent.sondes_en_fond(), [])
+
+    def test_file_locale_partagee_entre_threads_925(self):
+        import threading
+        q = self.agent.queue
+        avant = q.stats()["total"]
+
+        def ecrire(n):
+            for i in range(150):
+                q.put({"task": "t%d" % n, "at": "a%d" % i, "ok": True, "agent_id": "srv-01", "data": {"i": i}})
+                q.pending(limit=5)
+
+        th = [threading.Thread(target=ecrire, args=(n,)) for n in range(4)]
+        for t in th:
+            t.start()
+        for t in th:
+            t.join(30)
+        self.assertEqual(q.stats()["total"] - avant, 600)
+
     def test_redemarrage_planifie_et_relance(self):
         # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console
         import datetime as dt
