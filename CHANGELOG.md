@@ -1,3 +1,18 @@
+## 2026-10-29 — Tuile Hermes (supervision) : interface du hub (livraison #912)
+
+- Tuile « Hermes » dans le hub supervision (vue `HermesView`, entrée de menu + chemins métier assistant / hôtes) :
+  chat en STREAMING (SSE, réflexion `<think>` séparée et chronométrée), garde-fous par profil (bandeau « lecture
+  seule » en supervision), console repliable (plus récent en haut, copie / téléchargement), rejeu QA (clé de voûte),
+  panneau de réglages (garde-fous, préchauffage, cahier, moteur Hermes). Portée depuis la tuile du hub maison, adaptée
+  au thème supervision (couleurs sur variables de thème, clair + sombre) et à l'authentification Keycloak
+  (`fetch` credentials include).
+- Appelle `/hermes/api` (service `hermes-web` optionnel, #911). Sans ce backend déployé, la tuile affiche
+  « passerelle inaccessible » — sans effet sur le reste du hub.
+- Fichiers : `hub/src/HermesView.jsx` (nouveau), `App.jsx` (import + routing + viewMode), `hubThemes.js` (menu +
+  livraison), `hubBusiness.js` (chemins métier), `hub.css` (styles `.hw*`).
+- Vérifié : `@babel/parser` (tous), esbuild (HermesView), contrôle thème (`.hw*` sans couleur en dur), 453 tests hub
+  OK (non-régression). Non vérifié : rendu navigateur, SSE réel (dépend du déploiement `hermes-web`), `npm run build`.
+
 ## 2026-10-29 — Tuile Hermes (supervision) : service optionnel + route passerelle SSE (livraison #911)
 
 - Intégration du harnais Hermes (dépôt séparé ../hermes-web) au hub supervision, côté infrastructure :
