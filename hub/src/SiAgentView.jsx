@@ -32,6 +32,7 @@ import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 import MailServerSection from "./MailServerSection.jsx";  // #692
 import OllamaSection from "./OllamaSection.jsx";  // #746
 import { useTableColumns, TableColumnsHead, ColumnsMenu, AutoColumns } from "./TableColumns.jsx";  // #698
+import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } from "./agentFiche.js";   // #922
 import OsActions from "./OsActions.jsx";   // #880
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
@@ -73,7 +74,7 @@ function Gauge({ percent, label }) {
 const contactIp = (v) => (v || "").split(",")[0].trim() || null;
 
 const AGENT_COLUMNS = [
-  { id: "agent", label: "Agent", fixed: true }, { id: "site", label: "Site" }, { id: "host", label: "Hôte" }, { id: "ip", label: "IP", title: "Adresse par laquelle l'agent contacte le hub (peut être celle d'un routeur / NAT) -- « ping » teste depuis le hub (#868)" }, { id: "contact", label: "Contact" },
+  { id: "agent", label: "Agent", fixed: true }, { id: "site", label: "Site" }, { id: "host", label: "Hôte" }, { id: "version", label: "Version", title: "version de l'agent (orange : le central sert une version plus récente)" }, { id: "ip", label: "IP", title: "Adresse par laquelle l'agent contacte le hub (peut être celle d'un routeur / NAT) -- « ping » teste depuis le hub (#868)" }, { id: "contact", label: "Collecte", title: "vert : relevés à jour · jaune : pas de relevé récent · orange : collecte partielle ou sondes bloquées · rouge : hors ligne, jamais vu ou désactivé (détail au survol)" },
   { id: "cpu", label: "CPU" }, { id: "mem", label: "Mémoire" }, { id: "disk", label: "Disque (max)" },
   { id: "footprint", label: "Impact agent", title: "Empreinte de l'agent lui-même : % d'un cœur (moyenne de la fenêtre) · mémoire résidente" },
   { id: "risks", label: "Risques" }, { id: "plugins", label: "Sondes" },
@@ -135,12 +136,12 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
-  const [section, setSection] = useState(() => {
-    const base = { risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, control: false, settings: false };
-    if (initialParams.section && initialParams.section in base) { for (const k of Object.keys(base)) base[k] = k === initialParams.section || k === "risks"; }
+  const [onglet, setOnglet] = useState(() => {   // #922 : fiche en onglets -- une section à l'écran, toutes à un clic
+    const o = ongletDe(initialParams.section) || "resume";
     clearViewParams();
-    return base;
+    return o;
   });
+  const section = useMemo(() => sectionsDe(onglet), [onglet]);
 
   const [pluginForm, setPluginForm] = useState(EMPTY_PLUGIN_FORM);
   const [showPluginForm, setShowPluginForm] = useState(false);
@@ -400,7 +401,6 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const disks = useMemo(() => diskRows(host), [host]);
   const storage = useMemo(() => storageSummary(host), [host]);
   const ports = useMemo(() => portRows(host), [host]);
-  const toggle = (k) => setSection((s) => ({ ...s, [k]: !s[k] }));
 
   return (
     <div className="hub-settings hub-settings-wide">
@@ -494,7 +494,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
             </div>
           )}
 
-          {!loading && sorted.length > 0 && (
+          {!selectedId && !loading && sorted.length > 0 && (   /* #922 : fiche ouverte = elle remplace le tableau */
             <div className="ups-toolbar" style={{ margin: "4px 0" }}>
               <OrderSwitch value={fleetOrder} onChange={setFleetOrder} />
               <label title="Proxmox (PVE / PBS), sondes, VM, Windows, Linux -- étiquette #pve #pbs #sonde #vm #windows #linux dans le libellé pour forcer">
@@ -503,7 +503,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
               {byCategory && <span className="muted">{fleetGroups.map((g) => `${g.label} ${g.counts.total}`).join(" · ")}</span>}
             </div>
           )}
-          {loading ? (
+          {selectedId ? null : loading ? (
             <p className="muted">Chargement…</p>
           ) : sorted.length === 0 ? (
             <p className="muted">Aucun agent -- « + Enrôler un agent », puis lancer la commande d'installation sur l'hôte Linux.</p>
@@ -535,18 +535,14 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                         <td><strong>{a.agent_id}</strong>{byCategory && fleetGroups.some((g) => g.id === "proxmox" && g.agents.includes(a)) && <> <Tone tone="neutral">{proxmoxRole(a)}</Tone></>}{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
                           {publishedPageUrl(a) && <div style={{ fontSize: 11 }}><a href={publishedPageUrl(a)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Page publiée par l'agent sur le réseau de son site (#552)">page publiée ↗</a></div>}</td>
                         )}
-                        {agentCols.show("site") && <td>{a.site}</td>}
+                        {agentCols.show("site") && <td title={a.site}><span className="sa-site">{a.site}</span></td>}
                         {agentCols.show("host") && <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>}
+                        {agentCols.show("version") && (() => { const v = versionEtat(a.agent_version, status?.package?.version); return <td><Tone tone={v.ton} title={v.titre}>{v.texte}</Tone></td>; })()}
                         {agentCols.show("ip") && <td onClick={(e) => e.stopPropagation()}><IpPing os={false} ip={contactIp(a.last_ip)} /><OsActions label={a.agent_id} ip={contactIp(a.last_ip)} agent={a.agent_id} /></td>}
-                        {agentCols.show("contact") && (
-                        <td>
-                          <Tone tone={contactTone(a.online)} title={when(a.last_seen_at)}>{CONTACT_LABELS[a.online] || a.online}</Tone>
-                          {age != null && <div className="muted" style={{ fontSize: 11 }}>il y a {formatAge(age)}</div>}
-                          {!a.active && <div className="muted" style={{ fontSize: 11 }}>désactivé</div>}
-                          {(a.blocked || a.host_blocked || status?.fleet_blocked) && <div><Tone tone="bad" title={a.blocked_reason || a.host_blocked_reason || ""}>⛔ sondes bloquées{a.host_blocked ? " (confirmé)" : ""}</Tone></div>}
-                          {a.insecure_tls && <div><Tone tone="warn">TLS non vérifié</Tone></div>}
-                        </td>
-                        )}
+                        {agentCols.show("contact") && (() => {   /* #922 : collecte = une pastille, le détail au survol */
+                          const c = collecte({ ...a, blocked: a.blocked || status?.fleet_blocked }, age);
+                          return <td title={c.lignes.join("\n")}><span className={`sa-pastille ${c.couleur}`} role="img" aria-label={c.lignes[0]} /></td>;
+                        })()}
                         {agentCols.show("cpu") && <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>}
                         {agentCols.show("mem") && <td><Gauge percent={a.summary?.memory_percent} /></td>}
                         {agentCols.show("disk") && <td><Gauge percent={a.summary?.disk_max_percent} /></td>}
@@ -555,10 +551,10 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                         {agentCols.show("plugins") && <td className="muted">{a.plugins_assigned > 0 ? `${a.plugins_assigned} affectée${a.plugins_assigned > 1 ? "s" : ""}` : "—"}{a.pending_commands > 0 && <div style={{ fontSize: 11 }}>{a.pending_commands} cmd en attente</div>}</td>}
                         {agentCols.show("actions") && (
                         <td className="ups-actions" onClick={(e) => e.stopPropagation()}>
-                          <button className="secondary" onClick={() => { setSelectedId(a.agent_id); handleInstall(a.agent_id); }}>Installation</button>
-                          <button className={a.blocked ? "secondary" : "sa-danger"} onClick={() => handleBlockAgent(a)}>{a.blocked ? "Débloquer" : "Bloquer"}</button>
-                          <button className="secondary" onClick={() => handleToggleActive(a)}>{a.active ? "Désactiver" : "Activer"}</button>
-                          <button className="secondary" onClick={() => handleDelete(a)}>Supprimer</button>
+                          <button className="sa-micro" title="Installation : archive et commandes" onClick={() => { setSelectedId(a.agent_id); handleInstall(a.agent_id); }}>⤓</button>
+                          <button className={`sa-micro${a.blocked ? "" : " danger"}`} title={a.blocked ? "Débloquer les sondes" : "Bloquer les sondes"} onClick={() => handleBlockAgent(a)}>{a.blocked ? "🔓" : "⛔"}</button>
+                          <button className="sa-micro" title={a.active ? "Désactiver l'agent (requêtes refusées)" : "Réactiver l'agent"} onClick={() => handleToggleActive(a)}>{a.active ? "⏸" : "▶"}</button>
+                          <button className="sa-micro danger" title="Supprimer l'agent" onClick={() => handleDelete(a)}>🗑</button>
                         </td>
                         )}
                       </tr>
@@ -589,7 +585,12 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
           {selectedId && (
             <div className="hub-card hub-settings-section ups-detail sa-detail">
               <div className="ups-toolbar" style={{ marginTop: 0 }}>
-                <h2 style={{ margin: 0 }}>{selectedId}{detail?.hostname ? ` — ${detail.hostname}` : ""}</h2>
+                <button className="secondary" onClick={() => setSelectedId(null)} title="revenir au tableau des agents">◀ Agents</button>
+                <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} title="passer directement à un autre agent">
+                  {[...fleet].sort((x, y) => x.agent_id.localeCompare(y.agent_id)).map((x) => <option key={x.agent_id} value={x.agent_id}>{x.agent_id}</option>)}
+                </select>
+                <h2 style={{ margin: 0 }}>{detail?.hostname || selectedId}</h2>
+                {detail && (() => { const v = versionEtat(detail.agent_version, status?.package?.version); return <Tone tone={v.ton} title={v.titre}>v{v.texte}</Tone>; })()}
                 {detail && (
                   <Tone tone={detail.config_applied ? "good" : "warn"} title={`version ${detail.config_version}`}>{detail.config_applied ? "configuration appliquée" : "configuration en attente"}</Tone>
                 )}
@@ -692,16 +693,18 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                 </div>
               )}
 
-              {!detail ? <p className="muted">Chargement…</p> : !host ? (
-                <p className="muted">Aucune mesure reçue de cet agent pour l'instant{detail.last_seen_at ? "" : " -- il n'a jamais contacté le central : vérifier l'installation, l'URL du central et le secret"}.</p>
-              ) : (
+              {!detail ? <p className="muted">Chargement…</p> : (
                 <>
-                  <div className="sa-sections">
-                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["storage", "Stockage"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["control", "Poste"], ["settings", "Réglages"]].map(([k, l]) => (
-                      <button key={k} className={`secondary na-section-toggle${section[k] ? " active" : ""}`} onClick={() => toggle(k)}>{l}</button>
+                  <div className="sa-onglets">   {/* #922 : onglets -- une section à la fois, toutes visibles d'un coup d'œil */}
+                    {ONGLETS.map(([k, l]) => (
+                      <button key={k} className={`secondary na-section-toggle${onglet === k ? " active" : ""}`} disabled={!host && !SANS_MESURE.has(k)} onClick={() => setOnglet(k)}>{l}</button>
                     ))}
-                    <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>mesure du {when(detail.latest.host.at)}{host.partial?.length > 0 && <> · <Tone tone="warn">partielle : {host.partial.join(", ")}</Tone></>}</span>
+                    {host && <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>mesure du {when(detail.latest.host.at)}{host.partial?.length > 0 && <> · <Tone tone="warn">partielle : {host.partial.join(", ")}</Tone></>}</span>}
                   </div>
+                  {!host && !SANS_MESURE.has(onglet) && (
+                    <p className="muted">Aucune mesure reçue de cet agent pour l'instant{detail.last_seen_at ? "" : " -- il n'a jamais contacté le central : vérifier l'installation, l'URL du central et le secret"}. Onglets disponibles : Sondes, Commandes, Réglages.</p>
+                  )}
+                  {host && (<>
 
                   {section.risks && (
                     <>
@@ -986,6 +989,8 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                     <HostControlSection apiBase={siAgentApiBase} agentId={selectedId} detail={detail} fleet={fleet} host={host} when={when} onRefresh={() => loadDetail && loadDetail(selectedId)} />
                   )}
 
+                  </>)}
+
                   {section.plugins && (
                     <>
                       <h3>Sondes (plugins) sur cet hôte</h3>
@@ -1019,7 +1024,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                                   <td className="muted" title={last?.error || ""}>{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
                                   <td className="ups-actions">
                                     {p.assigned && <button className="secondary" onClick={() => handleUnassign(p)}>Retirer</button>}
-                                    <button className="secondary" onClick={() => { setCmdType("run_plugin"); setCmdPlugin(p.id); setSection((s) => ({ ...s, commands: true })); }}>Exécuter…</button>
+                                    <button className="secondary" onClick={() => { setCmdType("run_plugin"); setCmdPlugin(p.id); setOnglet("commands"); }}>Exécuter…</button>
                                   </td>
                                 </tr>
                               );
@@ -1333,7 +1338,7 @@ function UpdatesTab({ base }) {
                 <td><input type="checkbox" checked={(s.beta_agents || []).includes(a.agent_id)} disabled={busy} onChange={() => toggleBeta(a.agent_id)} title="canal bêta : reçoit la nouvelle version en premier" /></td>
                 <td><code>{a.agent_id}</code></td>
                 <td>{a.hostname || "—"}</td>
-                <td className="muted">{a.site || "—"}</td>
+                <td className="muted" title={a.site || ""}><span className="sa-site">{a.site || "—"}</span></td>
                 <td>{a.version || "?"}</td>
                 <td><Tone tone={tone}>{label}</Tone>{a.channel === "beta" && <span className="muted" style={{ fontSize: 11 }}> · bêta</span>}</td>
                 <td className="muted" style={{ fontSize: 12 }}>{a.last ? <>{a.last.to} · {a.last.status}{a.last.acked_at ? ` · acquittée ${formatAge(ageSeconds(a.last.acked_at))}` : a.last.created_at ? ` · envoyée ${formatAge(ageSeconds(a.last.created_at))}` : ""}{a.last.result && a.last.result.error ? ` · ${a.last.result.error}` : ""}</> : "—"}</td>

@@ -4056,3 +4056,12 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   (connexions, sessions), cibles immédiates ownCloud, Roundcube / Postfix (smtpd) / Dovecot (imapd), GED.
 - Prérequis d'ergonomie : la fiche de l'agent est devenue trop lourde (noté le 28/10) -> la retravailler et/ou la
   relier à une tuile « postes agentés » qui regroupe fiche, postes Windows, sockets, par poste.
+
+- Ergonomie de la fiche agent (noté le 29/10, « je passe trop de temps à chercher ») -- LIVRÉ #922 : fiche en onglets
+  (Résumé, Réseau, Matériel, Activité, Disques et stockage, Ports et services, Journal, Poste, Sondes, Commandes,
+  Réglages) ouverte À LA PLACE du tableau, retour et changement d'agent en tête, liens profonds
+  `?view=si-agent&agent=<id>&section=<section>` ; tableau : colonne Version (orange si le central sert plus récent),
+  collecte = pastille vert / jaune (pas de relevé récent) / orange (partielle, sondes bloquées) / rouge (hors ligne),
+  détail au survol ; actions en micro-symboles (⤓ ⛔ ⏸ 🗑) ; localisation raccourcie, complète au survol.
+  Reste (à faire) : appliquer le même principe aux autres fiches longues (Postes Windows, Infra PVE/PBS) et la tuile
+  « postes agentés » ci-dessus.

@@ -1,3 +1,21 @@
+## 2026-10-29 — Fiche agent en onglets, tableau des agents résumé (livraison #922)
+
+- Retour d'usage : « l'ergonomie de la fiche poste/agent est non fonctionnelle, faire tout défiler tout en contrôlant
+  les sections visibles, c'est pas possible, je passe trop de temps à chercher » ; et le lien direct vers les réglages
+  de pc-paul arrivait sur le tableau (la fiche s'ouvrait SOUS le tableau).
+- Fiche de l'agent : onglets (Résumé, Réseau, Matériel, Activité, Disques et stockage, Ports et services, Journal,
+  Poste, Sondes, Commandes, Réglages) -- une section à l'écran, toutes à un clic ; la fiche s'ouvre à la place du
+  tableau, avec « ◀ Agents », un sélecteur pour passer à un autre agent et la version de l'agent en tête. Sans mesure,
+  Sondes / Commandes / Réglages restent accessibles. Lien profond `?view=si-agent&agent=<id>&section=settings`
+  (utilisé par l'onglet Analyse à distance) : arrive directement sur l'onglet.
+- Tableau des agents : colonne **Version** (orange quand le central sert une version plus récente) ; colonne
+  **Collecte** = une pastille vert (relevés à jour) / jaune (pas de relevé récent) / orange (collecte partielle,
+  sondes bloquées, TLS non vérifié) / rouge (hors ligne, jamais vu, désactivé), détail au survol ; les quatre boutons
+  deviennent des micro-symboles (⤓ installation, ⛔ / 🔓 blocage, ⏸ / ▶ activation, 🗑 suppression) avec info-bulle ;
+  localisation raccourcie, complète au survol (aussi dans Mises à jour).
+- Vérifié : module pur `agentFiche.js` testé (onglets, pastille, comparaison numérique des versions), 465 tests du hub,
+  rendu de la vraie vue dans Chromium en thème sombre (tableau, fiche, onglet Réglages, lien profond), sans erreur.
+
 ## 2026-10-29 — Mise à jour automatique des agents Windows : cause trouvée et corrigée (livraison #921)
 
 - Constat (pc-paul) : aucune mise à jour automatique n'a jamais abouti (0.6.15 → 0.6.17, puis 0.6.21 → 0.6.22, 0.6.23,

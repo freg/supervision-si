@@ -111,7 +111,7 @@ export default function AnalyseDistance({ agent, base, actor }) {
     <div className="sh-page">
       <p style={{ margin: "0 0 8px" }}>
         Commandes à distance sur ce poste : {reglage ? <Ton table={MODES} cle={reglage} /> : <span className="infra-muted">…</span>}
-        {" "}<span className="infra-muted">— réglage : <a href={hubLink("si-agent")}>Agents</a> › {agent} › Réglages › « Commandes à distance ».
+        {" "}<span className="infra-muted">— réglage : <a href={hubLink("si-agent", { agent, section: "settings" })}>Agents › {agent} › Réglages</a> › « Commandes à distance ».
           En lecture seule, le poste vérifie lui-même avant d'exécuter que la commande ne modifie rien.</span>
       </p>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}

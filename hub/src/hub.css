@@ -2891,3 +2891,15 @@ body { padding-bottom: 36px; }
 @media (max-width: 1100px) { .sh-axes { grid-template-columns: 1fr; } }
 .sh-constats { margin: 0; padding-left: 4px; list-style: none; font-size: 13px; }
 .sh-constats li { margin: 3px 0; }
+
+/* #922 : fiche agent en onglets ; tableau des agents résumé (pastille de collecte, version, actions en symboles) */
+.sa-onglets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 12px; }
+.sa-pastille { display: inline-block; width: 13px; height: 13px; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 25%, transparent); }
+.sa-pastille.vert { background: var(--ok); }
+.sa-pastille.jaune { background: #e2c400; }
+.sa-pastille.orange { background: #e8750c; }
+.sa-pastille.rouge { background: var(--danger); }
+.sa-site { display: inline-block; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.sa-micro { background: none; border: none; padding: 0 4px; margin: 0; cursor: pointer; font-size: 15px; line-height: 1; color: var(--text); opacity: .7; }
+.sa-micro:hover, .sa-micro:focus-visible { opacity: 1; transform: scale(1.15); }
+.sa-micro.danger { color: var(--danger); }

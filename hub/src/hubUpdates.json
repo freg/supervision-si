@@ -1,5 +1,11 @@
 [
  {
+  "n": 922,
+  "from": 922,
+  "date": "2026-10-29",
+  "title": "Fiche agent en onglets, tableau des agents résumé"
+ },
+ {
   "n": 921,
   "from": 921,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 882,
   "date": "2026-10-27",
   "title": "Barème des estimations façon planning poker, catégories de systèmes, actions automatisables"
- },
- {
-  "n": 881,
-  "from": 881,
-  "date": "2026-10-27",
-  "title": "Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image)"
  }
 ]
