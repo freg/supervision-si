@@ -449,6 +449,7 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._charge = None          # #916 : test de charge en tâche de fond (live + stop pendant l'exécution)
         # #547 : publication locale (serveur + dernier contenu reçu du central)
         self._publish_server = None
         self._next_publish = 0
@@ -777,12 +778,13 @@ class Agent(object):
                     return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
                 if control.plugin_blocked(self.state, m):
                     return {"ok": False, "error": "sonde bloquée"}
+                if m.get("id") == "poste-charge":          # #916 : test de charge en tâche de fond -> la boucle reste libre (live + stop pendant l'exécution)
+                    return self._charge_lancer(m, params.get("args"))
                 meas = self.run_one_plugin(m, args=params.get("args"))
                 return {"ok": bool(meas.get("ok")), "result": meas.get("data"), "error": meas.get("error")}
             if ctype == "stop_plugin":
-                # #913 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
-                # (En exécution synchrone, effectif surtout en préarmement ; l'arrêt en cours de test suppose
-                # l'exécution en tâche de fond de poste-charge -- incrément agent à valider sur un poste réel.)
+                # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
+                # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
                 if str(params.get("id", "")) != "poste-charge":
                     return {"ok": False, "error": "stop_plugin : seul poste-charge est géré"}
                 try:
@@ -1656,6 +1658,51 @@ class Agent(object):
             return
         self.queue.put({"task": "plugin:poste-charge-live", "at": _iso(self.clock()), "ok": True, "agent_id": self.agent_id,
                         "data": {"echantillons": ech[-500:], "fini": any(e.get("phase") == "fini" for e in ech)}})
+
+    def _charge_lancer(self, manifest, args=None):
+        # #916 : lance poste-charge dans un thread dédié pour que la boucle principale reste libre --
+        # elle pousse la courbe de tension (live) au central et traite stop_plugin PENDANT le test.
+        import threading
+        st = getattr(self, "_charge", None)
+        if st and st.get("thread") is not None and st["thread"].is_alive():
+            return {"ok": False, "error": "un test de charge est déjà en cours"}
+        live_path = os.path.join(self._charge_dir(), "poste-charge.live.ndjson")
+        st = {"live_path": live_path, "t0": self.clock(), "pushed_at": 0.0, "done": False, "final_pushed": False, "thread": None}
+
+        def work():
+            try:
+                self.run_one_plugin(manifest, args=args)   # bloquant ICI : prépare --live/--stop, exécute, pousse résultat + courbe finale
+            except Exception:  # noqa: BLE001
+                _log.warning("poste-charge (fond) : exécution en échec", exc_info=True)
+            finally:
+                st["done"] = True
+
+        t = threading.Thread(target=work, name="si-agent-charge", daemon=True)
+        st["thread"] = t
+        self._charge = st
+        t.start()
+        self.event("charge-started", "info", "test de charge lancé en tâche de fond", {"args": list(args or [])})
+        return {"ok": True, "result": {"started": True}}
+
+    def charge_tick(self):
+        # #916 : appelée à chaque tour de boucle. Tant qu'un test de charge tourne en fond, pousse la courbe de
+        # tension (mesure plugin:poste-charge-live) toutes les ~2 s en forçant l'envoi -> observation en streaming depuis le hub.
+        st = getattr(self, "_charge", None)
+        if not st:
+            return
+        now = self.clock()
+        alive = st.get("thread") is not None and st["thread"].is_alive()
+        if (now - st.get("pushed_at", 0.0) >= 2.0) or (st.get("done") and not st.get("final_pushed")):
+            st["pushed_at"] = now
+            try:
+                self._charge_pousser_live(st["live_path"])
+                self.flush(force=True)
+            except Exception:  # noqa: BLE001
+                _log.debug("poste-charge : poussée du suivi direct en cours impossible", exc_info=True)
+            if st.get("done"):
+                st["final_pushed"] = True
+        if st.get("done") and not alive:
+            self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
 
     def run_one_plugin(self, manifest, args=None):
         if args is not None:                                  # #913 : arguments imposés par la commande (épreuves, paramètres)
@@ -2725,6 +2772,7 @@ class Agent(object):
                 self.run_plugins()
                 self.collect_self()
                 self.poll_commands()
+                self.charge_tick()
                 self.publish_tick()
                 self.local_view_tick()
                 self.flush()

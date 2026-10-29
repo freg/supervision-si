@@ -1,5 +1,11 @@
 [
  {
+  "n": 916,
+  "from": 916,
+  "date": "2026-10-29",
+  "title": "Test de charge exécuté en tâche de fond : suivi en direct et arrêt PENDANT le test"
+ },
+ {
   "n": 915,
   "from": 915,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 876,
   "date": "2026-10-27",
   "title": "Flotte : hôtes relevés à distance affichés sous leur agent relais"
- },
- {
-  "n": 875,
-  "from": 875,
-  "date": "2026-10-27",
-  "title": "Notes de mise à jour : liens vers les écrans des livraisons #867 à #874"
  }
 ]

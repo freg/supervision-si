@@ -423,6 +423,56 @@ class AgentTests(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.dir, "poste-charge.stop")))        # _charge_dir = parent de plugins_dir
         self.assertFalse(self.agent.execute_command({"id": "cz", "type": "stop_plugin", "params": {"id": "autre"}})["ok"])
 
+    def test_charge_fond_live_et_fin_916(self):
+        # #916 : poste-charge tourne en TÂCHE DE FOND -> run_plugin répond aussitôt {started:true} ;
+        # charge_tick pousse la courbe EN COURS (fini=False), capte la fin, et libère l'emplacement ;
+        # un 2e lancement est refusé pendant le test. (run_one_plugin est simulé ; l'horloge avance pour
+        # que les deux poussées aient des instants distincts -- la contrainte UNIQUE(agent,task,at) dédoublonne.)
+        import threading, time as _t, json as _json
+        live = os.path.join(self.agent._charge_dir(), "poste-charge.live.ndjson")
+        go = threading.Event()
+
+        def faux_run(manifest, args=None):
+            with open(live, "w", encoding="utf-8") as fh:
+                fh.write(_json.dumps({"phase": "processeur", "elapsed_s": 1}) + "\n")
+            go.wait(5.0)                                  # laisse un tick "en cours" passer
+            with open(live, "a", encoding="utf-8") as fh:
+                fh.write(_json.dumps({"phase": "fini", "verdict": "ok"}) + "\n")
+            self.agent.queue.put({"task": "plugin:poste-charge", "at": "res", "ok": True,
+                                  "agent_id": self.agent.agent_id, "data": {"verdict": "ok"}})
+
+        self.agent.store.install(
+            {"id": "poste-charge", "version": "2", "runner": "python", "entry": "poste_charge.py",
+             "interval_seconds": 315360000, "timeout_seconds": 900, "enabled": False},
+            "import sys\n", source="bundled")
+        self.agent.run_one_plugin = faux_run
+        r = self.agent.execute_command({"id": "cc", "type": "run_plugin",
+                                        "params": {"id": "poste-charge", "args": ["--epreuves", "cpu"]}})
+        self.assertTrue(r["ok"] and r["result"]["started"], "lancement en fond immédiat")
+        self.assertFalse(self.agent.execute_command({"id": "cd", "type": "run_plugin",
+                         "params": {"id": "poste-charge"}})["ok"], "pas de test de charge concurrent")
+        for _ in range(200):                              # attend que le 1er échantillon soit écrit (fichier non vide)
+            if os.path.exists(live) and os.path.getsize(live) > 0:
+                break
+            _t.sleep(0.02)
+        self.agent.charge_tick()                          # poussée EN COURS
+        lv = self.agent.queue.latest(task="plugin:poste-charge-live", limit=1)
+        self.assertTrue(lv and lv[0]["data"]["echantillons"], "courbe poussée pendant le test")
+        self.assertFalse(lv[0]["data"]["fini"], "pas encore fini")
+        go.set()
+        self.agent._charge["thread"].join(5)
+        self.clock[0] += 5                                # instant distinct -> la poussée finale n'est pas dédoublonnée
+        for _ in range(20):                               # ticks jusqu'à la poussée finale + libération
+            self.agent.charge_tick()
+            if self.agent._charge is None:
+                break
+            _t.sleep(0.05)
+        self.assertIsNone(self.agent._charge, "emplacement libéré après la fin")
+        lv2 = self.agent.queue.latest(task="plugin:poste-charge-live", limit=1)
+        self.assertTrue(lv2[0]["data"]["fini"], "marqueur fini capté en direct")
+        res = self.agent.queue.latest(task="plugin:poste-charge", limit=1)
+        self.assertTrue(res and res[0]["data"]["verdict"] == "ok", "résultat final poussé")
+
     def test_redemarrage_planifie_et_relance(self):
         # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console
         import datetime as dt

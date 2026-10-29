@@ -1,3 +1,17 @@
+## 2026-10-29 — Test de charge exécuté en tâche de fond : suivi en direct et arrêt PENDANT le test (livraison #916)
+
+- #913 posait le plugin interruptible / suivi en direct, mais l'agent exécutait `poste-charge` de façon **synchrone** :
+  la boucle restait bloquée tout le test (jusqu'à ~4 min), donc le suivi direct n'arrivait qu'**à la fin** et un `stop`
+  attendait la fin — l'observation « en streaming » et l'arrêt « à volonté » demandés n'étaient pas effectifs.
+- `poste-charge` tourne désormais dans un **thread dédié** (commande `run_plugin` → réponse immédiate `{started:true}`) ;
+  la boucle reste libre : `charge_tick` pousse la courbe de tension (mesure `plugin:poste-charge-live`) toutes les ~2 s
+  en forçant l'envoi, et `stop_plugin` est traité **pendant** le test (sentinelle lue entre les blocs → arrêt en cours
+  de route, verdict « interrompu »). Un seul test de charge à la fois (2e lancement refusé).
+- Agent **0.6.21**. Vérifié : 37 tests de l'agent dont un nouveau test tâche-de-fond (lancement immédiat, poussée en
+  cours `fini=false`, capture de la fin, libération de l'emplacement, refus concurrent) ; file SQLite multi-thread
+  (`check_same_thread=False`, WAL) → poussée depuis le thread sûre. À valider sur pc-paul une fois la 0.6.21 + plugin
+  v2 servis par le central.
+
 ## 2026-10-29 — Agents Windows -SystemCa : poser ca_file (faisceau #682), fin du CERTIFICATE_VERIFY_FAILED (livraison #915)
 
 - Un agent Windows installé `-SystemCa` (central à certificat **public**, ex. Let's Encrypt) restait avec
