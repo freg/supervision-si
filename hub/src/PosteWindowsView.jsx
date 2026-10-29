@@ -2,8 +2,9 @@
 // imprimantes, abonnements et licences, comptes de messagerie et agendas, logiciels) et diagnostic d'une panne
 // intermittente (évènements critiques, plantages, disques, stabilité) ; résultats des tests de charge à la demande.
 import { useCallback, useEffect, useState } from "react";
-import { fetchPostesWindows } from "./siAgentClient.js";
+import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
+import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
@@ -61,16 +62,112 @@ function Diagnostic({ d, charge }) {
     {(d.vidages || []).length > 0 && <div className="np-tone bad" style={{ marginTop: 6 }}>Vidages mémoire : {d.vidages.map((v) => `${v.fichier} (${date(v.t)})`).join(", ")}</div>}
     <Tableau titre="Erreurs et avertissements des journaux (regroupés)" lignes={d.evenements} cols={[["Journal", (l) => l.journal], ["Source", (l) => `${l.source} ${l.id}`], ["Niveau", (l) => ({ 1: "critique", 2: "erreur", 3: "avertissement" }[l.niveau] || l.niveau)], ["Nombre", (l) => l.nombre], ["Dernier", (l) => date(l.dernier)], ["Exemple", (l) => <span style={{ fontSize: 12 }}>{l.exemple}</span>]]} />
     <h4 style={{ margin: "14px 0 4px" }}>Tests de charge</h4>
-    {!charge ? <div className="infra-muted">aucun test lancé — fiche de l'agent › Sondes › <b>poste-charge</b> › Exécuter… (poste très ralenti une dizaine de minutes : prévenir l'utilisateur)</div> : (
-      <div>
-        <div className={`np-tone ${charge.verdict === "aucun défaut reproduit" ? "good" : "bad"}`}><b>{charge.verdict}</b> · {date(charge.debut || charge.at)}</div>
-        <div>Processeur : {charge.processeur?.coeurs} cœurs, {charge.processeur?.duree_s} s, {charge.processeur?.erreurs_calcul} erreur(s) de calcul</div>
-        <div>Mémoire : {charge.memoire?.mo} Mo testés sur {charge.memoire?.libre_mo} Mo libres, {charge.memoire?.blocs_errones} bloc(s) erroné(s)</div>
-        <div>Disque : {charge.disque?.mo} Mo, écriture {charge.disque?.ecriture_mo_s ?? "?"} Mo/s, lecture {charge.disque?.lecture_mo_s ?? "?"} Mo/s, relecture {charge.disque?.identique === true ? "identique" : charge.disque?.identique === false ? "DIFFÉRENTE" : charge.disque?.erreur || "?"}</div>
-        {(charge.temperatures_apres || []).length > 0 && <div>Températures : {(charge.temperatures_avant || []).map((t) => t.celsius).join(" / ") || "?"} °C avant → {charge.temperatures_apres.map((t) => t.celsius).join(" / ")} °C après</div>}
-        {(charge.alerts || []).map((a, k) => <div key={k} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}
-      </div>)}
+    {!charge ? <div className="infra-muted">aucun test lancé — onglet <b>Tests de charge</b> pour lancer, suivre en direct et interrompre.</div> : <ResultatCharge charge={charge} />}
   </>);
+}
+
+function ResultatCharge({ charge }) {
+  if (!charge) return <div className="infra-muted">aucun test encore — choisis les épreuves ci-dessus et lance.</div>;
+  const d = charge.disque;
+  const suffixe = (r) => (r && r.statut && r.statut !== "ok" ? ` — ${r.statut}` : "");
+  return (
+    <div>
+      <div className={`np-tone ${charge.verdict === "aucun défaut reproduit" ? "good" : charge.verdict === "interrompu" ? "neutral" : "bad"}`}><b>{charge.verdict}</b> · {date(charge.debut || charge.at)}{(charge.epreuves || []).length ? ` · ${charge.epreuves.join(", ")}` : ""}</div>
+      {charge.processeur && <div>Processeur : {charge.processeur.coeurs} cœurs, {charge.processeur.duree_s} s, {charge.processeur.erreurs_calcul ?? 0} erreur(s) de calcul{suffixe(charge.processeur)}</div>}
+      {charge.memoire && <div>Mémoire : {charge.memoire.mo} Mo testés sur {charge.memoire.libre_mo} Mo libres, {charge.memoire.blocs_errones} bloc(s) erroné(s){suffixe(charge.memoire)}</div>}
+      {d && <div>Disque : {d.mo} Mo, écriture {d.ecriture_mo_s ?? "?"} Mo/s, lecture {d.lecture_mo_s ?? "?"} Mo/s, relecture {d.identique === true ? "identique" : d.identique === false ? "DIFFÉRENTE" : d.erreur || "?"}{suffixe(d)}</div>}
+      {(charge.temperatures_apres || []).length > 0 && <div>Températures : {(charge.temperatures_avant || []).map((t) => t.celsius).join(" / ") || "?"} °C avant → {charge.temperatures_apres.map((t) => t.celsius).join(" / ")} °C après</div>}
+      {(charge.alerts || []).map((a, k) => <div key={k} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}
+    </div>
+  );
+}
+
+function Jauge({ pct }) {
+  const p = Math.max(0, Math.min(100, pct || 0));
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, height: 10, overflow: "hidden" }}>
+      <div style={{ width: `${p}%`, height: "100%", background: "var(--accent)" }} />
+    </div>
+  );
+}
+
+function GrapheDebit({ serie }) {
+  const { points, moSMax, tMax } = serie;
+  if (points.length < 2) return <div className="infra-muted">débit disque : en attente d'échantillons…</div>;
+  const W = 520, H = 120, pad = 26;
+  const px = (t) => pad + (tMax ? t / tMax : 0) * (W - 2 * pad);
+  const py = (v) => H - pad - (moSMax ? v / moSMax : 0) * (H - 2 * pad);
+  const d = points.map((p, i) => `${i ? "L" : "M"}${px(p.t).toFixed(1)},${py(p.mo_s).toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W, height: "auto" }} role="img" aria-label="débit disque dans le temps">
+      <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="var(--border)" />
+      <line x1={pad} y1={pad} x2={pad} y2={H - pad} stroke="var(--border)" />
+      <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" />
+      <text x={pad} y={pad - 8} fontSize="10" fill="var(--muted)">{Math.round(moSMax)} Mo/s</text>
+      <text x={W - pad} y={H - pad + 16} fontSize="10" fill="var(--muted)" textAnchor="end">{tMax.toFixed(0)} s</text>
+      <text x={pad} y={H - pad + 16} fontSize="10" fill="var(--muted)">0</text>
+    </svg>
+  );
+}
+
+const EPR = [["cpu", "Processeur"], ["memoire", "Mémoire"], ["disque", "Disque"]];
+
+function ChargePilotage({ agent, base, charge }) {
+  const [epr, setEpr] = useState(["disque"]);          // défaut : juste le disque (piste n°1 sur pc-paul)
+  const [cpuS, setCpuS] = useState(120);
+  const [memPct, setMemPct] = useState(60);
+  const [disqueMo, setDisqueMo] = useState(2048);
+  const [maxS, setMaxS] = useState(240);
+  const [live, setLive] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const rafraichir = useCallback(() => { if (agent) fetchChargeLive(base, agent).then(setLive); }, [base, agent]);
+  useEffect(() => { rafraichir(); const i = setInterval(rafraichir, 2000); return () => clearInterval(i); }, [rafraichir]);
+  const ech = echantillons(live && live.live && live.live.data);
+  const serie = serieDisque(ech);
+  const etat = dernierEtat(ech);
+  const fini = estFini(ech);
+  const resultat = (live && live.resultat && live.resultat.data) || charge;
+  const toggle = (k) => setEpr((l) => (l.includes(k) ? l.filter((x) => x !== k) : [...l, k]));
+  async function lancer() {
+    if (!epr.length) { setMsg("choisir au moins une épreuve"); return; }
+    setBusy(true); setMsg("");
+    const r = await lancerCharge(base, { agent, epreuves: epr, cpu_s: cpuS, mem_pct: memPct, disque_mo: disqueMo, max_s: maxS });
+    setMsg(r && r.error ? `échec : ${r.error}` : "test demandé — l'agent le relève sous peu. Prévenir l'utilisateur : poste fortement ralenti.");
+    setBusy(false);
+  }
+  async function interrompre() {
+    setBusy(true);
+    const r = await stopCharge(base, agent);
+    setMsg(r && r.error ? `échec : ${r.error}` : "arrêt demandé — effectif dès que l'agent relève la commande.");
+    setBusy(false);
+  }
+  return (
+    <div>
+      <div className="infra-muted" style={{ marginBottom: 8 }}>Lancer un test de charge à la demande et le suivre en direct. Le poste est fortement ralenti pendant le test — <b>prévenir l'utilisateur</b>. Chaque épreuve est bornée ({maxS} s) et interruptible ; (re)jouer une partie = cocher seulement les épreuves voulues.</div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", margin: "6px 0" }}>
+        {EPR.map(([k, t]) => <label key={k}><input type="checkbox" checked={epr.includes(k)} onChange={() => toggle(k)} /> {t}</label>)}
+        <label>CPU <input type="number" style={{ width: 60 }} value={cpuS} onChange={(e) => setCpuS(+e.target.value)} /> s</label>
+        <label>Mém. <input type="number" style={{ width: 55 }} value={memPct} onChange={(e) => setMemPct(+e.target.value)} /> %</label>
+        <label>Disque <input type="number" style={{ width: 70 }} value={disqueMo} onChange={(e) => setDisqueMo(+e.target.value)} /> Mo</label>
+        <label>Plafond/épreuve <input type="number" style={{ width: 60 }} value={maxS} onChange={(e) => setMaxS(+e.target.value)} /> s</label>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "6px 0", flexWrap: "wrap" }}>
+        <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer</button>
+        <button type="button" className="secondary" disabled={busy} onClick={interrompre}>⏹ Interrompre</button>
+        <button type="button" className="secondary" onClick={rafraichir}>⟳</button>
+        {msg && <span className="infra-muted">{msg}</span>}
+      </div>
+      <h4 style={{ margin: "12px 0 4px" }}>Tension en direct {fini && <span className="np-tone good">terminé</span>}</h4>
+      {etat ? (
+        <div className="np-tone neutral">Phase : <b>{etat.phase}{etat.sous ? ` / ${etat.sous}` : ""}</b>{etat.pct != null ? ` · ${etat.pct} %` : ""}{etat.mo_s != null ? ` · ${etat.mo_s} Mo/s` : ""}{etat.elapsed_s != null ? ` · ${etat.elapsed_s} s` : ""}</div>
+      ) : <div className="infra-muted">aucun échantillon en direct (test non démarré, ou agent pas encore à jour du suivi direct).</div>}
+      {etat && etat.pct != null && <div style={{ margin: "6px 0", maxWidth: 520 }}><Jauge pct={etat.pct} /></div>}
+      <div style={{ marginTop: 8 }}><GrapheDebit serie={serie} /></div>
+      <h4 style={{ margin: "14px 0 4px" }}>Dernier résultat</h4>
+      <ResultatCharge charge={resultat} />
+    </div>
+  );
 }
 
 export default function PosteWindowsView({ onBack, siAgentApiBase }) {
@@ -106,11 +203,12 @@ export default function PosteWindowsView({ onBack, siAgentApiBase }) {
             {detail.alertes.map((a, k) => <div key={k} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}
             <div style={{ display: "flex", gap: 8, margin: "10px 0" }}>
               <button className={onglet === "diagnostic" ? "primary" : "secondary"} onClick={() => setOnglet("diagnostic")}>Diagnostic</button>
+              <button className={onglet === "charge" ? "primary" : "secondary"} onClick={() => setOnglet("charge")}>Tests de charge</button>
               <button className={onglet === "reinstallation" ? "primary" : "secondary"} onClick={() => setOnglet("reinstallation")}>Réinstallation</button>
               <button className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF la fiche affichée">Imprimer</button>
               <button className="secondary" onClick={charger}>⟳</button>
             </div>
-            {onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
+            {onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
           </section>)}
       </>)}
     </div>

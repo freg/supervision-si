@@ -1,3 +1,23 @@
+## 2026-10-29 — Postes Windows : pilotage des tests de charge en direct (livraison #913)
+
+- Onglet « Tests de charge » (Postes Windows › fiche du poste) : lancer un test `poste-charge` à la demande avec
+  les épreuves voulues (**processeur / mémoire / disque** — *(re)jouer une partie* = ne cocher que celles-ci) et les
+  paramètres, **suivre la tension en direct** (phase, %, débit disque Mo/s, courbe) et **interrompre à volonté**.
+- Plugin `poste-charge` v2 : épreuves sélectionnables (`--epreuves`), chaque épreuve **bornée** (`--max-s`, défaut
+  240 s) et **interruptible** (sentinelle `--stop`), progression/tension écrite en continu (`--live`, NDJSON). Un
+  disque qui cale est désormais rapporté « calé » (alerte critique) au lieu de **bloquer 30 min** (constat réel sur
+  pc-paul : `poste-charge` tué à 1800 s). Rétro-compatible, manifeste v2, timeout 1800→900 s.
+- Central (si-agent-api) : `POST /postes/charge/lancer` (épreuves + paramètres), `POST /postes/charge/stop`
+  (commande `stop_plugin`, ignorée proprement par un agent qui ne la connaît pas), `GET /postes/charge/live`
+  (tension en direct + dernier résultat).
+- Fichiers : `plugins/poste-charge/{poste_charge.py, manifest.json, test_poste_charge.py}`,
+  `si-agent/api/{app.py, store.py, test_z_charge.py}`, `hub/src/{PosteWindowsView.jsx, siAgentClient.js, chargeLive.js}`,
+  `hub/tests/chargeLive.test.mjs`.
+- Vérifié : plugin (7 tests + exécutions réelles sélection/arrêt/direct sur VM Linux), chargeLive (4 tests Node),
+  457 tests hub OK (non-régression), @babel/parser + esbuild, contrôle thème (aucune couleur en dur). Non vérifié :
+  rendu navigateur, Windows réel. **À suivre côté agent** : poussée du direct (mesure `poste-charge-live`) et prise
+  en charge de `stop_plugin` — sans quoi la courbe en direct reste vide (lancer / résultat / interprétation marchent).
+
 ## 2026-10-29 — Tuile Hermes (supervision) : interface du hub (livraison #912)
 
 - Tuile « Hermes » dans le hub supervision (vue `HermesView`, entrée de menu + chemins métier assistant / hôtes) :

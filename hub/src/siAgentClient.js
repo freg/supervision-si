@@ -73,6 +73,18 @@ export async function fetchSockets(apiBase, agent = "", at = "") {
 }
 
 /** #896 : postes Windows (configuration à réinstaller, diagnostic, tests de charge). */
+// #913 : pilotage des tests de charge (poste-charge).
+export const lancerCharge = (apiBase, body) => fetchJson(apiBase, "/postes/charge/lancer", json("POST", body));
+export const stopCharge = (apiBase, agent) => fetchJson(apiBase, "/postes/charge/stop", json("POST", { agent }));
+export async function fetchChargeLive(apiBase, agent) {
+  try {
+    const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });
+    return r.ok ? await r.json() : { error: `HTTP ${r.status}` };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 export async function fetchPostesWindows(apiBase, agent = "") {
   try {
     const r = await fetch(`${apiBase}/postes-windows${agent ? `?agent=${encodeURIComponent(agent)}` : ""}`, { credentials: "include" });
