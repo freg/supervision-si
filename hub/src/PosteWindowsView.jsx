@@ -3,7 +3,7 @@
 // intermittente (évènements critiques, plantages, disques, stabilité) ; résultats des tests de charge à la demande.
 import { useCallback, useEffect, useState } from "react";
 import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive } from "./siAgentClient.js";
-import { hubLink } from "./hubLinks.js";
+import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
 import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
@@ -173,10 +173,11 @@ function ChargePilotage({ agent, base, charge }) {
 
 export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
   const [liste, setListe] = useState(null);
-  const [choix, setChoix] = useState("");
+  const [params] = useState(() => { const p = viewParams(); clearViewParams(); return p; });   // #923 : ?agent=pc-paul&onglet=distance
+  const [choix, setChoix] = useState(params.agent || "");
   const [detail, setDetail] = useState(null);
-  const [onglet, setOnglet] = useState("diagnostic");
-  useEffect(() => { fetchPostesWindows(siAgentApiBase).then((l) => { setListe(l); if (l.length === 1) setChoix(l[0].agent); }); }, [siAgentApiBase]);
+  const [onglet, setOnglet] = useState(["diagnostic", "charge", "distance", "reinstallation"].includes(params.onglet) ? params.onglet : "diagnostic");
+  useEffect(() => { fetchPostesWindows(siAgentApiBase).then((l) => { setListe(l); if (l.length === 1 && !params.agent) setChoix(l[0].agent); }); }, [siAgentApiBase]);
   const charger = useCallback(() => { if (choix) fetchPostesWindows(siAgentApiBase, choix).then((l) => setDetail(l[0] || null)); }, [siAgentApiBase, choix]);
   useEffect(() => { setDetail(null); charger(); }, [charger]);
   return (
@@ -200,7 +201,7 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
             </tr>))}</tbody></table>
         {detail && (
           <section className="infra-card">
-            <h3 style={{ margin: "0 0 6px" }}>{detail.poste?.nom || detail.agent} <span className="infra-muted" style={{ fontSize: 13 }}>· {detail.poste?.systeme} {detail.poste?.version} · démarré le {date(detail.poste?.demarrage)} · {go(detail.poste?.memoire_octets)} de mémoire</span></h3>
+            <h3 style={{ margin: "0 0 6px" }}>{detail.poste?.nom || detail.agent} <a href={hubLink("si-agent", { agent: detail.agent })} style={{ fontSize: 13, fontWeight: 400 }} title="fiche de l'agent : sondes, commandes, réglages">fiche de l'agent ↗</a> <span className="infra-muted" style={{ fontSize: 13 }}>· {detail.poste?.systeme} {detail.poste?.version} · démarré le {date(detail.poste?.demarrage)} · {go(detail.poste?.memoire_octets)} de mémoire</span></h3>
             {detail.alertes.map((a, k) => <div key={k} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}
             <div style={{ display: "flex", gap: 8, margin: "10px 0" }}>
               <button className={onglet === "diagnostic" ? "primary" : "secondary"} onClick={() => setOnglet("diagnostic")}>Diagnostic</button>

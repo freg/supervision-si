@@ -2903,3 +2903,7 @@ body { padding-bottom: 36px; }
 .sa-micro { background: none; border: none; padding: 0 4px; margin: 0; cursor: pointer; font-size: 15px; line-height: 1; color: var(--text); opacity: .7; }
 .sa-micro:hover, .sa-micro:focus-visible { opacity: 1; transform: scale(1.15); }
 .sa-micro.danger { color: var(--danger); }
+/* #923 : liens directs d'un agent Windows vers son poste */
+.sa-liens-poste { display: inline-flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
+.sa-liens-poste a { color: var(--accent); }
+.sa-resultat { margin: 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; word-break: break-word; user-select: text; font-size: 12px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }

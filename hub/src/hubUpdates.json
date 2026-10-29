@@ -1,5 +1,11 @@
 [
  {
+  "n": 923,
+  "from": 923,
+  "date": "2026-10-29",
+  "title": "Postes Windows : accès direct depuis la fiche, résultats complets, sonde poste-windows qui ne plante plus"
+ },
+ {
   "n": 922,
   "from": 922,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 883,
   "date": "2026-10-27",
   "title": "Tuile NAS : état et alertes par SNMP en lecture seule (QNAP), étape 1"
- },
- {
-  "n": 882,
-  "from": 882,
-  "date": "2026-10-27",
-  "title": "Barème des estimations façon planning poker, catégories de systèmes, actions automatisables"
  }
 ]

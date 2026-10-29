@@ -239,7 +239,9 @@ def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"
         except ValueError:
             data = {"raw": stdout[:MAX_RAW_OUTPUT], "truncated": len(stdout) > MAX_RAW_OUTPUT}
     ok = r.returncode == 0
-    error = None if ok else ("code %s : %s" % (r.returncode, (r.stderr or stdout or "")[:500].strip()))
+    # #923 : la FIN de la sortie d'erreur (une trace Python finit par la cause : « TypeError: ... »), pas son début
+    _err = (r.stderr or stdout or "").strip()
+    error = None if ok else ("code %s : %s" % (r.returncode, _err if len(_err) <= 600 else "…" + _err[-600:]))
     m = {"task": task, "at": at, "ok": ok, "data": data, "error": error}
     if data is not None:
         data.setdefault("_plugin", {"id": manifest["id"], "version": str(manifest.get("version", "")), "duration_seconds": duration,

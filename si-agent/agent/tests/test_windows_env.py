@@ -6,7 +6,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from si_agent import control, host  # noqa: E402
+from si_agent import control, host, plugins  # noqa: E402
 
 # os.environ sous Windows : clés EN MAJUSCULES (c'est ce qui faisait perdre SystemRoot aux sondes)
 ENV_WINDOWS = {"SYSTEMROOT": r"C:\WINDOWS", "WINDIR": r"C:\WINDOWS", "PSMODULEPATH": r"C:\Program Files\WindowsPowerShell\Modules",
@@ -43,6 +43,16 @@ class DecodageSortie(unittest.TestCase):
         r = host.run_cmd([sys.executable, "-c", "print('relevé → fini')"], timeout=30, confined={"env": env, "encoding": "auto"})
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "relevé → fini")
+
+
+class ErreurDeSonde(unittest.TestCase):
+    def test_la_fin_de_la_trace_est_gardee_923(self):
+        trace = "Traceback (most recent call last):\n" + "  File \"C:\\x\\poste_windows.py\", line 1, in main\n    x()\n" * 30 + "TypeError: '>' not supported"
+        cmd = lambda argv, **k: host.CmdResult(1, "", trace)
+        m = plugins.run_plugin({"id": "p", "runner": "python", "entry": "p.py", "path": "/x/p.py", "present": True, "timeout_seconds": 5}, cmd, now=0)
+        self.assertFalse(m["ok"])
+        self.assertTrue(m["error"].endswith("TypeError: '>' not supported"), m["error"][-80:])
+        self.assertLessEqual(len(m["error"]), 620)
 
 
 if __name__ == "__main__":

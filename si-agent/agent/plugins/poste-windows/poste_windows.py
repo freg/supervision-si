@@ -246,6 +246,23 @@ def main(argv=None, runner=subprocess.run, plateforme=sys.platform):
     return out
 
 
+def executer(argv=None, runner=subprocess.run, plateforme=sys.platform):
+    """#923 : la sonde ne plante plus -- un délai dépassé ou une erreur inattendue devient un constat lisible dans le
+    Diagnostic (type, message, fichier et ligne), au lieu d'une trace Python tronquée dans le résultat de la commande."""
+    at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    try:
+        return main(argv, runner=runner, plateforme=plateforme)
+    except subprocess.TimeoutExpired:
+        return {"at": at, "alerts": [{"code": "poste-windows-delai", "severity": "warning",
+                                      "message": "relevé PowerShell trop long (plus de 540 s) : relancer la sonde, ou réduire --jours"}]}
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+        tb = traceback.extract_tb(exc.__traceback__)
+        lieu = ("%s, ligne %d" % (os.path.basename(tb[-1].filename), tb[-1].lineno)) if tb else "?"
+        return {"at": at, "alerts": [{"code": "poste-windows-sonde", "severity": "warning",
+                                      "message": "la sonde poste-windows a échoué : %s : %s (%s)" % (type(exc).__name__, str(exc)[:200], lieu)}]}
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8") if hasattr(sys.stdout, "reconfigure") else None
-    print(json.dumps(main(sys.argv[1:]), ensure_ascii=False))
+    print(json.dumps(executer(sys.argv[1:]), ensure_ascii=False))

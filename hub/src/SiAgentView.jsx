@@ -136,6 +136,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
+  const [resOuvert, setResOuvert] = useState(null);   // #923 : résultat de commande déplié
   const [onglet, setOnglet] = useState(() => {   // #922 : fiche en onglets -- une section à l'écran, toutes à un clic
     const o = ongletDe(initialParams.section) || "resume";
     clearViewParams();
@@ -591,6 +592,12 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                 </select>
                 <h2 style={{ margin: 0 }}>{detail?.hostname || selectedId}</h2>
                 {detail && (() => { const v = versionEtat(detail.agent_version, status?.package?.version); return <Tone tone={v.ton} title={v.titre}>v{v.texte}</Tone>; })()}
+                {/windows/i.test(detail?.os || "") && (   /* #923 : un agent Windows mène directement à son poste */
+                  <span className="sa-liens-poste">Poste Windows :
+                    <a href={hubLink("postes-windows", { agent: selectedId, onglet: "diagnostic" })}>Diagnostic</a>
+                    <a href={hubLink("postes-windows", { agent: selectedId, onglet: "distance" })}>Analyse à distance</a>
+                    <a href={hubLink("postes-windows", { agent: selectedId, onglet: "charge" })}>Tests de charge</a>
+                  </span>)}
                 {detail && (
                   <Tone tone={detail.config_applied ? "good" : "warn"} title={`version ${detail.config_version}`}>{detail.config_applied ? "configuration appliquée" : "configuration en attente"}</Tone>
                 )}
@@ -1056,14 +1063,20 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                           <AutoColumns id="SiAgentView.13"><table>
                             <thead><tr><th>Quand</th><th>Commande</th><th>État</th><th>Résultat</th></tr></thead>
                             <tbody>{detail.commands.map((c) => (
-                              <tr key={c.id}>
+                              <Fragment key={c.id}>
+                              <tr>
                                 <td className="muted">{when(c.created_at)}</td>
                                 <td>{COMMAND_TYPES.find((t) => t.type === c.type)?.label || c.type}{c.params?.id && <> <code>{c.params.id}</code></>}</td>
                                 <td><Tone tone={c.status === "done" ? "good" : c.status === "failed" ? "bad" : "warn"}>{c.status === "done" ? "acquittée" : c.status === "failed" ? "échec" : "en attente"}</Tone></td>
-                                <td className="muted" style={{ fontSize: 11, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.result ? JSON.stringify(c.result) : ""}>
-                                  {c.result?.error || (c.result?.result ? JSON.stringify(c.result.result) : "")}
+                                <td className="muted" style={{ fontSize: 11, maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: c.result ? "pointer" : "default" }}
+                                  title={c.result ? "cliquer pour afficher le résultat complet (sélectionnable)" : ""} onClick={() => c.result && setResOuvert(resOuvert === c.id ? null : c.id)}>
+                                  {c.result && <span aria-hidden="true">{resOuvert === c.id ? "▾ " : "▸ "}</span>}{c.result?.error || (c.result?.result ? JSON.stringify(c.result.result) : "")}
                                 </td>
                               </tr>
+                              {resOuvert === c.id && c.result && (   /* #923 : résultat complet, sélectionnable et copiable */
+                                <tr><td colSpan={4}><pre className="sa-resultat">{c.result.error ? c.result.error : JSON.stringify(c.result.result ?? c.result, null, 2)}</pre></td></tr>
+                              )}
+                              </Fragment>
                             ))}</tbody>
                           </table></AutoColumns>
                         </div>

@@ -1,11 +1,14 @@
 {
   "id": "poste-windows",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "poste_windows.py",
   "interval_seconds": 21600,
   "timeout_seconds": 600,
-  "args": ["--jours", "30"],
+  "args": [
+    "--jours",
+    "30"
+  ],
   "enabled": false,
   "description": "Poste Windows (#896), lecture seule, toutes les 6 h : (1) ce qu'il faut pour réinstaller -- partages servis, lecteurs et raccourcis réseau par utilisateur, imprimantes, Office / Microsoft 365 (produits, canal, comptes), profils et fichiers Outlook, Thunderbird (comptes, serveurs, agendas Google / CalDAV), licences Windows et Office (clé partielle), antivirus, logiciels ; (2) diagnostic sur 30 jours -- arrêts brutaux, écrans bleus, erreurs matérielles WHEA, erreurs disque / NTFS, pilote graphique, mémoire épuisée, diagnostic mémoire, plantages d'applications, vidages, santé des disques, volumes, indice de stabilité, températures. Aucun mot de passe lu. Vue : tuile « Postes Windows ».",
   "source": "bundled",

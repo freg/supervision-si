@@ -84,5 +84,18 @@ class Poste(unittest.TestCase):
         self.assertEqual(out["alerts"][0]["code"], "poste-windows-collecte")
 
 
+class Robustesse923(unittest.TestCase):
+    def test_erreur_et_delai_deviennent_des_constats(self):
+        def casse(*a, **k):
+            raise TypeError("'>' not supported between instances of 'NoneType' and 'int'")
+        r = pw.executer([], runner=casse, plateforme="win32")
+        self.assertEqual(r["alerts"][0]["code"], "poste-windows-sonde")
+        self.assertIn("TypeError", r["alerts"][0]["message"])
+        self.assertIn("ligne", r["alerts"][0]["message"])
+        def lent(*a, **k):
+            raise pw.subprocess.TimeoutExpired("powershell", 540)
+        self.assertEqual(pw.executer([], runner=lent, plateforme="win32")["alerts"][0]["code"], "poste-windows-delai")
+
+
 if __name__ == "__main__":
     unittest.main()

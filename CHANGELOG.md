@@ -1,3 +1,16 @@
+## 2026-10-29 — Postes Windows : accès direct depuis la fiche, résultats complets, sonde poste-windows qui ne plante plus (livraison #923)
+
+- « Où est le diagnostic ? » : la fiche d'un agent Windows mène directement à son poste (Diagnostic, Analyse à
+  distance, Tests de charge) ; la vue Postes Windows accepte `?view=postes-windows&agent=<id>&onglet=diagnostic|charge|
+  distance|reinstallation` et renvoie à la fiche de l'agent.
+- Résultat d'une commande : un clic le déplie en entier, sélectionnable et copiable (l'info-bulle ne se copiait pas).
+- La sonde poste-windows a échoué sur pc-paul (première exécution réelle, PowerShell réparé par #920) avec une trace
+  Python dont le hub ne montrait que le DÉBUT. L'agent garde désormais la FIN de la sortie d'erreur (là où est la
+  cause) ; la sonde (v2) transforme un délai dépassé ou une erreur inattendue en constat lisible du Diagnostic (type,
+  message, ligne) au lieu de planter. Agent **0.6.26**. Cause de l'échec de pc-paul : à lire dans ce constat.
+- Vérifié : tests agent (fin de trace gardée), sonde (erreur et délai -> constats), hub 465 ; rendu Chromium (liens
+  de la fiche, poste ouvert sur l'onglet demandé, résultat déplié et sélectionnable).
+
 ## 2026-10-29 — Fiche agent en onglets, tableau des agents résumé (livraison #922)
 
 - Retour d'usage : « l'ergonomie de la fiche poste/agent est non fonctionnelle, faire tout défiler tout en contrôlant
