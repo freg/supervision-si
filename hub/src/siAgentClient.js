@@ -101,6 +101,9 @@ export const fetchSauvegardePbsReglage = (apiBase) => fetchJson(apiBase, "/poste
 export const saveSauvegardePbsReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde-pbs", json("PUT", body));
 export const runSauvegardePbs = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`, json("POST", body || {}));
 export const fetchSauvegardePbs = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`);
+// #932 : historique des tests de charge d'un poste (relevés successifs, conservés 90 j).
+export const fetchChargeHistorique = (apiBase, agent, limit) => fetchJson(apiBase, `/postes/charge/historique?agent=${encodeURIComponent(agent)}${limit ? `&limit=${limit}` : ""}`);
+
 export async function fetchChargeLive(apiBase, agent) {
   try {
     const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });

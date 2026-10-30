@@ -2,13 +2,14 @@
 // imprimantes, abonnements et licences, comptes de messagerie et agendas, logiciels) et diagnostic d'une panne
 // intermittente (évènements critiques, plantages, disques, stabilité) ; résultats des tests de charge à la demande.
 import { useCallback, useEffect, useState } from "react";
-import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive } from "./siAgentClient.js";
+import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive, fetchChargeHistorique } from "./siAgentClient.js";
 import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
 import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 import AccesServices from "./AccesServices.jsx";       // #928
 import Sauvegarde from "./Sauvegarde.jsx";             // #930
+import { resumeRun, comparer } from "./chargeHistorique.js"; // #932
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -116,6 +117,54 @@ function GrapheDebit({ serie }) {
   );
 }
 
+// #932 : historique des tests de charge -- liste datée, sélection pour comparer côte à côte, impression.
+function HistoriqueCharge({ agent, base, dernierAt }) {
+  const [histo, setHisto] = useState(null);
+  const [sel, setSel] = useState([]);      // instants (at) sélectionnés pour comparaison
+  const [ouvert, setOuvert] = useState(null);  // at du run déplié (détail)
+  const charger = useCallback(() => { if (agent) fetchChargeHistorique(base, agent, 50).then((r) => { if (r && !r.error) setHisto(r.historique || []); }); }, [base, agent]);
+  useEffect(() => { charger(); }, [charger, dernierAt]);
+  if (histo == null) return <div className="infra-muted">lecture de l'historique…</div>;
+  if (histo.length === 0) return <div className="infra-muted">aucun test enregistré pour ce poste.</div>;
+  const parAt = Object.fromEntries(histo.map((r) => [r.at, r]));
+  const toggle = (at) => setSel((l) => (l.includes(at) ? l.filter((x) => x !== at) : [...l, at]));
+  const choisis = sel.map((at) => parAt[at]).filter(Boolean);
+  const comp = choisis.length >= 2 ? comparer(choisis) : null;
+  return (
+    <div className="pw-print">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "4px 0" }}>
+        <span className="infra-muted">{histo.length} test(s) conservé(s) (90 j). Coche plusieurs lignes pour comparer.</span>
+        <span style={{ flex: 1 }} />
+        {sel.length > 0 && <button type="button" className="secondary" onClick={() => setSel([])}>Vider la sélection</button>}
+        <button type="button" className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF (l'historique et la comparaison visibles)">🖨 Imprimer</button>
+        <button type="button" className="secondary" onClick={charger}>⟳</button>
+      </div>
+      <div className="infra-table-wrap">
+        <table className="infra-table"><thead><tr><th></th><th>Date</th><th>Verdict</th><th>Épreuves</th><th>Processeur</th><th>Mémoire</th><th>Disque</th><th>Temp.</th><th>Alertes</th></tr></thead>
+          <tbody>{histo.map((r) => { const x = resumeRun(r); return (
+            <tr key={r.at} style={{ cursor: "pointer", fontWeight: ouvert === r.at ? 600 : 400 }}>
+              <td><input type="checkbox" checked={sel.includes(r.at)} onChange={() => toggle(r.at)} onClick={(e) => e.stopPropagation()} /></td>
+              <td onClick={() => setOuvert(ouvert === r.at ? null : r.at)}>{date(x.debut)}</td>
+              <td onClick={() => setOuvert(ouvert === r.at ? null : r.at)}><span className={`np-tone ${x.ton}`}>{x.verdict}</span></td>
+              <td onClick={() => setOuvert(ouvert === r.at ? null : r.at)}>{x.epreuves || "—"}</td>
+              <td>{x.cpu}</td><td>{x.mem}</td><td>{x.disque}</td><td>{x.temp != null ? `${x.temp} °C` : "—"}</td>
+              <td>{x.critiques ? <span className="np-tone bad">{x.critiques} crit.</span> : x.alertes ? <span className="np-tone warn">{x.alertes}</span> : <span className="np-tone good">0</span>}</td>
+            </tr>); })}</tbody>
+        </table>
+      </div>
+      {ouvert && parAt[ouvert] && <div className="infra-card" style={{ marginTop: 6 }}><ResultatCharge charge={parAt[ouvert].data} /></div>}
+      {comp && (
+        <div style={{ marginTop: 10 }}>
+          <h4 style={{ margin: "6px 0" }}>Comparaison ({choisis.length} tests)</h4>
+          <div className="infra-table-wrap"><table className="infra-table">
+            <thead><tr><th>Mesure</th>{comp.entetes.map((e, i) => <th key={i}><span className={`np-tone ${e.ton}`}>{date(e.debut)}</span><br /><span className="infra-muted" style={{ fontSize: 11 }}>{e.verdict}</span></th>)}</tr></thead>
+            <tbody>{comp.lignes.map((l, i) => <tr key={i}><td><b>{l[0]}</b></td>{l.slice(1).map((v, k) => <td key={k} className={v === "DIFFÉRENTE" ? "np-tone bad" : ""}>{v}</td>)}</tr>)}</tbody>
+          </table></div>
+        </div>)}
+    </div>
+  );
+}
+
 const EPR = [["cpu", "Processeur"], ["memoire", "Mémoire"], ["disque", "Disque"]];
 
 function ChargePilotage({ agent, base, charge }) {
@@ -172,6 +221,8 @@ function ChargePilotage({ agent, base, charge }) {
       <div style={{ marginTop: 8 }}><GrapheDebit serie={serie} /></div>
       <h4 style={{ margin: "14px 0 4px" }}>Dernier résultat</h4>
       <ResultatCharge charge={resultat} />
+      <h4 style={{ margin: "16px 0 4px" }}>Historique des tests de charge</h4>
+      <HistoriqueCharge agent={agent} base={base} dernierAt={resultat && (resultat.at || resultat.debut)} />
     </div>
   );
 }

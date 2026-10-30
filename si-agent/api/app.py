@@ -631,6 +631,22 @@ def postes_charge_live():
                     "resultat": {"at": res.get("at"), "data": res.get("data")}}), 200
 
 
+@app.route("/postes/charge/historique", methods=["GET"])
+def postes_charge_historique():
+    """#932 : historique des tests de charge d'un poste (relevés successifs plugin:poste-charge, conservés 90 j) --
+    pour consultation, comparaison et impression. ?agent= requis, ?limit= (défaut 30)."""
+    agent = (request.args.get("agent") or "").strip()
+    if not agent:
+        return jsonify({"error": "agent requis"}), 400
+    try:
+        limit = max(1, min(int(request.args.get("limit") or 30), 200))
+    except ValueError:
+        limit = 30
+    ms = store.list_measurements(DB_PATH, agent, task="plugin:poste-charge", limit=limit)
+    runs = [{"at": m.get("at"), "data": m.get("data")} for m in ms if m.get("data")]
+    return jsonify({"agent": agent, "historique": runs}), 200
+
+
 @app.route("/nas", methods=["GET"])
 def nas_route():
     """#883 : NAS relevés par SNMP (sonde nas-snmp) -> {nas: [{… relevé, relais, at}]} (dernière mesure de chaque agent)."""

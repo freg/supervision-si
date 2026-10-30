@@ -1,5 +1,11 @@
 [
  {
+  "n": 932,
+  "from": 932,
+  "date": "2026-10-30",
+  "title": "Historique des tests de charge : consultation, comparaison, impression"
+ },
+ {
   "n": 931,
   "from": 931,
   "date": "2026-10-30",
@@ -232,11 +238,5 @@
   "from": 892,
   "date": "2026-10-28",
   "title": "Onglet VPN : erreur de lecture d'un serveur WireGuard visible"
- },
- {
-  "n": 891,
-  "from": 891,
-  "date": "2026-10-28",
-  "title": "Agents › Mises à jour : bouton « Tout mettre à jour »"
  }
 ]

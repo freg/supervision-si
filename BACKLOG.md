@@ -4122,7 +4122,11 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   le même rangement par intention à la fiche Postes Windows ; envisager de retirer « Analyse à distance » de Postes
   Windows au profit d'un lien vers l'onglet de la fiche agent (éviter les deux portes d'entrée).
 
-- PRIORITÉ (30/10, « il me faut absolument ») -- STOCKAGE ET CONSULTATION DES RÉSULTATS DE TESTS DE CHARGE :
+- Consultation des résultats de tests de charge -- LIVRÉ #932 : onglet Tests de charge -> historique daté (verdict,
+  épreuves, cpu/mém/disque, température, alertes), comparaison côte à côte de plusieurs runs, impression. Mesures
+  conservées 90 j. Reste (à faire) : feuille de style d'impression dédiée (masquer nav/pied, tableau pleine page) ;
+  rétention plus longue dédiée aux tests de charge si besoin ; export CSV de l'historique. [ANCIENNE NOTE]
+  PRIORITÉ (30/10, « il me faut absolument ») -- STOCKAGE ET CONSULTATION DES RÉSULTATS DE TESTS DE CHARGE :
   aujourd'hui l'onglet Tests de charge ne montre que le DERNIER test (le hub ne garde que le dernier relevé
   poste-charge par poste) et l'Historique des commandes ne porte que « {started:true} » (test en tâche de fond). Les
   relevés successifs existent pourtant en base (mesures plugin:poste-charge, un par run). À faire (#932) : vue

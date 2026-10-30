@@ -1,3 +1,20 @@
+## 2026-10-30 — Historique des tests de charge : consultation, comparaison, impression (livraison #932)
+
+- Demande (« il me faut absolument un stockage et une consultation facile des résultats pour impression et
+  comparaison ») : l'onglet Tests de charge ne montrait que le dernier test, alors que les relevés successifs sont
+  conservés en base (90 j). L'onglet affiche désormais, sous le dernier résultat, l'**historique des tests de charge**
+  du poste : liste datée avec verdict (coloré), épreuves, processeur (cœurs finis, gel, erreurs de calcul), mémoire,
+  disque (débits, relecture), température et nombre d'alertes.
+- **Comparaison** : cocher plusieurs tests les met côte à côte (une colonne par test, une ligne par mesure) — utile
+  pour un défaut intermittent (la relecture « DIFFÉRENTE » et le gel ressortent d'une colonne à l'autre). Clic sur une
+  ligne : détail complet du test.
+- **Impression** : bouton « Imprimer » (impression ou PDF de l'historique et de la comparaison affichés).
+- Rien n'est perdu : les tests déjà lancés sur pc-paul sont visibles dans cette liste. Route de consultation
+  `GET /postes/charge/historique` (exclut la courbe de tension en direct). Hub + API seuls (agent 0.6.32 inchangé).
+- Vérifié : tests du résumé et de la comparaison (verdict, cœurs/gel, relecture différente), de la route (ordre
+  antéchronologique, exclusion de -live, limite) ; suites API et hub (477). Non vérifié : rendu navigateur et sortie
+  imprimée.
+
 ## 2026-10-30 — Sauvegarde : poussée vers Proxmox Backup Server (pbs10) (livraison #931)
 
 - Suite de #930 : la remontée d'une sauvegarde de poste « combine et redirige vers pbs1 » (= pbs10). L'archive écrite
