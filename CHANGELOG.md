@@ -1,3 +1,11 @@
+## 2026-10-30 — Gestion à distance : lien direct vers l'autorisation manquante (livraison #946)
+
+- « Refus » en essayant une commande sur le NAS : le refus (commandes à distance désactivées / intervention requise)
+  renvoie maintenant **directement** vers l'onglet Commandes à distance de l'agent relais (NAS QNAP et BackupPC), avec
+  le niveau à choisir (« lecture » pour les essais, « intervention » pour exécuter).
+- Flotte : le NAS relayé affiche son modèle sans le mot « noyau ».
+- Vérifié : hub (498), lint JSX. Non vérifié : rendu.
+
 ## 2026-10-30 — NAS QNAP dans la Flotte, premier relevé SSH corrigé (livraison #945)
 
 - « Toujours pas d'agent QNAP » : le NAS apparaît maintenant dans la **Flotte sous son agent relais** (« ↳ relevé par

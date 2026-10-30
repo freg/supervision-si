@@ -580,7 +580,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                             <td colSpan={agentCols.visible.length} style={{ paddingLeft: 28 }}>
                               <span className="muted">↳ relevé par {a.agent_id} :</span> <strong>{h.name}</strong>{" "}
                               <Tone tone={h.ok ? "good" : "bad"}>{h.ok ? "relevé" : "injoignable"}</Tone>{" "}
-                              {h.os || "système inconnu"}{h.noyau ? ` · noyau ${h.noyau}` : ""}
+                              {h.os || "système inconnu"}{h.noyau ? (h.role === "nas" || h.role === "backuppc" ? ` · ${h.noyau}` : ` · noyau ${h.noyau}`) : ""}
                               {(h.ips || []).length > 0 && <> · <IpPing os={false} ip={h.ips[0]} /><OsActions label={h.name} ip={h.ips[0]} prefer={h.relay} />{h.ips.length > 1 ? <span className="muted"> +{h.ips.length - 1}</span> : null}</>}
                               {h.ports?.length > 0 && <span className="muted"> · ports {h.ports.slice(0, 12).join(", ")}{h.ports.length > 12 ? "…" : ""}</span>}
                               {hAge != null && <span className="muted"> · il y a {hAge < 3600 ? `${Math.round(hAge / 60)} min` : `${Math.round(hAge / 3600)} h`}</span>}

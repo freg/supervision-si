@@ -160,7 +160,7 @@ function BackupPc({ b, base, actor, recharger }) {
       <h4 style={{ margin: "0 0 4px" }}>BackupPC {srv.serveur} <Etat etat={srv.etat} /> <span className="infra-muted" style={{ fontSize: 12 }}>version {srv.version || "?"} · {srv.hotes} hôte(s) · {srv.echecs} échec(s) · {srv.en_cours} en cours · pool {pct(srv.pool_pct)}{srv.pool_octets ? ` (${to(srv.pool_octets)})` : ""} · prochain réveil {dateU(srv.prochain_reveil)} · relevé {quand(srv.at)}</span>
         {srv.alertes?.length > 0 && <BoutonDetail titre={`BackupPC ${srv.serveur} : alertes`} urgence={urgence(srv.etat)} texte={srv.alertes.join("\n")} />}</h4>
       {srv.erreur && <p className="np-tone bad">{srv.erreur}</p>}
-      {msg && <p className={msg.startsWith("refusé") ? "np-tone bad" : "np-tone good"}>{msg}</p>}
+      {msg && <p className={msg.startsWith("refusé") ? "np-tone bad" : "np-tone good"}>{msg}{msg.startsWith("refusé") && /distance|intervention/i.test(msg) && <> — <a href={hubLink("si-agent", { agent: srv.agent_id, section: "distance" })}>ouvrir Commandes à distance de l'agent {srv.serveur}</a></>}</p>}
       {srv.echecs_detail?.length > 0 && <>
         <h5 style={{ margin: "8px 0 2px" }}>Échecs à traiter</h5>
         <table className="infra-table"><thead><tr><th>Hôte</th><th>Type</th><th>Dernière tentative</th><th>Erreur</th><th>Dernière réussie</th><th>Que faire</th></tr></thead><tbody>
@@ -221,7 +221,8 @@ function GestionNas({ n, base, actor }) {
         <button type="button" className="secondary" disabled={!!busy || !action} onClick={() => envoyer("essai", { action, args: parseArgs() })}>{busy === "essai" ? "⏳…" : "Essai de l'action"}</button>
         <button type="button" className="danger" disabled={!!busy || !action} onClick={() => envoyer("executer", { action, args: parseArgs() })}>{busy === "executer" ? "⏳ en cours…" : "⚠ Exécuter (intervention)"}</button>
       </div>
-      {msg && <p className={msg.startsWith("refusé") ? "np-tone bad" : "np-tone neutral"} style={{ margin: "4px 0", fontSize: 13 }}>{msg}</p>}
+      {msg && <p className={msg.startsWith("refusé") ? "np-tone bad" : "np-tone neutral"} style={{ margin: "4px 0", fontSize: 13 }}>{msg}
+        {msg.startsWith("refusé") && /distance|intervention/i.test(msg) && <> — <a href={hubLink("si-agent", { agent, section: "distance" })}>ouvrir Commandes à distance de l'agent {n.ssh?.relais || agent}</a> (choisir « lecture » pour les essais, « intervention » pour exécuter)</>}</p>}
       <p className="infra-muted" style={{ fontSize: 12, margin: "4px 0" }}>Les actions de modification (snapshot, tâche HBS…) ne sont jamais composées ici : elles doivent être déclarées par l'administrateur dans <code>/etc/si-agent/nas-qnap.json</code> de l'agent relais, après l'étude ci-dessus (outils détectés, aide), et exigent « intervention » dans ses Commandes à distance. Exemple : <code>{`"actions": {"snapshot": {"commande": "qcli_snapshot -c -v {volume}", "lecture": false}}`}</code></p>
       {res.length > 0 && <div style={{ maxHeight: 220, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Quand</th><th>Mode</th><th>Commande</th><th>Résultat</th></tr></thead><tbody>
         {res.map((r, i) => <tr key={i}><td>{quand(r.at)}</td><td><Etat etat={r.data?.mode === "executer" ? "attention" : "ok"} texte={r.data?.mode} /></td><td><code style={{ fontSize: 12 }}>{r.data?.commande}</code></td>
