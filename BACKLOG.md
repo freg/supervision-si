@@ -4095,11 +4095,8 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
 - Sonde sauvegarde/restauration (DEMANDÉ le 30/10) -- EN COURS : #930 a livré la SAUVEGARDE des confs logicielles
   (registre + dossiers AppData) et des montages (remonter.cmd), destinations clé USB + partage UNC (identifiants au
   coffre). Reste, dans l'ordre demandé :
-  * #931 (SUIVANT) -- remontée au hub : COMBINER les jeux de sauvegarde et les POUSSER vers pbs1 (client
-    proxmox-backup-client dans le conteneur si-agent-api, cible configurable = dépôt/espace de noms, jeton d'API au
-    coffre, jamais en trace ; un snapshot « host » PBS par poste regroupe .reg + AppData + remonter.cmd). À demander
-    au lancement : dépôt et jeton de pbs1. NB : pbs1 à confirmer (mémoire : pbs10 = PBS 4 sur pve10, datastore
-    « backup »).
+  * #931 -- LIVRÉ : poussée vers PBS (pbs10) par l'agent du serveur PBS (snapshot host/<poste>, ns « postes »,
+    jeton au coffre, préflight en lecture seule). pbs1 = pbs10 confirmé.
   * points de restauration Windows (lister, créer, déclencher) ; sauvegarde via l'outil du fabricant / Microsoft ;
     liste des applications à réinstaller ; trousseaux à exporter/importer (interaction utilisateur).
   * RESTAURATION = opération d'INTERVENTION (réimport registre, recréation des partages), séparée et soumise à
@@ -4124,3 +4121,12 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   Windows, l'onglet Commandes à distance propose des analyses orientées Windows (pwsh) — à filtrer par OS ; appliquer
   le même rangement par intention à la fiche Postes Windows ; envisager de retirer « Analyse à distance » de Postes
   Windows au profit d'un lien vers l'onglet de la fiche agent (éviter les deux portes d'entrée).
+
+- PRIORITÉ (30/10, « il me faut absolument ») -- STOCKAGE ET CONSULTATION DES RÉSULTATS DE TESTS DE CHARGE :
+  aujourd'hui l'onglet Tests de charge ne montre que le DERNIER test (le hub ne garde que le dernier relevé
+  poste-charge par poste) et l'Historique des commandes ne porte que « {started:true} » (test en tâche de fond). Les
+  relevés successifs existent pourtant en base (mesures plugin:poste-charge, un par run). À faire (#932) : vue
+  historique des tests de charge d'un poste (liste datée avec verdict et épreuves, détail par run), COMPARAISON de
+  plusieurs runs côte à côte, et IMPRESSION. Prévoir une rétention plus longue pour ces mesures (ne pas purger comme
+  les relevés courants). Le défaut de pc-paul est INTERMITTENT (reproduit puis non, « poste figé jusqu'à 2,8 s » sur
+  un run propre) -> comparer les runs est nécessaire au diagnostic.

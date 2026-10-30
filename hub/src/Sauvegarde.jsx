@@ -3,7 +3,8 @@
 // La liste des confs ne contient aucun secret ; les identifiants du partage viennent du coffre (nom d'accès seulement).
 // La restauration (réimport) sera une opération d'intervention, livrée après.
 import { useCallback, useEffect, useState } from "react";
-import { fetchSauvegardeReglage, saveSauvegardeReglage, runSauvegarde, fetchSauvegarde } from "./siAgentClient.js";
+import { fetchSauvegardeReglage, saveSauvegardeReglage, runSauvegarde, fetchSauvegarde,
+  fetchSauvegardePbsReglage, saveSauvegardePbsReglage, runSauvegardePbs, fetchSauvegardePbs } from "./siAgentClient.js";
 import { octets, lignes, depuisLignes, resume } from "./sauvegardeLib.js";
 import BoutonDetail from "./FenetreTexte.jsx";
 
@@ -82,6 +83,61 @@ function Resultat({ resultat, at }) {
   );
 }
 
+// #931 : poussée de l'archive vers Proxmox Backup Server (pbs10), par l'agent du serveur PBS. Réglage partagé
+// (pousseur, dépôt, espace de noms, empreinte, nom d'accès du coffre pour le jeton, chemin du partage côté PBS) ;
+// le secret du jeton reste au coffre. Préflight en lecture seule avant toute écriture.
+function SectionPbs({ agent, base, actor }) {
+  const [reg, setReg] = useState(null);
+  const [res, setRes] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const charger = useCallback(() => fetchSauvegardePbs(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
+  useEffect(() => { fetchSauvegardePbsReglage(base).then((r) => { if (r && !r.error) setReg(r.reglage); }); charger(); }, [base, charger]);
+  if (!reg) return <p className="infra-muted">lecture…</p>;
+  const champ = (cle, lib, ph, large) => (
+    <label>{lib}<br /><input value={reg[cle] || ""} onChange={(e) => setReg({ ...reg, [cle]: e.target.value })} placeholder={ph} style={{ width: large ? 320 : 150 }} /></label>);
+  const enregistrer = async () => { const r = await saveSauvegardePbsReglage(base, { ...reg, actor }); setMsg(r?.error ? r.error : "Réglage PBS enregistré."); };
+  const action = async (act) => {
+    setBusy(true); setMsg("");
+    const r = await runSauvegardePbs(base, agent, { action: act, actor });
+    setBusy(false);
+    if (r?.error) { setMsg(r.error); return; }
+    setMsg(act === "preflight" ? "Préflight envoyé (lecture seule) — résultat dans ~1 min." : `Poussée envoyée (archive ${r.archive}) — résultat dans ~1 min.`);
+    let n = 0; const t = setInterval(() => { n += 1; charger(); if (n >= 12) clearInterval(t); }, 6000);
+  };
+  const d = res?.resultat;
+  return (
+    <div className="infra-card" style={{ marginTop: 10 }}>
+      <b>Pousser vers PBS (pbs10)</b>
+      <p className="infra-muted" style={{ margin: "4px 0", fontSize: 12 }}>
+        L'archive écrite sur le partage de pbs10 est poussée dans le datastore (un snapshot <code>host/&lt;poste&gt;</code>, espace de noms « postes »)
+        par l'agent du serveur PBS. Le secret du jeton d'API reste au coffre « Accès d'équipements » (seul son nom d'accès est réglé ici).
+      </p>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        {champ("pousseur", "Agent du serveur PBS", "pbs10")}
+        {champ("repository", "Dépôt (repository)", "user@pbs!jeton@pbs10:backup", true)}
+        {champ("namespace", "Espace de noms", "postes")}
+        {champ("acces", "Accès coffre (jeton)", "pbs-postes")}
+        {champ("fingerprint", "Empreinte (fingerprint)", "AB:CD:…")}
+        {champ("base_partage", "Chemin du partage côté PBS", "/mnt/sauvegardes", true)}
+      </div>
+      {msg && <p className={`np-tone ${/enregistré|envoyé/i.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <button type="button" className="secondary" onClick={enregistrer}>Enregistrer le réglage</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => action("preflight")} title="vérifie l'accès au PBS sans rien écrire">Préflight (lecture seule)</button>
+        <button type="button" className="primary" disabled={busy} onClick={() => action("push")} title="pousse la dernière archive de ce poste vers PBS">▶ Pousser la dernière sauvegarde</button>
+        <button type="button" className="secondary" onClick={charger}>⟳</button>
+      </div>
+      {d && (
+        <div style={{ marginTop: 6 }}>
+          <span className="infra-muted">Dernière poussée {res.at ? new Date(res.at).toLocaleString("fr-FR") : ""} : </span>
+          {d.ok ? <span className="np-tone good">ok{d.snapshot ? ` — ${d.snapshot}` : ""}</span>
+            : <span className="np-tone bad">échec {d.erreur && <BoutonDetail titre="Échec poussée PBS" urgence="critique" texte={d.erreur} />}</span>}
+        </div>)}
+    </div>
+  );
+}
+
 export default function Sauvegarde({ agent, base, actor }) {
   const [res, setRes] = useState(null);
   const [usb, setUsb] = useState("");
@@ -90,6 +146,7 @@ export default function Sauvegarde({ agent, base, actor }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [edite, setEdite] = useState(false);
+  const [pbs, setPbs] = useState(false);
   const charger = useCallback(() => fetchSauvegarde(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
   useEffect(() => { setRes(null); charger(); }, [charger]);
   const lancer = async () => {
@@ -116,10 +173,12 @@ export default function Sauvegarde({ agent, base, actor }) {
         <label title="nom d'un accès du coffre « Accès d'équipements » ; laissé vide = session courante de l'agent">Accès coffre (partage)<br /><input value={acces} onChange={(e) => setAcces(e.target.value)} placeholder="nas-superv" style={{ width: 130 }} disabled={!unc.trim()} /></label>
         <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer la sauvegarde</button>
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer « que sauvegarder »" : "Que sauvegarder"}</button>
+        <button type="button" className="secondary" onClick={() => setPbs((v) => !v)}>{pbs ? "Masquer PBS" : "Pousser vers PBS"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       {edite && <Editeur base={base} actor={actor} />}
+      {pbs && <SectionPbs agent={agent} base={base} actor={actor} />}
       <Resultat resultat={res?.resultat} at={res?.at} />
     </div>
   );

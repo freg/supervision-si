@@ -3158,6 +3158,94 @@ def sauvegarde_lancer_route(agent_id):
                     "note_poste_windows": None if pw else "aucun relevé poste-windows : lance d'abord la sonde poste-windows pour inclure les montages"}), 200
 
 
+@app.route("/postes-sauvegarde-pbs", methods=["GET", "PUT"])
+def postes_sauvegarde_pbs_route():
+    """#931 : réglage de la poussée vers PBS (pbs10). GET renvoie le réglage (jamais de secret) ; PUT le remplace.
+    { pousseur, repository, namespace, fingerprint, acces (nom d'accès du coffre pour le jeton), base_partage, actor }.
+    Le dépôt (`repository`) contient le NOM du jeton, pas son secret -- le secret reste au coffre."""
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        reglage = {"pousseur": str(b.get("pousseur") or "").strip(), "repository": str(b.get("repository") or "").strip(),
+                   "namespace": str(b.get("namespace") or "postes").strip(), "fingerprint": str(b.get("fingerprint") or "").strip(),
+                   "acces": str(b.get("acces") or "").strip(), "base_partage": str(b.get("base_partage") or "").strip()}
+        store.set_setting(DB_PATH, "postes-sauvegarde-pbs", reglage)
+        _event("sauvegarde", "info", "réglage poussée PBS mis à jour par %s" % str(b.get("actor") or "?")[:64])
+    r = store.get_setting(DB_PATH, "postes-sauvegarde-pbs", {"pousseur": "", "repository": "", "namespace": "postes", "fingerprint": "", "acces": "", "base_partage": ""})
+    return jsonify({"reglage": r}), 200
+
+
+def _pbs_commande(action, backup_id=None, fichier=None):
+    """Construit et envoie la commande pbs-push à l'agent pousseur (celui du serveur PBS). Résout le jeton au coffre.
+    -> (reponse_json, code)."""
+    r = store.get_setting(DB_PATH, "postes-sauvegarde-pbs", {}) or {}
+    pousseur, repo = r.get("pousseur"), r.get("repository")
+    if not pousseur or not repo:
+        return {"error": "poussée PBS non configurée (onglet Sauvegarde › Pousser vers PBS)"}, 400
+    if store.get_agent(DB_PATH, pousseur) is None:
+        return {"error": "agent pousseur « %s » inconnu" % pousseur}, 400
+    params = {"action": action, "repository": repo, "namespace": r.get("namespace") or "postes"}
+    if r.get("fingerprint"):
+        params["fingerprint"] = r["fingerprint"]
+    if r.get("acces"):
+        try:
+            c = reveler_acces(r["acces"])
+            params["token_secret"] = c.get("password") or ""
+        except RuntimeError as e:
+            return {"error": "jeton PBS indisponible au coffre : %s" % e}, 502
+    if action == "push":
+        params["backup_id"] = backup_id
+        params["fichier"] = fichier
+    try:
+        cmd = store.create_command(DB_PATH, pousseur, "pbs-push", params)
+    except ValueError as e:
+        return {"error": str(e)}, 400
+    _event("pbs-push", "info", "poussée PBS (%s)%s envoyée à %s" % (action, (" de « %s »" % backup_id) if backup_id else "", pousseur),
+           agent_id=pousseur, details={"action": action, "backup_id": backup_id})
+    return {"command": cmd["id"], "pousseur": pousseur, "action": action}, 200
+
+
+@app.route("/agents/<agent_id>/sauvegarde/pbs", methods=["POST"])
+def sauvegarde_pbs_route(agent_id):
+    """#931 : pousse vers PBS (pbs10) la dernière archive de sauvegarde du poste `agent_id`, OU fait un préflight
+    (lecture seule). {action: push|preflight, actor}. L'archive doit avoir été écrite sur le partage de pbs10 ; le
+    chemin local côté PBS = base_partage + nom de l'archive."""
+    b = request.get_json(silent=True) or {}
+    action = str(b.get("action") or "push")
+    if action == "preflight":
+        rep, code = _pbs_commande("preflight")
+        return jsonify(rep), code
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    ms = store.list_measurements(DB_PATH, agent_id, task="sauvegarde-poste", limit=1)
+    arch = (((ms[0].get("data") if ms else None) or {}).get("archive") or {}).get("nom") if ms else None
+    if not arch:
+        return jsonify({"error": "aucune archive de sauvegarde pour ce poste : lance d'abord une sauvegarde vers le partage de pbs10"}), 400
+    r = store.get_setting(DB_PATH, "postes-sauvegarde-pbs", {}) or {}
+    base = (r.get("base_partage") or "").rstrip("/")
+    if not base:
+        return jsonify({"error": "chemin du partage côté PBS non réglé (base_partage)"}), 400
+    fichier = base + "/" + arch
+    rep, code = _pbs_commande("push", backup_id=agent_id, fichier=fichier)
+    if code == 200:
+        rep["archive"] = arch
+    return jsonify(rep), code
+
+
+@app.route("/agents/<agent_id>/sauvegarde/pbs", methods=["GET"])
+def sauvegarde_pbs_resultat_route(agent_id):
+    """#931 : dernier résultat de poussée PBS concernant ce poste (mesure pbs-push de l'agent pousseur, backup_id = poste)."""
+    r = store.get_setting(DB_PATH, "postes-sauvegarde-pbs", {}) or {}
+    pousseur = r.get("pousseur")
+    res = None
+    if pousseur:
+        for m in store.list_measurements(DB_PATH, pousseur, task="pbs-push", limit=20):
+            d = m.get("data") or {}
+            if d.get("action") == "push" and d.get("backup_id") == agent_id:
+                res = {"at": m.get("at"), "resultat": d}
+                break
+    return jsonify({"agent": agent_id, "pousseur": pousseur, **(res or {"at": None, "resultat": None})}), 200
+
+
 @app.route("/agents/<agent_id>/sauvegarde", methods=["GET"])
 def sauvegarde_resultat_route(agent_id):
     """#930 : dernier résultat de sauvegarde d'un agent (archive, destinations, constats ; sans secret)."""

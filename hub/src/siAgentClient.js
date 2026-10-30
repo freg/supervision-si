@@ -95,6 +95,12 @@ export const fetchSauvegardeReglage = (apiBase) => fetchJson(apiBase, "/postes-s
 export const saveSauvegardeReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde", json("PUT", body));
 export const runSauvegarde = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/lancer`, json("POST", body || {}));
 export const fetchSauvegarde = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde`);
+
+// #931 : poussée d'une archive de sauvegarde vers Proxmox Backup Server (pbs10), par l'agent du serveur PBS.
+export const fetchSauvegardePbsReglage = (apiBase) => fetchJson(apiBase, "/postes-sauvegarde-pbs");
+export const saveSauvegardePbsReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde-pbs", json("PUT", body));
+export const runSauvegardePbs = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`, json("POST", body || {}));
+export const fetchSauvegardePbs = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`);
 export async function fetchChargeLive(apiBase, agent) {
   try {
     const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });

@@ -92,3 +92,54 @@ class Routes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PBS(unittest.TestCase):
+    def setUp(self):
+        self.c = A.app.test_client()
+        for a in ("pbs10", "pc-paul2"):
+            try:
+                store.create_agent(A.DB_PATH, a, "siege")
+            except ValueError:
+                pass
+
+    def test_reglage_sans_secret(self):
+        r = self.c.put("/postes-sauvegarde-pbs", json={"pousseur": "pbs10", "repository": "u@pbs!t@pbs10:backup",
+                        "namespace": "postes", "fingerprint": "AB:CD", "acces": "pbs-token", "base_partage": "/mnt/share/sauvegardes", "actor": "francois"})
+        self.assertEqual(r.status_code, 200)
+        g = self.c.get("/postes-sauvegarde-pbs").get_json()["reglage"]
+        self.assertEqual(g["pousseur"], "pbs10")
+        self.assertEqual(g["namespace"], "postes")
+        import json as _j
+        self.assertNotIn("secret", _j.dumps(g).lower())
+
+    def test_push_utilise_la_derniere_archive(self):
+        self.c.put("/postes-sauvegarde-pbs", json={"pousseur": "pbs10", "repository": "u@pbs!t@pbs10:backup",
+                   "namespace": "postes", "base_partage": "/mnt/share/sauvegardes"})
+        # pas d'archive -> refus
+        self.assertEqual(self.c.post("/agents/pc-paul2/sauvegarde/pbs", json={"action": "push"}).status_code, 400)
+        store.ingest_measurements(A.DB_PATH, "pc-paul2", [{"task": "sauvegarde-poste", "at": "2026-10-30T11:00:00Z", "agent_id": "pc-paul2",
+            "data": {"archive": {"nom": "sauvegarde-pc-paul2-20261030.zip", "octets": 1000}, "destinations": [{"type": "unc", "ok": True}]}}])
+        r = self.c.post("/agents/pc-paul2/sauvegarde/pbs", json={"action": "push", "actor": "francois"})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        self.assertEqual(r.get_json()["archive"], "sauvegarde-pc-paul2-20261030.zip")
+        cmd = [x for x in store.list_commands(A.DB_PATH, "pbs10") if x["type"] == "pbs-push" and (x.get("params") or {}).get("action") == "push"][0]
+        self.assertEqual(cmd["params"]["backup_id"], "pc-paul2")
+        self.assertEqual(cmd["params"]["fichier"], "/mnt/share/sauvegardes/sauvegarde-pc-paul2-20261030.zip")
+        self.assertEqual(cmd["params"]["namespace"], "postes")
+
+    def test_preflight_et_non_configure(self):
+        store.set_setting(A.DB_PATH, "postes-sauvegarde-pbs", {})
+        self.assertEqual(self.c.post("/agents/pc-paul2/sauvegarde/pbs", json={"action": "preflight"}).status_code, 400)
+        self.c.put("/postes-sauvegarde-pbs", json={"pousseur": "pbs10", "repository": "u@pbs!t@pbs10:backup", "namespace": "postes"})
+        r = self.c.post("/agents/pc-paul2/sauvegarde/pbs", json={"action": "preflight"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["action"], "preflight")
+        cmd = [x for x in store.list_commands(A.DB_PATH, "pbs10") if x["type"] == "pbs-push" and (x.get("params") or {}).get("action") == "preflight"][0]
+        self.assertEqual(cmd["params"]["action"], "preflight")
+
+    def test_caviardage_token(self):
+        red = store.redact_params({"repository": "u@pbs!t@h:backup", "token_secret": "TOPSECRET", "backup_id": "x"})
+        import json as _j
+        self.assertNotIn("TOPSECRET", _j.dumps(red))
+        self.assertEqual(red["token_secret"], "***")

@@ -453,6 +453,7 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._pbs = None             # #931 : poussée PBS en tâche de fond (sur l'agent du serveur PBS)
         self._sauvegarde = None      # #930 : sauvegarde confs+montages en tâche de fond
         self._acces = None           # #928 : test d'accès aux services en tâche de fond (secret en mémoire seulement)
         self._fond = {}              # #925 : sondes longues en tâche de fond {id: thread}
@@ -803,6 +804,8 @@ class Agent(object):
                 return self._acces_services_lancer(params)
             if ctype == "sauvegarde-poste":             # #930 : sauvegarde des confs logicielles et des montages
                 return self._sauvegarde_lancer(params)
+            if ctype == "pbs-push":                     # #931 : poussée d'une archive de sauvegarde vers PBS
+                return self._pbs_push_lancer(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1725,6 +1728,79 @@ class Agent(object):
                 st["final_pushed"] = True
         if st.get("done") and not alive:
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
+
+    # -- #931 : poussée d'une archive de sauvegarde vers Proxmox Backup Server (agent du serveur PBS) ------------
+    def _pbs_push_lancer(self, params):
+        """Sur l'agent du serveur PBS : préflight (lecture) ou poussée d'une archive de sauvegarde (#930) écrite sur un
+        partage de pbs10, en un snapshot host/<poste>. Le secret du jeton (injecté par le hub depuis le coffre) reste
+        en mémoire et passe par l'environnement de proxmox-backup-client -- jamais en argument ni en trace. Tâche de
+        fond ; pousse la mesure `pbs-push`. Une poussée à la fois."""
+        import os as _os
+        import shutil as _sh
+        import tempfile
+        import threading
+        import zipfile
+        from . import pbspush as pb
+        action = str(params.get("action") or "push")
+        repository = str(params.get("repository") or "").strip()
+        if not repository:
+            return {"ok": False, "error": "params.repository requis"}
+        namespace = str(params.get("namespace") or "").strip() or None
+        fingerprint = params.get("fingerprint")
+        token = params.get("token_secret")           # injecté par le hub ; retiré des params poussés
+        st = getattr(self, "_pbs", None)
+        if st is not None and st.is_alive():
+            return {"ok": False, "error": "une poussée PBS est déjà en cours"}
+        env = pb.env_push(token, fingerprint)
+        if action == "preflight":
+            def work_pf():
+                r = self.cmd(pb.argv_preflight(repository, namespace), timeout=120,
+                             confined={"env": dict(_os.environ, **env), "encoding": "auto"} if self.cmd is host.run_cmd else None)                     if self.cmd is host.run_cmd else self.cmd(pb.argv_preflight(repository, namespace), timeout=120, env=env)
+                data = pb.interpreter(getattr(r, "returncode", -1), getattr(r, "stdout", ""), getattr(r, "stderr", ""), action="preflight")
+                self.queue.put({"task": "pbs-push", "at": _iso(self.clock()), "ok": bool(data.get("ok")), "agent_id": self.agent_id, "data": data})
+            t = threading.Thread(target=work_pf, name="si-agent-pbs-preflight", daemon=True)
+            self._pbs = t; t.start()
+            return {"ok": True, "result": {"started": True, "action": "preflight"}}
+        fichier = str(params.get("fichier") or "").strip()
+        backup_id = str(params.get("backup_id") or "").strip()
+        if not fichier or not backup_id:
+            return {"ok": False, "error": "params.fichier et params.backup_id requis"}
+
+        def work():
+            data, tmp = None, None
+            try:
+                if not _os.path.exists(fichier):
+                    data = {"ok": False, "action": "push", "erreur": "archive introuvable sur le serveur PBS : %s" % _os.path.basename(fichier)}
+                else:
+                    if fichier.lower().endswith(".zip"):
+                        tmp = tempfile.mkdtemp(prefix="si-pbs-")
+                        with zipfile.ZipFile(fichier) as z:
+                            z.extractall(tmp)
+                        dossier = tmp
+                    elif _os.path.isdir(fichier):
+                        dossier = fichier
+                    else:
+                        dossier = _os.path.dirname(fichier) or "."
+                    argv = pb.argv_push(dossier, repository, backup_id, namespace)
+                    confine = {"env": dict(_os.environ, **env), "encoding": "auto", "cwd": dossier} if self.cmd is host.run_cmd else None
+                    r = self.cmd(argv, timeout=3600, confined=confine) if confine else self.cmd(argv, timeout=3600, env=env)
+                    data = pb.interpreter(getattr(r, "returncode", -1), getattr(r, "stdout", ""), getattr(r, "stderr", ""), action="push")
+                    data["backup_id"] = backup_id
+            except Exception as exc:  # noqa: BLE001 -- jamais de secret dans l'erreur
+                _log.warning("poussée PBS : échec", exc_info=True)
+                data = {"ok": False, "action": "push", "erreur": "échec : %s" % type(exc).__name__}
+            finally:
+                if tmp:
+                    _sh.rmtree(tmp, ignore_errors=True)
+            self.queue.put({"task": "pbs-push", "at": _iso(self.clock()), "ok": bool(data.get("ok")), "agent_id": self.agent_id, "data": data})
+            self.event("pbs-push", "info" if data.get("ok") else "warning",
+                       "poussée PBS de « %s » : %s" % (backup_id, "ok (%s)" % data.get("snapshot") if data.get("ok") else "échec -- %s" % data.get("erreur")),
+                       {"backup_id": backup_id, "snapshot": data.get("snapshot")})
+
+        t = threading.Thread(target=work, name="si-agent-pbs-push", daemon=True)
+        self._pbs = t; t.start()
+        self.event("pbs-push", "info", "poussée PBS de « %s » lancée" % backup_id, {"backup_id": backup_id})
+        return {"ok": True, "result": {"started": True, "action": "push", "backup_id": backup_id}}
 
     # -- #930 : sauvegarde des configurations logicielles et des montages d'un poste Windows ----------------------
     def _sauvegarde_lancer(self, params):

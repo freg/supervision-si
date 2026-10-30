@@ -1,3 +1,24 @@
+## 2026-10-30 — Sauvegarde : poussée vers Proxmox Backup Server (pbs10) (livraison #931)
+
+- Suite de #930 : la remontée d'une sauvegarde de poste « combine et redirige vers pbs1 » (= pbs10). L'archive écrite
+  sur un partage de pbs10 (destination « partage » de #930) est poussée dans le datastore par l'AGENT DU SERVEUR PBS
+  (proxmox-backup-client y est déjà présent, cf. sonde pbs), en un snapshot host/<poste>, espace de noms « postes » :
+  confs + AppData + montages regroupés et dédupliqués par PBS. Aucune donnée ne transite par le hub.
+- Section « Pousser vers PBS » dans l'onglet Sauvegarde : réglage partagé (agent pousseur, dépôt, espace de noms,
+  empreinte, chemin du partage côté PBS, et NOM d'un accès du coffre pour le jeton d'API), un bouton Préflight
+  (lecture seule : vérifie client + authentification + accès au dépôt sans rien écrire) et un bouton de poussée de la
+  dernière archive du poste.
+- Sécurité : le secret du jeton d'API reste au coffre ; au lancement le hub le révèle et le passe à
+  proxmox-backup-client par variable d'environnement (PBS_PASSWORD) — jamais en argument de ligne de commande
+  (invisible en `ps`), ni en réponse d'API (commande caviardée), ni en trace. Le dépôt ne contient que le NOM du
+  jeton. Agent **0.6.32**.
+- Préparation côté PBS (à ta main, lecture seule puis création d'un jeton dédié) documentée ; la poussée est une
+  opération explicite et séparée (rien n'est écrit sur PBS sans configuration + clic).
+- Vérifié : tests du module (argv de proxmox-backup-client, secret hors argv, interprétation), de l'agent (préflight
+  lecture / push avec extraction de l'archive, secret en env, archive absente, mesure sans secret), du hub (réglage
+  sans secret, poussée de la dernière archive, préflight, caviardage du jeton) ; suites agent / API / hub. Non
+  vérifié : poussée réelle vers pbs10.
+
 ## 2026-10-30 — Sauvegarde des confs logicielles et des montages d'un poste (livraison #930)
 
 - Étape suivante de la sonde sauvegarde/restauration : la SAUVEGARDE (lecture) des configurations logicielles et des
