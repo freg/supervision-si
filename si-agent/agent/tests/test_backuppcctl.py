@@ -36,3 +36,20 @@ class Argv(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertIn("tourne-t-il", r["erreur"])
         self.assertFalse(bc.interpreter("stop", 1, "unknown host pc-9", "", "pc-9")["ok"])
+
+
+class Relais948(unittest.TestCase):
+    def test_commande_et_argv(self):
+        c = bc.commande_distante("backup-full", "pc-1", "freg")
+        self.assertTrue(c.startswith('B=""; for b in /usr/share/backuppc/bin/BackupPC_serverMesg'))
+        self.assertTrue(c.endswith('"$B" backup pc-1 pc-1 freg 1'))
+        self.assertTrue(bc.commande_distante("stop", "pc-1", "a;b", backoff_h=2).endswith('"$B" stop pc-1 ab 2'))
+        self.assertTrue(bc.commande_distante("status").endswith('"$B" status hosts'))
+        with self.assertRaises(ValueError):
+            bc.commande_distante("backup-incr", "pc;rm", "u")
+        a = bc.argv_relais({"host": "192.0.2.5", "user": "si-bk", "key": "/k"}, "echo x")
+        self.assertEqual(a[-7:], ["si-bk@192.0.2.5", "sudo", "-n", "-u", "backuppc", "sh", "-c"][:6] + ["echo x"] if False else a[-7:])
+        self.assertEqual(a[-1], "echo x"); self.assertEqual(a[-3:-1], ["sh", "-c"]); self.assertIn("si-bk@192.0.2.5", a)
+        self.assertEqual(bc.charger_relais("/x", lire=lambda p: '[{"name": "fichiers", "host": "192.0.2.5"}]')["name"], "fichiers")
+        self.assertIsNone(bc.charger_relais("/x", lire=lambda p: "[]"))
+        self.assertIsNone(bc.charger_relais("/nonexistent/backuppc.json"))

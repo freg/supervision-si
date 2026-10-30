@@ -62,3 +62,22 @@ class BackuppcAgent(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackuppcRelais948(unittest.TestCase):
+    setUp = _base.AgentTests.setUp
+
+    def test_relais_ssh(self):
+        import json
+        import tempfile
+        p = os.path.join(tempfile.mkdtemp(), "backuppc.json")
+        with open(p, "w") as fh:
+            json.dump([{"name": "fichiers", "host": "192.0.2.5", "user": "si-bk", "key": "/k"}], fh)
+        vus = {}
+        self.agent.cmd = lambda argv, timeout=None, env=None, confined=None: (vus.__setitem__("argv", argv), FakeRun("ok: requested backup of pc-1"))[1]
+        self.agent.cfg["remote_shell"] = "intervention"
+        r = self.agent.execute_command({"id": "r1", "type": "backuppc-ctl", "params": {"action": "backup-incr", "host": "pc-1", "actor": "freg", "config": p}})
+        self.assertTrue(r["ok"], r)
+        self.assertIn("si-bk@192.0.2.5", vus["argv"]); self.assertEqual(vus["argv"][-3:-1], ["sh", "-c"])
+        self.assertTrue(vus["argv"][-1].endswith('"$B" backup pc-1 pc-1 freg 0'))
+        self.assertEqual(r["result"]["relais"], "fichiers")

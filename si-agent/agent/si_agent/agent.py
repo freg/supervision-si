@@ -1754,13 +1754,19 @@ class Agent(object):
                 return {"ok": False, "error": "commandes à distance désactivées sur cet agent (fiche de l'agent › Commandes à distance)"}
             if permis != "intervention":
                 return {"ok": False, "error": "lancer / arrêter une sauvegarde BackupPC = intervention : autoriser « intervention » dans Commandes à distance"}
+        relais = bc.charger_relais(str(params.get("config") or "/etc/si-agent/backuppc.json"))   # #948 : serveur relayé par SSH
         try:
-            argv = bc.argv(action, host, params.get("actor") or "hub", bc.binaire(), backoff_h=params.get("backoff_h") or 0,
-                           root=(not IS_WINDOWS and hasattr(_os, "geteuid") and _os.geteuid() == 0))
+            if relais:
+                argv = bc.argv_relais(relais, bc.commande_distante(action, host, params.get("actor") or "hub", backoff_h=params.get("backoff_h") or 0))
+            else:
+                argv = bc.argv(action, host, params.get("actor") or "hub", bc.binaire(), backoff_h=params.get("backoff_h") or 0,
+                               root=(not IS_WINDOWS and hasattr(_os, "geteuid") and _os.geteuid() == 0))
         except ValueError as e:
             return {"ok": False, "error": str(e)}
-        r = self.cmd(argv, timeout=60)
+        r = self.cmd(argv, timeout=90 if relais else 60)
         data = bc.interpreter(action, getattr(r, "returncode", -1), getattr(r, "stdout", ""), getattr(r, "stderr", ""), host=host)
+        if relais:
+            data["relais"] = relais.get("name") or relais.get("host")
         self.queue.put({"task": "backuppc-ctl", "at": _iso(self.clock()), "ok": bool(data.get("ok")), "agent_id": self.agent_id, "data": data})
         if action != "status":
             self.event("backuppc", "warning" if not data.get("ok") else "info",

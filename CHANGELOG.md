@@ -1,3 +1,12 @@
+## 2026-10-30 — BackupPC : lancer / arrêter une sauvegarde aussi en mode relais (livraison #948)
+
+- Les boutons Incrémentale / Complète / Arrêter de l'onglet BackupPC fonctionnent maintenant quand le serveur est
+  **relayé par SSH** (serveur « fichiers » en Debian 7) : la commande `backuppc-ctl` lit `/etc/si-agent/backuppc.json`
+  de l'agent relais et exécute `BackupPC_serverMesg` sur le serveur sous l'utilisateur backuppc (même compte `si-bk`,
+  même sudoers que la sonde). Toujours gardé par « intervention » ; `status` reste en lecture.
+- Agent **0.6.40**. Vérifié : tests agent (backuppcctl 4, agent 4, si_agent). Non vérifié : exécution réelle (relais
+  à poser lundi).
+
 ## 2026-10-30 — Sauvegarde de poste : par profil utilisateur (archives vides corrigées) (livraison #947)
 
 - Première vraie sauvegarde de pc-paul : « 6 applications, 3 clés, dossiers 0 o, archive 151 ko » -- l'agent tourne en

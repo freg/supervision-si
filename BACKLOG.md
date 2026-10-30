@@ -4156,7 +4156,7 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   nommés, encodage du journal réparé. Reste : vérifier collecte.ps1 v5 sur pc-paul ; pondération apprise.
 - BackupPC : le serveur « fichiers » est en Debian 7 (relevé legacy par super-hub) -> sonde backuppc en mode relais SSH
   livrée #943 ; à installer : compte si-bk + clé + sudoers sur fichiers, /etc/si-agent/backuppc.json sur super. Les
-  actions backuppc-ctl (lancer / arrêter) restent locales : à relayer de la même façon (à faire).
+  actions backuppc-ctl (lancer / arrêter) relayées de la même façon (#948).
 
 - DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
   récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/
