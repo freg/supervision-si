@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  947: [{ view: "si-agent", params: { section: "sauvegardes" }, hint: "sauvegarde de poste : profils utilisateurs (AppData et HKCU de chaque utilisateur, plus le profil SYSTEM) ; restauration vers un utilisateur cible" }],
   945: [{ view: "si-agent", hint: "Flotte : le NAS QNAP (et le BackupPC relayé) apparaissent sous leur agent relais « ↳ relevé par » ; sonde nas-qnap v3" }],
   944: [{ view: "nas", hint: "tuile NAS et Sauvegardes › NAS QNAP : « Propositions et conseils » (disques âgés, SMART, RAID sans redondance, volumes, snapshots, Time Machine, applications) avec procédures QTS" }],
   943: [{ view: "postes-windows", hint: "Diagnostic › Plan de remise en état : conseils cochés « fait », bilan des tests avant / depuis, étape 2 = réinstallation native + redescente ; conseils NTFS / graphique / mémoire nommés" }],

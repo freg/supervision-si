@@ -37,8 +37,10 @@ class Capture(unittest.TestCase):
         cibles = [{"app": "Thunderbird", "cles": [r"HKCU\Software\Mozilla"], "dossiers": [r"%APPDATA%\Thunderbird"]}]
         s = sv.construire_script_capture(cibles, r"C:\tmp\bk", r"C:\tmp\bk.zip",
                                          usb="E:\\sauvegardes", unc={"chemin": r"\\nas\backup", "avec_identifiants": True})
-        self.assertIn("reg export 'HKCU\\Software\\Mozilla'", s)
-        self.assertIn("ExpandEnvironmentVariables('%APPDATA%\\Thunderbird')", s)
+        self.assertIn("reg export ($h.cle+'\\'+'Software\\Mozilla')", s)          # #947 : par profil, via HKU\<SID>
+        self.assertIn("ProfileList", s); self.assertIn("CheminProfil $p '%APPDATA%", s); self.assertIn("[HKEY_CURRENT_USER", s)
+        self.assertIn("CheminProfil $p '%APPDATA%\\Thunderbird'", s)   # #947 : chemin du profil, pas celui de SYSTEM
+        self.assertIn("appdata\\'+$u+'\\Thunderbird\\1", s)
         self.assertIn("Compress-Archive", s)
         self.assertIn("Get-FileHash", s)
         self.assertIn("type='usb'", s)
@@ -91,9 +93,10 @@ class Restauration(unittest.TestCase):
     def test_restauration_registre_repli_et_import(self):
         s = sv.construire_script_restauration(self.CIBLES, "C:\\tmp\\arch", "C:\\tmp\\rb", {"registre": True, "appdata": True, "montages": True})
         # repli (reg export de l'état courant) AVANT le réimport
-        self.assertIn("reg export 'HKCU\\Software\\Mozilla' (Join-Path $rb", s)
-        self.assertIn("reg import $f", s)
-        self.assertIn("confs\\Thunderbird-1.reg", s)
+        self.assertIn("reg export ($h.cle+'\\'+'Software\\Mozilla') (Join-Path $rb", s)   # #947 : repli par profil
+        self.assertIn("reg import $tmp", s); self.assertIn("[HKEY_USERS\\'+$h.cle.Substring(4)", s)
+        self.assertIn("'confs\\'+$srcU+'\\'+'Thunderbird-1.reg'", s)   # #947 : par utilisateur, repli archives anciennes ($ancien)
+        self.assertIn("$ancien", s)
         self.assertIn("appdata\\Thunderbird\\1", s)
         self.assertIn("robocopy $src $dst", s)
         self.assertIn("remonter.cmd", s)

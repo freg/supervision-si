@@ -69,7 +69,12 @@ function Resultat({ resultat, at }) {
         <span>{s.apps} application(s), {s.cles} clé(s)</span>
         <span>confs {octets(s.octetsConfs)} · dossiers {octets(s.octetsDossiers)}</span>
         {s.archive && <span className="np-tone good">archive {s.archive.nom} ({octets(s.archive.octets)})</span>}
+        {(resultat.utilisateurs || []).length > 0 && <span className="infra-muted">profils : {resultat.utilisateurs.join(", ")}</span>}
       </div>
+      {(resultat.dossiers || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="infra-muted">dossiers par utilisateur ({resultat.dossiers.length})</summary>
+        <table className="infra-table"><thead><tr><th>Utilisateur</th><th>Application</th><th>Dossier</th><th>Taille</th></tr></thead><tbody>
+          {resultat.dossiers.map((d, i) => <tr key={i} className={d.absent ? "infra-muted" : ""}><td>{d.utilisateur || "—"}</td><td>{d.app}</td><td style={{ fontSize: 12 }}>{d.source}</td><td>{d.absent ? "absent" : octets(d.octets)}</td></tr>)}
+        </tbody></table></details>}
       <table className="infra-table">
         <thead><tr><th>Destination</th><th>Cible</th><th>État</th></tr></thead>
         <tbody>
@@ -173,6 +178,7 @@ function SectionRestauration({ agent, base, actor }) {
         <label className="ups-form-check"><input type="checkbox" checked={opt.registre} onChange={(e) => setOpt({ ...opt, registre: e.target.checked })} /> Registre</label>
         <label className="ups-form-check"><input type="checkbox" checked={opt.appdata} onChange={(e) => setOpt({ ...opt, appdata: e.target.checked })} /> Dossiers AppData</label>
         <label className="ups-form-check"><input type="checkbox" checked={opt.montages} onChange={(e) => setOpt({ ...opt, montages: e.target.checked })} /> Montages</label>
+        <label title="#947 : nom du profil Windows cible (C:\Users\<nom>) ; vide = chaque utilisateur de l'archive retrouve son propre profil">Utilisateur cible<br /><input value={opt.utilisateur || ""} onChange={(e) => setOpt({ ...opt, utilisateur: e.target.value })} placeholder="(même nom que dans l'archive)" style={{ width: 170 }} /></label>
       </div>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
@@ -285,7 +291,7 @@ export default function Sauvegarde({ agent, base, actor, mode }) {
     setBusy(false);
     if (r?.error) { setMsg(r.error); return; }
     setAttente(res?.at || "");
-    setMsg(`Sauvegarde envoyée : ${r.confs} application(s), ${r.montages.lecteurs} lecteur(s), ${r.montages.partages} partage(s)${r.coffre_indisponible ? " — accès coffre indisponible (partage écrit sans identifiants)" : ""}${r.note_poste_windows ? " — " + r.note_poste_windows : ""}. En cours sur le poste : résultat dans ~1 min.`);
+    setMsg(`Sauvegarde envoyée : ${r.confs} application(s), ${r.montages.lecteurs} lecteur(s), ${r.montages.partages} partage(s)${r.coffre_indisponible ? ` — accès coffre indisponible : ${r.coffre_indisponible} (partage écrit sans identifiants ; vérifier le nom dans Accès d'équipements et CREDENTIALS_INTERNAL_TOKEN dans le .env de si-agent-api)` : ""}${r.note_poste_windows ? " — " + r.note_poste_windows : ""}. En cours sur le poste : résultat dans ~1 min.`);
     let n = 0; const t = setInterval(() => { n += 1; charger(); if (n >= 15) { clearInterval(t); setAttente(null); } }, 6000);
   };
   return (

@@ -89,36 +89,71 @@ def manifeste(agent_id, cibles, montages, horodatage=None):
                          "imprimantes": len((montages or {}).get("imprimantes") or [])}}
 
 
+# #947 : l'agent tourne en SYSTEM -> %APPDATA% et HKCU désignaient le profil SYSTEM (archives vides). La capture et la
+# restauration parcourent les PROFILS UTILISATEURS (HKLM\...\ProfileList : SID + chemin), remplacent %APPDATA% /
+# %LOCALAPPDATA% / %USERPROFILE% par le profil, exportent HKCU depuis HKU\<SID> (ruche chargée au besoin depuis
+# NTUSER.DAT) et normalisent les .reg en HKEY_CURRENT_USER pour qu'ils se réimportent chez n'importe quel utilisateur.
+PS_PROFILS = (
+    "$profils=@(); foreach ($p in (Get-ChildItem 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList' -EA SilentlyContinue)) { "
+    "$sid=$p.PSChildName; if ($sid -notmatch '^S-1-5-21-') { continue }; $path=[Environment]::ExpandEnvironmentVariables(($p | Get-ItemProperty).ProfileImagePath); "
+    "if (-not (Test-Path $path)) { continue }; $nom=Split-Path $path -Leaf; if ($nom -in @('Default','Public','defaultuser0')) { continue }; "
+    "$profils+=[pscustomobject]@{sid=$sid; path=$path; nom=$nom; ntuser=(Join-Path $path 'NTUSER.DAT')} }"
+)
+PS_RUCHE = (
+    "function Ruche($p) { if (Test-Path ('Registry::HKEY_USERS\\'+$p.sid)) { return @{cle=('HKU\\'+$p.sid); chargee=$false} }; "
+    "$tmp='SIBK_'+($p.sid -replace '[^0-9A-Za-z]','_'); $o=(reg load ('HKU\\'+$tmp) $p.ntuser) 2>&1; if ($LASTEXITCODE -eq 0) { return @{cle=('HKU\\'+$tmp); chargee=$true} }; return $null }"
+    "\r\nfunction Decharge($h) { if ($h -and $h.chargee) { [gc]::Collect(); reg unload $h.cle *>$null } }"
+    "\r\nfunction CheminProfil($p, $m) { $x=$m -replace '%APPDATA%',($p.path+'\\AppData\\Roaming') -replace '%LOCALAPPDATA%',($p.path+'\\AppData\\Local') -replace '%USERPROFILE%',$p.path; return [Environment]::ExpandEnvironmentVariables($x) }"
+)
+
+
 def construire_script_capture(cibles, dossier_travail, archive, usb=None, unc=None):
-    """Script PowerShell de CAPTURE : reg export des clés, robocopy des dossiers, inclusion de remonter.cmd et du
+    """Script PowerShell de CAPTURE, par profil utilisateur (#947) : reg export des clés (HKCU -> HKU\\<SID>, .reg
+    normalisé en HKEY_CURRENT_USER), robocopy des dossiers (%APPDATA%… du profil), inclusion de remonter.cmd et du
     manifeste (déjà écrits par l'agent dans `dossier_travail`), compression en `archive`, puis copie vers la clé USB
     et/ou le partage UNC. Les identifiants UNC viennent des variables d'environnement SI_BK_UNC_USER / SI_BK_UNC_PASS
-    (jamais dans le texte du script ni sur une ligne de commande). Émet un JSON SI-BK-DEBUT/FIN. Pur : testé."""
+    (jamais dans le texte du script ni sur une ligne de commande). Émet un JSON SI-BK-DEBUT/FIN. Pur : testé.
+    Archive : confs/<utilisateur>/<app>-<n>.reg ; appdata/<utilisateur>/<app>/<j>/…"""
     L = ["$ErrorActionPreference='Continue'", "[Console]::OutputEncoding=[Text.Encoding]::UTF8",
          "$t=%s" % _ps(dossier_travail), "$arch=%s" % _ps(archive),
-         "$r=[ordered]@{confs=@(); dossiers=@(); destinations=@(); archive=$null; erreurs=@()}",
+         "$r=[ordered]@{confs=@(); dossiers=@(); destinations=@(); archive=$null; utilisateurs=@(); erreurs=@()}",
          "New-Item -ItemType Directory -Force -Path (Join-Path $t 'confs') | Out-Null",
-         "New-Item -ItemType Directory -Force -Path (Join-Path $t 'appdata') | Out-Null"]
+         "New-Item -ItemType Directory -Force -Path (Join-Path $t 'appdata') | Out-Null",
+         PS_PROFILS, PS_RUCHE,
+         "if ($profils.Count -eq 0) { $r.erreurs+=('aucun profil utilisateur trouve (ProfileList)') }",
+         "foreach ($p in $profils) {",
+         "  $u=$p.nom; $r.utilisateurs+=$u; $h=$null",
+         "  New-Item -ItemType Directory -Force -Path (Join-Path $t ('confs\\'+$u)) | Out-Null"]
     n = 0
     for c in cibles:
         app = c["app"]
         sl = slug(app)
         for cle in c.get("cles") or []:
             n += 1
-            fichier = "confs\\%s-%d.reg" % (sl, n)
-            L.append("$f=Join-Path $t %s" % _ps(fichier))
-            L.append("$o=(reg export %s $f /y) 2>&1" % _ps(cle))
-            L.append("if (Test-Path $f) { $r.confs+=[ordered]@{app=%s; cle=%s; fichier=%s; octets=(Get-Item $f).Length} } "
-                     "else { $r.erreurs+=('reg %s : '+($o-join' ')) }" % (_ps(app), _ps(cle), _ps(fichier), app.replace("'", "''")))
+            fichier = "%s-%d.reg" % (sl, n)
+            if cle.upper().startswith("HKCU\\") or cle.upper().startswith("HKEY_CURRENT_USER\\"):
+                reste = cle.split("\\", 1)[1]
+                L.append("  if (-not $h) { $h=Ruche $p }")
+                L.append("  if ($h) { $f=Join-Path $t ('confs\\'+$u+'\\'+%s); $o=(reg export ($h.cle+'\\'+%s) $f /y) 2>&1" % (_ps(fichier), _ps(reste)))
+                L.append("    if (Test-Path $f) { $c=Get-Content $f -Raw -Encoding Unicode; $c=$c -replace [regex]::Escape('[HKEY_USERS\\'+$h.cle.Substring(4)),'[HKEY_CURRENT_USER'; Set-Content $f $c -Encoding Unicode; "
+                         "$r.confs+=[ordered]@{app=%s; cle=%s; utilisateur=$u; fichier=('confs/'+$u+'/'+%s); octets=(Get-Item $f).Length} } "
+                         "else { $r.erreurs+=('reg %s ('+$u+') : '+($o-join' ')) } }" % (_ps(app), _ps(cle), _ps(fichier), app.replace("'", "''")))
+                L.append("  else { $r.erreurs+=('ruche de '+$u+' inaccessible : '+%s) }" % _ps(cle))
+            else:
+                # clé machine (HKLM) : une seule fois, rangée sous le premier profil
+                L.append("  if ($u -eq $profils[0].nom) { $f=Join-Path $t ('confs\\'+$u+'\\'+%s); $o=(reg export %s $f /y) 2>&1" % (_ps(fichier), _ps(cle)))
+                L.append("    if (Test-Path $f) { $r.confs+=[ordered]@{app=%s; cle=%s; utilisateur=$null; fichier=('confs/'+$u+'/'+%s); octets=(Get-Item $f).Length} } else { $r.erreurs+=('reg %s : '+($o-join' ')) } }"
+                         % (_ps(app), _ps(cle), _ps(fichier), app.replace("'", "''")))
         for j, dossier in enumerate(c.get("dossiers") or [], 1):
-            # #934 : un sous-dossier par dossier source (appdata/<app>/<j>) -> restauration exacte vers le bon chemin.
-            rel = "appdata\\%s\\%d" % (sl, j)
-            L.append("$src=[Environment]::ExpandEnvironmentVariables(%s)" % _ps(dossier))
-            L.append("if (Test-Path $src) { $d=Join-Path $t %s; robocopy $src $d /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null; "
+            rel = "appdata\\'+$u+'\\%s\\%d" % (sl, j)
+            relj = "appdata/'+$u+'/%s/%d" % (sl.replace("\\", "/"), j)
+            L.append("  $src=CheminProfil $p %s" % _ps(dossier))
+            L.append("  if (Test-Path $src) { $d=Join-Path $t ('%s'); robocopy $src $d /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP /XD 'cache2' 'Cache' 'Code Cache' 'GPUCache' 'ShaderCache' 'CacheStorage' | Out-Null; "
                      "$sz=(Get-ChildItem $d -Recurse -EA SilentlyContinue | Measure-Object Length -Sum).Sum; "
-                     "$r.dossiers+=[ordered]@{app=%s; source=%s; archive=%s; octets=[int64]$sz} } "
-                     "else { $r.dossiers+=[ordered]@{app=%s; source=%s; archive=%s; octets=0; absent=$true} }"
-                     % (_ps(rel), _ps(app), _ps(dossier), _ps(rel.replace("\\", "/")), _ps(app), _ps(dossier), _ps(rel.replace("\\", "/"))))
+                     "$r.dossiers+=[ordered]@{app=%s; utilisateur=$u; source=$src; modele=%s; archive=('%s'); octets=[int64]$sz} } "
+                     "else { $r.dossiers+=[ordered]@{app=%s; utilisateur=$u; source=$src; modele=%s; archive=('%s'); octets=0; absent=$true} }"
+                     % (rel, _ps(app), _ps(dossier), relj, _ps(app), _ps(dossier), relj))
+    L += ["  Decharge $h", "}"]
     # compression
     L += ["if (Test-Path $arch) { Remove-Item $arch -Force -EA SilentlyContinue }",
           "Compress-Archive -Path (Join-Path $t '*') -DestinationPath $arch -Force",
@@ -174,8 +209,8 @@ def construire_script_simulation(archive_dir):
         "$ErrorActionPreference='Continue'", "[Console]::OutputEncoding=[Text.Encoding]::UTF8", "$a=%s" % a,
         "$r=[ordered]@{simulation=$true; confs=@(); dossiers=@(); remonter=$false; manifeste=$null; erreurs=@()}",
         "if (-not (Test-Path $a)) { $r.erreurs+=('archive introuvable') }",
-        "Get-ChildItem (Join-Path $a 'confs') -Filter *.reg -EA SilentlyContinue | ForEach-Object { $r.confs+=[ordered]@{fichier=$_.Name; octets=$_.Length} }",
-        "Get-ChildItem (Join-Path $a 'appdata') -Directory -EA SilentlyContinue | ForEach-Object { $app=$_.Name; "
+        "Get-ChildItem (Join-Path $a 'confs') -Filter *.reg -Recurse -EA SilentlyContinue | ForEach-Object { $r.confs+=[ordered]@{fichier=$_.FullName.Substring($a.Length+1); octets=$_.Length} }",   # #947 : confs\<utilisateur>\
+        "Get-ChildItem (Join-Path $a 'appdata') -Directory -Recurse -Depth 1 -EA SilentlyContinue | Where-Object { $_.Parent.Name -ne 'appdata' -or (Get-ChildItem $_.FullName -Directory | Where-Object { $_.Name -notmatch '^\\d+$' }).Count -eq 0 } | ForEach-Object { $app=$_.Name; "
         "Get-ChildItem $_.FullName -Directory -EA SilentlyContinue | ForEach-Object { $sz=(Get-ChildItem $_.FullName -Recurse -EA SilentlyContinue | Measure-Object Length -Sum).Sum; "
         "$r.dossiers+=[ordered]@{app=$app; archive=('appdata/'+$app+'/'+$_.Name); octets=[int64]$sz} } }",
         "$r.remonter=(Test-Path (Join-Path $a 'remonter.cmd'))",
@@ -184,17 +219,31 @@ def construire_script_simulation(archive_dir):
 
 
 def construire_script_restauration(cibles, archive_dir, rollback_dir, options=None):
-    """Script PowerShell d'APPLICATION (intervention) : pour chaque application, réimport des clés de registre (après
-    une sauvegarde de repli de l'état courant dans `rollback_dir`), remise des dossiers de config, puis, en option,
-    remontage (remonter.cmd). `cibles` = confs du manifeste [{app, cles, dossiers}]. Émet SI-RST-DEBUT/FIN. Pur."""
+    """Script PowerShell d'APPLICATION (intervention), par profil utilisateur (#947) : les .reg (HKEY_CURRENT_USER) sont
+    réimportés dans la ruche HKU\\<SID> de l'utilisateur cible (chargée au besoin), après repli de l'état courant dans
+    `rollback_dir` ; les dossiers reviennent dans le profil cible. `options.utilisateur` = nom du profil cible (défaut :
+    même nom que dans l'archive, sinon le premier profil). `cibles` = confs du manifeste [{app, cles, dossiers}]. Pur."""
     o = options or {}
     reg_on = o.get("registre", True)
     ad_on = o.get("appdata", True)
     mt_on = o.get("montages", False)
+    cible_u = str(o.get("utilisateur") or "").strip()
     L = ["$ErrorActionPreference='Continue'", "[Console]::OutputEncoding=[Text.Encoding]::UTF8",
          "$a=%s" % _ps(archive_dir), "$rb=%s" % _ps(rollback_dir),
-         "$r=[ordered]@{simulation=$false; registre=@(); dossiers=@(); montages=$null; rollback=$rb; erreurs=@()}",
-         "New-Item -ItemType Directory -Force -Path $rb | Out-Null"]
+         "$r=[ordered]@{simulation=$false; registre=@(); dossiers=@(); montages=$null; rollback=$rb; utilisateurs=@(); erreurs=@()}",
+         "New-Item -ItemType Directory -Force -Path $rb | Out-Null",
+         PS_PROFILS, PS_RUCHE,
+         "$cibleU=%s" % _ps(cible_u),
+         "$dossiersArch=@(); if (Test-Path (Join-Path $a 'confs')) { $dossiersArch=@(Get-ChildItem (Join-Path $a 'confs') -Directory | ForEach-Object Name) }",
+         "if (Test-Path (Join-Path $a 'appdata')) { $dossiersArch+=@(Get-ChildItem (Join-Path $a 'appdata') -Directory | ForEach-Object Name) }",
+         "$dossiersArch=@($dossiersArch | Select-Object -Unique)",
+         # archive ancienne (sans sous-dossier utilisateur) : fichiers directement sous confs/ -> traités pour le profil cible
+         "$ancien=(Test-Path (Join-Path $a 'confs')) -and ((Get-ChildItem (Join-Path $a 'confs') -File -Filter *.reg -EA SilentlyContinue | Measure-Object).Count -gt 0)",
+         "foreach ($p in $profils) {",
+         "  $u=$p.nom; $srcU=$u",
+         "  if ($cibleU -and $u -ne $cibleU) { continue }",
+         "  if (-not $ancien -and ($dossiersArch -notcontains $u)) { if ($cibleU -and $dossiersArch.Count -gt 0) { $srcU=$dossiersArch[0] } else { continue } }",
+         "  $r.utilisateurs+=$u; $h=$null"]
     n = 0
     for c in cibles or []:
         app = c.get("app") or ""
@@ -202,20 +251,27 @@ def construire_script_restauration(cibles, archive_dir, rollback_dir, options=No
         if reg_on:
             for cle in c.get("cles") or []:
                 n += 1
-                regf = "confs\\%s-%d.reg" % (sl, n)
-                rbf = "%s-%d.reg" % (sl, n)
-                L.append("$f=Join-Path $a %s" % _ps(regf))
-                L.append("if (Test-Path $f) { reg export %s (Join-Path $rb %s) /y *>$null; "   # repli de l'état courant
-                         "$o=(reg import $f) 2>&1; "
-                         "$r.registre+=[ordered]@{app=%s; cle=%s; ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim())} } "
-                         % (_ps(cle), _ps(rbf), _ps(app), _ps(cle)))
+                regf = "%s-%d.reg" % (sl, n)
+                perso = cle.upper().startswith("HKCU\\") or cle.upper().startswith("HKEY_CURRENT_USER\\")
+                L.append("  $f=Join-Path $a ('confs\\'+$srcU+'\\'+%s); if ($ancien) { $f=Join-Path $a ('confs\\'+%s) }" % (_ps(regf), _ps(regf)))
+                if perso:
+                    reste = cle.split("\\", 1)[1]
+                    L.append("  if (Test-Path $f) { if (-not $h) { $h=Ruche $p }; if ($h) { reg export ($h.cle+'\\'+%s) (Join-Path $rb ($u+'-'+%s)) /y *>$null; "
+                             "$c=Get-Content $f -Raw -Encoding Unicode; $c=$c -replace '\\[HKEY_CURRENT_USER',('[HKEY_USERS\\'+$h.cle.Substring(4)); $tmp=Join-Path $env:TEMP ('sibk-'+$u+'-'+%s); Set-Content $tmp $c -Encoding Unicode; "
+                             "$o=(reg import $tmp) 2>&1; Remove-Item $tmp -Force -EA SilentlyContinue; "
+                             "$r.registre+=[ordered]@{app=%s; cle=%s; utilisateur=$u; ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim())} } "
+                             "else { $r.registre+=[ordered]@{app=%s; cle=%s; utilisateur=$u; ok=$false; detail='ruche inaccessible'} } }"
+                             % (_ps(reste), _ps(regf), _ps(regf), _ps(app), _ps(cle), _ps(app), _ps(cle)))
+                else:
+                    L.append("  if ((Test-Path $f) -and ($u -eq $profils[0].nom)) { reg export %s (Join-Path $rb %s) /y *>$null; $o=(reg import $f) 2>&1; "
+                             "$r.registre+=[ordered]@{app=%s; cle=%s; utilisateur=$null; ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim())} }"
+                             % (_ps(cle), _ps(regf), _ps(app), _ps(cle)))
         if ad_on:
             for j, dossier in enumerate(c.get("dossiers") or [], 1):
-                rel = "appdata\\%s\\%d" % (sl, j)
-                L.append("$src=Join-Path $a %s; $dst=[Environment]::ExpandEnvironmentVariables(%s)" % (_ps(rel), _ps(dossier)))
-                L.append("if (Test-Path $src) { robocopy $src $dst /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP *>$null; "
-                         "$r.dossiers+=[ordered]@{app=%s; cible=$dst; ok=($LASTEXITCODE -lt 8)} }"
-                         % _ps(app))
+                L.append("  $src=Join-Path $a ('appdata\\'+$srcU+'\\%s\\%d'); if ($ancien) { $src=Join-Path $a ('appdata\\%s\\%d') }; $dst=CheminProfil $p %s" % (sl, j, sl, j, _ps(dossier)))
+                L.append("  if (Test-Path $src) { robocopy $src $dst /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP *>$null; "
+                         "$r.dossiers+=[ordered]@{app=%s; utilisateur=$u; cible=$dst; ok=($LASTEXITCODE -lt 8)} }" % _ps(app))
+    L += ["  Decharge $h", "}"]
     if mt_on:
         L.append("$rm=Join-Path $a 'remonter.cmd'; if (Test-Path $rm) { $o=(cmd /c $rm) 2>&1; "
                  "$r.montages=[ordered]@{ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim().Substring(0,[Math]::Min(500,($o|Out-String).Trim().Length)))} } "

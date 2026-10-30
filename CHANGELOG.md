@@ -1,3 +1,19 @@
+## 2026-10-30 — Sauvegarde de poste : par profil utilisateur (archives vides corrigées) (livraison #947)
+
+- Première vraie sauvegarde de pc-paul : « 6 applications, 3 clés, dossiers 0 o, archive 151 ko » -- l'agent tourne en
+  SYSTEM, donc `%APPDATA%` et `HKCU` désignaient le profil SYSTEM, pas celui de l'utilisateur. La capture parcourt
+  maintenant **tous les profils utilisateurs** (ProfileList : SID + chemin), remplace `%APPDATA%` / `%LOCALAPPDATA%` /
+  `%USERPROFILE%` par le profil, exporte `HKCU\…` depuis `HKU\<SID>` (ruche NTUSER.DAT chargée au besoin pour un
+  utilisateur non connecté) et **normalise les .reg en HKEY_CURRENT_USER** ; caches de navigateur exclus. Archive :
+  `confs/<utilisateur>/…`, `appdata/<utilisateur>/<app>/<n>/…` ; le résultat liste les profils et les dossiers par
+  utilisateur (tailles, absents).
+- **Restauration** (#934) par profil : chaque utilisateur de l'archive retrouve son profil (ou un **utilisateur cible**
+  choisi, utile après réinstallation sous un autre nom) ; les .reg sont réimportés dans la ruche du bon utilisateur ;
+  les archives anciennes (sans sous-dossier utilisateur) restent restaurables. Simulation : liste récursive.
+- Accès coffre indisponible : la raison exacte est affichée (nom d'accès inconnu, jeton CREDENTIALS_INTERNAL_TOKEN…).
+- Agent **0.6.39**. Vérifié : tests agent (sauvegarde / restauration 17, si_agent), hub (498), lint JSX. Non vérifié :
+  rendu ; exécution réelle sur pc-paul -- relancer une sauvegarde après mise à jour de l'agent et vérifier les tailles.
+
 ## 2026-10-30 — Gestion à distance : lien direct vers l'autorisation manquante (livraison #946)
 
 - « Refus » en essayant une commande sur le NAS : le refus (commandes à distance désactivées / intervention requise)

@@ -4183,6 +4183,10 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   dernière sauvegarde). Reste : enrichir EXPORTS pour les logiciels déduits (CAO, métier) au fil des postes.
 - RÈGLE GÉNÉRALE notée le 30/10 (appliquée #939 aux boutons existants, à respecter partout ensuite) : un bouton d'action
   passe « en cours » dès le clic même s'il y a un autre effet visible.
+- RÈGLE GÉNÉRALE notée le 30/10 (#946, obligatoire partout) : tout message de refus ou d'erreur qui dépend d'un réglage
+  (autorisation, niveau, option) porte un lien direct vers ce réglage et dit la valeur à choisir. Fait : NAS QNAP et
+  BackupPC (gestion à distance). À passer en revue : restauration (#934), accès services (#928), PBS (#931), tour,
+  et tout nouveau message.
 - DEMANDÉ le 30/10 -- SAUVEGARDES AUTOMATIQUES DU SI DE SUPERVISION : « le hub devrait gérer en automatique ses propres
   sauvegardes, tous les agents aussi et les hubs secondaires / proxys ». Existant : sauvegarde du hub planifiée par
   backup-restore (#459, GFS, chiffrée par SI_BACKUP_PASSPHRASE du .env -- à vérifier qu'elle est réglée) mais locale

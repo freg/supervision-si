@@ -67,7 +67,7 @@ class RestaurationAgent(unittest.TestCase):
         r = self.agent.execute_command({"id": "c3", "type": "restauration-poste", "params": {"mode": "appliquer", "source": {"chemin": z}, "options": {"registre": True, "appdata": False, "montages": False}}})
         self.assertTrue(r["ok"])
         self.agent._restaure.join(5)
-        self.assertIn("reg import $f", vus["script"])
+        self.assertIn("reg import $tmp", vus["script"])
         self.assertIn("SimonTatham", vus["script"], "cibles lues depuis le manifeste de l'archive")
         m = self.agent.queue.latest(task="restauration-poste", limit=1)[0]
         self.assertTrue(m["ok"] and m["data"]["registre"][0]["ok"])
