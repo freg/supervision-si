@@ -34,16 +34,20 @@ echo "=== snapshots"
 for v in /share/CACHEDEV*_DATA /share/CE_CACHEDEV*_DATA /share/ZFS*_DATA; do
   [ -d "$v" ] || continue
   echo "## $v"
-  for d in "$v/.snapshot" "$v/.@snapshot" "$v/.@snapshots" "$v/.zfs/snapshot"; do
+  for d in "$v/.snapshot" "$v/.@snapshot" "$v/.@snapshots" "$v/.zfs/snapshot" "$v/@Recently-Snapshot"; do
     [ -d "$d" ] && ls -1 "$d" 2>/dev/null | sed "s|^|$d/|"
   done
 done
+for d in /mnt/snapshot/*/; do [ -d "$d" ] && echo "## mnt:$d" && ls -1 "$d" 2>/dev/null | sed "s|^|$d|"; done
+echo "=== snaplist"
+for t in /sbin/qcli_snapshot /usr/bin/qcli_snapshot; do [ -x "$t" ] && { "$t" -l 2>&1 | head -80; break; }; done
 echo "=== timemachine"
 for b in /share/*/*.sparsebundle /share/*/*.backupbundle /share/*/*/*.sparsebundle /share/*/*/*.backupbundle /share/CACHEDEV*_DATA/*/*.sparsebundle /share/CACHEDEV*_DATA/*/*.backupbundle /share/CACHEDEV*_DATA/*/*/*.sparsebundle /share/CACHEDEV*_DATA/*/*/*.backupbundle; do
   [ -d "$b" ] || continue
-  m=$(stat -c %Y "$b/com.apple.TimeMachine.MachineID.plist" 2>/dev/null || stat -c %Y "$b" 2>/dev/null)
-  s=$(du -sk "$b" 2>/dev/null | cut -f1)
-  echo "$m $s $b"
+  r=$(readlink -f "$b" 2>/dev/null || echo "$b")
+  m=0; for f in "$r/com.apple.TimeMachine.SnapshotHistory.plist" "$r/bands" "$r/com.apple.TimeMachine.MachineID.plist" "$r"; do t=$(stat -c %Y "$f" 2>/dev/null || echo 0); [ "$t" -gt "$m" ] && m=$t; done
+  s=$(du -sk "$r" 2>/dev/null | cut -f1)
+  echo "$m $s $r"
 done
 echo "=== outils"
 ls -1 /etc/config 2>/dev/null | grep -i -E "backup|hbs|snapshot|rtrr|qsync|rsync|timemachine|afp" | sort -u
@@ -56,13 +60,15 @@ SMB=""; for c in /usr/local/samba/bin/smbstatus /usr/local/samba/sbin/smbstatus 
 if [ -n "$SMB" ]; then "$SMB" -b 2>/dev/null | sed "s|^|smb:|"; "$SMB" -S 2>/dev/null | sed "s|^|share:|"; fi
 netstat -tn 2>/dev/null | awk '$4 ~ /:(445|139|548|22|2049|873|8080|443)$/ && $6=="ESTABLISHED" {print "tcp:" $4 " " $5}' | sort | uniq -c | sed "s|^ *||"
 echo "=== journaux"
-ls -la /etc/logs 2>/dev/null | sed "s|^|etc/logs: |"
+ls -la /etc/logs/ 2>/dev/null | sed "s|^|etc/logs: |"
+ls -la /mnt/HDA_ROOT/.logs/ 2>/dev/null | sed "s|^|hda_root/.logs: |"
 ls -d /share/CACHEDEV*_DATA/.qpkg/QuLog* /share/CACHEDEV*_DATA/.system/data/QuLog* 2>/dev/null | sed "s|^|qulog: |"
 ls -1 /usr/bin/sqlite3 /sbin/log_tool /usr/sbin/log_tool /sbin/qulog_tool 2>/dev/null | sed "s|^|outil: |"
+for t in /sbin/log_tool /usr/sbin/log_tool; do [ -x "$t" ] && { "$t" -q -n 40 2>&1 | head -60 | sed "s|^|logtool:|"; break; }; done
 if [ -x /usr/bin/sqlite3 ] && [ -f /etc/logs/conn.log ]; then /usr/bin/sqlite3 /etc/logs/conn.log "select conn_date, conn_time, conn_user, conn_ip, conn_comp, conn_serv, conn_res, conn_desc from NASLOG_CONN order by conn_id desc limit 60" 2>/dev/null | sed "s|^|conn:|"; fi
 if [ -x /usr/bin/sqlite3 ] && [ -f /etc/logs/event.log ]; then /usr/bin/sqlite3 /etc/logs/event.log "select event_date, event_time, event_type, event_user, event_ip, event_desc from NASLOG_EVENT order by event_id desc limit 40" 2>/dev/null | sed "s|^|event:|"; fi
 echo "=== aide"
-for t in qcli_snapshot snapshot_util snapshot qsnapshot hbs_cli rtrr_cli; do
+for t in qcli_snapshot snapshot_util snapshot qsnapshot qsnapman qsnaputil log_tool hbs_cli rtrr_cli; do
   for p in /sbin /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin; do
     if [ -x "$p/$t" ]; then echo "## $p/$t"; "$p/$t" --help 2>&1 | head -40; "$p/$t" -h 2>&1 | head -40; fi
   done
@@ -116,7 +122,8 @@ def parse_mdstat(lignes):
         if cur and re.search(r"\[[U_]+\]", l):
             u = re.search(r"\[([U_]+)\]", l).group(1)
             cur["etat"] = u
-            cur["degrade"] = "_" in u
+            cur["systeme"] = cur["dev"] in MD_SYSTEME
+            cur["degrade"] = "_" in u and not cur["systeme"]
             cur = None
     return out
 
@@ -159,11 +166,14 @@ def _date_snap(nom, now):
 
 
 def parse_snapshots(lignes, now):
-    """Section snapshots -> par volume : {volume, dossiers, nombre, dernier, dernier_age_h, noms[-5:]}."""
+    """Section snapshots -> par volume : {volume, dossiers, nombre, dernier, dernier_age_h, noms[-5:]}. v3 : les montages
+    /mnt/snapshot/<id>/ (QTS) sont rattachés à « mnt:<id> » quand le volume n'est pas connu."""
     out, cur = [], None
     for l in lignes or []:
         if l.startswith("## "):
-            cur = {"volume": l[3:].strip().rsplit("/", 1)[-1], "montage": l[3:].strip(), "nombre": 0, "dernier": None, "dernier_age_h": None, "noms": [], "dossier": None}
+            m = l[3:].strip()
+            vol = ("snapshot-%s" % m.split("/mnt/snapshot/", 1)[1].strip("/")) if m.startswith("mnt:") else m.rsplit("/", 1)[-1]
+            cur = {"volume": vol, "montage": m.replace("mnt:", ""), "nombre": 0, "dernier": None, "dernier_age_h": None, "noms": [], "dossier": None}
             out.append(cur)
             continue
         if not cur or not l.strip():
@@ -183,16 +193,25 @@ def parse_snapshots(lignes, now):
 
 
 def parse_bundles(lignes, now):
-    """Section timemachine : « <mtime> <ko> <chemin> » -> [{chemin, machine, ko, modifie, age_h}]."""
-    out = []
+    """Section timemachine : « <mtime> <ko> <chemin> » -> [{chemin, machine, ko, modifie, age_h}] ; v3 : un même bundle vu
+    par plusieurs chemins (lien /share/<partage> -> /share/CACHEDEVn_DATA/<partage>) n'est compté qu'une fois."""
+    out, vus = [], set()
     for l in lignes or []:
         p = l.split(" ", 2)
         if len(p) < 3 or not p[0].isdigit():
             continue
         chemin = p[2].strip()
+        if chemin in vus:
+            continue
+        vus.add(chemin)
         out.append({"chemin": chemin, "machine": chemin.rsplit("/", 1)[-1].replace(".sparsebundle", "").replace(".backupbundle", ""),
                     "ko": int(p[1]) if p[1].isdigit() else None, "modifie": int(p[0]), "age_h": round((now - int(p[0])) / 3600.0, 1)})
     return out
+
+
+# md9 / md13 / md256 / md321 / md322 : grappes SYSTÈME de QTS (configuration, swap, cache) déclarées sur toutes les baies
+# possibles -- les « _ » y désignent des baies vides, pas des disques manquants.
+MD_SYSTEME = {"md9", "md13", "md256", "md321", "md322", "md12", "md8"}
 
 
 def parse_connexions(lignes):
@@ -220,8 +239,12 @@ def parse_journaux(lignes):
     """Section journaux : où sont les journaux (découverte) + dernières connexions / évènements si lisibles (conn.log, event.log)."""
     out = {"emplacements": [], "outils": [], "connexions": [], "evenements": []}
     for l in lignes or []:
-        if l.startswith("etc/logs: ") or l.startswith("qulog: "):
-            out["emplacements"].append(l.split(": ", 1)[1].strip())
+        if l.startswith("etc/logs: ") or l.startswith("qulog: ") or l.startswith("hda_root/.logs: "):
+            nom = l.split(": ", 1)[1].strip().split()[-1] if l.split(": ", 1)[1].strip() else ""
+            if nom and nom not in (".", "..") and not nom.startswith("total"):
+                out["emplacements"].append(nom)
+        elif l.startswith("logtool:"):
+            out.setdefault("log_tool", []).append(l[8:][:300])
         elif l.startswith("outil: "):
             out["outils"].append(l[7:].strip())
         elif l.startswith("conn:"):
@@ -287,12 +310,14 @@ def analyser(name, host, sortie, now=None, vol_warn=85, vol_crit=95, snap_max_h=
     conn = parse_connexions(s.get("connexions"))
     jx = parse_journaux(s.get("journaux"))
     aide = parse_aide(s.get("aide"))
+    snaplist = [l[:200] for l in s.get("snaplist", []) if l.strip()][:80]   # v3 : sortie brute de qcli_snapshot -l (étude)
     erreurs_acces = [c for c in jx["connexions"] if re.search(r"fail|denied|refus|échec|error", "%s %s" % (c.get("action"), c.get("ressource")), re.I)]
     if len(erreurs_acces) >= 5:
         alerte("nas-acces-refuses", "warning", "%d accès refusés / en échec dans les dernières connexions journalisées" % len(erreurs_acces))
     return {"name": name, "host": host, "ok": True, "error": None, "at": now, "systeme": systeme, "volumes": volumes, "raid": raid,
             "partages": partages, "partages_timemachine": tm_parts, "snapshots": snaps, "volumes_sans_snapshot": sans_snap,
-            "timemachine": tm, "outils": outils, "connexions": conn, "journaux": jx, "erreurs_acces": erreurs_acces[:20], "aide": aide, "alertes": al}
+            "timemachine": tm, "outils": outils, "connexions": conn, "journaux": jx, "erreurs_acces": erreurs_acces[:20], "aide": aide,
+            "snaplist": snaplist, "alertes": al}
 
 
 # --- accès réel (non testé hors LAN) ---

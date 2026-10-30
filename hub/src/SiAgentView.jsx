@@ -585,7 +585,8 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                               {h.ports?.length > 0 && <span className="muted"> · ports {h.ports.slice(0, 12).join(", ")}{h.ports.length > 12 ? "…" : ""}</span>}
                               {hAge != null && <span className="muted"> · il y a {hAge < 3600 ? `${Math.round(hAge / 60)} min` : `${Math.round(hAge / 3600)} h`}</span>}
                               {h.error && <span style={{ color: "var(--danger)" }}> · {h.error}</span>}{h.error && <BoutonDetail titre={`Relevé de ${h.name}`} urgence="critique" texte={h.error} />}
-                              {" "}<a href={hubLink("migration", { page: "etat" })} onClick={(e) => e.stopPropagation()}>état des lieux</a>
+                              {h.vue ? <>{h.via ? <span className="muted"> · {h.via}</span> : null}{" "}<a href={hubLink(h.vue, h.onglet ? { onglet: h.onglet } : {})} onClick={(e) => e.stopPropagation()}>{h.role === "nas" ? "NAS / sauvegardes" : "sauvegardes"}</a></>
+                                : <>{" "}<a href={hubLink("migration", { page: "etat" })} onClick={(e) => e.stopPropagation()}>état des lieux</a></>}
                             </td>
                           </tr>);
                       })}

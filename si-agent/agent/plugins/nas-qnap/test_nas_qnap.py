@@ -182,3 +182,23 @@ Usage: qcli_snapshot [options]
     def test_script_toujours_en_lecture(self):
         self.assertFalse(any(w in nq.SCRIPT for w in ("setcfg", " rm ", "mv ", "reboot", "snapshot_create", "qcli_snapshot -c", "> /")))
         self.assertIn("--help", nq.SCRIPT)
+
+
+class V3(unittest.TestCase):
+    def test_dedoublonnage_md_systeme_mnt(self):
+        s = V2.SORTIE2.replace("=== mdstat\n", "=== mdstat\nmd9 : active raid1 sda4[0] sdb4[1] sdc4[2]\n      530048 blocks super 1.0 [24/3] [UUU_____________________]\nmd321 : active raid1 sdd5[3] sdc5[2]\n      7235136 blocks super 1.0 [2/1] [U_]\n")
+        s = s.replace("TM2 9000000 /share/CACHEDEV2_DATA/TimeMachine/mac-bob.backupbundle\n", "TM2 9000000 /share/CACHEDEV2_DATA/TimeMachine/mac-bob.backupbundle\nTM2 9000000 /share/CACHEDEV2_DATA/TimeMachine/mac-bob.backupbundle\n")
+        s = s.replace("## /share/CACHEDEV2_DATA\n", "## /share/CACHEDEV2_DATA\n## mnt:/mnt/snapshot/2/\n/mnt/snapshot/2/GMT-2026.10.30-01.00.00\n=== snaplist\nVolume 1: 3 snapshots\n")
+        s = s.replace("etc/logs: -rw-r--r-- 1 admin administrators 1048576 Oct 30 09:00 conn.log\n", "etc/logs: lrwxrwxrwx 1 admin administrators 19 Jun 26 15:08 /etc/logs -> /mnt/HDA_ROOT/.logs\nhda_root/.logs: -rw-r--r-- 1 admin administrators 1048576 Oct 30 09:00 conn.log\nlogtool:2026-10-30 10:00:00 alice 192.168.0.5 login\n")
+        r = nq.analyser("nas-1", "h", s, now=NOW)
+        raid = {x["dev"]: x for x in r["raid"]}
+        self.assertFalse(raid["md9"]["degrade"]); self.assertTrue(raid["md9"]["systeme"])
+        self.assertFalse(raid["md321"]["degrade"]); self.assertTrue(raid["md2"]["degrade"])
+        self.assertNotIn("nas-raid-degrade@md9", [a["code"] for a in r["alertes"]])
+        self.assertEqual(len([b for b in r["timemachine"] if b["machine"] == "mac-bob"]), 1)
+        self.assertEqual([x["volume"] for x in r["snapshots"]], ["CACHEDEV1_DATA", "CACHEDEV2_DATA", "snapshot-2"])
+        self.assertEqual(r["snapshots"][2]["nombre"], 1)
+        self.assertEqual(r["snaplist"], ["Volume 1: 3 snapshots"])
+        self.assertIn("conn.log", r["journaux"]["emplacements"])
+        self.assertEqual(r["journaux"]["log_tool"][0], "2026-10-30 10:00:00 alice 192.168.0.5 login")
+        self.assertIn("readlink -f", nq.SCRIPT); self.assertIn("qcli_snapshot", nq.SCRIPT)

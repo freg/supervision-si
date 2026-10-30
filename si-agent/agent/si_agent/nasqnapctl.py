@@ -18,7 +18,7 @@ import json
 import re
 
 ARG_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
-LECTURE_OK = re.compile(r"^(ls|cat|head|tail|df|du|stat|getcfg|smbstatus|mdadm --detail|cat /proc/mdstat|uptime|who|netstat|qcli_\w+ -l|qcli_\w+ --list|snapshot_util -l|find)\b")
+LECTURE_OK = re.compile(r"^(ls|cat|head|tail|df|du|stat|getcfg|smbstatus|mdadm --detail|cat /proc/mdstat|uptime|who|netstat|qcli_\w+ (-l|--list|-h|--help)|snapshot_util (-l|-h)|qsnapman -h|qsnaputil -h|log_tool (-h|-q)|find)\b")   # #945 : aide des outils admise
 INTERDIT = re.compile(r"[;&|`$<>]|\brm\b|\bmv\b|\bdd\b|\bmkfs\b|\breboot\b|\bpoweroff\b|\bsetcfg\b|\bhalt\b")
 
 

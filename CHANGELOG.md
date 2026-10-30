@@ -1,3 +1,20 @@
+## 2026-10-30 — NAS QNAP dans la Flotte, premier relevé SSH corrigé (livraison #945)
+
+- « Toujours pas d'agent QNAP » : le NAS apparaît maintenant dans la **Flotte sous son agent relais** (« ↳ relevé par
+  super-hub : nas-grpi-1 · QTS 5.2.9 · TS-883XU-RP · SSH + SNMP · lien NAS / sauvegardes »), comme les serveurs anciens
+  relevés par `systemes` ; le serveur BackupPC relayé y figurera de la même façon. La fiche vide « NAS-GRPi » (un agent
+  qui ne tournera jamais sur le NAS) peut être supprimée.
+- Corrections d'après le premier relevé réel (sonde nas-qnap **v3**) : bundles Time Machine **dédoublonnés** (un même
+  bundle était vu par /share/<partage> et /share/CACHEDEVn_DATA/<partage> : 3 conseils identiques) et datés sur
+  SnapshotHistory / bands (plus fiable que MachineID.plist) ; grappes **système QTS** (md9, md13, md256, md321, md322)
+  plus comptées comme RAID dégradé (leurs « _ » sont des baies vides) -- le NAS n'est plus « critique » à tort ;
+  volumes SNMP (Volume-1, TimeMachineX…) **rapprochés des montages SSH** (CACHEDEVn_DATA) par la taille, pour la colonne
+  Snapshots ; snapshots cherchés aussi sous /mnt/snapshot et @Recently-Snapshot, sortie de `qcli_snapshot -l` relevée et
+  affichée (étude) ; journaux : /mnt/HDA_ROOT/.logs (cible du lien /etc/logs) et `log_tool -q` ; aide des outils
+  (`qcli_* -h`, `log_tool -h`, …) admise dans l'essai en lecture.
+- Agent **0.6.38**. Vérifié : tests agent (nas-qnap 9, nasqnapctl, agent), API (13 + relais 6), hub (498), lint JSX.
+  Non vérifié : rendu ; chemins réels des snapshots QTS 5 -- à lire au prochain relevé.
+
 ## 2026-10-30 — NAS QNAP : propositions et conseils (livraison #944)
 
 - Comme pour les postes (#935/#938), le NAS a ses **« Propositions et conseils »** : disques âgés (≥ 7 ans : à remplacer

@@ -244,7 +244,7 @@ function Nas({ nas, base, actor }) {
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <div><h5 style={{ margin: "6px 0 2px" }}>Volumes</h5>
           <table className="infra-table"><thead><tr><th>Volume</th><th>Remplissage</th><th>Libre</th><th>Taille</th><th>Snapshots</th></tr></thead><tbody>
-            {n.volumes.map((v, i) => { const sn = (n.snapshots || []).find((x) => x.volume === v.nom || (x.montage || "").endsWith(v.nom)); return <tr key={i}><td>{v.nom}</td><td className={v.pct >= 95 ? "np-tone bad" : v.pct >= 85 ? "np-tone warn" : ""}>{pct(v.pct)}</td><td>{koTo(v.libre_ko)}</td><td>{koTo(v.ko)}</td>
+            {n.volumes.map((v, i) => { const sn = (n.snapshots || []).find((x) => x.volume === v.nom || (v.montage && x.volume === v.montage) || (x.montage || "").endsWith(v.nom)); return <tr key={i}><td>{v.nom}{v.montage ? <span className="infra-muted" style={{ fontSize: 11 }}> {v.montage}</span> : null}</td><td className={v.pct >= 95 ? "np-tone bad" : v.pct >= 85 ? "np-tone warn" : ""}>{pct(v.pct)}</td><td>{koTo(v.libre_ko)}</td><td>{koTo(v.ko)}</td>
               <td>{n.snapshots == null ? <span className="infra-muted">SSH non relevé</span> : sn && sn.nombre ? <span className={sn.dernier_age_h > 48 ? "np-tone warn" : "np-tone good"}>{sn.nombre}, dernier il y a {Math.round(sn.dernier_age_h ?? 0)} h</span> : <span className="np-tone warn">aucun</span>}</td></tr>; })}
           </tbody></table></div>
         {n.snapshots != null && <div><h5 style={{ margin: "6px 0 2px" }}>Time Machine</h5>
@@ -252,7 +252,9 @@ function Nas({ nas, base, actor }) {
             {n.timemachine.map((t) => <tr key={t.chemin}><td title={t.chemin}>{t.machine}</td><td className={t.age_h > 168 ? "np-tone warn" : ""}>{ageTexte(t.age_h / 24)}</td><td>{t.ko ? to(t.ko * 1024) : "—"}</td></tr>)}
           </tbody></table> : <p className="infra-muted">aucune sauvegarde Time Machine trouvée{n.ssh?.partages_timemachine?.length ? ` (partage(s) déclaré(s) : ${n.ssh.partages_timemachine.join(", ")})` : ""}</p>}
           <h5 style={{ margin: "6px 0 2px" }}>RAID</h5>
-          {(n.ssh?.raid || []).map((r) => <div key={r.dev} className={r.degrade ? "np-tone bad" : ""}>{r.dev} : {r.niveau} · {r.degrade ? `DÉGRADÉ ${r.etat}` : r.etat || "ok"} · {(r.disques || []).length} disque(s)</div>)}
+          {(n.ssh?.raid || []).filter((r) => !r.systeme).map((r) => <div key={r.dev} className={r.degrade ? "np-tone bad" : ""}>{r.dev} : {r.niveau} · {r.degrade ? `DÉGRADÉ ${r.etat}` : r.etat || "ok"} · {(r.disques || []).length} disque(s)</div>)}
+          {(n.ssh?.raid || []).some((r) => r.systeme) && <div className="infra-muted" style={{ fontSize: 11 }}>grappes système QTS ({n.ssh.raid.filter((r) => r.systeme).map((r) => r.dev).join(", ")}) : non comptées (les « _ » y sont des baies vides)</div>}
+          {n.ssh?.snaplist?.length > 0 && <><h5 style={{ margin: "6px 0 2px" }}>qcli_snapshot -l</h5><pre style={{ fontSize: 11, maxHeight: 160, overflow: "auto", margin: 0 }}>{n.ssh.snaplist.join("\n")}</pre></>}
         </div>}
         {n.ssh?.ok && <div><h5 style={{ margin: "6px 0 2px" }}>Partages ({n.ssh.partages.length})</h5>
           <div style={{ maxHeight: 180, overflow: "auto", fontSize: 12 }}>{n.ssh.partages.map((p) => <div key={p.nom}>{p.nom}{p.timemachine ? " · Time Machine" : ""}{p.lecture_seule ? " · lecture seule" : ""}{p.navigable ? "" : " · caché"} <span className="infra-muted">{p.chemin}</span></div>)}</div>

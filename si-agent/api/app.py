@@ -674,9 +674,12 @@ def relayed_hosts_route():
     conn = store._connect(DB_PATH)
     try:
         rows = infra.latest(conn, "plugin:systemes")
+        nas_ssh = infra.latest(conn, "plugin:nas-qnap")       # #945
+        nas_snmp = infra.latest(conn, "plugin:nas-snmp")
+        bpc = infra.latest(conn, "plugin:backuppc")
     finally:
         conn.close()
-    out = etat_lib.hotes_relayes(rows)
+    out = etat_lib.hotes_relayes(rows) + etat_lib.hotes_relayes_nas(nas_ssh, nas_snmp) + etat_lib.hotes_relayes_backuppc(bpc)
     return jsonify({"hosts": out}), 200
 
 

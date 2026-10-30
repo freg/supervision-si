@@ -159,10 +159,19 @@ def _completer_ssh(e, x):
         return
     e["snapshots"] = x.get("snapshots") or []
     e["timemachine"] = x.get("timemachine") or []
+    # #945 : rapprocher les volumes SNMP (noms QTS : Volume-1, TimeMachineX) des montages SSH (CACHEDEVn_DATA) par la taille
+    for v in e.get("volumes") or []:
+        ko = v.get("ko")
+        if not ko:
+            continue
+        cand = [w for w in (x.get("volumes") or []) if w.get("ko") and abs(w["ko"] - ko) / float(ko) < 0.03]
+        if len(cand) == 1:
+            v["montage"] = cand[0].get("nom")
     e["ssh"] = {"ok": True, "relais": x.get("relais_ssh"), "relais_id": x.get("relais_id"), "at": x.get("at_ssh"), "raid": x.get("raid") or [], "partages": x.get("partages") or [],
                 "partages_timemachine": x.get("partages_timemachine") or [], "volumes_sans_snapshot": x.get("volumes_sans_snapshot") or [],
                 "outils": x.get("outils") or [], "systeme": x.get("systeme") or {}, "alertes": [a.get("message") for a in (x.get("alertes") or []) if isinstance(a, dict)],
-                "connexions": x.get("connexions") or {}, "journaux": x.get("journaux") or {}, "erreurs_acces": x.get("erreurs_acces") or [], "aide": x.get("aide") or {}}   # #940
+                "connexions": x.get("connexions") or {}, "journaux": x.get("journaux") or {}, "erreurs_acces": x.get("erreurs_acces") or [], "aide": x.get("aide") or {},
+                "snaplist": x.get("snaplist") or []}   # #940 / #945
     sev = [a.get("severity") for a in (x.get("alertes") or []) if isinstance(a, dict)]
     if "critical" in sev and e["etat"] != "erreur":
         e["etat"] = "critique"

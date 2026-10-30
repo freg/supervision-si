@@ -69,6 +69,10 @@ class Autres(unittest.TestCase):
         self.assertEqual([x["nom"] for x in n2], ["qnap", "nas-2"])
         self.assertEqual((n2[0]["etat"], n2[0]["snapshots"][0]["nombre"], n2[0]["timemachine"][0]["machine"], n2[0]["ssh"]["outils"]), ("attention", 3, "mac-a", ["qpkg:HybridBackup"]))
         self.assertEqual((n2[1]["etat"], n2[1]["volumes"][0]["pct"], n2[1]["relais"]), ("ok", 10.0, "lan-agent"))
+        # #945 : volume SNMP rapproché du montage SSH par la taille
+        ssh2 = [("lan", "lan", "t", {"nas": [{"name": "qnap", "host": "h", "ok": True, "volumes": [{"nom": "CACHEDEV1_DATA", "ko": 8700000000, "pct": 84}, {"nom": "CACHEDEV2_DATA", "ko": 1100000000, "pct": 76}], "snapshots": [], "timemachine": [], "alertes": []}]})]
+        n3 = sa.nas([("r", "r", "t", {"nas": [{"name": "qnap", "host": "h", "ok": True, "volumes": [{"nom": "Volume-1", "pct": 84.8, "ko": 8690000000}, {"nom": "TimeMachineSerge", "pct": 76.8, "ko": 1101000000}, {"nom": "TMP_Vol", "pct": 0.5, "ko": 1000000}]}]})], ssh2)
+        self.assertEqual([v.get("montage") for v in n3[0]["volumes"]], ["CACHEDEV1_DATA", "CACHEDEV2_DATA", None])
 
     def test_resume_verdict(self):
         r = sa.assembler([], [], [], [], [], None, [], now=NOW)

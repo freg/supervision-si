@@ -87,6 +87,17 @@ class HotesRelayes(unittest.TestCase):
         self.assertEqual((h[0]["ok"], h[0]["error"], h[0]["os"]), (False, "ssh refusé", None))
         self.assertEqual(etat.hotes_relayes([]), [])
 
+    def test_hotes_relayes_nas_backuppc_945(self):
+        ssh = [("super", "super", "t1", {"nas": [{"name": "nas-grpi-1", "host": "192.0.2.92", "ok": True, "systeme": {"version": "5.2.9", "modele": "TS-883XU-RP"}}]})]
+        snmp = [("super", "super", "t2", {"nas": [{"name": "NAS-GRPI-1", "host": "192.0.2.92", "ok": True, "systeme": {"modele": "TS-883XU-RP"}}, {"name": "nas-2", "host": "192.0.2.93", "ok": False, "error": "timeout", "systeme": {}}]})]
+        h = etat.hotes_relayes_nas(ssh, snmp)
+        self.assertEqual([(x["name"], x["via"], x["ok"], x["vue"]) for x in h], [("nas-2", "SNMP", False, "nas"), ("nas-grpi-1", "SSH + SNMP", True, "sauvegardes")])
+        self.assertEqual(h[1]["os"], "QTS 5.2.9")
+        self.assertEqual(etat.hotes_relayes_nas([], snmp)[1]["via"], "SNMP")
+        b = etat.hotes_relayes_backuppc([("super", "super", "t", {"serveur": {"nom": "fichiers", "relais": True, "version": "3.2.1"}, "summary": {"hotes": 4, "echecs": 2}}),
+                                         ("fichiers", "fichiers", "t", {"serveur": {"version": "3.2.1"}})])
+        self.assertEqual(len(b), 1); self.assertEqual((b[0]["name"], b[0]["os"], b[0]["noyau"]), ("fichiers", "BackupPC 3.2.1", "4 hôte(s), 2 échec(s)"))
+
 
 if __name__ == "__main__":
     unittest.main()

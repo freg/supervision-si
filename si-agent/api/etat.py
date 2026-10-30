@@ -586,6 +586,53 @@ def hotes_relayes(rows):
     return out
 
 
+def hotes_relayes_nas(rows_ssh, rows_snmp=None):
+    """#945 : NAS relevés par SSH (nas-qnap) et/ou SNMP (nas-snmp) -> lignes « relevé par » pour la Flotte, même forme que
+    hotes_relayes, avec role « nas » et un lien vers la tuile. Un NAS vu des deux façons donne UNE ligne (nom ou adresse)."""
+    out, idx = [], {}
+    for agent_id, _h, at, d in rows_ssh or []:
+        for n in (d or {}).get("nas") or []:
+            sy = n.get("systeme") or {}
+            e = {"relay": agent_id, "name": n.get("name") or n.get("host"), "role": "nas", "ok": bool(n.get("ok", True)), "error": n.get("error"), "at": at,
+                 "os": ("QTS %s" % sy["version"]) if sy.get("version") else "QNAP QTS", "noyau": sy.get("modele"), "ips": [n.get("host")] if n.get("host") else [],
+                 "ports": [], "vue": "sauvegardes", "onglet": "nas", "via": "SSH"}
+            idx[str(e["name"]).lower()] = e
+            if n.get("host"):
+                idx[str(n["host"]).lower()] = e
+            out.append(e)
+    for agent_id, _h, at, d in rows_snmp or []:
+        for n in (d or {}).get("nas") or []:
+            key = str(n.get("name") or "").lower()
+            e = idx.get(key) or idx.get(str(n.get("host") or "").lower())
+            if e:
+                e["via"] = e["via"] + " + SNMP"
+                if not e.get("noyau") and (n.get("systeme") or {}).get("modele"):
+                    e["noyau"] = n["systeme"]["modele"]
+                continue
+            sy = n.get("systeme") or {}
+            e = {"relay": agent_id, "name": n.get("name") or n.get("host"), "role": "nas", "ok": bool(n.get("ok", True)), "error": n.get("error"), "at": at,
+                 "os": ("QTS %s" % sy["micrologiciel"]) if sy.get("micrologiciel") else "NAS", "noyau": sy.get("modele"), "ips": [n.get("host")] if n.get("host") else [],
+                 "ports": [], "vue": "nas", "onglet": None, "via": "SNMP"}
+            idx[key] = e
+            out.append(e)
+    out.sort(key=lambda h: (h["relay"], str(h["name"])))
+    return out
+
+
+def hotes_relayes_backuppc(rows):
+    """#945 : serveur BackupPC relevé par SSH (sonde backuppc en mode relais) -> ligne « relevé par »."""
+    out = []
+    for agent_id, _h, at, d in rows or []:
+        srv = (d or {}).get("serveur") or {}
+        if not srv.get("relais"):
+            continue
+        s = (d or {}).get("summary") or {}
+        out.append({"relay": agent_id, "name": srv.get("nom") or "BackupPC", "role": "backuppc", "ok": not srv.get("erreur"), "error": srv.get("erreur"), "at": at,
+                    "os": "BackupPC %s" % (srv.get("version") or "?"), "noyau": "%d hôte(s), %d échec(s)" % (s.get("hotes", 0), s.get("echecs", 0)), "ips": [], "ports": [],
+                    "vue": "sauvegardes", "onglet": "backuppc", "via": "SSH"})
+    return out
+
+
 # -- #879 : regroupement des copies, clones, préparations de migration et VM de test ------------------------------------
 # Une VM de test, un clone préparatoire (« serv3-clone », « pre-optick3 », « pre-r2d2 ») ou plusieurs copies d'un même
 # système (« md10 » répliqué, archivé) faisaient du bruit : chacun comptait comme un système à traiter. Ils sont
