@@ -4082,3 +4082,7 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   échecs de retour d'économie d'énergie ×23), BIOS (HAL 20/21 ACPI ×50), Explorateur (ntshrui.dll, partages réseau),
   DCOM ×518, Windows Update en échec ×72, stabilité 3/10 ; Defender désactivé. Épreuve processeur à rejouer en journée
   avec la sonde v3 (#926). Reste : analyses Triage / ownCloud et Excel / Réseau / Veille, puis verdict.
+
+- Tuile NAS -- LIVRÉ #927 : potentiel d'évolution (baies, réserve non allouée, extensible jusqu'à, conseils chiffrés).
+  Reste (à faire) : rattacher chaque volume à sa réserve quand il y en a plusieurs (SNMP ne le donne pas : SSH ou
+  API QTS) ; tendance de remplissage (date estimée de saturation à partir de l'historique des relevés).

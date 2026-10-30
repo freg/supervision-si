@@ -66,6 +66,12 @@ class NasSnmp(unittest.TestCase):
             self.assertTrue(out["nas"][0]["ok"])
             self.assertTrue(any(x["code"].endswith("#nas-1") for x in out["alerts"]))
             self.assertNotIn("secret", json.dumps(out))                    # la communauté ne sort jamais
+            self.assertNotIn("baies", out["nas"][0])
+            with open(cfg, "w") as fh:                                       # #927 : baies précisées dans les réglages
+                json.dump([{"name": "nas-1", "host": "192.0.2.92", "community": "secret", "baies": 8}], fh)
+            appels.clear()
+            out = ns.main(["--config", cfg], runner=runner, which=lambda x: "/usr/bin/snmpwalk")
+            self.assertEqual(out["nas"][0]["baies"], 8)
             out = ns.main(["--config", cfg], which=lambda x: None)
             self.assertEqual(out["alerts"][0]["code"], "nas-snmp-outil")
 

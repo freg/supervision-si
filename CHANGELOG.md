@@ -1,3 +1,19 @@
+## 2026-10-30 — Tuile NAS : potentiel d'évolution des volumes (livraison #927)
+
+- Demande : « ajouter à la tuile une vision du potentiel d'évolution pour accroître / étendre les volumes : nombre
+  d'emplacements et conseil d'évolution ». Nouvelle section « Potentiel d'évolution » par NAS : baies dessinées
+  (disque dur, SSD, libre), nombre de baies déduit du modèle QNAP (TS-883XU -> 8 ; ou réglage `baies` dans
+  /etc/si-agent/nas-snmp.json), réserve et espace non alloué, colonne « Extensible jusqu'à » dans les volumes.
+- Conseils chiffrés, du moins coûteux au plus lourd : étendre un volume sans matériel (espace libre de la réserve) ;
+  ajouter des disques dans les baies libres (capacité utile avant / après selon le RAID, gain par disque ; RAID 1
+  migré en RAID 5) ; RAID 6 conseillé à partir de 6 disques de 8 To et plus ; remplacer les disques un par un par
+  des 16 / 20 To ; SSD seul dans une baie 3,5" (carte M.2 pour libérer la baie) ; baies pleines -> unité
+  d'extension ; volumes légers plus grands que la réserve. Capacités théoriques, à valider avec la liste de
+  compatibilité QNAP. Sonde nas-snmp v2 (réglage `baies`), rien ne change côté NAS (lecture SNMP seule).
+- Vérifié : tests du calcul (modèles QNAP, RAID 1 / 5 / 6 / 10, relevé d'exemple 3 × 12 To + SSD : 4 baies libres,
+  24 -> 72 To, RAID 6 à 7 disques, remplacement 20 To -> 40 To), sonde, hub 470. Non vérifié : rendu dans le
+  navigateur.
+
 ## 2026-10-30 — Analyses à distance en file d'attente, commandes perdues signalées, test processeur interprétable (livraison #926)
 
 - Analyse à distance : quatre analyses lancées d'un coup, la quatrième était refusée (trois au plus en même temps sur

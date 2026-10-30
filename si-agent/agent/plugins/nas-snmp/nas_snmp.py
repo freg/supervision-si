@@ -10,6 +10,8 @@ illisibles, disque âgé (heures), RAID dégradé ou sans redondance, ventilateu
 
 Réglages : /etc/si-agent/nas-snmp.json (lisible par root seulement : la communauté est un secret) :
   [{"name": "nas-1", "host": "192.0.2.92", "community": "…", "version": "2c"}]
+  #927 : "baies" (facultatif, entier) -- nombre de baies du NAS quand le modèle ne permet pas de le déduire (hub :
+  potentiel d'évolution).
 Arguments : [--config /etc/si-agent/nas-snmp.json] [--warn-pct 80] [--crit-pct 90] [--hours-old 50000]
 Exige snmpwalk (paquet snmp).
 """
@@ -184,6 +186,8 @@ def main(argv=None, runner=subprocess.run, which=shutil.which):
         try:
             r = releve(parse_walk(lire(c, runner, exe)), a.warn_pct, a.crit_pct, a.hours_old)
             r.update(name=nom, host=c["host"], ok=True, error=None)
+            if isinstance(c.get("baies"), int) and 0 < c["baies"] <= 128:     # #927 : réglage facultatif
+                r["baies"] = c["baies"]
             for x in r["alertes"]:
                 out["alerts"].append(dict(x, code=x["code"] + "#" + nom, message="%s : %s" % (nom, x["message"])))
         except Exception as e:  # noqa: BLE001 -- un NAS injoignable n'empêche pas les autres

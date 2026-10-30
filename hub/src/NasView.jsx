@@ -1,15 +1,58 @@
 // #883 : tuile « NAS » -- état et alertes des NAS relevés en SNMP (lecture seule) par la sonde nas-snmp d'un agent :
 // volumes (remplissage), disques (état, température, âge, SMART critiques), RAID, ventilateurs, applications, alertes.
+// #927 : potentiel d'évolution (baies libres, réserve non allouée, extension jusqu'à, conseils chiffrés).
 import { useCallback, useEffect, useState } from "react";
 import { fetchNas } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import IpPing from "./IpPing.jsx";
+import { evolution } from "./nasEvolution.js";   // #927
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const to = (o) => (o == null ? "—" : o >= 1e12 ? `${(o / 1e12).toFixed(1).replace(".", ",")} To` : `${Math.round(o / 1e9)} Go`);
 const koTo = (k) => (k == null ? "—" : to(k * 1024));
 const ans = (h) => (h == null ? "—" : `${h.toLocaleString("fr-FR")} h (${(h / 8766).toFixed(1).replace(".", ",")} ans)`);
 const age = (at) => { const s = (Date.now() - Date.parse(at)) / 1000; return s < 3600 ? `il y a ${Math.round(s / 60)} min` : `il y a ${Math.round(s / 3600)} h`; };
+
+// #927 : baies du NAS (occupées : disque dur / SSD ; libres en pointillés) et conseils chiffrés pour agrandir les volumes.
+function Baies({ e }) {
+  if (!e.baies) return null;
+  const par = Object.fromEntries(e.occupees.map((o) => [o.baie, o]));
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0 8px" }}>
+      {Array.from({ length: e.baies }, (_, i) => i + 1).map((b) => {
+        const o = par[b];
+        return <div key={b} title={o ? `baie ${b} : ${o.modele || o.type}` : `baie ${b} : libre`}
+          style={{ width: 64, padding: "4px 0", textAlign: "center", borderRadius: 4, fontSize: 12,
+            border: o ? "1px solid var(--border)" : "1px dashed var(--muted)", background: o ? (o.type === "SSD" ? "rgba(255,170,0,.18)" : "rgba(80,160,255,.18)") : "transparent",
+            color: o ? "inherit" : "var(--muted)" }}>
+          {b}<br />{o ? o.type : "libre"}
+        </div>;
+      })}
+    </div>
+  );
+}
+
+function Evolution({ e }) {
+  const TONS = { good: "good", warn: "warn", neutral: "neutral" };
+  return (
+    <section style={{ margin: "10px 0" }}>
+      <h4 style={{ marginBottom: 2 }}>Potentiel d'évolution</h4>
+      <div className="infra-muted">
+        {e.baies ? `${e.baies} baies (${e.source === "réglage" ? "réglage" : "d'après le modèle"}) · ${e.occupees.length} occupée(s) · ${e.libres.length} libre(s)` : "nombre de baies inconnu"}
+        {e.raid ? ` · données en RAID ${e.raid}` : ""}{e.reserve.total ? ` · réserve ${to(e.reserve.total)}, dont ${to(e.reserve.libre)} non alloués` : ""}
+      </div>
+      <Baies e={e} />
+      <ol style={{ margin: "4px 0", paddingLeft: 20 }}>
+        {e.conseils.map((c) => (
+          <li key={c.cle} style={{ marginBottom: 4 }}>
+            <b className={`np-tone ${TONS[c.ton] || "neutral"}`}>{c.titre}</b>{c.gain > 0 ? <span className="infra-muted"> · +{to(c.gain)}</span> : null}
+            <div className="infra-muted" style={{ fontSize: 13 }}>{c.detail}</div>
+          </li>))}
+      </ol>
+      <div className="infra-muted" style={{ fontSize: 12 }}>Capacités utiles théoriques (unités des fabricants de disques) ; à valider avant achat avec la liste de compatibilité QNAP du modèle.</div>
+    </section>
+  );
+}
 
 function Barre({ pct }) {
   const c = pct >= 90 ? "var(--danger)" : pct >= 80 ? "var(--warning)" : "var(--ok)";
@@ -36,12 +79,13 @@ export default function NasView({ onBack, siAgentApiBase }) {
         <section key={n.name} className="infra-card" style={{ margin: "12px 0" }}>
           <h3 style={{ margin: "0 0 4px" }}>{n.name} <span className="infra-muted" style={{ fontSize: 13 }}>
             <IpPing ip={n.host} /> · {n.systeme?.modele || ""} {n.systeme?.micrologiciel ? `· système ${n.systeme.micrologiciel}` : ""} · relevé par {n.relais} {n.at ? age(n.at) : ""}</span></h3>
-          {!n.ok ? <p className="np-tone bad">injoignable : {n.error}</p> : <>
+          {!n.ok ? <p className="np-tone bad">injoignable : {n.error}</p> : (() => { const evo = evolution(n); return <>
             {(n.alertes || []).length > 0 && <div style={{ margin: "6px 0" }}>{n.alertes.map((a, i) => <div key={i} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}</div>}
             <h4>Volumes</h4>
-            <table className="infra-table"><thead><tr><th>Volume</th><th>Remplissage</th><th>Utilisé</th><th>Taille</th><th>État</th></tr></thead>
+            <table className="infra-table"><thead><tr><th>Volume</th><th>Remplissage</th><th>Utilisé</th><th>Taille</th><th title="taille + espace non alloué de la réserve">Extensible jusqu'à</th><th>État</th></tr></thead>
               <tbody>{(n.volumes || []).map((v) => <tr key={v._idx}><td>{v.nom}{v.leger ? <span className="infra-muted"> (léger)</span> : null}</td>
-                <td><Barre pct={v.pct} /> {v.pct != null ? `${String(v.pct).replace(".", ",")} %` : "—"}</td><td>{koTo(v.ko != null && v.libre_ko != null ? v.ko - v.libre_ko : null)}</td><td>{koTo(v.ko)}</td><td>{v.etat}</td></tr>)}</tbody></table>
+                <td><Barre pct={v.pct} /> {v.pct != null ? `${String(v.pct).replace(".", ",")} %` : "—"}</td><td>{koTo(v.ko != null && v.libre_ko != null ? v.ko - v.libre_ko : null)}</td><td>{koTo(v.ko)}</td><td>{to(evo.volumes[v.nom])}</td><td>{v.etat}</td></tr>)}</tbody></table>
+            <Evolution e={evo} />
             <h4>Disques</h4>
             <table className="infra-table"><thead><tr><th>Baie</th><th>Modèle</th><th>Capacité</th><th>État</th><th>Temp.</th><th>Fonctionnement</th><th>SMART critiques</th></tr></thead>
               <tbody>{(n.disques || []).map((d) => {
@@ -61,7 +105,7 @@ export default function NasView({ onBack, siAgentApiBase }) {
             <div style={{ maxHeight: 220, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Application</th><th>Version</th><th>Disponible</th><th>Active</th></tr></thead>
               <tbody>{[...(n.applications || [])].sort((a, b) => (b.mise_a_jour - a.mise_a_jour) || String(a.nom).localeCompare(b.nom)).map((a) =>
                 <tr key={a._idx} className={a.mise_a_jour ? "np-tone warn" : ""}><td>{a.nom}</td><td>{a.version}</td><td>{a.mise_a_jour ? a.disponible : "à jour"}</td><td>{a.actif ? "oui" : "non"}</td></tr>)}</tbody></table></div>
-          </>}
+          </>; })()}
         </section>
       ))}
     </div>
