@@ -120,7 +120,7 @@ def nas(mesures, mesures_ssh=None):
     for aid, h, at, d in mesures_ssh or []:
         for n in ((d or {}).get("nas") or []):
             if isinstance(n, dict):
-                n = dict(n, relais_ssh=h or aid, at_ssh=at)
+                n = dict(n, relais_ssh=h or aid, relais_id=aid, at_ssh=at)
                 ssh[str(n.get("name") or "").lower()] = n
                 if n.get("host"):
                     ssh[str(n["host"]).lower()] = n
@@ -158,9 +158,10 @@ def _completer_ssh(e, x):
         return
     e["snapshots"] = x.get("snapshots") or []
     e["timemachine"] = x.get("timemachine") or []
-    e["ssh"] = {"ok": True, "relais": x.get("relais_ssh"), "at": x.get("at_ssh"), "raid": x.get("raid") or [], "partages": x.get("partages") or [],
+    e["ssh"] = {"ok": True, "relais": x.get("relais_ssh"), "relais_id": x.get("relais_id"), "at": x.get("at_ssh"), "raid": x.get("raid") or [], "partages": x.get("partages") or [],
                 "partages_timemachine": x.get("partages_timemachine") or [], "volumes_sans_snapshot": x.get("volumes_sans_snapshot") or [],
-                "outils": x.get("outils") or [], "systeme": x.get("systeme") or {}, "alertes": [a.get("message") for a in (x.get("alertes") or []) if isinstance(a, dict)]}
+                "outils": x.get("outils") or [], "systeme": x.get("systeme") or {}, "alertes": [a.get("message") for a in (x.get("alertes") or []) if isinstance(a, dict)],
+                "connexions": x.get("connexions") or {}, "journaux": x.get("journaux") or {}, "erreurs_acces": x.get("erreurs_acces") or [], "aide": x.get("aide") or {}}   # #940
     sev = [a.get("severity") for a in (x.get("alertes") or []) if isinstance(a, dict)]
     if "critical" in sev and e["etat"] != "erreur":
         e["etat"] = "critique"

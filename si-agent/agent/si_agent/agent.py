@@ -811,6 +811,8 @@ class Agent(object):
                 return self._pbs_push_lancer(params)
             if ctype == "backuppc-ctl":                 # #939 : BackupPC (status lecture ; backup/stop = intervention)
                 return self._backuppc_ctl(params)
+            if ctype == "nas-qnap-ctl":                 # #940 : NAS QNAP par SSH (essai lecture ; executer = intervention)
+                return self._nas_qnap_ctl(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1765,6 +1767,38 @@ class Agent(object):
                        "BackupPC %s %s : %s" % (action, host, "demandé" if data.get("ok") else "refusé -- %s" % data.get("erreur")),
                        {"action": action, "host": host, "actor": str(params.get("actor") or "?")[:64]})
         return {"ok": bool(data.get("ok")), "result": data} if data.get("ok") else {"ok": False, "error": data.get("erreur") or "échec"}
+
+    def _nas_qnap_ctl(self, params):
+        """#940 : commande sur un NAS QNAP par SSH, depuis l'agent du LAN qui porte la sonde nas-qnap. `essai` = lecture
+        (action déclarée lecture, ou commande de lecture en liste blanche) ; `executer` = INTERVENTION (action déclarée
+        dans /etc/si-agent/nas-qnap.json, jamais une commande libre). Synchrone ; pousse la mesure `nas-qnap-ctl`."""
+        from . import nasqnapctl as nc
+        mode = str(params.get("mode") or "essai")
+        nom = str(params.get("nas") or "").strip()
+        cibles = nc.charger(str(params.get("config") or "/etc/si-agent/nas-qnap.json"))
+        cible = nc.trouver(cibles, nom)
+        if cible is None:
+            return {"ok": False, "error": "NAS « %s » absent de /etc/si-agent/nas-qnap.json sur cet agent" % nom}
+        permis = str(self.cfg.get("remote_shell") or "off")
+        if permis == "off":
+            return {"ok": False, "error": "commandes à distance désactivées sur cet agent (fiche de l'agent › Commandes à distance)"}
+        if mode == "executer" and permis != "intervention":
+            return {"ok": False, "error": "action sur le NAS = intervention : autoriser « intervention » dans Commandes à distance"}
+        try:
+            cmd, lecture = nc.composer(cible, mode, action=params.get("action"), commande=params.get("commande") if mode == "essai" else None,
+                                       args=params.get("args"))
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        if not lecture and permis != "intervention":
+            return {"ok": False, "error": "action de modification : autorisation « intervention » requise"}
+        r = self.cmd(nc.argv_ssh(cible, cmd), timeout=120)
+        data = nc.interpreter("essai" if lecture else "executer", params.get("action"), cmd, getattr(r, "returncode", -1), getattr(r, "stdout", ""), getattr(r, "stderr", ""))
+        data["nas"] = nom
+        self.queue.put({"task": "nas-qnap-ctl", "at": _iso(self.clock()), "ok": bool(data.get("ok")), "agent_id": self.agent_id, "data": data})
+        self.event("nas-qnap", "info" if lecture else ("info" if data.get("ok") else "warning"),
+                   "NAS %s : %s « %s » %s" % (nom, "essai" if lecture else "INTERVENTION", params.get("action") or cmd[:40], "ok" if data.get("ok") else "échec"),
+                   {"nas": nom, "action": params.get("action"), "mode": data["mode"], "actor": str(params.get("actor") or "?")[:64]})
+        return {"ok": True, "result": data}
 
     def _restauration_lancer(self, params):
         """Restaure une archive de sauvegarde (#930) sur ce poste. `mode` = « simulation » (lecture seule : liste ce

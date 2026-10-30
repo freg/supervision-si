@@ -135,3 +135,50 @@ class Main(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V2(unittest.TestCase):
+    SORTIE2 = SORTIE.replace("=== fin\n", """=== connexions
+smb:PID     Username     Group        Machine                                   Protocol Version  Encryption           Signing
+smb:----------------------------------------------------------------------------------------------------------------------------------------
+smb:12345   alice        users        192.168.0.50 (ipv4:192.168.0.50:51234)   SMB3_11           -                    partial(AES-128-CMAC)
+share:Service      pid     Machine       Connected at                     Encryption   Signing
+share:---------------------------------------------------------------------------------------------
+share:Public       12345   192.168.0.50  Thu Oct 30 09:12:01 2026 CEST    -            -
+3 tcp:192.168.0.92:445 192.168.0.50:51234
+1 tcp:192.168.0.92:22 192.168.0.5:4000
+=== journaux
+etc/logs: -rw-r--r-- 1 admin administrators 1048576 Oct 30 09:00 conn.log
+qulog: /share/CACHEDEV1_DATA/.qpkg/QuLog
+outil: /usr/bin/sqlite3
+conn:2026-10-30|09:12:01|alice|192.168.0.50|PC-ALICE|SMB|/Public/doc.txt|Read
+conn:2026-10-30|09:13:01|bob|192.168.0.51|PC-BOB|SMB|/Archives|Login Fail
+event:2026-10-30|01:00:00|0|System|127.0.0.1|[Snapshot] Took snapshot GMT-2026.10.30-01.00.00 on volume DataVol1.
+=== aide
+## /sbin/qcli_snapshot
+Usage: qcli_snapshot [options]
+  -l  list snapshots
+=== fin
+""")
+
+    def test_connexions_journaux_aide(self):
+        r = nq.analyser("nas-1", "h", self.SORTIE2, now=NOW)
+        c = r["connexions"]
+        self.assertEqual((c["smb"][0]["utilisateur"], c["smb"][0]["pid"]), ("alice", 12345))
+        self.assertEqual(c["partages_ouverts"][0]["partage"], "Public")
+        self.assertEqual([(t["service"], t["n"], t["client"]) for t in c["tcp"]], [("SMB", 3, "192.168.0.50"), ("SSH", 1, "192.168.0.5")])
+        j = r["journaux"]
+        self.assertIn("/share/CACHEDEV1_DATA/.qpkg/QuLog", j["emplacements"])
+        self.assertEqual(j["outils"], ["/usr/bin/sqlite3"])
+        self.assertEqual((j["connexions"][1]["utilisateur"], j["connexions"][1]["action"]), ("bob", "Login Fail"))
+        self.assertEqual(j["evenements"][0]["message"][:10], "[Snapshot]")
+        self.assertEqual(len(r["erreurs_acces"]), 1)
+        self.assertIn("/sbin/qcli_snapshot", r["aide"])
+        self.assertIn("-l  list snapshots", r["aide"]["/sbin/qcli_snapshot"])
+        self.assertNotIn("nas-acces-refuses", [a["code"] for a in r["alertes"]])
+        s5 = self.SORTIE2.replace("conn:2026-10-30|09:13:01|bob|192.168.0.51|PC-BOB|SMB|/Archives|Login Fail\n", "conn:2026-10-30|09:13:01|bob|192.168.0.51|PC-BOB|SMB|/Archives|Login Fail\n" * 5)
+        self.assertIn("nas-acces-refuses", [a["code"] for a in nq.analyser("nas-1", "h", s5, now=NOW)["alertes"]])
+
+    def test_script_toujours_en_lecture(self):
+        self.assertFalse(any(w in nq.SCRIPT for w in ("setcfg", " rm ", "mv ", "reboot", "snapshot_create", "qcli_snapshot -c", "> /")))
+        self.assertIn("--help", nq.SCRIPT)

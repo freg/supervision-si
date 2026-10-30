@@ -161,7 +161,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell", "acces-services", "sauvegarde-poste", "pbs-push", "restauration-poste", "backuppc-ctl")  # #939 backuppc-ctl (BackupPC : lancer/arrêter une sauvegarde)  # #934 restauration-poste  # #931 pbs-push (poussée d'une archive vers PBS)  # #930 sauvegarde-poste (confs+montages)  # #928 acces-services (temps d'accès aux services, brut + authentifié)  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell", "acces-services", "sauvegarde-poste", "pbs-push", "restauration-poste", "backuppc-ctl", "nas-qnap-ctl")  # #940 nas-qnap-ctl (NAS QNAP par SSH : essai / executer)  # #939 backuppc-ctl (BackupPC : lancer/arrêter une sauvegarde)  # #934 restauration-poste  # #931 pbs-push (poussée d'une archive vers PBS)  # #930 sauvegarde-poste (confs+montages)  # #928 acces-services (temps d'accès aux services, brut + authentifié)  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
@@ -977,6 +977,13 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("params.confs (liste) requis")
     if ctype == "pbs-push" and not (params or {}).get("repository"):   # #931
         raise ValueError("params.repository requis")
+    if ctype == "nas-qnap-ctl":   # #940
+        if (params or {}).get("mode") not in ("essai", "executer"):
+            raise ValueError("nas-qnap-ctl : mode essai ou executer")
+        if not str((params or {}).get("nas") or "").strip():
+            raise ValueError("nas-qnap-ctl : nas requis")
+        if (params or {}).get("mode") == "executer" and not (params or {}).get("action"):
+            raise ValueError("nas-qnap-ctl : executer exige une action déclarée (pas de commande libre)")
     if ctype == "backuppc-ctl":   # #939
         if (params or {}).get("action") not in ("backup-full", "backup-incr", "stop", "status"):
             raise ValueError("backuppc-ctl : action backup-full, backup-incr, stop ou status")

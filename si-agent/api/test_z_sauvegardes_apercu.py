@@ -127,6 +127,19 @@ class Route(unittest.TestCase):
         self.assertEqual(self.c.get("/agents/pbs-ap/backuppc/resultat").status_code, 200)
         self.assertEqual(self.c.post("/agents/inconnu/backuppc/commande", json={"action": "status"}).status_code, 404)
 
+    def test_nas_qnap_commande_gate(self):
+        store.update_agent(A.DB_PATH, "pbs-ap", remote_shell="lecture")
+        self.assertEqual(self.c.post("/agents/pbs-ap/nas-qnap/commande", json={"nas": "nas-1", "mode": "essai", "commande": "ls /share"}).status_code, 200)
+        self.assertEqual(self.c.post("/agents/pbs-ap/nas-qnap/commande", json={"nas": "nas-1", "mode": "executer", "action": "snapshot"}).status_code, 403)
+        store.update_agent(A.DB_PATH, "pbs-ap", remote_shell="intervention")
+        self.assertEqual(self.c.post("/agents/pbs-ap/nas-qnap/commande", json={"nas": "nas-1", "mode": "executer", "commande": "rm -rf /"}).status_code, 400, "executer sans action déclarée refusé")
+        r = self.c.post("/agents/pbs-ap/nas-qnap/commande", json={"nas": "nas-1", "mode": "executer", "action": "snapshot", "args": {"volume": "DataVol1"}, "actor": "freg"})
+        self.assertEqual(r.status_code, 200)
+        cmd = [x for x in store.list_commands(A.DB_PATH, "pbs-ap") if x["type"] == "nas-qnap-ctl" and x["params"].get("mode") == "executer"][0]
+        self.assertEqual(cmd["params"]["args"], {"volume": "DataVol1"})
+        self.assertNotIn("commande", cmd["params"])
+        self.assertEqual(self.c.get("/agents/pbs-ap/nas-qnap/resultat").status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

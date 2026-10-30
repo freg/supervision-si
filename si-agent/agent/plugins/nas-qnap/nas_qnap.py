@@ -4,12 +4,16 @@
 ne donne pas : snapshots par volume, sauvegardes Time Machine (bundles, ancienneté), partages (dont ceux déclarés Time
 Machine), état RAID (mdstat), remplissage des volumes, et une DÉCOUVERTE des outils de sauvegarde / snapshot présents
 (HBS, RTRR, outils en ligne de commande) pour préparer la gestion à distance -- aucune commande de modification.
+v2 (#940) : connexions en cours (sessions SMB, partages ouverts, sockets par service), journaux de connexion / évènements
+(conn.log, event.log QTS 4 ; emplacements QuLog en QTS 5 découverts), accès refusés, et l'aide (--help) des outils de
+snapshot / HBS trouvés : c'est l'ÉTUDE préalable à toute action à distance (rien n'est modifié).
 
 Réglages : /etc/si-agent/nas-qnap.json = [{"name": "nas-1", "host": "192.0.2.9", "user": "admin", "port": 22,
 "key": "/etc/si-agent/keys/nas-1"}] (clé SSH sans mot de passe, déposée sur le NAS : Panneau de configuration ›
 Sécurité ou ~/.ssh/authorized_keys). Ne touche pas au SNMP du NAS.
 
-Sortie JSON : {"nas": [{name, host, ok, error, systeme, volumes, raid, partages, snapshots, timemachine, outils, alertes}],
+Sortie JSON : {"nas": [{name, host, ok, error, systeme, volumes, raid, partages, snapshots, timemachine, outils, connexions, journaux,
+erreurs_acces, aide, alertes}],
 "alerts": [...]}. Pur (testé) : SCRIPT, decouper, parse_df, parse_mdstat, parse_smb, parse_snapshots, parse_bundles, analyser.
 """
 import argparse
@@ -46,6 +50,22 @@ ls -1 /etc/config 2>/dev/null | grep -i -E "backup|hbs|snapshot|rtrr|qsync|rsync
 ls -1 /share/CACHEDEV*_DATA/.qpkg 2>/dev/null | sort -u | sed "s|^|qpkg:|"
 for p in /sbin /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin /usr/local/HBS3 /share/CACHEDEV1_DATA/.qpkg/HybridBackup; do
   ls -1 "$p" 2>/dev/null | grep -i -E "snap|hbs|rtrr|backup|qcli" | sed "s|^|$p/|"
+done
+echo "=== connexions"
+SMB=""; for c in /usr/local/samba/bin/smbstatus /usr/local/samba/sbin/smbstatus /usr/bin/smbstatus; do [ -x "$c" ] && SMB="$c" && break; done
+if [ -n "$SMB" ]; then "$SMB" -b 2>/dev/null | sed "s|^|smb:|"; "$SMB" -S 2>/dev/null | sed "s|^|share:|"; fi
+netstat -tn 2>/dev/null | awk '$4 ~ /:(445|139|548|22|2049|873|8080|443)$/ && $6=="ESTABLISHED" {print "tcp:" $4 " " $5}' | sort | uniq -c | sed "s|^ *||"
+echo "=== journaux"
+ls -la /etc/logs 2>/dev/null | sed "s|^|etc/logs: |"
+ls -d /share/CACHEDEV*_DATA/.qpkg/QuLog* /share/CACHEDEV*_DATA/.system/data/QuLog* 2>/dev/null | sed "s|^|qulog: |"
+ls -1 /usr/bin/sqlite3 /sbin/log_tool /usr/sbin/log_tool /sbin/qulog_tool 2>/dev/null | sed "s|^|outil: |"
+if [ -x /usr/bin/sqlite3 ] && [ -f /etc/logs/conn.log ]; then /usr/bin/sqlite3 /etc/logs/conn.log "select conn_date, conn_time, conn_user, conn_ip, conn_comp, conn_serv, conn_res, conn_desc from NASLOG_CONN order by conn_id desc limit 60" 2>/dev/null | sed "s|^|conn:|"; fi
+if [ -x /usr/bin/sqlite3 ] && [ -f /etc/logs/event.log ]; then /usr/bin/sqlite3 /etc/logs/event.log "select event_date, event_time, event_type, event_user, event_ip, event_desc from NASLOG_EVENT order by event_id desc limit 40" 2>/dev/null | sed "s|^|event:|"; fi
+echo "=== aide"
+for t in qcli_snapshot snapshot_util snapshot qsnapshot hbs_cli rtrr_cli; do
+  for p in /sbin /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin; do
+    if [ -x "$p/$t" ]; then echo "## $p/$t"; "$p/$t" --help 2>&1 | head -40; "$p/$t" -h 2>&1 | head -40; fi
+  done
 done
 echo "=== fin"
 '''
@@ -175,6 +195,58 @@ def parse_bundles(lignes, now):
     return out
 
 
+def parse_connexions(lignes):
+    """Section connexions : sessions SMB (smbstatus -b), partages ouverts (smbstatus -S), sockets établis par service."""
+    smb, partages, tcp = [], [], []
+    for l in lignes or []:
+        if l.startswith("smb:"):
+            p = l[4:].split()
+            # PID Username Group Machine Protocol Version Encryption Signing (en-tête et tirets ignorés)
+            if len(p) >= 4 and p[0].isdigit():
+                smb.append({"pid": int(p[0]), "utilisateur": p[1], "groupe": p[2], "machine": " ".join(p[3:5]).strip("()"), "protocole": p[5] if len(p) > 5 else None})
+        elif l.startswith("share:"):
+            p = l[6:].split()
+            # Service pid Machine Connected at
+            if len(p) >= 3 and p[1].isdigit():
+                partages.append({"partage": p[0], "pid": int(p[1]), "machine": p[2], "depuis": " ".join(p[3:])})
+        elif l.startswith("tcp:") or re.match(r"^\d+ tcp:", l):
+            m = re.match(r"^(\d+)\s+tcp:(\S+):(\d+)\s+(\S+):\d+$", l)
+            if m:
+                tcp.append({"n": int(m.group(1)), "port": int(m.group(3)), "service": {445: "SMB", 139: "SMB", 548: "AFP", 22: "SSH", 2049: "NFS", 873: "rsync", 8080: "QTS web", 443: "QTS https"}.get(int(m.group(3)), str(m.group(3))), "client": m.group(4).rsplit(":", 1)[0] if ":" in m.group(4) else m.group(4)})
+    return {"smb": smb, "partages_ouverts": partages, "tcp": tcp}
+
+
+def parse_journaux(lignes):
+    """Section journaux : où sont les journaux (découverte) + dernières connexions / évènements si lisibles (conn.log, event.log)."""
+    out = {"emplacements": [], "outils": [], "connexions": [], "evenements": []}
+    for l in lignes or []:
+        if l.startswith("etc/logs: ") or l.startswith("qulog: "):
+            out["emplacements"].append(l.split(": ", 1)[1].strip())
+        elif l.startswith("outil: "):
+            out["outils"].append(l[7:].strip())
+        elif l.startswith("conn:"):
+            p = l[5:].split("|")
+            if len(p) >= 7:
+                out["connexions"].append({"date": p[0], "heure": p[1], "utilisateur": p[2], "ip": p[3], "poste": p[4], "service": p[5], "ressource": p[6], "action": p[7] if len(p) > 7 else ""})
+        elif l.startswith("event:"):
+            p = l[6:].split("|")
+            if len(p) >= 6:
+                out["evenements"].append({"date": p[0], "heure": p[1], "type": p[2], "utilisateur": p[3], "ip": p[4], "message": p[5]})
+    return out
+
+
+def parse_aide(lignes):
+    """Section aide : sortie --help des outils de snapshot / HBS trouvés (étude de la gestion à distance), par outil."""
+    out, cur = {}, None
+    for l in lignes or []:
+        if l.startswith("## "):
+            cur = l[3:].strip()
+            out[cur] = []
+        elif cur is not None and len(out[cur]) < 80:
+            out[cur].append(l[:200])
+    return {k: "\n".join(v).strip() for k, v in out.items()}
+
+
 def analyser(name, host, sortie, now=None, vol_warn=85, vol_crit=95, snap_max_h=48, tm_max_h=24 * 7):
     """Sortie brute du SCRIPT -> fiche du NAS + constats."""
     now = now if now is not None else time.time()
@@ -212,9 +284,15 @@ def analyser(name, host, sortie, now=None, vol_warn=85, vol_crit=95, snap_max_h=
     if tm_parts and not tm:
         alerte("nas-timemachine-vide", "info", "partage(s) Time Machine déclaré(s) (%s) sans sauvegarde trouvée" % ", ".join(tm_parts))
     sans_snap = [v["nom"] for v in volumes if not any(x["volume"] == v["nom"] and x["nombre"] for x in snaps)]
+    conn = parse_connexions(s.get("connexions"))
+    jx = parse_journaux(s.get("journaux"))
+    aide = parse_aide(s.get("aide"))
+    erreurs_acces = [c for c in jx["connexions"] if re.search(r"fail|denied|refus|échec|error", "%s %s" % (c.get("action"), c.get("ressource")), re.I)]
+    if len(erreurs_acces) >= 5:
+        alerte("nas-acces-refuses", "warning", "%d accès refusés / en échec dans les dernières connexions journalisées" % len(erreurs_acces))
     return {"name": name, "host": host, "ok": True, "error": None, "at": now, "systeme": systeme, "volumes": volumes, "raid": raid,
             "partages": partages, "partages_timemachine": tm_parts, "snapshots": snaps, "volumes_sans_snapshot": sans_snap,
-            "timemachine": tm, "outils": outils, "alertes": al}
+            "timemachine": tm, "outils": outils, "connexions": conn, "journaux": jx, "erreurs_acces": erreurs_acces[:20], "aide": aide, "alertes": al}
 
 
 # --- accès réel (non testé hors LAN) ---

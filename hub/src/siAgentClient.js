@@ -98,6 +98,8 @@ export const fetchSauvegarde = (apiBase, agent) => fetchJson(apiBase, `${_ag(age
 export const fetchSauvegardesApercu = (apiBase) => fetchJson(apiBase, "/sauvegardes/apercu");   // #937 : tuile « Sauvegardes »
 export const runBackuppc = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/backuppc/commande`, json("POST", body || {}));   // #939 : BackupPC (status / backup / stop)
 export const fetchBackuppcResultats = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/backuppc/resultat`);   // #939
+export const runNasQnap = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/nas-qnap/commande`, json("POST", body || {}));   // #940 : NAS QNAP par SSH (essai / executer)
+export const fetchNasQnapResultats = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/nas-qnap/resultat`);   // #940
 
 // #931 : poussée d'une archive de sauvegarde vers Proxmox Backup Server (pbs10), par l'agent du serveur PBS.
 export const fetchSauvegardePbsReglage = (apiBase) => fetchJson(apiBase, "/postes-sauvegarde-pbs");

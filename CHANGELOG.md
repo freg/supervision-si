@@ -1,3 +1,19 @@
+## 2026-10-30 — NAS QNAP : connexions, journaux, étude et gestion à distance par SSH (livraison #940)
+
+- « Continue sur QNAP » : sonde **nas-qnap v2** (toujours lecture seule) -- **connexions en cours** (sessions SMB et
+  partages ouverts via smbstatus, connexions établies par service : SMB, AFP, SSH, NFS, rsync, QTS), **journaux**
+  (QTS 4 : conn.log / event.log lus en sqlite -- dernières connexions, accès refusés, évènements ; QTS 5 : emplacements
+  QuLog et outils découverts, à brancher au premier relevé), constat « accès refusés » (≥ 5), et l'**aide (--help) des
+  outils de snapshot / HBS trouvés** : c'est l'étude préalable à toute action.
+- **Gestion à distance** (règle de production respectée : rien ne se modifie sans étude ni autorisation) : commande
+  `nas-qnap-ctl` sur l'agent relais -- `essai` = lecture (commande de lecture en liste blanche : ls, cat, df, getcfg,
+  smbstatus, qcli_* -l… ou action déclarée « lecture ») ; `executer` = INTERVENTION, uniquement une **action déclarée
+  par l'administrateur** dans `/etc/si-agent/nas-qnap.json` (section `actions`, arguments `{volume}` validés), jamais une
+  commande composée par le hub ; 403 / refus agent sans « intervention ». Onglet NAS QNAP : bloc « Connexions et accès »
+  (détail dépliable), bloc « Gestion à distance » (essai, action, exécuter, résultats copiables).
+- Agent **0.6.36**. Vérifié : tests agent (nas-qnap 8, nasqnapctl 3, agent 2, si_agent), API (7), hub (493), lint JSX.
+  Non vérifié : rendu ; sortie réelle de QTS 5.2 (smbstatus, journaux) -- à lire au premier relevé pour ajuster.
+
 ## 2026-10-30 — Thématique « Sauvegardes » à l'accueil, gestion à distance de BackupPC et du NAS QNAP (livraison #939)
 
 - « Une tuile principale (accueil) Sauvegardes qui recouvre toute la thématique » : nouvelle **thématique 💾 Sauvegardes**

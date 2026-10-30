@@ -3374,6 +3374,45 @@ def backuppc_commande_route(agent_id):
     return jsonify({"command": c["id"], "action": action}), 200
 
 
+@app.route("/agents/<agent_id>/nas-qnap/commande", methods=["POST"])
+def nas_qnap_commande_route(agent_id):
+    """#940 : commande sur un NAS QNAP par SSH via l'agent du LAN. {nas, mode: essai|executer, action?, commande?, args?, actor}.
+    `essai` = lecture (autorisation lecture) ; `executer` = INTERVENTION (403 sinon). Les commandes de modification ne
+    viennent que des actions déclarées dans nas-qnap.json de l'agent, jamais du hub."""
+    b = request.get_json(silent=True) or {}
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    mode = str(b.get("mode") or "essai")
+    permis = a.get("remote_shell") or "off"
+    if permis == "off":
+        return jsonify({"error": "commandes a distance desactivees pour cet agent (fiche de l'agent > Commandes a distance)"}), 403
+    if mode == "executer" and permis != "intervention":
+        return jsonify({"error": "action sur le NAS = intervention : passer Commandes a distance en intervention"}), 403
+    params = {"nas": str(b.get("nas") or "").strip(), "mode": mode, "actor": str(b.get("actor") or "?")[:64]}
+    if b.get("action"):
+        params["action"] = str(b["action"])[:64]
+    if b.get("commande") and mode == "essai":
+        params["commande"] = str(b["commande"])[:300]
+    if isinstance(b.get("args"), dict):
+        params["args"] = {str(k)[:32]: str(v)[:64] for k, v in b["args"].items()}
+    try:
+        c = store.create_command(DB_PATH, agent_id, "nas-qnap-ctl", params)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if mode == "executer":
+        _event("nas-qnap", "warning", "NAS %s : action « %s » demandee a %s par %s" % (params["nas"], params.get("action"), agent_id, params["actor"]),
+               agent_id=agent_id, details={"nas": params["nas"], "action": params.get("action")})
+    return jsonify({"command": c["id"], "mode": mode}), 200
+
+
+@app.route("/agents/<agent_id>/nas-qnap/resultat", methods=["GET"])
+def nas_qnap_resultat_route(agent_id):
+    """#940 : derniers resultats de commandes NAS (mesures nas-qnap-ctl) de l'agent relais."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="nas-qnap-ctl", limit=10)
+    return jsonify({"agent": agent_id, "resultats": [{"at": m.get("at"), "ok": m.get("ok"), "data": m.get("data")} for m in ms]}), 200
+
+
 @app.route("/agents/<agent_id>/backuppc/resultat", methods=["GET"])
 def backuppc_resultat_route(agent_id):
     """#939 : derniers resultats de pilotage BackupPC (mesures backuppc-ctl) de l'agent du serveur."""

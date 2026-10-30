@@ -103,6 +103,13 @@ echo "   1. compte $U (mot de passe verrouillé, home $HOME_U)$(id "$U" >/dev/nu
 echo "   2. relevé en lecture seule : $LIB/inventaire.sh + commande forcée $WRAP"
 echo "   3. $HOME_U/.ssh/authorized_keys : from=\"${DEPUIS:-?}\",command=\"$WRAP\",no-pty,no-port-forwarding,no-X11-forwarding,no-agent-forwarding <clé>"
 [ "$SUDO" = 1 ] && echo "   4. /etc/sudoers : $U ALL=(root) NOPASSWD: $LIB/inventaire.sh   (vérifié par visudo, copie .bak)"
+# sshd peut filtrer les comptes (AllowGroups / AllowUsers : OpenMediaVault met AllowGroups) -- vu sur fichiers (#867)
+SSHD_CONF=${SSHD_CONF:-/etc/ssh/sshd_config}
+# premier groupe listé qui n'est PAS un groupe privilégié (jamais root/wheel/sudo/adm pour ce compte)
+GRP_SSH=$(sed -n 's/^[[:space:]]*[Aa]llow[Gg]roups[[:space:]]\{1,\}//p' "$SSHD_CONF" 2>/dev/null | head -n 1 | tr ' \t' '\n\n' | grep -vxE 'root|wheel|sudo|adm|staff|' | head -n 1)
+USERS_SSH=$(sed -n 's/^[[:space:]]*[Aa]llow[Uu]sers[[:space:]]\{1,\}//p' "$SSHD_CONF" 2>/dev/null | head -n 1)
+[ -n "$GRP_SSH" ] && echo "   5. sshd n'accepte que les groupes AllowGroups : $U ajouté au groupe « $GRP_SSH »"
+[ -n "$USERS_SSH" ] && echo "   !! sshd a AllowUsers ($USERS_SSH) : ajouter $U à cette ligne de $SSHD_CONF puis recharger sshd (non fait par ce script)"
 command -v sudo >/dev/null 2>&1 || { [ "$SUDO" = 1 ] && echo "   !! sudo absent : --sudo ignoré"; SUDO=0; }
 
 if [ "$ACTION" = verifier ]; then
@@ -197,10 +204,16 @@ if [ "$SUDO" = 1 ] && ! grep -q "$MARQ" /etc/sudoers; then
   rm -f /etc/sudoers.tmp
 fi
 
+if [ -n "$GRP_SSH" ] && getent group "$GRP_SSH" >/dev/null 2>&1; then
+  usermod -a -G "$GRP_SSH" "$U" && echo "== $U ajouté au groupe $GRP_SSH (AllowGroups de sshd)"
+fi
+
 # ---------- auto-test ----------
 R=$(su "$U" -c "$WRAP" 2>/dev/null | tail -n 1)
 [ "$R" = "@@fin" ] && echo "== auto-test : relevé OK" || echo "!! auto-test : relevé incomplet (dernière ligne : '$R')"
-IP=$(hostname -i 2>/dev/null | awk '{print $1}')
+# adresse vue par le relayeur : source de la route vers lui (hostname -i donne 127.0.1.1 sur Debian)
+IP=$(ip route get "$DEPUIS" 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1)
+[ -n "$IP" ] || IP=$(hostname -i 2>/dev/null | tr ' ' '\n' | grep -v '^127\.' | head -n 1)
 echo "== sur l'agent relayeur ($DEPUIS), ajouter à /etc/si-agent/systemes-remote.json :"
 echo "   {\"name\": \"$NOM\", \"host\": \"${IP:-<ip>}\", \"user\": \"$U\", \"key\": \"/etc/si-agent/keys/si_agent_legacy\", \"role\": \"serveur\","
 echo "    \"ssh_options\": [\"-o\", \"KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1\", \"-o\", \"HostKeyAlgorithms=+ssh-rsa\", \"-o\", \"PubkeyAcceptedAlgorithms=+ssh-rsa\"]}"

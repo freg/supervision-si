@@ -1063,6 +1063,13 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                                   <td className="muted" title={last?.error || ""}>{last?.error && <BoutonDetail titre={`Dernier résultat : ${p.id}`} urgence={last.ok ? "info" : "critique"} texte={last.error} />}{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
                                   <td className="ups-actions">
                                     {p.assigned && <button className="secondary" onClick={() => handleUnassign(p)}>Retirer</button>}
+                                    {/* #940 : activer / désactiver une sonde livrée avec l'agent directement ici (plus de détour par Commandes à distance) */}
+                                    {!p.assigned && p.present && (
+                                      <button className="secondary" title={p.enabled_host ? "désactiver cette sonde sur l'hôte" : "activer cette sonde sur l'hôte (relevé périodique)"}
+                                        onClick={async () => { const t = p.enabled_host ? "disable_plugin" : "enable_plugin"; const r = await sendCommand(siAgentApiBase, selectedId, t, { id: p.id }); if (r?.error) { setError(r.error); return; } setNotice(`Sonde ${p.id} : ${p.enabled_host ? "désactivation" : "activation"} demandée — prise en compte d'ici 1 à 2 min.`); loadDetail(selectedId); }}>
+                                        {p.enabled_host ? "Désactiver" : "Activer"}
+                                      </button>
+                                    )}
                                     <button className="secondary" title="lancer cette sonde maintenant sur l'hôte" onClick={async () => { const r = await sendCommand(siAgentApiBase, selectedId, "run_plugin", { id: p.id }); if (r?.error) { setError(r.error); return; } setNotice(`Sonde ${p.id} lancée — résultat d'ici 1 min (voir Historique).`); loadDetail(selectedId); }}>Exécuter…</button>
                                   </td>
                                 </tr>

@@ -1,13 +1,24 @@
 {
   "id": "nas-qnap",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "nas_qnap.py",
   "interval_seconds": 1800,
   "timeout_seconds": 240,
-  "args": ["--config", "/etc/si-agent/nas-qnap.json", "--vol-warn", "85", "--vol-crit", "95", "--snap-max-h", "48", "--tm-max-days", "7"],
+  "args": [
+    "--config",
+    "/etc/si-agent/nas-qnap.json",
+    "--vol-warn",
+    "85",
+    "--vol-crit",
+    "95",
+    "--snap-max-h",
+    "48",
+    "--tm-max-days",
+    "7"
+  ],
   "enabled": false,
-  "description": "NAS QNAP par SSH (#939), depuis un agent du LAN : ce que le SNMP ne donne pas -- snapshots par volume (nombre, dernier, ancienneté), sauvegardes Time Machine (bundles, dernière écriture, taille), partages (dont Time Machine), RAID (mdstat), remplissage des volumes, et découverte des outils de sauvegarde / snapshot présents (HBS, RTRR, qpkg, commandes). Constats : volume plein (85 / 95 %), RAID dégradé, snapshot en retard (--snap-max-h), Time Machine sans écriture depuis --tm-max-days. LECTURE SEULE (script sh de lecture envoyé par ssh) ; ne touche pas au SNMP du NAS. Réglages : /etc/si-agent/nas-qnap.json = [{\"name\", \"host\", \"user\": \"admin\", \"port\": 22, \"key\": \"/etc/si-agent/keys/<nas>\"}] (clé SSH sans mot de passe). Privilégiée (lecture du fichier de réglages et de la clé, root seulement).",
+  "description": "NAS QNAP par SSH (#939), depuis un agent du LAN : ce que le SNMP ne donne pas -- snapshots par volume (nombre, dernier, ancienneté), sauvegardes Time Machine (bundles, dernière écriture, taille), partages (dont Time Machine), RAID (mdstat), remplissage des volumes, et découverte des outils de sauvegarde / snapshot présents (HBS, RTRR, qpkg, commandes). v2 (#940) : connexions en cours (sessions SMB, partages ouverts, sockets par service), journaux de connexion / évènements (QTS 4 : conn.log, event.log ; QTS 5 : emplacements QuLog découverts), accès refusés (constat à partir de 5), aide (--help) des outils de snapshot / HBS trouvés -- étude préalable à la gestion à distance. Constats : volume plein (85 / 95 %), RAID dégradé, snapshot en retard (--snap-max-h), Time Machine sans écriture depuis --tm-max-days. LECTURE SEULE (script sh de lecture envoyé par ssh) ; ne touche pas au SNMP du NAS. Réglages : /etc/si-agent/nas-qnap.json = [{\"name\", \"host\", \"user\": \"admin\", \"port\": 22, \"key\": \"/etc/si-agent/keys/<nas>\"}] (clé SSH sans mot de passe). Privilégiée (lecture du fichier de réglages et de la clé, root seulement).",
   "source": "bundled",
   "privileged": true
 }

@@ -4,7 +4,7 @@
 // (#939 : volumes SNMP + snapshots, Time Machine, RAID, partages par SSH, lecture seule).
 // Données : GET /sauvegardes/apercu (si-agent-api). Les info-bulles importantes ont leur mini bouton (fenêtre copiable).
 import { useCallback, useEffect, useState } from "react";
-import { fetchSauvegardesApercu, runBackuppc } from "./siAgentClient.js";
+import { fetchSauvegardesApercu, runBackuppc, runNasQnap, fetchNasQnapResultats } from "./siAgentClient.js";
 import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import BoutonDetail from "./FenetreTexte.jsx";
 import { ONGLETS, ton, urgence, libelle, to, ageTexte, detailPoste, filtrerPostes, etatHote, points, csvPostes, etatBackuppcHote, detailBackuppc, conseilBackuppc, detailNas } from "./sauvegardesLib.js";
@@ -185,8 +185,53 @@ function BackupPc({ b, base, actor, recharger }) {
   ));
 }
 
+// #940 : gestion à distance d'un NAS -- essai en lecture (commande de lecture en liste blanche ou action déclarée
+// « lecture »), actions déclarées dans nas-qnap.json de l'agent relais (intervention). Rien n'est inventé par le hub.
+function GestionNas({ n, base, actor }) {
+  const [cmd, setCmd] = useState("ls -1 /share");
+  const [action, setAction] = useState("");
+  const [args, setArgs] = useState("");
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const [res, setRes] = useState([]);
+  const agent = n.ssh?.relais_id;
+  const charger = useCallback(() => { if (agent) fetchNasQnapResultats(base, agent).then((r) => { if (r && !r.error) setRes(r.resultats || []); }); }, [base, agent]);
+  useEffect(() => { charger(); }, [charger]);
+  const envoyer = async (mode, body) => {
+    if (mode === "executer" && !window.confirm(`INTERVENTION sur le NAS ${n.nom} : action « ${body.action} »${args ? ` (${args})` : ""}. Confirmer ?`)) return;
+    setBusy(mode); setMsg("envoi à l'agent " + (n.ssh?.relais || agent) + "…");
+    const r = await runNasQnap(base, agent, { nas: n.nom, mode, actor, ...body });
+    setBusy("");
+    setMsg(r?.error ? `refusé : ${r.error}` : `${mode === "essai" ? "essai" : "action"} envoyé(e) (commande ${r.command}) -- résultat ci-dessous dans ~30 s.`);
+    if (!r?.error) { let k = 0; const t = setInterval(() => { k += 1; charger(); if (k >= 6) clearInterval(t); }, 6000); }
+  };
+  const parseArgs = () => Object.fromEntries(args.split(/[,\s]+/).filter(Boolean).map((kv) => kv.split("=")).filter((p) => p.length === 2));
+  if (!agent) return null;
+  return (
+    <div style={{ marginTop: 8, borderTop: "1px solid var(--border)", paddingTop: 6 }}>
+      <h5 style={{ margin: "2px 0" }}>Gestion à distance <span className="infra-muted" style={{ fontWeight: 400, fontSize: 12 }}>par l'agent {n.ssh?.relais} (SSH)</span></h5>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <label style={{ fontSize: 12 }}>Essai (lecture seule : ls, cat, df, getcfg, smbstatus, qcli_* -l…)<br /><input value={cmd} onChange={(e) => setCmd(e.target.value)} style={{ width: 320 }} /></label>
+        <button type="button" className="secondary" disabled={!!busy} onClick={() => envoyer("essai", { commande: cmd })}>{busy === "essai" ? "⏳ en cours…" : "▶ Essayer"}</button>
+        <span style={{ width: 16 }} />
+        <label style={{ fontSize: 12 }}>Action déclarée (nas-qnap.json › actions)<br /><input value={action} onChange={(e) => setAction(e.target.value)} placeholder="snapshot" style={{ width: 140 }} /></label>
+        <label style={{ fontSize: 12 }}>Arguments (clé=valeur)<br /><input value={args} onChange={(e) => setArgs(e.target.value)} placeholder="volume=DataVol1" style={{ width: 180 }} /></label>
+        <button type="button" className="secondary" disabled={!!busy || !action} onClick={() => envoyer("essai", { action, args: parseArgs() })}>{busy === "essai" ? "⏳…" : "Essai de l'action"}</button>
+        <button type="button" className="danger" disabled={!!busy || !action} onClick={() => envoyer("executer", { action, args: parseArgs() })}>{busy === "executer" ? "⏳ en cours…" : "⚠ Exécuter (intervention)"}</button>
+      </div>
+      {msg && <p className={msg.startsWith("refusé") ? "np-tone bad" : "np-tone neutral"} style={{ margin: "4px 0", fontSize: 13 }}>{msg}</p>}
+      <p className="infra-muted" style={{ fontSize: 12, margin: "4px 0" }}>Les actions de modification (snapshot, tâche HBS…) ne sont jamais composées ici : elles doivent être déclarées par l'administrateur dans <code>/etc/si-agent/nas-qnap.json</code> de l'agent relais, après l'étude ci-dessus (outils détectés, aide), et exigent « intervention » dans ses Commandes à distance. Exemple : <code>{`"actions": {"snapshot": {"commande": "qcli_snapshot -c -v {volume}", "lecture": false}}`}</code></p>
+      {res.length > 0 && <div style={{ maxHeight: 220, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Quand</th><th>Mode</th><th>Commande</th><th>Résultat</th></tr></thead><tbody>
+        {res.map((r, i) => <tr key={i}><td>{quand(r.at)}</td><td><Etat etat={r.data?.mode === "executer" ? "attention" : "ok"} texte={r.data?.mode} /></td><td><code style={{ fontSize: 12 }}>{r.data?.commande}</code></td>
+          <td><Etat etat={r.ok ? "ok" : "critique"} texte={r.ok ? "ok" : `code ${r.data?.code}`} /> <BoutonDetail titre={`NAS ${n.nom} : ${r.data?.commande}`} urgence={r.ok ? "info" : "alerte"} texte={(r.data?.sortie || "") + (r.data?.erreur ? "\n--- erreur ---\n" + r.data.erreur : "")} /></td></tr>)}
+      </tbody></table></div>}
+    </div>
+  );
+}
+
 // #939 : NAS -- volumes (SNMP), snapshots / Time Machine / RAID / partages / outils (SSH, lecture seule).
-function Nas({ nas }) {
+// #940 : connexions en cours, journaux (connexions, évènements, accès refusés), aide des outils, gestion à distance.
+function Nas({ nas, base, actor }) {
   if (!nas.length) return <p className="infra-muted">Aucun NAS relevé : activer la sonde <b>nas-snmp</b> (<a href={hubLink("nas", {})}>tuile NAS</a>) et, pour les snapshots et Time Machine, la sonde <b>nas-qnap</b> (SSH, clé sans mot de passe, fichier /etc/si-agent/nas-qnap.json sur l'hôte de l'agent).</p>;
   return nas.map((n) => (
     <section key={n.nom} className="infra-card" style={{ margin: "8px 0" }}>
@@ -210,12 +255,38 @@ function Nas({ nas }) {
         {n.ssh?.ok && <div><h5 style={{ margin: "6px 0 2px" }}>Partages ({n.ssh.partages.length})</h5>
           <div style={{ maxHeight: 180, overflow: "auto", fontSize: 12 }}>{n.ssh.partages.map((p) => <div key={p.nom}>{p.nom}{p.timemachine ? " · Time Machine" : ""}{p.lecture_seule ? " · lecture seule" : ""}{p.navigable ? "" : " · caché"} <span className="infra-muted">{p.chemin}</span></div>)}</div>
           <h5 style={{ margin: "6px 0 2px" }}>Outils de sauvegarde détectés</h5>
-          <div style={{ fontSize: 12 }}>{n.ssh.outils.length ? n.ssh.outils.join(" · ") : "aucun (HBS / RTRR non trouvés)"}</div>
-          <p className="infra-muted" style={{ fontSize: 12 }}>Gestion à distance (prendre un snapshot, lancer une tâche HBS) : à brancher sur les outils détectés ci-dessus, après essai en lecture -- rien n'est modifié sur le NAS pour l'instant.</p>
+          <div style={{ fontSize: 12 }}>{n.ssh.outils.length ? n.ssh.outils.join(" · ") : "aucun (HBS / RTRR non trouvés)"}
+            {Object.keys(n.ssh.aide || {}).length > 0 && <> <BoutonDetail titre={`NAS ${n.nom} : aide des outils (--help)`} urgence="info" libelle="?" texte={Object.entries(n.ssh.aide).map(([k, v]) => `## ${k}\n${v}`).join("\n\n")} /></>}</div>
         </div>}
       </div>
+      {n.ssh?.ok && <ConnexionsNas n={n} />}
+      {n.ssh?.ok && <GestionNas n={n} base={base} actor={actor} />}
     </section>
   ));
+}
+
+// #940 : connexions en cours et journaux du NAS (lecture).
+function ConnexionsNas({ n }) {
+  const c = n.ssh.connexions || {};
+  const j = n.ssh.journaux || {};
+  const [ouvert, setOuvert] = useState(false);
+  const nb = (c.smb || []).length + (c.tcp || []).reduce((s, t) => s + (t.n || 0), 0);
+  return (
+    <div style={{ marginTop: 8, borderTop: "1px solid var(--border)", paddingTop: 6 }}>
+      <h5 style={{ margin: "2px 0" }}>Connexions et accès <span className="infra-muted" style={{ fontWeight: 400, fontSize: 12 }}>{(c.smb || []).length} session(s) SMB · {(c.partages_ouverts || []).length} partage(s) ouvert(s) · {nb} connexion(s)</span>
+        {n.ssh.erreurs_acces?.length > 0 && <> <Etat etat={n.ssh.erreurs_acces.length >= 5 ? "attention" : "info"} texte={`${n.ssh.erreurs_acces.length} accès refusé(s)`} /> <BoutonDetail titre={`NAS ${n.nom} : accès refusés`} urgence={n.ssh.erreurs_acces.length >= 5 ? "alerte" : "info"} texte={n.ssh.erreurs_acces.map((e) => `${e.date} ${e.heure} ${e.utilisateur} ${e.ip} ${e.poste} ${e.service} ${e.ressource} ${e.action}`).join("\n")} /></>}
+        {" "}<button type="button" className="secondary" style={{ padding: "0 6px", fontSize: 12 }} onClick={() => setOuvert(!ouvert)}>{ouvert ? "− détail" : "+ détail"}</button></h5>
+      {ouvert && <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start", fontSize: 12 }}>
+        <div><b>Sessions SMB</b>{(c.smb || []).length ? <table className="infra-table"><thead><tr><th>Utilisateur</th><th>Machine</th><th>Protocole</th></tr></thead><tbody>{c.smb.map((s, i) => <tr key={i}><td>{s.utilisateur}</td><td>{s.machine}</td><td>{s.protocole}</td></tr>)}</tbody></table> : <div className="infra-muted">aucune (ou smbstatus absent)</div>}
+          <b>Par service</b>{(c.tcp || []).map((t, i) => <div key={i}>{t.service} : {t.n} depuis {t.client}</div>)}</div>
+        <div><b>Journal des connexions</b> <span className="infra-muted">({(j.connexions || []).length} dernières{j.emplacements?.length ? ` · ${j.emplacements.join(", ")}` : ""})</span>
+          {(j.connexions || []).length ? <div style={{ maxHeight: 200, overflow: "auto" }}><table className="infra-table"><thead><tr><th>Quand</th><th>Qui</th><th>D'où</th><th>Service</th><th>Ressource</th><th>Action</th></tr></thead><tbody>
+            {j.connexions.map((e, i) => <tr key={i} className={/fail|denied|refus/i.test(e.action) ? "np-tone bad" : ""}><td>{e.date} {e.heure}</td><td>{e.utilisateur}</td><td>{e.ip}{e.poste ? ` (${e.poste})` : ""}</td><td>{e.service}</td><td>{e.ressource}</td><td>{e.action}</td></tr>)}</tbody></table></div>
+            : <div className="infra-muted">journal non lisible par ce relevé (QTS 5 : QuLog Center -- emplacements découverts : {j.emplacements?.join(", ") || "aucun"} ; outils : {j.outils?.join(", ") || "aucun"})</div>}
+          {(j.evenements || []).length > 0 && <><b>Évènements système</b><div style={{ maxHeight: 160, overflow: "auto" }}>{j.evenements.map((e, i) => <div key={i}>{e.date} {e.heure} · {e.message}</div>)}</div></>}</div>
+      </div>}
+    </div>
+  );
 }
 
 export default function SauvegardesView({ onBack, siAgentApiBase, actor }) {
@@ -243,7 +314,7 @@ export default function SauvegardesView({ onBack, siAgentApiBase, actor }) {
           : onglet === "pbs" ? <Pbs pbs={ap.pbs || []} />
             : onglet === "copies" ? <Copies copies={ap.copies} />
               : onglet === "backuppc" ? <BackupPc b={ap.backuppc} base={siAgentApiBase} actor={actor} recharger={load} />
-                : onglet === "nas" ? <Nas nas={ap.nas || []} />
+                : onglet === "nas" ? <Nas nas={ap.nas || []} base={siAgentApiBase} actor={actor} />
                   : <Ensemble ap={ap} aller={setOnglet} />
       )}
     </div>
