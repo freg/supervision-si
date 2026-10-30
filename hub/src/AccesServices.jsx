@@ -126,7 +126,7 @@ export default function AccesServices({ agent, base, actor }) {
         puis en <b>passant l'authentification</b> jusqu'à la page connectée, avec un compte de supervision dont le secret reste au coffre.
       </p>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-        <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer le test</button>
+        <button type="button" className="primary" disabled={busy} onClick={lancer}>{busy ? "⏳ en cours…" : "▶ Lancer le test"}</button>
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer la liste" : "Configurer les sites"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>

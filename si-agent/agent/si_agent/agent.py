@@ -809,6 +809,8 @@ class Agent(object):
                 return self._restauration_lancer(params)
             if ctype == "pbs-push":                     # #931 : poussée d'une archive de sauvegarde vers PBS
                 return self._pbs_push_lancer(params)
+            if ctype == "backuppc-ctl":                 # #939 : BackupPC (status lecture ; backup/stop = intervention)
+                return self._backuppc_ctl(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1733,6 +1735,37 @@ class Agent(object):
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
 
     # -- #934 : restauration d'une sauvegarde (confs registre + dossiers + montages) -- INTERVENTION ---------------
+    def _backuppc_ctl(self, params):
+        """#939 : sur l'agent du serveur BackupPC. `status` = lecture (BackupPC_serverMesg status hosts) ; `backup-full`,
+        `backup-incr`, `stop` = INTERVENTION (autorisation « intervention » des commandes à distance, comme #934).
+        Synchrone (BackupPC_serverMesg répond tout de suite : la sauvegarde elle-même tourne côté BackupPC et sera vue
+        par la sonde backuppc) ; pousse la mesure `backuppc-ctl`."""
+        import os as _os
+        from . import backuppcctl as bc
+        action = str(params.get("action") or "status")
+        host = params.get("host")
+        if action not in bc.ACTIONS:
+            return {"ok": False, "error": "action : status, backup-full, backup-incr, stop"}
+        if action != "status":
+            permis = str(self.cfg.get("remote_shell") or "off")
+            if permis == "off":
+                return {"ok": False, "error": "commandes à distance désactivées sur cet agent (fiche de l'agent › Commandes à distance)"}
+            if permis != "intervention":
+                return {"ok": False, "error": "lancer / arrêter une sauvegarde BackupPC = intervention : autoriser « intervention » dans Commandes à distance"}
+        try:
+            argv = bc.argv(action, host, params.get("actor") or "hub", bc.binaire(), backoff_h=params.get("backoff_h") or 0,
+                           root=(not IS_WINDOWS and hasattr(_os, "geteuid") and _os.geteuid() == 0))
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        r = self.cmd(argv, timeout=60)
+        data = bc.interpreter(action, getattr(r, "returncode", -1), getattr(r, "stdout", ""), getattr(r, "stderr", ""), host=host)
+        self.queue.put({"task": "backuppc-ctl", "at": _iso(self.clock()), "ok": bool(data.get("ok")), "agent_id": self.agent_id, "data": data})
+        if action != "status":
+            self.event("backuppc", "warning" if not data.get("ok") else "info",
+                       "BackupPC %s %s : %s" % (action, host, "demandé" if data.get("ok") else "refusé -- %s" % data.get("erreur")),
+                       {"action": action, "host": host, "actor": str(params.get("actor") or "?")[:64]})
+        return {"ok": bool(data.get("ok")), "result": data} if data.get("ok") else {"ok": False, "error": data.get("erreur") or "échec"}
+
     def _restauration_lancer(self, params):
         """Restaure une archive de sauvegarde (#930) sur ce poste. `mode` = « simulation » (lecture seule : liste ce
         qui serait restauré) ou « appliquer » (réimport du registre avec repli, remise des dossiers, remontage).

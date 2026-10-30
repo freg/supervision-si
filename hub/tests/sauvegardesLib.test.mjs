@@ -61,3 +61,30 @@ test("CSV ; pour Excel français, décimale à virgule", () => {
   assert.match(l[3], /"jamais"$/);
   assert.equal(ONGLETS.length, 6);
 });
+
+// #939 : BackupPC et NAS dans la lib.
+import { etatBackuppcHote, detailBackuppc, conseilBackuppc, detailNas } from "../src/sauvegardesLib.js";
+
+test("#939 BackupPC : états, détail, conseils, points", () => {
+  assert.equal(etatBackuppcHote({ age_h: 10 }), "ok");
+  assert.equal(etatBackuppcHote({ age_h: 60 }), "attention");
+  assert.equal(etatBackuppcHote({ age_h: 10, erreur: "x" }), "attention");
+  assert.equal(etatBackuppcHote({ age_h: 480 }), "critique");
+  assert.equal(etatBackuppcHote({ age_h: null }), "jamais");
+  const d = detailBackuppc({ host: "ob1", etat: "inactif", raison: "SAUVEGARDE EN ÉCHEC", erreur: "No files dumped for share /", age_h: 480, derniere_bonne: 1760000000, sauvegardes: 2, pleines: 1, taille: 5e9, xfer_errs: 2, user: "willy" });
+  assert.match(d, /ob1 : critique/); assert.match(d, /No files dumped/); assert.match(d, /2 sauvegarde\(s\) conservée\(s\) dont 1 pleine\(s\) · dernière : 5,0 Go · 2 erreur/);
+  const c = conseilBackuppc("No files dumped for share /home/willy/saclak", "optick3");
+  assert.match(c.texte, /n'a rien ramené/); assert.ok(c.commandes.some((x) => x.includes("/etc/backuppc/optick3.pl")));
+  assert.match(conseilBackuppc("no ping response", "pc").commandes[0], /^ping -c 3 pc$/);
+  assert.equal(conseilBackuppc("", "pc"), null);
+  const pts = points({ postes: [], pbs: [], copies: { hotes: [], invites: {} }, nas: [],
+    backuppc: { serveurs: [{ serveur: "fichiers", pool_pct: 53, echecs_detail: [{ host: "ob1", erreur: "No files dumped for share /", age_h: 480 }, { host: "pc", erreur: "x", age_h: 5 }] }] } });
+  assert.deepEqual(pts.map((p) => [p.etat, p.onglet]), [["critique", "backuppc"], ["attention", "backuppc"]]);
+});
+
+test("#939 NAS : détail SSH", () => {
+  const d = detailNas({ nom: "qnap", etat: "attention", volumes: [{ nom: "DataVol1", pct: 90.5 }], snapshots: [{ volume: "CACHEDEV1_DATA", nombre: 3, dernier_age_h: 15 }],
+    timemachine: [{ machine: "mac-a", age_h: 5, ko: 15e6 }], ssh: { ok: true, raid: [{ dev: "md2", niveau: "RAID 1", degrade: true, etat: "U_" }], alertes: ["qnap : md2 dégradé"] } });
+  assert.match(d, /90,5 %/); assert.match(d, /snapshots CACHEDEV1_DATA : 3, dernier il y a 15 h/); assert.match(d, /Time Machine « mac-a » : dernière écriture il y a 5 h \(15,4 Go\)/); assert.match(d, /md2 RAID 1 : DÉGRADÉ U_/);
+  assert.match(detailNas({ nom: "n", etat: "ok", ssh: { ok: false, erreur: "ssh refusé" } }), /SSH : ssh refusé/);
+});

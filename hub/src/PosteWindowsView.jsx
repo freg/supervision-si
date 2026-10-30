@@ -289,7 +289,7 @@ function ChargePilotage({ agent, base, charge }) {
         <label>Plafond/épreuve <input type="number" style={{ width: 60 }} value={maxS} onChange={(e) => setMaxS(+e.target.value)} /> s</label>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "6px 0", flexWrap: "wrap" }}>
-        <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer</button>
+        <button type="button" className="primary" disabled={busy} onClick={lancer}>{busy ? "⏳ en cours…" : "▶ Lancer"}</button>
         <button type="button" className="secondary" disabled={busy} onClick={interrompre}>⏹ Interrompre</button>
         <button type="button" className="secondary" onClick={rafraichir}>⟳</button>
         {msg && <span className="infra-muted">{msg}</span>}

@@ -5,8 +5,8 @@ remontées (aucune commande envoyée, aucun accès aux équipements) :
   pousseur, backup_id = agent) -> état par poste ;
 - pbs : sonde `pbs` (datastores, groupes, alertes) ;
 - copies host/VM : sonde `pulled-backups` (journal pve-pull-backup / zfs-secours) et inventaire des copies ;
-- nas : volumes des NAS (nas-snmp) -- les snapshots / TimeMachine viendront d'un connecteur dédié ;
-- backuppc : sonde à venir (#938) -> « non relevé ».
+- nas : volumes des NAS (nas-snmp) + snapshots / Time Machine / RAID / partages par SSH (nas-qnap, #939) ;
+- backuppc : sonde `backuppc` (#939) sur le serveur BackupPC (hôtes, échecs, pool) ; « non relevé » sans mesure.
 
 Module pur (pas de Flask, pas de SQLite) : `assembler(...)` prend les listes de mesures et renvoie le JSON de la tuile ;
 testé par test_z_sauvegardes_apercu.py. Les secrets n'apparaissent jamais ici (les mesures n'en contiennent pas).
@@ -113,27 +113,90 @@ def copies(mesures, inventaire_resume=None, now=None):
     return {"hotes": hotes, "invites": {"ok": res.get("ok", 0), "attention": res.get("attention", 0), "critique": res.get("critique", 0), "info": res.get("info", 0)}}
 
 
-def nas(mesures):
-    """plugin:nas-snmp -> [{nom, at, volumes:[{nom, pct, ko}], etat}] (les snapshots/TimeMachine viendront du connecteur QNAP)."""
+def nas(mesures, mesures_ssh=None):
+    """plugin:nas-snmp -> [{nom, at, volumes:[{nom, pct, ko}], etat, snapshots, timemachine}] ; #939 : complété par la sonde
+    nas-qnap (SSH) -- snapshots par volume, Time Machine, RAID, partages, outils -- rapprochée par nom ou par adresse."""
+    ssh = {}
+    for aid, h, at, d in mesures_ssh or []:
+        for n in ((d or {}).get("nas") or []):
+            if isinstance(n, dict):
+                n = dict(n, relais_ssh=h or aid, at_ssh=at)
+                ssh[str(n.get("name") or "").lower()] = n
+                if n.get("host"):
+                    ssh[str(n["host"]).lower()] = n
     out = []
+    vus = set()
     for aid, h, at, d in mesures:
         for n in ((d or {}).get("nas") or []):
             if not isinstance(n, dict):
                 continue
             vols = [{"nom": v.get("nom"), "pct": v.get("pct"), "ko": v.get("ko"), "libre_ko": v.get("libre_ko")} for v in (n.get("volumes") or []) if isinstance(v, dict)]
             pires = [v["pct"] for v in vols if isinstance(v.get("pct"), (int, float))]
-            out.append({"nom": n.get("name"), "hote": n.get("host"), "relais": h or aid, "at": at, "ok": n.get("ok", True), "erreur": n.get("error"),
-                        "volumes": vols, "etat": "erreur" if not n.get("ok", True) else "critique" if pires and max(pires) >= 95 else "attention" if pires and max(pires) >= 85 else "ok",
-                        "snapshots": None, "timemachine": None})     # connecteur QNAP à venir
+            e = {"nom": n.get("name"), "hote": n.get("host"), "relais": h or aid, "at": at, "ok": n.get("ok", True), "erreur": n.get("error"),
+                 "volumes": vols, "etat": "erreur" if not n.get("ok", True) else "critique" if pires and max(pires) >= 95 else "attention" if pires and max(pires) >= 85 else "ok",
+                 "snapshots": None, "timemachine": None, "ssh": None}
+            x = ssh.get(str(n.get("name") or "").lower()) or ssh.get(str(n.get("host") or "").lower())
+            if x:
+                vus.add(id(x))
+                _completer_ssh(e, x)
+            out.append(e)
+    for x in {id(v): v for v in ssh.values()}.values():          # NAS relevés par SSH seulement
+        if id(x) in vus:
+            continue
+        e = {"nom": x.get("name"), "hote": x.get("host"), "relais": x.get("relais_ssh"), "at": x.get("at_ssh"), "ok": x.get("ok", True), "erreur": x.get("error"),
+             "volumes": [{"nom": v.get("nom"), "pct": v.get("pct"), "ko": v.get("ko"), "libre_ko": v.get("libre_ko")} for v in (x.get("volumes") or [])],
+             "etat": "erreur" if not x.get("ok", True) else "ok", "snapshots": None, "timemachine": None, "ssh": None}
+        _completer_ssh(e, x)
+        out.append(e)
     return out
+
+
+def _completer_ssh(e, x):
+    """Fusionne la fiche SSH (nas-qnap) dans l'entrée d'aperçu : snapshots, Time Machine, RAID, partages, outils, alertes."""
+    if not x.get("ok", True):
+        e["ssh"] = {"ok": False, "erreur": x.get("error"), "relais": x.get("relais_ssh"), "at": x.get("at_ssh")}
+        return
+    e["snapshots"] = x.get("snapshots") or []
+    e["timemachine"] = x.get("timemachine") or []
+    e["ssh"] = {"ok": True, "relais": x.get("relais_ssh"), "at": x.get("at_ssh"), "raid": x.get("raid") or [], "partages": x.get("partages") or [],
+                "partages_timemachine": x.get("partages_timemachine") or [], "volumes_sans_snapshot": x.get("volumes_sans_snapshot") or [],
+                "outils": x.get("outils") or [], "systeme": x.get("systeme") or {}, "alertes": [a.get("message") for a in (x.get("alertes") or []) if isinstance(a, dict)]}
+    sev = [a.get("severity") for a in (x.get("alertes") or []) if isinstance(a, dict)]
+    if "critical" in sev and e["etat"] != "erreur":
+        e["etat"] = "critique"
+    elif "warning" in sev and e["etat"] == "ok":
+        e["etat"] = "attention"
+
+
+def backuppc(mesures):
+    """#939 : plugin:backuppc -> {etat, serveurs:[{agent_id, serveur, version, at, hotes, echecs, en_cours, pool_pct, alertes, hotes_detail}]}.
+    Sans mesure : « non relevé » (sonde backuppc à activer sur le serveur BackupPC)."""
+    serveurs = []
+    for aid, h, at, d in mesures or []:
+        d = d or {}
+        s = d.get("summary") or {}
+        pool = d.get("pool") or {}
+        serveurs.append({"agent_id": aid, "serveur": h or aid, "at": at, "version": (d.get("serveur") or {}).get("version"),
+                         "erreur": (d.get("serveur") or {}).get("erreur"), "hotes": s.get("hotes", len(d.get("hotes") or [])),
+                         "echecs": s.get("echecs", len(d.get("echecs") or [])), "en_cours": s.get("en_cours", 0),
+                         "pool_pct": pool.get("topdir_pct") if pool.get("topdir_pct") is not None else pool.get("fs_pct"),
+                         "pool_octets": pool.get("cpool_octets"), "prochain_reveil": (d.get("serveur") or {}).get("prochain_reveil"),
+                         "alertes": [a.get("message") for a in (d.get("alerts") or []) if isinstance(a, dict)],
+                         "etat": {"critical": "critique", "warning": "attention"}.get(s.get("state"), "ok"),
+                         "hotes_detail": d.get("hotes") or [], "echecs_detail": d.get("echecs") or [], "files": d.get("files") or {}})
+    if not serveurs:
+        return {"etat": "non relevé", "message": "sonde backuppc à activer sur l'agent du serveur BackupPC (fiche de l'agent › Sondes)", "serveurs": []}
+    pire = "critique" if any(x["etat"] == "critique" for x in serveurs) else "attention" if any(x["etat"] == "attention" for x in serveurs) else "ok"
+    return {"etat": pire, "message": "%d serveur(s), %d hôte(s), %d échec(s)" % (len(serveurs), sum(x["hotes"] for x in serveurs), sum(x["echecs"] for x in serveurs)), "serveurs": serveurs}
 
 
 def resume(p, b, c, n, backuppc):
     """Compteurs de la vue d'ensemble + verdict global."""
     crit = sum(1 for x in p if x["etat"] == "critique") + sum(1 for x in b if x["etat"] in ("critique", "erreur")) \
-        + c["invites"].get("critique", 0) + sum(1 for x in n if x["etat"] in ("critique", "erreur"))
+        + c["invites"].get("critique", 0) + sum(1 for x in n if x["etat"] in ("critique", "erreur")) + (1 if backuppc.get("etat") == "critique" else 0)
     att = sum(1 for x in p if x["etat"] in ("attention", "jamais")) + sum(1 for x in b if x["etat"] == "attention") \
-        + c["invites"].get("attention", 0) + sum(1 for x in n if x["etat"] == "attention") + sum(h["echecs"] for h in c["hotes"])
+        + c["invites"].get("attention", 0) + sum(1 for x in n if x["etat"] == "attention") + sum(h["echecs"] for h in c["hotes"]) \
+        + (1 if backuppc.get("etat") == "attention" else 0)
     return {"postes": {"total": len(p), "ok": sum(1 for x in p if x["etat"] == "ok"), "jamais": sum(1 for x in p if x["etat"] == "jamais")},
             "pbs": {"serveurs": len(b), "groupes": sum(x["groupes"] for x in b), "en_retard": sum(x["en_retard"] or 0 for x in b)},
             "copies": {"hotes": len(c["hotes"]), "copies": sum(h["copies"] for h in c["hotes"]), "echecs": sum(h["echecs"] for h in c["hotes"]), "invites": c["invites"]},
@@ -141,11 +204,11 @@ def resume(p, b, c, n, backuppc):
             "verdict": "critique" if crit else "attention" if att else "ok", "critiques": crit, "attentions": att}
 
 
-def assembler(sauvegardes, pousses, agents, mesures_pbs, mesures_copies, inventaire_resume, mesures_nas, backuppc=None, now=None):
+def assembler(sauvegardes, pousses, agents, mesures_pbs, mesures_copies, inventaire_resume, mesures_nas, mesures_backuppc=None, now=None, mesures_nas_ssh=None):
     now = now if now is not None else datetime.now(timezone.utc).timestamp()
     p = postes(sauvegardes, pousses, agents, now)
     b = pbs(mesures_pbs)
     c = copies(mesures_copies, inventaire_resume, now)
-    n = nas(mesures_nas)
-    bpc = backuppc or {"etat": "non relevé", "message": "sonde backuppc à activer sur le serveur BackupPC (à venir)"}
+    n = nas(mesures_nas, mesures_nas_ssh)
+    bpc = backuppc(mesures_backuppc)
     return {"resume": resume(p, b, c, n, bpc), "postes": p, "pbs": b, "copies": c, "nas": n, "backuppc": bpc}

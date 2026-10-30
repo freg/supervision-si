@@ -1,3 +1,31 @@
+## 2026-10-30 — Thématique « Sauvegardes » à l'accueil, gestion à distance de BackupPC et du NAS QNAP (livraison #939)
+
+- « Une tuile principale (accueil) Sauvegardes qui recouvre toute la thématique » : nouvelle **thématique 💾 Sauvegardes**
+  (super-tuile et menu), avec la vue d'ensemble (#937) et les sauvegardes du hub ; retirées de « Sécurité & accès ».
+- **BackupPC** : nouvelle sonde **backuppc** (agent du serveur BackupPC 3.x/4.x, lecture seule : `BackupPC_serverMesg
+  status`, hosts, config.pl, `pc/<hôte>/backups`, df) -> version, pool (taille, remplissage, nettoyage), chaque hôte
+  (état, dernière réussie / pleine / incrémentale, dernière erreur, erreurs de transfert), **échecs à traiter** avec un
+  conseil et des commandes de lecture copiables (ex. « No files dumped for share / » -> XferLOG + réglages de l'hôte),
+  files d'attente. Constats : serveur injoignable, pool 85/95 %, hôte sans réussite depuis 48 h (critique > 7 j), échec.
+  **Gestion à distance** : commande `backuppc-ctl` (`status` = lecture ; `backup-full` / `backup-incr` / `stop` =
+  INTERVENTION, autorisation « intervention » des commandes à distance exigée côté API (403) et côté agent), boutons
+  Incrémentale / Complète / Arrêter par hôte dans l'onglet BackupPC, journalisées.
+- **NAS QNAP** : nouvelle sonde **nas-qnap** (SSH depuis un agent du LAN, clé sans mot de passe, script `sh` de lecture
+  seule ; le SNMP du NAS n'est pas touché) -> snapshots par volume (nombre, dernier, ancienneté), **Time Machine**
+  (bundles, dernière écriture, taille), partages (dont Time Machine), RAID (`mdstat`, dégradé), volumes, et découverte
+  des outils de sauvegarde présents (HBS, RTRR, qpkg, commandes) pour brancher la gestion à distance ensuite. Fusionnée
+  avec le relevé SNMP dans l'onglet NAS QNAP de la tuile. Réglages : `/etc/si-agent/nas-qnap.json`.
+- Vue d'ensemble : compteurs et « à traiter » incluent BackupPC (échecs, pool) et les alertes SSH du NAS.
+- **Règle générale notée** (demande du jour) : un bouton d'action passe visiblement « en cours » dès le clic, même si
+  un message s'affiche par ailleurs -- appliqué à Lancer la sauvegarde (⏳ envoi… puis « en cours sur le poste » jusqu'au
+  résultat), Pousser PBS, Préflight, Simuler / Appliquer la restauration, Lancer le test d'accès, Lancer un test de charge.
+- Agent **0.6.35** (sondes backuppc, nas-qnap ; commande backuppc-ctl).
+- Vérifié : tests agent (backuppc 5, nas-qnap 6, backuppcctl 3, agent 3, si_agent 41), API (6), hub (493), lint JSX,
+  pastille d'icône. Non vérifié : rendu ; sondes non exécutées sur un vrai BackupPC / QTS (parsing testé sur des sorties
+  reconstituées -- à vérifier au premier relevé, en particulier les chemins de snapshots QTS). Signalé : 2 tests agent (test_migctl source vide, test_p2v_direct) et 3 tests API
+  (test_ping port, apprentissage / modèles en suite complète) échouent déjà sur #938 dans ce bac à sable (chemins /tmp,
+  ports, ordre de suite) -- hors périmètre, à regarder à part.
+
 ## 2026-10-30 — Conseils de diagnostic : éléments nommés et procédures précises (livraison #938)
 
 - Retour sur « Propositions et conseils » : « les éléments demandés devraient être identifiés par le diag et présentés

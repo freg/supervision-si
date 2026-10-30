@@ -58,11 +58,27 @@ class Autres(unittest.TestCase):
         n = sa.nas([("relais", "relais", "t", {"nas": [{"name": "qnap", "host": "10.0.0.9", "ok": True, "volumes": [{"nom": "DataVol1", "pct": 96.0, "ko": 10}]},
                                                        {"name": "mort", "ok": False, "error": "timeout"}]})])
         self.assertEqual([x["etat"] for x in n], ["critique", "erreur"])
-        self.assertIsNone(n[0]["snapshots"], "connecteur QNAP à venir")
+        self.assertIsNone(n[0]["snapshots"], "pas de relevé SSH")
+        # #939 : fusion avec la sonde nas-qnap (par nom), et NAS relevé par SSH seulement
+        ssh = [("lan-agent", "lan-agent", "2026-10-30T09:00:00Z", {"nas": [
+            {"name": "QNAP", "host": "10.0.0.9", "ok": True, "snapshots": [{"volume": "CACHEDEV1_DATA", "nombre": 3, "dernier_age_h": 15.0}], "timemachine": [{"machine": "mac-a", "age_h": 5}],
+             "raid": [{"dev": "md1", "degrade": False}], "partages": [{"nom": "Public"}], "partages_timemachine": ["TM"], "outils": ["qpkg:HybridBackup"],
+             "alertes": [{"severity": "warning", "message": "QNAP : volume x"}]},
+            {"name": "nas-2", "host": "10.0.0.10", "ok": True, "volumes": [{"nom": "CACHEDEV1_DATA", "pct": 10.0, "ko": 5, "libre_ko": 4}], "snapshots": [], "timemachine": [], "alertes": []}]})]
+        n2 = sa.nas([("relais", "relais", "t", {"nas": [{"name": "qnap", "host": "10.0.0.9", "ok": True, "volumes": [{"nom": "DataVol1", "pct": 50.0, "ko": 10}]}]})], ssh)
+        self.assertEqual([x["nom"] for x in n2], ["qnap", "nas-2"])
+        self.assertEqual((n2[0]["etat"], n2[0]["snapshots"][0]["nombre"], n2[0]["timemachine"][0]["machine"], n2[0]["ssh"]["outils"]), ("attention", 3, "mac-a", ["qpkg:HybridBackup"]))
+        self.assertEqual((n2[1]["etat"], n2[1]["volumes"][0]["pct"], n2[1]["relais"]), ("ok", 10.0, "lan-agent"))
 
     def test_resume_verdict(self):
         r = sa.assembler([], [], [], [], [], None, [], now=NOW)
         self.assertEqual((r["resume"]["verdict"], r["backuppc"]["etat"]), ("ok", "non relevé"))
+        # #939 : sonde backuppc relevée
+        m = [("fichiers", "fichiers", "2026-10-30T09:00:00Z", {"serveur": {"version": "3.2.1"}, "pool": {"topdir_pct": 53.0, "cpool_octets": 1}, "summary": {"state": "critical", "hotes": 4, "echecs": 2, "en_cours": 0},
+                                                             "hotes": [{"host": "ob1", "etat": "inactif"}], "echecs": [{"host": "ob1", "erreur": "No files dumped for share /"}], "alerts": [{"message": "ob1 : dernière sauvegarde il y a 20 j"}]})]
+        r = sa.assembler([], [], [], [], [], None, [], mesures_backuppc=m, now=NOW)
+        self.assertEqual((r["backuppc"]["etat"], r["backuppc"]["serveurs"][0]["version"], r["backuppc"]["serveurs"][0]["pool_pct"], r["resume"]["verdict"]), ("critique", "3.2.1", 53.0, "critique"))
+        self.assertEqual(r["backuppc"]["serveurs"][0]["echecs_detail"][0]["host"], "ob1")
         r = sa.assembler([], [], [{"agent_id": "pc", "hostname": "PC"}], [], [], {"critique": 1}, [], now=NOW)
         self.assertEqual(r["resume"]["verdict"], "critique")
         self.assertEqual(r["resume"]["postes"]["jamais"], 1)
@@ -97,6 +113,19 @@ class Route(unittest.TestCase):
         self.assertEqual(j["pbs"][0]["serveur"], "pbs-ap")
         self.assertEqual(j["backuppc"]["etat"], "non relevé")
         self.assertNotIn("secret", r.get_data(as_text=True).lower())
+
+    def test_backuppc_commande_gate(self):
+        store.update_agent(A.DB_PATH, "pbs-ap", remote_shell="lecture")
+        self.assertEqual(self.c.post("/agents/pbs-ap/backuppc/commande", json={"action": "status"}).status_code, 200)
+        self.assertEqual(self.c.post("/agents/pbs-ap/backuppc/commande", json={"action": "backup-full", "host": "pc-1"}).status_code, 403)
+        store.update_agent(A.DB_PATH, "pbs-ap", remote_shell="intervention")
+        self.assertEqual(self.c.post("/agents/pbs-ap/backuppc/commande", json={"action": "backup-full", "host": "pc;rm"}).status_code, 400)
+        r = self.c.post("/agents/pbs-ap/backuppc/commande", json={"action": "backup-incr", "host": "pc-1", "actor": "freg"})
+        self.assertEqual(r.status_code, 200)
+        cmd = [x for x in store.list_commands(A.DB_PATH, "pbs-ap") if x["type"] == "backuppc-ctl" and x["params"].get("action") == "backup-incr"][0]
+        self.assertEqual(cmd["params"]["host"], "pc-1")
+        self.assertEqual(self.c.get("/agents/pbs-ap/backuppc/resultat").status_code, 200)
+        self.assertEqual(self.c.post("/agents/inconnu/backuppc/commande", json={"action": "status"}).status_code, 404)
 
 
 if __name__ == "__main__":

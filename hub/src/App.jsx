@@ -1728,7 +1728,7 @@ vm === "agent-page" ? (
       ) : vm === "nas" ? (
         <NasView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "sauvegardes" ? (
-        <SauvegardesView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+        <SauvegardesView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "navigateur" ? (
         <NavigateurView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "urgence" ? (

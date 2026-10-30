@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { THEMES, buildThemes, absorbedFrontIds, themeViewMode, isThemeViewMode, themeIdOf, themeOfView, findTheme, normalizeHomeMode } from "../src/hubThemes.js";
 
-test("six thématiques, sans doublon de vue ni de front", () => {
-  assert.equal(THEMES.length, 6);
+test("sept thématiques (#939 : Sauvegardes), sans doublon de vue ni de front", () => {
+  assert.equal(THEMES.length, 7);
+  assert.equal(themeOfView(THEMES, "sauvegardes"), "sauvegardes");
+  assert.equal(themeOfView(THEMES, "backup-restore"), "sauvegardes");
   const views = THEMES.flatMap((t) => t.entries.map((e) => e.view || `front:${e.front}`));
   assert.equal(new Set(views).size, views.length);
   assert.ok(views.includes("si-proxy") && views.includes("supervision-si") && views.includes("front:tickets"));

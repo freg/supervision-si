@@ -89,6 +89,7 @@ export const EMOJI_TO_ICON = {
   "🗄": "database",
   "📚": "book",
   "🛡": "shield",
+  "💾": "disk",   // #939 : thématique Sauvegardes
   "📋": "clipboard",
   "🌐": "globe",
   "🖧": "network",

@@ -3326,6 +3326,8 @@ def sauvegardes_apercu_route():
         m_pbs = infra.latest(conn, "plugin:pbs")
         m_cop = infra.latest(conn, "plugin:pulled-backups")
         m_nas = infra.latest(conn, "plugin:nas-snmp")
+        m_bpc = infra.latest(conn, "plugin:backuppc")   # #939
+        m_nas_ssh = infra.latest(conn, "plugin:nas-qnap")   # #939
     finally:
         conn.close()
     noms = {a: h for a, h, _at, _d in pw}
@@ -3340,8 +3342,43 @@ def sauvegardes_apercu_route():
         res_inv = inv.get("resume") if isinstance(inv, dict) else None
     except Exception:  # noqa: BLE001 -- l'inventaire des copies ne doit pas faire tomber la tuile
         res_inv = None
-    return jsonify(sauvegardes_apercu.assembler(sauv, pousses, agents, m_pbs, m_cop, res_inv, m_nas,
-                                                backuppc={"etat": "non relevé", "message": "sonde backuppc à venir (#938)"})), 200
+    return jsonify(sauvegardes_apercu.assembler(sauv, pousses, agents, m_pbs, m_cop, res_inv, m_nas, mesures_backuppc=m_bpc, mesures_nas_ssh=m_nas_ssh)), 200
+
+
+@app.route("/agents/<agent_id>/backuppc/commande", methods=["POST"])
+def backuppc_commande_route(agent_id):
+    """#939 : pilote BackupPC depuis l'agent de son serveur. {action: status|backup-full|backup-incr|stop, host, actor,
+    backoff_h?}. `status` = lecture ; les autres = INTERVENTION (403 si les commandes à distance de l'agent ne sont pas en
+    « intervention »)."""
+    b = request.get_json(silent=True) or {}
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    action = str(b.get("action") or "status")
+    if action != "status":
+        permis = a.get("remote_shell") or "off"
+        if permis == "off":
+            return jsonify({"error": "commandes a distance desactivees pour cet agent (fiche de l'agent > Commandes a distance)"}), 403
+        if permis != "intervention":
+            return jsonify({"error": "lancer / arreter une sauvegarde BackupPC = intervention : passer Commandes a distance en intervention"}), 403
+    params = {"action": action, "host": str(b.get("host") or "").strip(), "actor": str(b.get("actor") or "?")[:64]}
+    if b.get("backoff_h") is not None:
+        params["backoff_h"] = b.get("backoff_h")
+    try:
+        c = store.create_command(DB_PATH, agent_id, "backuppc-ctl", params)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if action != "status":
+        _event("backuppc", "warning", "BackupPC %s de « %s » demande a %s par %s" % (action, params["host"], agent_id, params["actor"]),
+               agent_id=agent_id, details={"action": action, "host": params["host"]})
+    return jsonify({"command": c["id"], "action": action}), 200
+
+
+@app.route("/agents/<agent_id>/backuppc/resultat", methods=["GET"])
+def backuppc_resultat_route(agent_id):
+    """#939 : derniers resultats de pilotage BackupPC (mesures backuppc-ctl) de l'agent du serveur."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="backuppc-ctl", limit=10)
+    return jsonify({"agent": agent_id, "resultats": [{"at": m.get("at"), "ok": m.get("ok"), "data": m.get("data")} for m in ms]}), 200
 
 
 @app.route("/agents/<agent_id>/acces-services/tester", methods=["POST"])

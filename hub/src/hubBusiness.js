@@ -161,7 +161,7 @@ export const PATHS = {
   "action:debug": ["droits/personnes"],
 };
 
-const THEME_ROOT = { supervision: "etats", reseau: "equipements", donnees: "services", documents: "services", securite: "droits", projeqtor: "etats", parametres: "services" };
+const THEME_ROOT = { supervision: "etats", reseau: "equipements", donnees: "services", documents: "services", securite: "droits", sauvegardes: "services", projeqtor: "etats", parametres: "services" };   // #939 : thématique Sauvegardes
 
 /** Chemin de repli d'une feuille sans chemin déclaré : « <racine de sa thématique>/autres ». */
 export function fallbackPath(leaf, themeId) {

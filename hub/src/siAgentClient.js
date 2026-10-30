@@ -96,6 +96,8 @@ export const saveSauvegardeReglage = (apiBase, body) => fetchJson(apiBase, "/pos
 export const runSauvegarde = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/lancer`, json("POST", body || {}));
 export const fetchSauvegarde = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde`);
 export const fetchSauvegardesApercu = (apiBase) => fetchJson(apiBase, "/sauvegardes/apercu");   // #937 : tuile « Sauvegardes »
+export const runBackuppc = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/backuppc/commande`, json("POST", body || {}));   // #939 : BackupPC (status / backup / stop)
+export const fetchBackuppcResultats = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/backuppc/resultat`);   // #939
 
 // #931 : poussée d'une archive de sauvegarde vers Proxmox Backup Server (pbs10), par l'agent du serveur PBS.
 export const fetchSauvegardePbsReglage = (apiBase) => fetchJson(apiBase, "/postes-sauvegarde-pbs");

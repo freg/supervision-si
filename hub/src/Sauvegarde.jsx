@@ -125,8 +125,8 @@ function SectionPbs({ agent, base, actor }) {
       {msg && <p className={`np-tone ${/enregistré|envoyé/i.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <button type="button" className="secondary" onClick={enregistrer}>Enregistrer le réglage</button>
-        <button type="button" className="secondary" disabled={busy} onClick={() => action("preflight")} title="vérifie l'accès au PBS sans rien écrire">Préflight (lecture seule)</button>
-        <button type="button" className="primary" disabled={busy} onClick={() => action("push")} title="pousse la dernière archive de ce poste vers PBS">▶ Pousser la dernière sauvegarde</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => action("preflight")} title="vérifie l'accès au PBS sans rien écrire">{busy ? "⏳ en cours…" : "Préflight (lecture seule)"}</button>
+        <button type="button" className="primary" disabled={busy} onClick={() => action("push")} title="pousse la dernière archive de ce poste vers PBS">{busy ? "⏳ en cours…" : "▶ Pousser la dernière sauvegarde"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       {d && (
@@ -176,8 +176,8 @@ function SectionRestauration({ agent, base, actor }) {
       </div>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-        <button type="button" className="secondary" disabled={busy || !chemin.trim()} onClick={() => lancer("simulation")}>Simuler (lecture seule)</button>
-        <button type="button" className="danger" disabled={busy || !chemin.trim()} onClick={() => lancer("appliquer")}>⚠ Appliquer la restauration</button>
+        <button type="button" className="secondary" disabled={busy || !chemin.trim()} onClick={() => lancer("simulation")}>{busy ? "⏳ en cours…" : "Simuler (lecture seule)"}</button>
+        <button type="button" className="danger" disabled={busy || !chemin.trim()} onClick={() => lancer("appliquer")}>{busy ? "⏳ en cours…" : "⚠ Appliquer la restauration"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       {d && (
@@ -247,16 +247,21 @@ export default function Sauvegarde({ agent, base, actor, mode }) {
   useEffect(() => { setImage(mode === "image"); setSecours(mode === "usb"); }, [mode]);
   const charger = useCallback(() => fetchSauvegarde(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
   useEffect(() => { setRes(null); charger(); }, [charger]);
+  // #939 : règle générale -- le bouton passe « en cours » dès le clic (envoi), puis « en cours sur le poste » jusqu'au
+  // nouveau résultat (ou 90 s), même si un message s'affiche par ailleurs.
+  const [attente, setAttente] = useState(null);   // horodatage du dernier résultat connu au moment du lancement
+  useEffect(() => { if (attente !== null && res?.at && res.at !== attente) setAttente(null); }, [res, attente]);
   const lancer = async () => {
     const destinations = {};
     if (usb.trim()) destinations.usb = usb.trim();
     if (unc.trim()) destinations.unc = { chemin: unc.trim(), acces: acces.trim() };
-    setBusy(true); setMsg("");
+    setBusy(true); setMsg("envoi de la commande à l'agent…");
     const r = await runSauvegarde(base, agent, { destinations, actor });
     setBusy(false);
     if (r?.error) { setMsg(r.error); return; }
-    setMsg(`Sauvegarde envoyée : ${r.confs} application(s), ${r.montages.lecteurs} lecteur(s), ${r.montages.partages} partage(s)${r.coffre_indisponible ? " — accès coffre indisponible (partage écrit sans identifiants)" : ""}${r.note_poste_windows ? " — " + r.note_poste_windows : ""}. Résultat dans ~1 min.`);
-    let n = 0; const t = setInterval(() => { n += 1; charger(); if (n >= 12) clearInterval(t); }, 6000);
+    setAttente(res?.at || "");
+    setMsg(`Sauvegarde envoyée : ${r.confs} application(s), ${r.montages.lecteurs} lecteur(s), ${r.montages.partages} partage(s)${r.coffre_indisponible ? " — accès coffre indisponible (partage écrit sans identifiants)" : ""}${r.note_poste_windows ? " — " + r.note_poste_windows : ""}. En cours sur le poste : résultat dans ~1 min.`);
+    let n = 0; const t = setInterval(() => { n += 1; charger(); if (n >= 15) { clearInterval(t); setAttente(null); } }, 6000);
   };
   return (
     <div>
@@ -269,7 +274,7 @@ export default function Sauvegarde({ agent, base, actor, mode }) {
         <label>Clé USB (lettre/dossier)<br /><input value={usb} onChange={(e) => setUsb(e.target.value)} placeholder="E:\sauvegardes" style={{ width: 150 }} /></label>
         <label>Partage réseau (UNC)<br /><input value={unc} onChange={(e) => setUnc(e.target.value)} placeholder={"\\\\nas\\sauvegardes"} style={{ width: 200 }} /></label>
         <label title="nom d'un accès du coffre « Accès d'équipements » ; laissé vide = session courante de l'agent">Accès coffre (partage)<br /><input value={acces} onChange={(e) => setAcces(e.target.value)} placeholder="nas-superv" style={{ width: 130 }} disabled={!unc.trim()} /></label>
-        <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer la sauvegarde</button>
+        <button type="button" className="primary" disabled={busy || attente !== null} onClick={lancer}>{busy ? "⏳ envoi…" : attente !== null ? "⏳ sauvegarde en cours sur le poste…" : "▶ Lancer la sauvegarde"}</button>
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer « que sauvegarder »" : "Que sauvegarder"}</button>
         <button type="button" className="secondary" onClick={() => setPbs((v) => !v)}>{pbs ? "Masquer PBS" : "Pousser vers PBS"}</button>
         <button type="button" className="secondary" onClick={() => setRestaure((v) => !v)}>{restaure ? "Masquer restauration" : "Restaurer"}</button>
