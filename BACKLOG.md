@@ -1,6 +1,11 @@
 ## Parc IA — revue du jour + répartition GPU (2026-10-28) — FAIT : #908 onglet « Revue du jour » (légèreté/machines d'abord, urgence de téléchargement avant disparition/payant, dédicace apprentissage 0..3 dont « apprend & désapprend »), #909 répartition des usages sur machines/GPU (MODELES_MACHINES avec « + » par GPU, planificateur repartir, route /modeles/repartition, onglet « Répartition GPU ») ; partagé hub maison + supervision. Reste : brancher la revue sur les flux réels, dériver les besoins de répartition des usages déclarés par hôte.
 
 ## Clone navigateur de Hermes — projet hermes-web (2026-10-28) — tranche 1 FAITE : dépôt autonome ~/Downloads/hermes-web (fork à venir de NousResearch/hermes-agent, MIT), service Flask pilotant Hermes + front sombre (chat + rejeu QA), garde-fous par hub (loi>morale>véracité, supervision=lecture seule, maison=permissif), rejeu QA clé de voûte (trajectoires, cahier, avancement, régressions, interop from/value), config par hub, Dockerfile+compose, docs/architecture.md (feuille de route NéoPays : 4 rôles IA, double déploiement, portage EGroupware). 14 tests. Reste : brancher le vrai hermes CLI, intégration fine via EditApprovalRequester ACP, cahier QA réel, fork amont, panneau navigateur automatisé pour la QA.
+  DEMANDÉ le 30/10 (hermes-web, tranche 2, à noter) : la MÊME interactivité -- voire un accès identique -- que le hermes en
+  shell (parité de commandes et de dialogue, pas une version appauvrie), avec une couche d'ergonomie en plus : navigation
+  dans les dialogues passés (historique, recherche, reprise d'une conversation) et un JOURNAL INTERNE de toutes les
+  actions et accès de Hermes -- y compris et surtout les appels aux API IA (fournisseur, modèle, horodatage, jetons,
+  coût, outils appelés, fichiers lus/écrits, commandes exécutées) -- consultable et filtrable depuis l'interface.
 
 ## Couple de proxys d'entrée interchangeables (2026-10-17) — tranche 1 FAITE (#776 : HAProxy piloté par l'agent, bascule de serveur interne, contrôle DNS et alerte « DNS à configurer ») ; reste : mise à jour DNS directe par le module DNS éditable quand la zone y est gérée, IP de basculement OVH (failover) en option, VM à créer
 
@@ -4145,9 +4150,9 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   (conseilsDiagnostic.js), classés par gravité avec action concrète, croisant diagnostic + tests de charge
   (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
   NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).
-  RETOUR du 30/10 (à traiter ensuite, #938) : 1. les éléments demandés par un conseil doivent être identifiés par le
-  diagnostic et présentés dans le conseil (ex. « identifier le disque concerné interne vs externe » -> le conseil nomme
-  le disque, Harddisk1 = externe VHDX…) ; 2. actions plus précises : commandes, procédure ou liste d'actions (copiables).
+  RETOUR du 30/10 -- LIVRÉ #938 : éléments nommés (disque visé interne/externe, carte Wi-Fi, mise à jour en échec,
+  dates, BIOS) et procédures avec commandes copiables + export. Reste : vérifier collecte.ps1 v4 sur pc-paul ; conseils
+  pour les catégories « fichiers » (NTFS) et « graphique » ; pondération apprise.
 
 - DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
   récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/

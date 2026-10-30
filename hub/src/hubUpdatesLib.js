@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  938: [{ view: "postes-windows", hint: "Diagnostic › Propositions et conseils : éléments nommés (quel disque, quelle carte, quelle mise à jour) et procédures avec commandes copiables" }],
   937: [{ view: "sauvegardes", hint: "tuile Sauvegardes : postes (conf + PBS), PBS, copies host/VM, BackupPC, NAS -- vue d'ensemble en lecture seule" }],
   936: [{ view: "si-agent", params: { section: "sauvegardes" }, hint: "fiche agent : onglet Sauvegardes ; boutons rouges Poste Windows, Sauvegarde données / image, Boot USB urgence" }],
   906: [{ view: "sockets", hint: "tuile Sockets : netstat -laputen des hôtes agentés (écoute et établies, processus, PID, utilisateur), à la demande avec historique" }],

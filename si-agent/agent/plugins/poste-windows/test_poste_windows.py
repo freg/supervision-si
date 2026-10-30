@@ -75,6 +75,29 @@ class Poste(unittest.TestCase):
         self.assertEqual(self.r["diagnostic"]["plantages"][0]["modules"], ["nvwgf2umx.dll"])
         self.assertEqual(self.r["diagnostic"]["categories"]["arret_brutal"], 2)
 
+    def test_disques_evenements_938(self):
+        """#938 : les évènements disque sont rattachés au disque visé (numéro Windows), interne / externe d'après le bus."""
+        raw = dict(RAW, disques=[{"numero": 0, "modele": "NVMe PC801", "bus": "NVMe", "sante": "Healthy", "volumes": ["C:"]},
+                                 {"numero": 1, "modele": "Seagate Expansion", "bus": "USB", "sante": "Healthy", "volumes": ["E:"]}],
+                   critiques=RAW["critiques"] + [
+                       {"t": "2026-10-24T10:00:00Z", "source": "disk", "id": 153, "message": "The IO operation at logical block address 0x1 for Disk 1 (PDO name: \\Device\\00000041) was retried."},
+                       {"t": "2026-10-24T10:01:00Z", "source": "disk", "id": 51, "message": "Une erreur a été détectée sur le périphérique \\Device\\Harddisk1\\DR1 pendant une opération de pagination."},
+                       {"t": "2026-10-25T10:00:00Z", "source": "disk", "id": 11, "message": "Le pilote a détecté une erreur de contrôleur sur \\Device\\Harddisk0\\DR0."},
+                       {"t": "2026-10-25T11:00:00Z", "source": "stornvme", "id": 129, "message": "Réinitialisation sur Périphérique, \\Device\\RaidPort1, a été émise."}])
+        r = pw.analyse(json.loads(json.dumps(raw)))
+        de = r["diagnostic"]["disques_evenements"]
+        self.assertEqual([g["numero"] for g in de], [1, 0, None], "le plus touché d'abord ; les réinitialisations de contrôleur sans numéro à part")
+        self.assertEqual((de[0]["modele"], de[0]["bus"], de[0]["externe"], de[0]["volumes"], de[0]["nombre"]), ("Seagate Expansion", "USB", True, ["E:"], 2))
+        self.assertEqual(de[0]["ids"], [("disk 153", 1), ("disk 51", 1)])
+        self.assertEqual((de[1]["externe"], de[1]["resolu"]), (False, True))
+        self.assertEqual((de[2]["modele"], de[2]["resolu"]), (None, True))
+        self.assertTrue(r["diagnostic"]["disques"][1]["externe"] and not r["diagnostic"]["disques"][0]["externe"])
+        self.assertEqual(r["diagnostic"]["categories"]["disque"], 4)
+        # disque cité mais inconnu de Get-PhysicalDisk (clé débranchée depuis) : non résolu
+        de2 = pw.disques_evenements([{"categorie": "disque", "source": "disk", "id": 7, "message": "\\Device\\Harddisk3\\DR3 bloc défectueux", "t": "t"}], [])
+        self.assertEqual((de2[0]["numero"], de2[0]["resolu"], de2[0]["externe"]), (3, False, None))
+        self.assertIsNone(pw.disque_de_message("Disk1 sans espace ni Harddisk"))
+
     def test_main(self):
         self.assertEqual(pw.main([], plateforme="linux")["alerts"][0]["code"], "poste-windows-plateforme")
         sortie = ("\ufeff" + json.dumps(RAW, ensure_ascii=False)).encode("utf-8")

@@ -1,3 +1,26 @@
+## 2026-10-30 — Conseils de diagnostic : éléments nommés et procédures précises (livraison #938)
+
+- Retour sur « Propositions et conseils » : « les éléments demandés devraient être identifiés par le diag et présentés
+  ici » et « les actions devraient être plus précises, en commandes ou procédure ». Chaque conseil a maintenant une
+  liste **Éléments concernés** et une **procédure** dépliable (étapes numérotées, commandes PowerShell copiables d'un
+  clic), plus un mini bouton par conseil (texte complet copiable), un export de **toutes les commandes** (⌘ et
+  ⇩ Commandes, lecture seule sauf lignes marquées [MODIFIE]) ; l'impression déplie les procédures.
+- **Erreurs disque / contrôleur** : le conseil **nomme le disque visé** par les évènements (`\Device\HarddiskN`,
+  « Disk N ») -- modèle, bus, interne / externe, lettres -- et conclut : « seul un disque EXTERNE est visé, le disque
+  interne n'est pas en cause » / « le disque INTERNE est visé » / « interne et externe » / « disque plus présent
+  (débranché) » ; les réinitialisations de contrôleur (stornvme/storahci 129) sont comptées à part. Étapes ciblées
+  (`chkdsk E: /scan` sur la lettre du disque visé, compteurs de fiabilité par n° de disque, câble/port USB si externe).
+- Autres conseils nommés : dates des arrêts brutaux + BIOS en place, **carte Wi-Fi** extraite des journaux NDIS, **mise à
+  jour en échec** (titre + code, avec le cas 0x80070103 = rien à faire sur le poste), modules et dernier plantage par
+  application (Explorer/ntshrui → `net use`, DllHost/combase → `sfc`/`DISM`, SupportAssist → réinstaller), BSOD/WHEA/
+  mémoire (commandes de lecture), tests de charge (dates, volume testé, gel).
+- Agent **0.6.34**, sonde poste-windows **v4** : `numero` Windows et lettres de volume par disque, `disque` par volume,
+  BIOS (version, date), `diagnostic.disques_evenements` (évènements disque rattachés au disque visé, interne/externe
+  d'après le bus : USB, SD, VHD monté, iSCSI…). Un relevé d'un agent plus ancien donne le repli « le disque visé n'est
+  pas nommé (agent 0.6.34+) ».
+- Vérifié : tests agent (poste-windows 7, si_agent), tests hub (491 dont conseils 8), lint JSX, pas de couleur en dur.
+  Non vérifié : rendu ; collecte.ps1 v4 non exécutée ici (PowerShell) -- à vérifier sur pc-paul après mise à jour.
+
 ## 2026-10-30 — Tuile « Sauvegardes » : vue d'ensemble des sauvegardes du SI (livraison #937)
 
 - Nouvelle tuile **Sauvegardes** (thème Sécurité & accès ; l'ancienne entrée devient « Sauvegardes du hub »), en

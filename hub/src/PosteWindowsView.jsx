@@ -10,7 +10,8 @@ import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 import AccesServices from "./AccesServices.jsx";       // #928
 import Sauvegarde from "./Sauvegarde.jsx";             // #930
 import { resumeRun, comparer, csvHistorique } from "./chargeHistorique.js"; // #932/#933
-import { conseils, bilan } from "./conseilsDiagnostic.js"; // #935
+import { conseils, bilan, texteConseil, scriptConseils } from "./conseilsDiagnostic.js"; // #935 / #938
+import BoutonDetail from "./FenetreTexte.jsx";   // #938 : texte copiable des conseils
 import { imprimer } from "./impression.js"; // #935
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
@@ -54,12 +55,32 @@ function Reinstallation({ r }) {
 }
 
 // #935 : propositions et conseils sur les points critiques, en tête du Diagnostic (imprimable).
+// #938 : chaque conseil nomme les éléments concernés et déroule une procédure (commandes copiables, un clic = copie).
+function Commande({ texte }) {
+  const [ok, setOk] = useState(false);
+  const copier = () => { try { navigator.clipboard?.writeText(texte); setOk(true); setTimeout(() => setOk(false), 1200); } catch { /* presse-papiers indisponible */ } };
+  return <code className="cd-cmd" title="cliquer pour copier" onClick={copier} style={{ cursor: "pointer" }}>{texte}{ok ? " ✔" : ""}</code>;
+}
+
 function ConseilsDiagnostic({ detail, base }) {
   const [histo, setHisto] = useState([]);
+  const [ouverts, setOuverts] = useState({});
+  const [tout, setTout] = useState(false);
   useEffect(() => { if (detail && detail.agent) fetchChargeHistorique(base, detail.agent, 50).then((r) => { if (r && !r.error) setHisto(r.historique || []); }); }, [base, detail && detail.agent]);
   const liste = conseils(detail, histo);
   const b = bilan(liste);
   if (!liste.length) return <div className="np-tone good" style={{ margin: "8px 0" }}>Aucun point critique relevé par le diagnostic et les tests. ✔</div>;
+  const script = scriptConseils(liste);
+  const exporterScript = () => {
+    try {
+      const blob = new Blob([script], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `diagnostic-${detail.poste?.nom || detail.agent}.ps1.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { /* téléchargement indisponible */ }
+  };
   return (
     <div className="conseils-print infra-card" style={{ margin: "8px 0" }}>
       <div className="conseils-print-entete" style={{ display: "none" }}>Propositions et conseils — {detail.poste?.nom || detail.agent} — imprimé le {new Date().toLocaleString("fr-FR")}</div>
@@ -69,17 +90,32 @@ function ConseilsDiagnostic({ detail, base }) {
         {b.alerte > 0 && <span className="np-tone warn">{b.alerte} à surveiller</span>}
         {b.info > 0 && <span className="np-tone neutral">{b.info} info</span>}
         <span style={{ flex: 1 }} />
-        <button type="button" className="secondary" onClick={() => imprimer("impr-conseils")}>🖨 Imprimer</button>
+        <button type="button" className="secondary" onClick={() => setTout(!tout)}>{tout ? "Replier les procédures" : "Déplier les procédures"}</button>
+        <BoutonDetail titre="Toutes les commandes (PowerShell)" urgence="info" libelle="⌘" texte={script} />
+        <button type="button" className="secondary" onClick={exporterScript} title="toutes les commandes proposées, en fichier texte">⇩ Commandes</button>
+        <button type="button" className="secondary" onClick={() => { setTout(true); setTimeout(() => imprimer("impr-conseils"), 80); }} title="imprime avec toutes les procédures dépliées">🖨 Imprimer</button>
       </div>
       <ol style={{ margin: "6px 0", paddingLeft: 20 }}>
-        {liste.map((c, i) => (
-          <li key={c.code + i} style={{ marginBottom: 6 }}>
-            <b className={`np-tone ${c.niveau === "critique" ? "bad" : c.niveau === "alerte" ? "warn" : "neutral"}`}>{c.titre}</b>
-            <div className="infra-muted" style={{ fontSize: 13 }}>{c.constat}</div>
-            <div style={{ fontSize: 13 }}>→ {c.action}</div>
-          </li>))}
+        {liste.map((c, i) => {
+          const ouvert = tout || ouverts[c.code];
+          return (
+            <li key={c.code + i} style={{ marginBottom: 8 }}>
+              <b className={`np-tone ${c.niveau === "critique" ? "bad" : c.niveau === "alerte" ? "warn" : "neutral"}`}>{c.titre}</b>
+              <BoutonDetail titre={c.titre} urgence={c.niveau === "critique" ? "critique" : c.niveau === "alerte" ? "alerte" : "info"} texte={texteConseil(c)} />
+              <div className="infra-muted" style={{ fontSize: 13 }}>{c.constat}</div>
+              {c.elements?.length > 0 && <ul className="cd-elements" style={{ margin: "2px 0", paddingLeft: 16, fontSize: 13 }}>{c.elements.map((e, j) => <li key={j}>{e}</li>)}</ul>}
+              <div style={{ fontSize: 13 }}>→ {c.action}
+                {c.etapes?.length > 0 && <button type="button" className="secondary cd-plier" style={{ marginLeft: 8, padding: "0 6px", fontSize: 12 }} onClick={() => setOuverts({ ...ouverts, [c.code]: !ouverts[c.code] })}>{ouvert ? "− procédure" : `+ procédure (${c.etapes.length})`}</button>}
+              </div>
+              {ouvert && c.etapes?.length > 0 && (
+                <ol className="cd-etapes" style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>
+                  {c.etapes.map((e, j) => <li key={j}>{e.texte}{e.commande && <div><Commande texte={e.commande} /></div>}</li>)}
+                </ol>
+              )}
+            </li>);
+        })}
       </ol>
-      <div className="infra-muted" style={{ fontSize: 11 }}>Conseils déduits automatiquement du diagnostic et des tests de charge : à valider avant toute intervention.</div>
+      <div className="infra-muted" style={{ fontSize: 11 }}>Conseils déduits automatiquement du diagnostic et des tests de charge : à valider avant toute intervention. Les commandes sont en lecture seule sauf mention [MODIFIE] dans l'export.</div>
     </div>
   );
 }

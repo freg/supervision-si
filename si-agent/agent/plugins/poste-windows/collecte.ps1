@@ -128,13 +128,19 @@ foreach ($e in (Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartT
 $vidages = @(); foreach ($f in (Get-ChildItem "C:\Windows\Minidump\*.dmp")) { $vidages += [ordered]@{ fichier = $f.Name; t = Iso $f.LastWriteTime; octets = [int64]$f.Length } }
 $memdmp = Get-Item "C:\Windows\MEMORY.DMP"
 $disques = @()
+# v4 (#938) : numero = numéro Windows du disque (celui des évènements \Device\HarddiskN et « Disk N ») ; taille ; lettres des volumes
+$lettres = @{}; foreach ($p in (Get-Partition -ErrorAction SilentlyContinue)) { if ($p.DriveLetter) { $n = [int]$p.DiskNumber; if (-not $lettres.ContainsKey($n)) { $lettres[$n] = @() }; $lettres[$n] += ([string]$p.DriveLetter + ":") } }
 foreach ($d in (Get-PhysicalDisk)) {
   $r = $d | Get-StorageReliabilityCounter
-  $disques += [ordered]@{ modele = $d.FriendlyName; media = [string]$d.MediaType; bus = [string]$d.BusType; sante = [string]$d.HealthStatus; etat = [string]$d.OperationalStatus
+  $num = $null; try { $num = [int]$d.DeviceId } catch { }
+  $disques += [ordered]@{ numero = $num; modele = $d.FriendlyName; media = [string]$d.MediaType; bus = [string]$d.BusType; sante = [string]$d.HealthStatus; etat = [string]$d.OperationalStatus
+    octets = [int64]$d.Size; volumes = @($(if ($num -ne $null -and $lettres.ContainsKey($num)) { $lettres[$num] } else { @() }))
     temperature = $r.Temperature; temperature_max = $r.TemperatureMax; usure = $r.Wear; erreurs_lecture = $r.ReadErrorsTotal; erreurs_ecriture = $r.WriteErrorsTotal
     erreurs_lecture_non_corrigees = $r.ReadErrorsUncorrected; heures = $r.PowerOnHours; demarrages = $r.StartStopCycleCount }
 }
-$volumes = @(); foreach ($v in (Get-Volume | Where-Object { $_.DriveLetter -and $_.DriveType -eq "Fixed" })) { $volumes += [ordered]@{ lettre = [string]$v.DriveLetter + ":"; systeme_fichiers = $v.FileSystem; octets = [int64]$v.Size; libre = [int64]$v.SizeRemaining; sante = [string]$v.HealthStatus } }
+$numParLettre = @{}; foreach ($k in $lettres.Keys) { foreach ($l in $lettres[$k]) { $numParLettre[$l] = $k } }
+$volumes = @(); foreach ($v in (Get-Volume | Where-Object { $_.DriveLetter -and $_.DriveType -eq "Fixed" })) { $l = [string]$v.DriveLetter + ":"; $volumes += [ordered]@{ lettre = $l; disque = $numParLettre[$l]; systeme_fichiers = $v.FileSystem; octets = [int64]$v.Size; libre = [int64]$v.SizeRemaining; sante = [string]$v.HealthStatus } }
+$bios = Get-CimInstance Win32_BIOS
 $stabilite = @(); foreach ($s in (Get-CimInstance Win32_ReliabilityStabilityMetrics | Sort-Object TimeGenerated -Descending | Select-Object -First 30)) { $stabilite += [ordered]@{ t = Iso $s.TimeGenerated; indice = [double]$s.SystemStabilityIndex } }
 $temperatures = @(); foreach ($z in (Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature)) { $temperatures += [ordered]@{ zone = $z.InstanceName; celsius = [math]::Round($z.CurrentTemperature / 10 - 273.15, 1) } }
 $os = Get-CimInstance Win32_OperatingSystem
@@ -142,7 +148,7 @@ $cs = Get-CimInstance Win32_ComputerSystem
 
 [ordered]@{
   jours = $Jours; nom = $env:COMPUTERNAME; systeme = $os.Caption; version = $os.Version; demarrage = Iso $os.LastBootUpTime
-  fabricant = $cs.Manufacturer; modele = $cs.Model; memoire_octets = [int64]$cs.TotalPhysicalMemory; domaine = $cs.Domain
+  fabricant = $cs.Manufacturer; modele = $cs.Model; memoire_octets = [int64]$cs.TotalPhysicalMemory; domaine = $cs.Domain; bios = [string]$bios.SMBIOSBIOSVersion; bios_date = Iso $bios.ReleaseDate
   profils = $profils; partages = $partages; lecteurs = $lecteurs; raccourcis_reseau = $raccourcis; imprimantes = $imprimantes
   office = $office; identites_office = $identites; outlook = $outlook; fichiers_outlook = $pst; thunderbird = $thunderbird
   licences = $licences; antivirus = $antivirus; logiciels = $logiciels

@@ -44,6 +44,51 @@ SOURCES = {
     ("Microsoft-Windows-MemoryDiagnostics-Results", 1202): ("diag_memoire_erreur", "diagnostic mémoire Windows : ERREURS MATÉRIELLES"),
 }
 PREF = re.compile(r'^user_pref\("([^"]+)",\s*(.*)\);\s*$')
+# #938 : identification du disque visé par un évènement (« \\Device\\Harddisk1\\DR1 », « Disk 1 », « disque 1 ») et
+# nature externe/interne d'un disque d'après son bus (USB, carte SD, VHD monté, iSCSI...).
+RE_DISQUE_EVT = re.compile(r"Harddisk(\d+)|\b(?:Disk|disque)\s+(\d+)\b", re.IGNORECASE)
+BUS_EXTERNES = {"usb", "sd", "mmc", "1394", "iscsi", "file backed virtual", "virtual", "fibre channel", "storage spaces"}
+
+
+def disque_de_message(message):
+    """Numéro Windows du disque cité dans un message d'évènement, ou None."""
+    m = RE_DISQUE_EVT.search(str(message or ""))
+    if not m:
+        return None
+    return int(m.group(1) or m.group(2))
+
+
+def est_externe(bus):
+    return str(bus or "").strip().lower() in BUS_EXTERNES
+
+
+def disques_evenements(critiques, disques):
+    """Regroupe les évènements de catégorie « disque » par disque visé, enrichis du modèle / bus / lettres. Les évènements
+    sans numéro (réinitialisation de contrôleur stornvme/storahci) vont sous numero None (« contrôleur »)."""
+    par_num = {d.get("numero"): d for d in disques or [] if d.get("numero") is not None}
+    grp = {}
+    for e in critiques or []:
+        if e.get("categorie") != "disque":
+            continue
+        n = disque_de_message(e.get("message"))
+        e["disque"] = n
+        g = grp.setdefault(n, {"numero": n, "nombre": 0, "ids": {}, "dernier": None, "premier": None})
+        g["nombre"] += 1
+        k = "%s %s" % (e.get("source"), e.get("id"))
+        g["ids"][k] = g["ids"].get(k, 0) + 1
+        t = e.get("t") or ""
+        g["dernier"] = max(g["dernier"] or "", t) or None
+        g["premier"] = min(g["premier"] or t, t) or None
+    out = []
+    for n, g in grp.items():
+        d = par_num.get(n) or {}
+        g["ids"] = sorted(g["ids"].items(), key=lambda kv: -kv[1])
+        g.update(modele=d.get("modele"), bus=d.get("bus"), externe=est_externe(d.get("bus")) if d else None,
+                 volumes=d.get("volumes") or [], resolu=bool(d) or n is None)
+        out.append(g)
+    return sorted(out, key=lambda g: -g["nombre"])
+
+
 ETAT_LICENCE = {0: "sans licence", 1: "activée", 2: "période de grâce (OOB)", 3: "période de grâce (OOT)", 4: "non authentique", 5: "notification", 6: "grâce étendue"}
 
 
@@ -175,6 +220,7 @@ def analyse(raw, maintenant=None):
                 x["application"], x["plantages"], x["blocages"], " (module : %s)" % x["modules"][0] if x["modules"] else ""))
     for d in raw.get("disques") or []:
         nom = d.get("modele") or "disque"
+        d["externe"] = est_externe(d.get("bus"))        # #938
         if str(d.get("sante") or "Healthy") not in ("Healthy", "0", ""):
             alerte("poste-disque-sante@%s" % nom, "critical", "%s : santé %s" % (nom, d.get("sante")))
         if (d.get("usure") or 0) >= 80:
@@ -194,7 +240,7 @@ def analyse(raw, maintenant=None):
             alerte("poste-temperature@%s" % t.get("zone"), "warning", "zone thermique %s à %s °C" % (t.get("zone"), t["celsius"]))
     non_charges = [p["utilisateur"] for p in raw.get("profils") or [] if not p.get("charge")]
     return {
-        "poste": {k: raw.get(k) for k in ("nom", "systeme", "version", "demarrage", "fabricant", "modele", "memoire_octets", "domaine", "jours")},
+        "poste": {k: raw.get(k) for k in ("nom", "systeme", "version", "demarrage", "fabricant", "modele", "memoire_octets", "domaine", "jours", "bios", "bios_date")},
         "reinstallation": {"partages": raw.get("partages") or [], "lecteurs": raw.get("lecteurs") or [], "raccourcis_reseau": raw.get("raccourcis_reseau") or [],
                            "imprimantes": raw.get("imprimantes") or [], "office": raw.get("office"), "identites_office": raw.get("identites_office") or [],
                            "outlook": raw.get("outlook") or [], "fichiers_outlook": raw.get("fichiers_outlook") or [], "thunderbird": tb,
@@ -204,7 +250,8 @@ def analyse(raw, maintenant=None):
                        "evenements": sorted(raw.get("evenements") or [], key=lambda g: (g.get("niveau", 9), -g.get("nombre", 0)))[:200],
                        "plantages": plantages[:50], "vidages": raw.get("vidages") or [], "memory_dmp": raw.get("memory_dmp"),
                        "disques": raw.get("disques") or [], "volumes": raw.get("volumes") or [], "stabilite": raw.get("stabilite") or [],
-                       "temperatures": raw.get("temperatures") or []},
+                       "temperatures": raw.get("temperatures") or [],
+                       "disques_evenements": disques_evenements(raw.get("critiques") or [], raw.get("disques") or [])},   # #938
         "alerts": al,
     }
 
