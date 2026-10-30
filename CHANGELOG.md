@@ -1,3 +1,24 @@
+## 2026-10-30 — Sauvegarde des confs logicielles et des montages d'un poste (livraison #930)
+
+- Étape suivante de la sonde sauvegarde/restauration : la SAUVEGARDE (lecture) des configurations logicielles et des
+  montages, en vue d'une réinstallation. Nouvel onglet « Sauvegarde » de la fiche poste : produit une archive ZIP
+  contenant les clés de registre exportées (reg export) et les dossiers de config (%APPDATA%/%LOCALAPPDATA%) des
+  applications, un remonter.cmd qui reconstruit les lecteurs réseau / partages servis / imprimantes, et un manifeste.
+- Sélection des confs (côté hub) : catalogue par défaut (Thunderbird, Firefox, Chrome, Edge, Office, PuTTY, WinSCP,
+  OpenVPN) + déduction des logiciels relevés par poste-windows + liste éditable par application (clés + dossiers). Les
+  montages viennent du dernier relevé poste-windows (lance-le d'abord pour les inclure).
+- Destinations : clé USB (lettre/dossier) et/ou partage réseau UNC. Les identifiants du partage ne sont pas saisis
+  dans la liste : seulement le NOM d'un accès du coffre « Accès d'équipements » ; au lancement le hub le révèle et
+  l'injecte dans la commande. Le secret ne vit qu'en mémoire (côté hub, puis passé à PowerShell par variable
+  d'environnement — jamais sur une ligne de commande, ni en réponse d'API caviardée, ni en trace, ni dans la mesure).
+  La capture tourne en tâche de fond sur l'agent. Agent **0.6.31**.
+- La RESTAURATION (réimport du registre, recréation des partages) est une opération d'INTERVENTION, livrée séparément.
+- Vérifié : tests de la génération (remonter.cmd : net use / New-SmbShare / droits ; script de capture : reg export,
+  robocopy, Compress-Archive, destinations USB/UNC, identifiants par environnement, aucun secret dans le script), de
+  l'agent (tâche de fond, secret via env, mesure sans secret, refus concurrent), du hub (catalogue + déduction + liste
+  éditée, montages depuis poste-windows, caviardage du mot de passe du partage, routes) ; suites agent / API / hub
+  (474). Non vérifié : capture réelle sur un poste Windows, rendu navigateur.
+
 ## 2026-10-30 — Fiche agent : « Commandes à distance » (un seul endroit), l'ancien « Commandes » devient « Historique » (livraison #929)
 
 - Confusion signalée : on se perd dans les commandes à distance. L'onglet « Commandes » de la fiche agent n'était pas

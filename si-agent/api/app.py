@@ -75,6 +75,7 @@ import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangea
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
 import services_poste  # noqa: E402  -- #928 : sites de service à tester depuis un poste (temps d'accès)
+import sauvegarde_conf  # noqa: E402  -- #930 : sélection des confs logicielles à sauvegarder
 import htoprelay  # noqa: E402  -- #800 : relais si-htop (tuile htop, constats -> événements)
 import datarf  # noqa: E402  -- #806 : tuile Data RF (sondes radio des sites)
 import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
@@ -3086,6 +3087,83 @@ def services_poste_route():
         store.set_setting(DB_PATH, "services-poste", liste)
         _event("services-poste", "info", "sites de service : %d déclaré(s) par %s" % (len(liste), str(b.get("actor") or "?")[:64]))
     return jsonify({"services": store.get_setting(DB_PATH, "services-poste", []) or []}), 200
+
+
+@app.route("/postes-sauvegarde", methods=["GET", "PUT"])
+def postes_sauvegarde_route():
+    """#930 : réglage de la sauvegarde des postes -- liste éditée des confs + options (catalogue, déduction). GET
+    renvoie le réglage et le catalogue par défaut ; PUT {confs, inclure_catalogue, inclure_deduit, actor} remplace."""
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        liste, err = sauvegarde_conf.valider(b.get("confs"))
+        if err:
+            return jsonify({"error": err}), 400
+        reglage = {"confs": liste, "inclure_catalogue": bool(b.get("inclure_catalogue", True)), "inclure_deduit": bool(b.get("inclure_deduit", False))}
+        store.set_setting(DB_PATH, "postes-sauvegarde", reglage)
+        _event("sauvegarde", "info", "réglage de sauvegarde des postes mis à jour par %s" % str(b.get("actor") or "?")[:64])
+    reglage = store.get_setting(DB_PATH, "postes-sauvegarde", {"confs": [], "inclure_catalogue": True, "inclure_deduit": False})
+    return jsonify({"reglage": reglage, "catalogue": sauvegarde_conf.CATALOGUE_DEFAUT}), 200
+
+
+def _poste_windows_releve(agent_id):
+    """Dernier relevé poste-windows d'un agent -> le bloc « reinstallation » (montages, logiciels) ou {}."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="plugin:poste-windows", limit=1)
+    return ((ms[0].get("data") if ms else None) or {}).get("reinstallation") or {}
+
+
+@app.route("/agents/<agent_id>/sauvegarde/lancer", methods=["POST"])
+def sauvegarde_lancer_route(agent_id):
+    """#930 : lance la sauvegarde confs+montages sur `agent_id`. Les confs finales sont calculées (catalogue +
+    déduction des logiciels relevés + liste éditée) ; les montages viennent du dernier relevé poste-windows ; les
+    identifiants du partage UNC sont révélés depuis le coffre et n'apparaissent jamais en réponse ni en trace.
+    {destinations:{usb, unc:{chemin, acces?}}, actor}."""
+    b = request.get_json(silent=True) or {}
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    reglage = store.get_setting(DB_PATH, "postes-sauvegarde", {"confs": [], "inclure_catalogue": True, "inclure_deduit": False})
+    pw = _poste_windows_releve(agent_id)
+    confs = sauvegarde_conf.cibles(reglage.get("confs"), pw.get("logiciels"),
+                                   bool(reglage.get("inclure_catalogue", True)), bool(reglage.get("inclure_deduit", False)))
+    if not confs:
+        return jsonify({"error": "aucune configuration à sauvegarder (régler la liste : onglet « Sauvegarde »)"}), 400
+    montages = sauvegarde_conf.montages_du_releve(pw)
+    d = b.get("destinations") if isinstance(b.get("destinations"), dict) else {}
+    dest = {}
+    if str(d.get("usb") or "").strip():
+        dest["usb"] = str(d["usb"]).strip()
+    coffre_ko = None
+    if isinstance(d.get("unc"), dict) and str(d["unc"].get("chemin") or "").strip():
+        unc = {"chemin": str(d["unc"]["chemin"]).strip()}
+        acces = str(d["unc"].get("acces") or "").strip()
+        if acces:
+            try:
+                c = reveler_acces(acces)
+                unc.update(user=c.get("username") or "", secret=c.get("password") or "", avec_identifiants=True)
+            except RuntimeError as e:
+                coffre_ko = str(e)
+        dest["unc"] = unc
+    if not dest:
+        return jsonify({"error": "aucune destination : préciser une clé USB et/ou un partage"}), 400
+    try:
+        c = store.create_command(DB_PATH, agent_id, "sauvegarde-poste", {"confs": confs, "montages": montages, "destinations": dest})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    _event("sauvegarde", "info", "sauvegarde envoyée à %s : %d application(s), %d lecteur(s), %d partage(s)%s par %s"
+           % (agent_id, len(confs), len(montages.get("lecteurs") or []), len(montages.get("partages") or []),
+              (" -- accès coffre indisponible" if coffre_ko else ""), str(b.get("actor") or "?")[:64]),
+           agent_id=agent_id, details={"confs": len(confs), "destinations": [k for k in dest]})
+    return jsonify({"command": c["id"], "confs": len(confs), "montages": {"lecteurs": len(montages.get("lecteurs") or []),
+                    "partages": len(montages.get("partages") or []), "imprimantes": len(montages.get("imprimantes") or [])},
+                    "destinations": [k for k in dest], "coffre_indisponible": coffre_ko,
+                    "note_poste_windows": None if pw else "aucun relevé poste-windows : lance d'abord la sonde poste-windows pour inclure les montages"}), 200
+
+
+@app.route("/agents/<agent_id>/sauvegarde", methods=["GET"])
+def sauvegarde_resultat_route(agent_id):
+    """#930 : dernier résultat de sauvegarde d'un agent (archive, destinations, constats ; sans secret)."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="sauvegarde-poste", limit=1)
+    m = ms[0] if ms else None
+    return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
 
 
 @app.route("/agents/<agent_id>/acces-services/tester", methods=["POST"])

@@ -453,6 +453,7 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._sauvegarde = None      # #930 : sauvegarde confs+montages en tâche de fond
         self._acces = None           # #928 : test d'accès aux services en tâche de fond (secret en mémoire seulement)
         self._fond = {}              # #925 : sondes longues en tâche de fond {id: thread}
         self._fond_autorise = IS_WINDOWS or bool(cfg.get("plugins_background"))
@@ -800,6 +801,8 @@ class Agent(object):
                 return self._shell_commande(params)
             if ctype == "acces-services":               # #928 : temps d'accès aux services (brut + authentifié)
                 return self._acces_services_lancer(params)
+            if ctype == "sauvegarde-poste":             # #930 : sauvegarde des confs logicielles et des montages
+                return self._sauvegarde_lancer(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1722,6 +1725,85 @@ class Agent(object):
                 st["final_pushed"] = True
         if st.get("done") and not alive:
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
+
+    # -- #930 : sauvegarde des configurations logicielles et des montages d'un poste Windows ----------------------
+    def _sauvegarde_lancer(self, params):
+        """Produit un jeu de sauvegarde (confs registre + dossiers AppData + remonter.cmd + manifeste -> archive) et
+        l'écrit sur clé USB / partage UNC. Les identifiants UNC (injectés par le hub depuis le coffre) restent en
+        mémoire et passent par l'environnement du processus PowerShell -- jamais sur une ligne de commande ni en
+        trace. Tâche de fond ; pousse la mesure `sauvegarde-poste` à la fin. Un seul test à la fois."""
+        import os as _os
+        import threading
+        from . import sauvegarde as bk, winhost
+        if not IS_WINDOWS and self.cmd is host.run_cmd:
+            return {"ok": False, "error": "sauvegarde de poste : Windows seulement"}
+        confs = params.get("confs")
+        if not isinstance(confs, list) or not confs:
+            return {"ok": False, "error": "params.confs (liste non vide) requis"}
+        st = getattr(self, "_sauvegarde", None)
+        if st is not None and st.is_alive():
+            return {"ok": False, "error": "une sauvegarde est déjà en cours"}
+        montages = params.get("montages") if isinstance(params.get("montages"), dict) else {}
+        dest = params.get("destinations") if isinstance(params.get("destinations"), dict) else {}
+        usb = str((dest.get("usb") or "")).strip() or None
+        unc = dest.get("unc") if isinstance(dest.get("unc"), dict) else None
+        unc_user = unc.pop("user", None) if unc else None          # retirés des params -> jamais poussés/tracés
+        unc_secret = unc.pop("secret", None) if unc else None
+        if unc and (unc_user or unc_secret):
+            unc["avec_identifiants"] = True
+        ts = time.strftime("%Y%m%d-%H%M%S", time.gmtime(self.clock()))
+        racine = _os.path.join(self._charge_dir(), "sauvegarde")
+        travail = _os.path.join(racine, ts)
+        archive = _os.path.join(racine, "sauvegarde-%s-%s.zip" % (self.agent_id, ts))
+
+        def work():
+            data, env = None, {}
+            try:
+                _os.makedirs(travail, exist_ok=True)
+                with open(_os.path.join(travail, "remonter.cmd"), "w", encoding="utf-8") as fh:
+                    fh.write(bk.script_remontage(montages))
+                with open(_os.path.join(travail, "manifeste.json"), "w", encoding="utf-8") as fh:
+                    json.dump(bk.manifeste(self.agent_id, confs, montages, _iso(self.clock())), fh, ensure_ascii=False, indent=2)
+                script = bk.construire_script_capture(confs, travail, archive, usb=usb, unc=unc)
+                sp = _os.path.join(travail, "capture.ps1")
+                with open(sp, "w", encoding="utf-8-sig") as fh:
+                    fh.write(script)
+                if unc and unc.get("avec_identifiants"):
+                    env = {"SI_BK_UNC_USER": str(unc_user or ""), "SI_BK_UNC_PASS": str(unc_secret or "")}
+                interp = winhost.POWERSHELL
+                argv = [interp, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", sp]
+                confine = {"env": dict(_os.environ, **env), "encoding": "auto", "cwd": travail} if self.cmd is host.run_cmd else None
+                r = self.cmd(argv, timeout=900, confined=confine) if confine else self.cmd(argv, timeout=900, env=env)
+                data = bk.extraire_json(getattr(r, "stdout", "") or "") or {"erreurs": ["sortie illisible du script de capture (code %s)" % getattr(r, "returncode", "?")]}
+            except Exception as exc:  # noqa: BLE001 -- ne jamais remonter un secret
+                _log.warning("sauvegarde de poste : échec", exc_info=True)
+                data = {"erreurs": ["échec : %s" % type(exc).__name__]}
+            finally:
+                try:
+                    import shutil as _sh
+                    _sh.rmtree(travail, ignore_errors=True)
+                    try:
+                        _os.remove(archive)        # copie locale retirée (déjà écrite sur USB/UNC) -- #931 : conservée pour la remontée hub
+                    except OSError:
+                        pass
+                except Exception:  # noqa: BLE001
+                    pass
+            data.setdefault("montages", bk.manifeste(self.agent_id, confs, montages)["montages"])
+            al = bk.constats(data)
+            self.queue.put({"task": "sauvegarde-poste", "at": _iso(self.clock()),
+                            "ok": not any(x.get("severity") == "critical" for x in al),
+                            "agent_id": self.agent_id, "data": dict(data, alerts=al)})
+            for a in al:
+                try:
+                    self.event("sauvegarde", a.get("severity") or "info", a.get("message") or "", {"code": a.get("code")})
+                except Exception:  # noqa: BLE001
+                    pass
+
+        t = threading.Thread(target=work, name="si-agent-sauvegarde", daemon=True)
+        self._sauvegarde = t
+        t.start()
+        self.event("sauvegarde", "info", "sauvegarde du poste lancée (%d application(s))" % len(confs), {"confs": len(confs)})
+        return {"ok": True, "result": {"started": True, "confs": len(confs)}}
 
     # -- #928 : test d'accès aux services de l'entreprise (brut + authentifié) ------------------------------------
     def _acces_services_lancer(self, params):

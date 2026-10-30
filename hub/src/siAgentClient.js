@@ -89,6 +89,12 @@ export const fetchServicesPoste = (apiBase) => fetchJson(apiBase, "/services-pos
 export const saveServicesPoste = (apiBase, services, actor) => fetchJson(apiBase, "/services-poste", json("PUT", { services, actor }));
 export const runAccesServices = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/acces-services/tester`, json("POST", body || {}));
 export const fetchAccesServices = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/acces-services`);
+
+// #930 : sauvegarde des confs logicielles et des montages d'un poste (archive -> clé USB / partage ; identifiants au coffre).
+export const fetchSauvegardeReglage = (apiBase) => fetchJson(apiBase, "/postes-sauvegarde");
+export const saveSauvegardeReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde", json("PUT", body));
+export const runSauvegarde = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/lancer`, json("POST", body || {}));
+export const fetchSauvegarde = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde`);
 export async function fetchChargeLive(apiBase, agent) {
   try {
     const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });

@@ -4092,7 +4092,20 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   historique/tendance des temps par site ; préréglage « sites de l'entreprise » pour web-audit (temps bruts comparés
   entre postes) ; option marqueur d'échec par site.
 
-- DEMANDÉ le 30/10 (À FAIRE APRÈS l'analyse de pc-paul) -- sonde de gestion sauvegarde / restauration d'un poste
+- Sonde sauvegarde/restauration (DEMANDÉ le 30/10) -- EN COURS : #930 a livré la SAUVEGARDE des confs logicielles
+  (registre + dossiers AppData) et des montages (remonter.cmd), destinations clé USB + partage UNC (identifiants au
+  coffre). Reste, dans l'ordre demandé :
+  * #931 (SUIVANT) -- remontée au hub : COMBINER les jeux de sauvegarde et les POUSSER vers pbs1 (client
+    proxmox-backup-client dans le conteneur si-agent-api, cible configurable = dépôt/espace de noms, jeton d'API au
+    coffre, jamais en trace ; un snapshot « host » PBS par poste regroupe .reg + AppData + remonter.cmd). À demander
+    au lancement : dépôt et jeton de pbs1. NB : pbs1 à confirmer (mémoire : pbs10 = PBS 4 sur pve10, datastore
+    « backup »).
+  * points de restauration Windows (lister, créer, déclencher) ; sauvegarde via l'outil du fabricant / Microsoft ;
+    liste des applications à réinstaller ; trousseaux à exporter/importer (interaction utilisateur).
+  * RESTAURATION = opération d'INTERVENTION (réimport registre, recréation des partages), séparée et soumise à
+    autorisation.
+
+- (remplacé par la ligne ci-dessus) sonde de gestion sauvegarde / restauration d'un poste
   Windows, en vue d'une réinstallation (système identique ou plus récent, départ de zéro) :
   * points de restauration Windows (lister, créer, déclencher) ;
   * sauvegarde/restauration via l'outil du fabricant ou de Microsoft, vers une clé et un partage ;
