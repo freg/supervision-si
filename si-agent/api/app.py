@@ -3314,6 +3314,24 @@ def sauvegarde_resultat_route(agent_id):
     return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
 
 
+@app.route("/agents/<agent_id>/sauvegarde/inventaire", methods=["GET"])
+def sauvegarde_inventaire_route(agent_id):
+    """#941 : inventaire compact (JSON) des éléments de configuration par application : clés, dossiers, exports connus
+    (mots de passe, favoris, historique, cache…) et ce que la dernière sauvegarde a relevé (présence, tailles). Aucune
+    valeur secrète : l'inventaire décrit où sont les choses, il ne les lit pas."""
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    reglage = store.get_setting(DB_PATH, "postes-sauvegarde", {"confs": [], "inclure_catalogue": True, "inclure_deduit": False})
+    logiciels = (_poste_windows_releve(agent_id) or {}).get("logiciels")
+    cibles = sauvegarde_conf.cibles(liste_editee=reglage.get("confs"), logiciels=logiciels, inclure_catalogue=bool(reglage.get("inclure_catalogue", True)),
+                                    inclure_deduit=bool(reglage.get("inclure_deduit", False)))
+    ms = store.list_measurements(DB_PATH, agent_id, task="sauvegarde-poste", limit=1)
+    data = dict((ms[0].get("data") or {}), at=ms[0].get("at")) if ms else None
+    inv = sauvegarde_conf.inventaire(cibles, data)
+    inv["meta"]["agent"] = agent_id
+    return jsonify(inv), 200
+
+
 @app.route("/sauvegardes/apercu", methods=["GET"])
 def sauvegardes_apercu_route():
     """#937 : tuile « Sauvegardes » -- aperçu central (lecture seule, aucune commande) : postes (sauvegarde-poste +

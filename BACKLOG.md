@@ -4173,8 +4173,8 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
 - DEMANDÉ le 30/10 -- INVENTAIRE DÉTAILLÉ des éléments de configuration détectés par la sauvegarde de poste, « pas les
   valeurs secrètes mais l'inventaire, format compacté façon JSON » : par application, clés de registre, chemins /
   fichiers, et exports possibles (ex. firefox : cache, conf, export mots de passe, export favoris, export historique).
-  (Le tableau « Que sauvegarder » du catalogue en couvre déjà une partie -- clés et dossiers par application ; reste :
-  la vue compacte JSON par application avec présence / tailles relevées et les exports possibles.)
+  LIVRÉ #941 : bouton « { } Inventaire JSON » (éléments connus par application, exports et portabilité, relevé de la
+  dernière sauvegarde). Reste : enrichir EXPORTS pour les logiciels déduits (CAO, métier) au fil des postes.
 - RÈGLE GÉNÉRALE notée le 30/10 (appliquée #939 aux boutons existants, à respecter partout ensuite) : un bouton d'action
   passe « en cours » dès le clic même s'il y a un autre effet visible.
 - DEMANDÉ le 30/10 -- Sauvegarde IMAGE du disque d'un poste (wbadmin / image bloc vers partage ou PBS, planifiable) et

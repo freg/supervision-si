@@ -95,6 +95,7 @@ export const fetchSauvegardeReglage = (apiBase) => fetchJson(apiBase, "/postes-s
 export const saveSauvegardeReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde", json("PUT", body));
 export const runSauvegarde = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/lancer`, json("POST", body || {}));
 export const fetchSauvegarde = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde`);
+export const fetchSauvegardeInventaire = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/inventaire`);   // #941 : inventaire JSON compact par application
 export const fetchSauvegardesApercu = (apiBase) => fetchJson(apiBase, "/sauvegardes/apercu");   // #937 : tuile « Sauvegardes »
 export const runBackuppc = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/backuppc/commande`, json("POST", body || {}));   // #939 : BackupPC (status / backup / stop)
 export const fetchBackuppcResultats = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/backuppc/resultat`);   // #939

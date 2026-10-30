@@ -3,11 +3,11 @@
 // La liste des confs ne contient aucun secret ; les identifiants du partage viennent du coffre (nom d'accès seulement).
 // La restauration (réimport) sera une opération d'intervention, livrée après.
 import { useCallback, useEffect, useState } from "react";
-import { fetchSauvegardeReglage, saveSauvegardeReglage, runSauvegarde, fetchSauvegarde,
+import { fetchSauvegardeReglage, saveSauvegardeReglage, runSauvegarde, fetchSauvegarde, fetchSauvegardeInventaire,
   fetchSauvegardePbsReglage, saveSauvegardePbsReglage, runSauvegardePbs, fetchSauvegardePbs,
   runRestauration, fetchRestauration } from "./siAgentClient.js";
 import { octets, lignes, depuisLignes, resume } from "./sauvegardeLib.js";
-import BoutonDetail from "./FenetreTexte.jsx";
+import BoutonDetail, { FenetreTexte } from "./FenetreTexte.jsx";
 
 function Editeur({ base, actor }) {
   const [reg, setReg] = useState(null);
@@ -232,6 +232,31 @@ function SectionUsb({ agent }) {
   );
 }
 
+// #941 : « inventaire détaillé des éléments de configuration détectés : clés de registre, chemins / fichiers, pas les
+// valeurs secrètes, format compacté façon JSON (ex. firefox : cache, conf, export mots de passe, favoris, historique) ».
+function Inventaire({ agent, base }) {
+  const [inv, setInv] = useState(null);
+  const [ouvert, setOuvert] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const charger = async () => { setBusy(true); const r = await fetchSauvegardeInventaire(base, agent); setBusy(false); if (r && !r.error) { setInv(r); setOuvert(true); } };
+  const texte = inv ? JSON.stringify(inv, null, 1) : "";
+  const telecharger = () => {
+    try {
+      const blob = new Blob([JSON.stringify(inv, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob); const a = document.createElement("a");
+      a.href = url; a.download = `inventaire-config-${agent}.json`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { /* téléchargement indisponible */ }
+  };
+  return (
+    <>
+      <button type="button" className="secondary" disabled={busy} onClick={inv ? () => setOuvert(true) : charger} title="clés de registre, chemins, exports connus (mots de passe, favoris, historique, cache) et relevé de la dernière sauvegarde -- sans aucune valeur">{busy ? "⏳ en cours…" : "{ } Inventaire JSON"}</button>
+      {ouvert && inv && <FenetreTexte titre={`Inventaire des éléments de configuration -- ${agent} (${inv.meta?.applications} applications, ${inv.meta?.avec_releve} relevées)`} texte={texte} onFermer={() => setOuvert(false)} />}
+      {inv && <button type="button" className="secondary" onClick={telecharger} title="fichier JSON">⇩ JSON</button>}
+    </>
+  );
+}
+
 export default function Sauvegarde({ agent, base, actor, mode }) {
   const [res, setRes] = useState(null);
   const [usb, setUsb] = useState("");
@@ -276,6 +301,7 @@ export default function Sauvegarde({ agent, base, actor, mode }) {
         <label title="nom d'un accès du coffre « Accès d'équipements » ; laissé vide = session courante de l'agent">Accès coffre (partage)<br /><input value={acces} onChange={(e) => setAcces(e.target.value)} placeholder="nas-superv" style={{ width: 130 }} disabled={!unc.trim()} /></label>
         <button type="button" className="primary" disabled={busy || attente !== null} onClick={lancer}>{busy ? "⏳ envoi…" : attente !== null ? "⏳ sauvegarde en cours sur le poste…" : "▶ Lancer la sauvegarde"}</button>
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer « que sauvegarder »" : "Que sauvegarder"}</button>
+        <Inventaire agent={agent} base={base} />
         <button type="button" className="secondary" onClick={() => setPbs((v) => !v)}>{pbs ? "Masquer PBS" : "Pousser vers PBS"}</button>
         <button type="button" className="secondary" onClick={() => setRestaure((v) => !v)}>{restaure ? "Masquer restauration" : "Restaurer"}</button>
         <button type="button" className="secondary" onClick={() => setImage((v) => !v)}>{image ? "Masquer image" : "Sauvegarde image"}</button>

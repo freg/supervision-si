@@ -176,3 +176,37 @@ class Restauration(unittest.TestCase):
         import json as _j
         self.assertNotIn("TOP-SECRET", _j.dumps(red))
         self.assertEqual(red["source"]["unc"]["secret"], "***")
+
+
+class Inventaire941(unittest.TestCase):
+    def test_inventaire_pur(self):
+        cib = sc.cibles()
+        res = {"archive": {"nom": "bk.zip", "octets": 10}, "confs": [{"app": "PuTTY", "cle": "HKCU\\Software\\SimonTatham", "fichier": "PuTTY-1.reg", "octets": 2048}],
+               "dossiers": [{"app": "Firefox", "source": "%APPDATA%\\Mozilla\\Firefox", "archive": "appdata/firefox/1", "octets": 5000000},
+                            {"app": "OpenVPN", "source": "%USERPROFILE%\\OpenVPN\\config", "octets": 0, "absent": True}], "at": "2026-10-30T10:00:00Z"}
+        inv = sc.inventaire(cib, res)
+        ff = inv["applications"]["Firefox"]
+        self.assertEqual(ff["elements"]["mots_de_passe"]["fichiers"], ["logins.json", "key4.db"])
+        self.assertEqual(ff["releve"]["octets"], 5000000)
+        self.assertEqual(inv["applications"]["OpenVPN"]["releve"]["absents"], ["%USERPROFILE%\\OpenVPN\\config"])
+        self.assertEqual(inv["applications"]["PuTTY"]["releve"]["cles"][0]["fichier"], "PuTTY-1.reg")
+        self.assertNotIn("releve", inv["applications"]["Chrome"])
+        self.assertIn("NON", inv["applications"]["Chrome"]["elements"]["mots_de_passe"]["portable"])
+        self.assertEqual((inv["meta"]["archive"], inv["meta"]["avec_releve"], inv["meta"]["applications"]), ("bk.zip", 3, len(cib)))
+        self.assertEqual(sc.inventaire(cib, None)["meta"]["avec_releve"], 0)
+        import json
+        txt = json.dumps(inv)
+        self.assertNotIn("password=", txt.lower())
+
+    def test_route(self):
+        c = A.app.test_client()
+        try:
+            store.create_agent(A.DB_PATH, "pc-inv", "siege")
+        except ValueError:
+            pass
+        r = c.get("/agents/pc-inv/sauvegarde/inventaire")
+        self.assertEqual(r.status_code, 200)
+        j = r.get_json()
+        self.assertIn("Firefox", j["applications"])
+        self.assertEqual(j["meta"]["agent"], "pc-inv")
+        self.assertEqual(c.get("/agents/inconnu-inv/sauvegarde/inventaire").status_code, 404)

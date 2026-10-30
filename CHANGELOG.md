@@ -1,3 +1,16 @@
+## 2026-10-30 — Inventaire JSON des éléments de configuration par application (livraison #941)
+
+- Demande : « un inventaire détaillé des éléments de configuration détectés : clés de registre, chemins / fichiers… pas
+  les valeurs secrètes mais l'inventaire dans un format compacté façon JSON (ex. firefox : cache, conf, export mots de
+  passe, favoris, historique) ». Bouton **{ } Inventaire JSON** dans la sauvegarde d'un poste (fiche agent › Sauvegardes
+  et Postes Windows › Sauvegarde) : fenêtre copiable + téléchargement. Par application : clés et dossiers de la liste
+  envoyée à l'agent, **éléments connus** (Firefox, Thunderbird, Chrome, Edge, Office/Outlook, PuTTY, WinSCP, OpenVPN :
+  profil, conf, mots de passe -- fichiers, procédure d'export, **portable ou non** (DPAPI) --, favoris, historique,
+  extensions, sessions, cache à ne pas sauvegarder, synchro de compte), et le **relevé** de la dernière sauvegarde
+  (clés exportées, dossiers trouvés / absents, tailles). Aucune valeur n'est lue : l'inventaire décrit où sont les choses.
+- API : `GET /agents/<id>/sauvegarde/inventaire` (`sauvegarde_conf.EXPORTS`, `inventaire()`).
+- Vérifié : tests API (15), hub (493), lint JSX. Non vérifié : rendu.
+
 ## 2026-10-30 — NAS QNAP : connexions, journaux, étude et gestion à distance par SSH (livraison #940)
 
 - « Continue sur QNAP » : sonde **nas-qnap v2** (toujours lecture seule) -- **connexions en cours** (sessions SMB et
