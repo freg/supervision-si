@@ -1,3 +1,15 @@
+## 2026-10-30 — NAS QNAP : propositions et conseils (livraison #944)
+
+- Comme pour les postes (#935/#938), le NAS a ses **« Propositions et conseils »** : disques âgés (≥ 7 ans : à remplacer
+  un par un, info dès 5 ans), SMART dégradé (secteurs réalloués, critique si illisibles), disque en défaut ou chaud, RAID
+  dégradé, **groupe sans redondance** (le SSD seul en baie 8 : cache ou données ?), volumes à 80 / 90 % (cas Time
+  Machine : quota côté Mac), snapshots absents ou en retard, Time Machine qui ne sauvegarde plus, applications à mettre
+  à jour (inactives : désinstaller). Chaque conseil nomme l'élément (baie, modèle, heures, volume) et donne la
+  procédure : chemin dans QTS et commandes de LECTURE par SSH -- rien n'est modifié sur le NAS.
+- Affiché dans la tuile NAS (relevé SNMP) et dans Sauvegardes › NAS QNAP (SNMP + SSH : snapshots, Time Machine).
+  Rendu commun `ConseilsListe` (procédures dépliables, commandes copiables, export ⌘), module pur `conseilsNas.js`.
+- Vérifié : tests hub (498 dont conseilsNas 2), API (7), lint JSX. Non vérifié : rendu.
+
 ## 2026-10-30 — Diagnostic pc-paul : plan de remise en état en 2 étapes, conseils NTFS / graphique / mémoire nommés, encodage du journal, BackupPC relayé (livraison #943)
 
 - **Plan de remise en état** (« je vois 2 étapes ») en tête des conseils, partagé entre utilisateurs du hub

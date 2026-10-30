@@ -134,7 +134,8 @@ def nas(mesures, mesures_ssh=None):
             pires = [v["pct"] for v in vols if isinstance(v.get("pct"), (int, float))]
             e = {"nom": n.get("name"), "hote": n.get("host"), "relais": h or aid, "at": at, "ok": n.get("ok", True), "erreur": n.get("error"),
                  "volumes": vols, "etat": "erreur" if not n.get("ok", True) else "critique" if pires and max(pires) >= 95 else "attention" if pires and max(pires) >= 85 else "ok",
-                 "snapshots": None, "timemachine": None, "ssh": None}
+                 "snapshots": None, "timemachine": None, "ssh": None,
+                 "snmp": {"disques": n.get("disques") or [], "raid": n.get("raid") or [], "reserves": n.get("reserves") or [], "applications": n.get("applications") or [], "systeme": n.get("systeme") or {}}}   # #944 : pour les conseils
             x = ssh.get(str(n.get("name") or "").lower()) or ssh.get(str(n.get("host") or "").lower())
             if x:
                 vus.add(id(x))

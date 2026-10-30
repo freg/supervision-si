@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchSauvegardesApercu, runBackuppc, runNasQnap, fetchNasQnapResultats } from "./siAgentClient.js";
 import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import BoutonDetail from "./FenetreTexte.jsx";
+import { conseilsNas } from "./conseilsNas.js";   // #944
+import ConseilsListe from "./ConseilsListe.jsx";   // #944
 import { ONGLETS, ton, urgence, libelle, to, ageTexte, detailPoste, filtrerPostes, etatHote, points, csvPostes, etatBackuppcHote, detailBackuppc, conseilBackuppc, detailNas } from "./sauvegardesLib.js";
 
 const quand = (at) => { if (!at) return "—"; const s = (Date.now() - Date.parse(at)) / 1000; return s < 3600 ? `il y a ${Math.round(s / 60)} min` : s < 172800 ? `il y a ${Math.round(s / 3600)} h` : `il y a ${Math.round(s / 86400)} j`; };
@@ -259,6 +261,7 @@ function Nas({ nas, base, actor }) {
             {Object.keys(n.ssh.aide || {}).length > 0 && <> <BoutonDetail titre={`NAS ${n.nom} : aide des outils (--help)`} urgence="info" libelle="?" texte={Object.entries(n.ssh.aide).map(([k, v]) => `## ${k}\n${v}`).join("\n\n")} /></>}</div>
         </div>}
       </div>
+      <ConseilsListe liste={conseilsNas({ ...(n.snmp || {}), name: n.nom, volumes: (n.volumes || []).map((v) => ({ ...v, leger: false })) }, n.ssh?.ok ? { ...n.ssh, snapshots: n.snapshots, timemachine: n.timemachine } : n.ssh === null || n.ssh === undefined ? null : { ok: false })} titre="Propositions et conseils" note="Déduits des relevés SNMP et SSH ; chemins QTS et commandes de lecture seulement -- rien n'est modifié sur le NAS." />
       {n.ssh?.ok && <ConnexionsNas n={n} />}
       {n.ssh?.ok && <GestionNas n={n} base={base} actor={actor} />}
     </section>

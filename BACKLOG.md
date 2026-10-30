@@ -4168,7 +4168,9 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   commande backuppc-ctl gardée par « intervention ») + NAS QNAP (sonde nas-qnap par SSH : snapshots, Time Machine,
   RAID, partages, découverte des outils) livrés #939 ; #940 : connexions, journaux, aide des outils, gestion à distance
   (essai lecture / actions déclarées en intervention). Reste : au premier relevé réel de nas-grpi-1, lire l'aide des outils
-  et proposer les actions `snapshot` / `hbs` à déclarer ; journaux QTS 5 (QuLog) ; récapitulatif host/VM on/off
+  et proposer les actions `snapshot` / `hbs` à déclarer ; journaux QTS 5 (QuLog) ; récapitulatif host/VM on/off ;
+  #944 : conseils NAS livrés (SNMP + SSH) -- reste : conseil chiffré « agrandir le volume X de N To » calé sur la
+  réserve libre, et suivi « fait » comme le plan de remise en état des postes
   + planification (cron) par invité dans la tuile (aujourd'hui renvoi vers Maintenance PVE et l'inventaire des copies).
 - DEMANDÉ le 30/10 -- BOOT USB D'URGENCE : « je voudrais pouvoir générer une image à copier en dump (dd if=xx.img
   of=/dev/xy) » : le hub produit une image de clé prête à écrire (environnement de secours WinPE ou Linux + outils

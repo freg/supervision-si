@@ -6,6 +6,8 @@ import { fetchNas } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import IpPing from "./IpPing.jsx";
 import { evolution } from "./nasEvolution.js";   // #927
+import { conseilsNas } from "./conseilsNas.js";   // #944
+import ConseilsListe from "./ConseilsListe.jsx";   // #944
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const to = (o) => (o == null ? "—" : o >= 1e12 ? `${(o / 1e12).toFixed(1).replace(".", ",")} To` : `${Math.round(o / 1e9)} Go`);
@@ -81,6 +83,7 @@ export default function NasView({ onBack, siAgentApiBase }) {
             <IpPing ip={n.host} /> · {n.systeme?.modele || ""} {n.systeme?.micrologiciel ? `· système ${n.systeme.micrologiciel}` : ""} · relevé par {n.relais} {n.at ? age(n.at) : ""}</span></h3>
           {!n.ok ? <p className="np-tone bad">injoignable : {n.error}</p> : (() => { const evo = evolution(n); return <>
             {(n.alertes || []).length > 0 && <div style={{ margin: "6px 0" }}>{n.alertes.map((a, i) => <div key={i} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}</div>}
+            <ConseilsListe liste={conseilsNas(n, undefined)} titre="Propositions et conseils (SNMP)" note="Déduits du relevé SNMP ; snapshots, Time Machine et connexions : tuile Sauvegardes › NAS QNAP (sonde nas-qnap). Rien n'est modifié sur le NAS." />
             <h4>Volumes</h4>
             <table className="infra-table"><thead><tr><th>Volume</th><th>Remplissage</th><th>Utilisé</th><th>Taille</th><th title="taille + espace non alloué de la réserve">Extensible jusqu'à</th><th>État</th></tr></thead>
               <tbody>{(n.volumes || []).map((v) => <tr key={v._idx}><td>{v.nom}{v.leger ? <span className="infra-muted"> (léger)</span> : null}</td>
