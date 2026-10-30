@@ -1,5 +1,11 @@
 [
  {
+  "n": 935,
+  "from": 935,
+  "date": "2026-10-30",
+  "title": "Propositions et conseils sur les points critiques"
+ },
+ {
   "n": 934,
   "from": 934,
   "date": "2026-10-30",
@@ -232,11 +238,5 @@
   "from": 895,
   "date": "2026-10-28",
   "title": "Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik"
- },
- {
-  "n": 894,
-  "from": 894,
-  "date": "2026-10-28",
-  "title": "Réception syslog conservée, journal WireGuard du routeur dans l'onglet VPN"
  }
 ]

@@ -2921,20 +2921,24 @@ tr:hover .ft-mini, tr:focus-within .ft-mini, .ft-mini:focus-visible { visibility
 .sa-cel-flex { display: flex; align-items: center; min-width: 0; }
 .sa-resultat-txt { font-size: 11px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* #933 : impression dédiée de l'historique des tests de charge. Seule la zone .pw-print est imprimée (le reste du
-   hub -- menu, pied, autres panneaux -- est masqué), en noir sur blanc, tableaux pleine page, sans les boutons. */
+/* #933/#935 : impression CIBLÉE (par classe sur <body>, posée par src/impression.js). Chaque bouton « Imprimer »
+   n'imprime que SA zone : .pw-print (tests de charge) ou .conseils-print (propositions et conseils). Le reste du hub
+   est masqué ; noir sur blanc, tableaux pleine page, sans les boutons. Sans classe, l'impression reste normale. */
 @media print {
-  body * { visibility: hidden !important; }
-  .pw-print, .pw-print * { visibility: visible !important; }
-  .pw-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; }
-  .pw-print * { color: #000; background: transparent !important; border-color: #999; }
-  .pw-print button, .pw-print input, .pw-print select { display: none !important; }
+  body.impr-charge *, body.impr-conseils * { visibility: hidden !important; }
+  body.impr-charge .pw-print, body.impr-charge .pw-print *,
+  body.impr-conseils .conseils-print, body.impr-conseils .conseils-print * { visibility: visible !important; }
+  body.impr-charge .pw-print, body.impr-conseils .conseils-print {
+    position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; }
+  body.impr-charge .pw-print *, body.impr-conseils .conseils-print * { color: #000; background: transparent !important; border-color: #999; }
+  body.impr-charge .pw-print button, body.impr-charge .pw-print input, body.impr-charge .pw-print select,
+  body.impr-conseils .conseils-print button { display: none !important; }
   .pw-print .infra-table-wrap { max-height: none !important; overflow: visible !important; }
-  .pw-print table { border-collapse: collapse; width: 100%; }
+  .pw-print table, .conseils-print table { border-collapse: collapse; width: 100%; }
   .pw-print th, .pw-print td { border: 1px solid #999 !important; padding: 2px 6px; }
-  .pw-print-entete { display: block !important; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
-  .pw-print .np-tone.bad { color: #b00020 !important; }
-  .pw-print .np-tone.warn { color: #8a5a00 !important; }
-  .pw-print .np-tone.good { color: #1a7f37 !important; }
+  .pw-print-entete, .conseils-print-entete { display: block !important; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+  .pw-print .np-tone.bad, .conseils-print .np-tone.bad { color: #b00020 !important; }
+  .pw-print .np-tone.warn, .conseils-print .np-tone.warn { color: #8a5a00 !important; }
+  .pw-print .np-tone.good, .conseils-print .np-tone.good { color: #1a7f37 !important; }
   @page { margin: 12mm; }
 }

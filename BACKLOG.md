@@ -4141,7 +4141,7 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   poste) ; point de restauration Windows créé avant application ; restauration ciblée par application depuis l'UI
   (cases à cocher par appli, à partir de la simulation).
 
-- DEMANDÉ le 30/10 (« rapidement ») -- CONSEILS SUR LES POINTS CRITIQUES : à partir des tests de charge et du
-  diagnostic poste-windows (et SMART/température/événements), produire des propositions et conseils classés
-  (critique/alerte/info) avec actions concrètes (ex. BIOS Dell, pilote Wi-Fi Killer, défaut disque intermittent,
-  Defender désactivé…). À faire : #935, module de conseils + affichage dans l'onglet Diagnostic (imprimable).
+- Conseils sur les points critiques -- LIVRÉ #935 : section « Propositions et conseils » en tête du Diagnostic
+  (conseilsDiagnostic.js), classés par gravité avec action concrète, croisant diagnostic + tests de charge
+  (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
+  NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).

@@ -10,6 +10,8 @@ import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 import AccesServices from "./AccesServices.jsx";       // #928
 import Sauvegarde from "./Sauvegarde.jsx";             // #930
 import { resumeRun, comparer, csvHistorique } from "./chargeHistorique.js"; // #932/#933
+import { conseils, bilan } from "./conseilsDiagnostic.js"; // #935
+import { imprimer } from "./impression.js"; // #935
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -49,6 +51,37 @@ function Reinstallation({ r }) {
     <Tableau titre="Antivirus" lignes={r.antivirus} cols={[["Produit", (l) => l.nom], ["Actif", (l) => (l.actif ? "oui" : "non")], ["À jour", (l) => (l.a_jour ? "oui" : "non")]]} />
     <Tableau titre="Logiciels" lignes={r.logiciels} cols={[["Nom", (l) => l.nom], ["Version", (l) => l.version], ["Éditeur", (l) => l.editeur], ["Portée", (l) => l.portee], ["Installé", (l) => (l.installe ? `${l.installe.slice(6, 8)}/${l.installe.slice(4, 6)}/${l.installe.slice(0, 4)}` : "—")]]} />
   </>);
+}
+
+// #935 : propositions et conseils sur les points critiques, en tête du Diagnostic (imprimable).
+function ConseilsDiagnostic({ detail, base }) {
+  const [histo, setHisto] = useState([]);
+  useEffect(() => { if (detail && detail.agent) fetchChargeHistorique(base, detail.agent, 50).then((r) => { if (r && !r.error) setHisto(r.historique || []); }); }, [base, detail && detail.agent]);
+  const liste = conseils(detail, histo);
+  const b = bilan(liste);
+  if (!liste.length) return <div className="np-tone good" style={{ margin: "8px 0" }}>Aucun point critique relevé par le diagnostic et les tests. ✔</div>;
+  return (
+    <div className="conseils-print infra-card" style={{ margin: "8px 0" }}>
+      <div className="conseils-print-entete" style={{ display: "none" }}>Propositions et conseils — {detail.poste?.nom || detail.agent} — imprimé le {new Date().toLocaleString("fr-FR")}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h4 style={{ margin: 0 }}>Propositions et conseils</h4>
+        {b.critique > 0 && <span className="np-tone bad">{b.critique} critique(s)</span>}
+        {b.alerte > 0 && <span className="np-tone warn">{b.alerte} à surveiller</span>}
+        {b.info > 0 && <span className="np-tone neutral">{b.info} info</span>}
+        <span style={{ flex: 1 }} />
+        <button type="button" className="secondary" onClick={() => imprimer("impr-conseils")}>🖨 Imprimer</button>
+      </div>
+      <ol style={{ margin: "6px 0", paddingLeft: 20 }}>
+        {liste.map((c, i) => (
+          <li key={c.code + i} style={{ marginBottom: 6 }}>
+            <b className={`np-tone ${c.niveau === "critique" ? "bad" : c.niveau === "alerte" ? "warn" : "neutral"}`}>{c.titre}</b>
+            <div className="infra-muted" style={{ fontSize: 13 }}>{c.constat}</div>
+            <div style={{ fontSize: 13 }}>→ {c.action}</div>
+          </li>))}
+      </ol>
+      <div className="infra-muted" style={{ fontSize: 11 }}>Conseils déduits automatiquement du diagnostic et des tests de charge : à valider avant toute intervention.</div>
+    </div>
+  );
 }
 
 function Diagnostic({ d, charge }) {
@@ -148,7 +181,7 @@ function HistoriqueCharge({ agent, base, dernierAt }) {
         <span style={{ flex: 1 }} />
         {sel.length > 0 && <button type="button" className="secondary" onClick={() => setSel([])}>Vider la sélection</button>}
         <button type="button" className="secondary" onClick={exporterCsv} title="exporter l'historique en CSV (Excel)">⤓ CSV</button>
-        <button type="button" className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF (l'historique et la comparaison visibles)">🖨 Imprimer</button>
+        <button type="button" className="secondary" onClick={() => imprimer("impr-charge")} title="imprimer ou enregistrer en PDF (l'historique et la comparaison visibles)">🖨 Imprimer</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       <div className="infra-table-wrap">
@@ -281,7 +314,7 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
               <button className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF la fiche affichée">Imprimer</button>
               <button className="secondary" onClick={charger}>⟳</button>
             </div>
-            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "services" ? <AccesServices agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "sauvegarde" ? <Sauvegarde agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
+            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "services" ? <AccesServices agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "sauvegarde" ? <Sauvegarde agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <><ConseilsDiagnostic detail={detail} base={siAgentApiBase} /><Diagnostic d={detail.diagnostic} charge={detail.charge} /></> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
           </section>)}
       </>)}
     </div>

@@ -1,3 +1,21 @@
+## 2026-10-30 — Propositions et conseils sur les points critiques (livraison #935)
+
+- Demande (« prévoir rapidement les propositions et conseils sur les points critiques et inquiétants relevés par les
+  tests et diagnostics ») : en tête de l'onglet Diagnostic d'un poste, une section **« Propositions et conseils »** qui
+  synthétise les points critiques et donne une **action concrète** pour chacun, classés critique / à surveiller / info.
+- Déduits automatiquement du diagnostic poste-windows (antivirus, santé/SMART/température/usure des disques, volumes
+  pleins, écrans bleus, WHEA, mémoire, erreurs disque/contrôleur, arrêts brutaux, indice de stabilité, applications qui
+  plantent avec le module en cause) et des **tests de charge** (défaut disque reproduit, poste figé, et **défaut
+  intermittent** = reproduit sur une partie seulement des runs — croisé avec l'historique #932). Exemples d'actions :
+  réactiver Defender, mettre à jour le BIOS (HAL/ACPI), le pilote Wi-Fi (NDIS), installer le pilote en échec, suspecter
+  câble/contrôleur pour un défaut disque intermittent.
+- **Impression** : la section a son propre bouton « Imprimer » (noir sur blanc, seule la section sort). Au passage,
+  **correction d'une régression de #933** : l'impression est désormais CIBLÉE par bouton (une classe posée sur le
+  <body> le temps de l'impression) — l'« Imprimer » du Diagnostic ou de la Réinstallation réimprime de nouveau la vue,
+  et celui des tests de charge n'imprime que l'historique. Hub seul (agent 0.6.33 inchangé).
+- Vérifié : tests du moteur de conseils (couverture pc-paul, classement par gravité, antivirus/disque/volumes,
+  intermittence vs défaut permanent), analyse CSS, suite hub (482). Non vérifié : rendu à l'écran et à l'impression.
+
 ## 2026-10-30 — Restauration d'une sauvegarde de poste (intervention) (livraison #934)
 
 - Contrepartie de #930/#931 : restaurer une archive de sauvegarde sur un poste, en vue d'une réinstallation. Section
