@@ -151,7 +151,7 @@ export default function AnalyseDistance({ agent, base, actor }) {
               {jobs.length === 0 && <tr><td colSpan={5} className="infra-muted">aucune commande envoyée à ce poste</td></tr>}
               {jobs.map((j) => (
                 <tr key={j.id} onClick={() => setSel(j.id)} style={{ cursor: "pointer", fontWeight: j.id === sel ? 600 : 400 }}>
-                  <td>{date(j.envoye)}</td><td title={j.motif || ""}>{j.titre}{j.motif && <BoutonDetail titre={`Motif : ${j.titre}`} urgence={["refuse", "refuse_agent", "erreur", "delai"].includes(j.statut) ? "critique" : "alerte"} texte={j.motif} />}</td><td>{j.mode}</td>
+                  <td>{date(j.envoye)}</td><td title={j.motif || ""}>{j.titre}{j.motif && <BoutonDetail titre={`Motif : ${j.titre}`} urgence={["refuse", "refuse_agent", "erreur", "delai", "perdue"].includes(j.statut) ? "critique" : j.statut === "file" ? "info" : "alerte"} texte={j.motif} />}</td><td>{j.mode}</td>
                   <td><Ton table={STATUTS} cle={j.statut} /></td><td>{duree(j)}</td>
                 </tr>))}
             </tbody>

@@ -152,6 +152,29 @@ class Routes(unittest.TestCase):
         ev = [e for e in store.list_events(A.DB_PATH, limit=50) if e.get("kind") in ("remote-shell-sent", "remote-shell-mode")]
         self.assertTrue(any("alice" in e["message"] for e in ev), "qui a fait quoi : journalisé")
 
+    def test_etat_commande_file_et_perdue_926(self):
+        t0 = SA._epoch("2026-10-29T17:42:00Z")
+        c = {"status": "acked", "created_at": "2026-10-29T17:41:30Z", "acked_at": "2026-10-29T17:42:00Z",
+             "params": {"delai": 120}, "result": {"queued": "x", "position": 2}}
+        st, motif = SA.etat_commande(c, None, maintenant=t0 + 60)
+        self.assertEqual(st, "file")
+        self.assertIn("position 2", motif)
+        self.assertEqual(SA.etat_commande(c, None, maintenant=t0 + SA.FILE_ATTENTE_S + 120 + SA.GRACE_S + 1)[0], "perdue")
+        lance = dict(c, result={"started": "x"})
+        self.assertEqual(SA.etat_commande(lance, None, maintenant=t0 + 60)[0], "lance")
+        st, motif = SA.etat_commande(lance, None, maintenant=t0 + 120 + SA.GRACE_S + 1)     # cas réel du 29/10 (mise à jour)
+        self.assertEqual(st, "perdue")
+        self.assertIn("redémarré", motif)
+        m = {"at": "2026-10-29T17:43:00Z", "data": {"statut": "en_cours", "debut": t0, "delai": 3600}}
+        self.assertEqual(SA.etat_commande(lance, m, maintenant=t0 + 3000)[0], "en_cours", "longue et silencieuse : pas perdue")
+        self.assertEqual(SA.etat_commande(lance, m, maintenant=t0 + 3600 + SA.GRACE_S + 1)[0], "perdue")
+        fini = {"data": {"statut": "fini", "debut": t0}}
+        self.assertEqual(SA.etat_commande(lance, fini, maintenant=t0 + 99999)[0], "fini")
+        self.assertEqual(SA.etat_commande({"status": "pending", "created_at": "2026-10-01T00:00:00Z"}, None, maintenant=t0)[0],
+                         "en_attente", "jamais relevée (poste éteint) : reste en attente")
+        st, motif = SA.etat_commande({"status": "failed", "result": {"error": "non autorisé"}}, None)
+        self.assertEqual((st, motif), ("refuse_agent", "non autorisé"))
+
     def test_intervention(self):
         store.create_agent(A.DB_PATH, "pc-sh2", "siege")
         self.c.put("/agents/pc-sh2", json={"remote_shell": "intervention"})

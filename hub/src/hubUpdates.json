@@ -1,5 +1,11 @@
 [
  {
+  "n": 926,
+  "from": 926,
+  "date": "2026-10-30",
+  "title": "Analyses à distance en file d'attente, commandes perdues signalées, test processeur interprétable"
+ },
+ {
   "n": 925,
   "from": 925,
   "date": "2026-10-29",
@@ -232,11 +238,5 @@
   "from": 886,
   "date": "2026-10-28",
   "title": "Sondes softether, wireguard et nas-snmp compatibles Python 3.5"
- },
- {
-  "n": 885,
-  "from": 885,
-  "date": "2026-10-28",
-  "title": "Onglet VPN : sessions SoftEther lues dans les journaux du serveur"
  }
 ]

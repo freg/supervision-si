@@ -457,6 +457,7 @@ class Agent(object):
         self._fond_autorise = IS_WINDOWS or bool(cfg.get("plugins_background"))
         self._charge = None          # #916 : test de charge en tâche de fond (live + stop pendant l'exécution)
         self._shell = {}             # #919 : commandes à distance en cours / à pousser {id: Tache}
+        self._shell_file = []        # #926 : commandes à distance en file (au-delà de 3 simultanées) [params]
         # #547 : publication locale (serveur + dernier contenu reçu du central)
         self._publish_server = None
         self._next_publish = 0
@@ -1727,6 +1728,14 @@ class Agent(object):
         if not tid or not all(c.isalnum() or c in "-_" for c in tid) or len(tid) > 40:
             return {"ok": False, "error": "params.id invalide"}
         if action == "stop":
+            for p in list(self._shell_file):            # #926 : encore en file -> retirée, jamais exécutée
+                if str(p.get("id")) == tid:
+                    self._shell_file.remove(p)
+                    self.queue.put({"task": "shell:%s" % tid, "at": _iso(self.clock()), "ok": True, "agent_id": self.agent_id,
+                                    "data": {"id": tid, "titre": p.get("titre"), "mode": p.get("mode"), "statut": "interrompu",
+                                             "code": None, "motif": "retirée de la file avant exécution", "debut": None, "fin": None,
+                                             "sortie": "", "tronque": False}})
+                    return {"ok": True, "result": {"stopped": tid, "file": True}}
             t = self._shell.get(tid)
             if t is None or t.termine:
                 return {"ok": False, "error": "aucune commande %s en cours" % tid}
@@ -1745,13 +1754,25 @@ class Agent(object):
         script = str(params.get("script") or "")
         if not script.strip() or len(script) > 20000:
             return {"ok": False, "error": "script vide ou trop long (20 000 caractères au plus)"}
-        if tid in self._shell:
+        if tid in self._shell or any(str(p.get("id")) == tid for p in self._shell_file):
             return {"ok": False, "error": "commande %s déjà reçue" % tid}
-        if sum(1 for t in self._shell.values() if not t.termine) >= rs.EN_COURS_MAX:
-            return {"ok": False, "error": "déjà %d commandes à distance en cours sur ce poste" % rs.EN_COURS_MAX}
         interp = rs.interpreteur()
         if not interp:
             return {"ok": False, "error": "PowerShell introuvable sur ce poste"}
+        if self._shell_occupees() >= rs.EN_COURS_MAX:
+            # #926 : au-delà de 3 simultanées, mise en FILE (avant : refusée -> 4 analyses lancées d'un coup = 1 échec)
+            if len(self._shell_file) >= rs.FILE_MAX:
+                return {"ok": False, "error": "file des commandes à distance pleine (%d) : réessayer plus tard" % rs.FILE_MAX}
+            self._shell_file.append(dict(params, mode=mode))
+            return {"ok": True, "result": {"queued": tid, "position": len(self._shell_file), "mode": mode}}
+        return self._shell_demarrer(params, mode, interp)
+
+    def _shell_occupees(self):
+        return sum(1 for t in self._shell.values() if not t.termine)
+
+    def _shell_demarrer(self, params, mode, interp):
+        from . import remoteshell as rs
+        tid, script = str(params.get("id")), str(params.get("script") or "")
         t = rs.Tache(tid, script, mode=mode, titre=params.get("titre"), delai=params.get("delai"),
                      dossier=os.path.join(self._charge_dir(), "shell"), fmt=params.get("format") or "texte",
                      analyse=params.get("analyse"), interp=interp, clock=time.time)
@@ -1765,7 +1786,25 @@ class Agent(object):
 
     def shell_tick(self):
         """#919 : pousse au central la sortie des commandes à distance (au plus une mesure par seconde et par
-        commande -- la file locale dédoublonne sur (tâche, instant)), puis oublie les commandes terminées."""
+        commande -- la file locale dédoublonne sur (tâche, instant)), puis oublie les commandes terminées.
+        #926 : démarre les commandes en file dès qu'une place se libère."""
+        if self._shell_file:
+            from . import remoteshell as rs
+            while self._shell_file and self._shell_occupees() < rs.EN_COURS_MAX:
+                p = self._shell_file.pop(0)
+                try:
+                    interp = rs.interpreteur()
+                    permis = rs.mode_autorise(self.cfg.get("remote_shell"), self.cfg.get("remote_shell_max"))
+                    if rs.rang(p.get("mode") or "lecture") > rs.rang(permis):      # réglage changé pendant l'attente
+                        r = {"ok": False, "error": "mode « %s » plus autorisé sur ce poste (autorisé : %s)" % (p.get("mode"), permis)}
+                    else:
+                        r = self._shell_demarrer(p, p.get("mode") or "lecture", interp) if interp else {"ok": False, "error": "PowerShell introuvable"}
+                except Exception as exc:  # noqa: BLE001
+                    r = {"ok": False, "error": str(exc)[:200]}
+                if not r.get("ok"):
+                    self.queue.put({"task": "shell:%s" % p.get("id"), "at": _iso(self.clock()), "ok": False, "agent_id": self.agent_id,
+                                    "data": {"id": p.get("id"), "titre": p.get("titre"), "mode": p.get("mode"), "statut": "erreur",
+                                             "code": None, "motif": r.get("error"), "debut": None, "fin": None, "sortie": "", "tronque": False}})
         if not self._shell:
             return
         at = _iso(self.clock())

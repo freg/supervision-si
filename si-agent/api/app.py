@@ -486,11 +486,10 @@ def _shell_commandes(agent_id, limit=200):
 def _shell_job(c, mesure):
     p = c.get("params") or {}
     d = (mesure or {}).get("data") or {}
-    statut = d.get("statut") or {"pending": "en_attente", "failed": "refuse_agent"}.get(c.get("status"), "lance")
+    statut, motif = shell_analyses.etat_commande(c, mesure)     # #926 : en file sur le poste, perdue (agent redémarré)
     return {"id": p.get("id"), "titre": p.get("titre"), "mode": p.get("mode"), "analyse": p.get("analyse"), "format": p.get("format"),
             "par": p.get("par"), "envoye": c.get("created_at"), "statut": statut, "debut": d.get("debut"), "fin": d.get("fin"),
-            "code": d.get("code"), "motif": d.get("motif") or ((c.get("result") or {}).get("error") if c.get("status") == "failed" else None),
-            "maj": (mesure or {}).get("at")}
+            "code": d.get("code"), "motif": motif, "maj": (mesure or {}).get("at")}
 
 
 @app.route("/agents/<agent_id>/shell", methods=["GET"])

@@ -7,8 +7,10 @@ SI-JSON-DEBUT / SI-JSON-FIN ; « texte » sinon). Les scripts doivent passer la 
 (test : hub/si-agent/agent/tests/test_shell_catalogue.py les vérifie avec PowerShell quand il est présent).
 
 `interpreter(id, sortie)` -> {"axes": {materiel|systeme|viral: {"niveau", "constats"}}, "synthese"} ou None."""
+import calendar
 import json
 import re
+import time
 
 JSON_DEBUT, JSON_FIN = "SI-JSON-DEBUT", "SI-JSON-FIN"
 
@@ -209,6 +211,54 @@ CATALOGUE = [
      "script": _OWNCLOUD},
 ]
 _PAR_ID = {a["id"]: a for a in CATALOGUE}
+
+
+# -- #926 : état d'une commande vu du central -----------------------------------------------------------------------
+GRACE_S = 900            # au-delà du délai de la commande, plus de nouvelles de l'agent = commande perdue
+FILE_ATTENTE_S = 4 * 3600  # attente maximale en file sur le poste (3 commandes de 60 min devant elle, au pire)
+
+
+def _epoch(iso):
+    try:
+        return calendar.timegm(time.strptime(str(iso)[:19], "%Y-%m-%dT%H:%M:%S"))
+    except (TypeError, ValueError):
+        return None
+
+
+def etat_commande(c, mesure, maintenant=None):
+    """(statut, motif) d'une commande à distance : celui poussé par l'agent ; sinon déduit de la commande
+    (en attente, refusée, reçue, EN FILE sur le poste) ; et « perdue » quand l'agent n'en donne plus de nouvelles
+    longtemps après son délai (agent redémarré par une mise à jour pendant l'exécution : avant, « reçue par
+    l'agent » pour toujours)."""
+    maintenant = time.time() if maintenant is None else maintenant
+    p, d = c.get("params") or {}, (mesure or {}).get("data") or {}
+    res = c.get("result") if isinstance(c.get("result"), dict) else {}
+    st = c.get("status")
+    if d.get("statut"):
+        statut = d["statut"]
+    elif st == "pending":
+        statut = "en_attente"
+    elif st == "failed":
+        statut = "refuse_agent"
+    else:
+        statut = "file" if res.get("queued") else "lance"
+    motif = d.get("motif") or (res.get("error") if st == "failed" else None)
+    if statut == "file" and not motif:
+        motif = "en file sur le poste (position %s) : démarre dès qu'une des 3 commandes en cours se termine" % res.get("position", "?")
+    try:
+        delai = max(5, int(d.get("delai") or p.get("delai") or 300))
+    except (TypeError, ValueError):
+        delai = 300
+    if statut in ("lance", "file", "en_cours"):
+        if statut == "en_cours" and d.get("debut"):
+            limite = float(d["debut"]) + delai + GRACE_S
+        else:
+            depart = _epoch(c.get("acked_at")) or _epoch(c.get("created_at"))
+            limite = (depart + (FILE_ATTENTE_S if statut == "file" else 0) + delai + GRACE_S) if depart else None
+        if limite and maintenant > limite:
+            return "perdue", "plus de nouvelles de l'agent bien après le délai (%d s) : agent redémarré pendant l'exécution " \
+                             "(mise à jour, arrêt du poste) ? À relancer." % delai
+    return statut, motif
 
 
 def analyse(aid):

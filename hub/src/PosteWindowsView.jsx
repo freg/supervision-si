@@ -67,14 +67,17 @@ function Diagnostic({ d, charge }) {
   </>);
 }
 
+// #926 : « non concluant » (épreuve processeur calée sans gel ni erreur) n'est pas un défaut.
+const tonVerdict = (v) => (v === "aucun défaut reproduit" ? "good" : v === "interrompu" ? "neutral" : v === "non concluant" ? "warn" : "bad");
+
 function ResultatCharge({ charge }) {
   if (!charge) return <div className="infra-muted">aucun test encore — choisis les épreuves ci-dessus et lance.</div>;
   const d = charge.disque;
   const suffixe = (r) => (r && r.statut && r.statut !== "ok" ? ` — ${r.statut}` : "");
   return (
     <div>
-      <div className={`np-tone ${charge.verdict === "aucun défaut reproduit" ? "good" : charge.verdict === "interrompu" ? "neutral" : "bad"}`}><b>{charge.verdict}</b> · {date(charge.debut || charge.at)}{(charge.epreuves || []).length ? ` · ${charge.epreuves.join(", ")}` : ""}</div>
-      {charge.processeur && <div>Processeur : {charge.processeur.coeurs} cœurs, {charge.processeur.duree_s} s, {charge.processeur.erreurs_calcul ?? 0} erreur(s) de calcul{suffixe(charge.processeur)}</div>}
+      <div className={`np-tone ${tonVerdict(charge.verdict)}`}><b>{charge.verdict}</b> · {date(charge.debut || charge.at)}{(charge.epreuves || []).length ? ` · ${charge.epreuves.join(", ")}` : ""}</div>
+      {charge.processeur && <div>Processeur : {charge.processeur.coeurs} cœurs{charge.processeur.coeurs_finis != null && charge.processeur.coeurs_finis !== charge.processeur.coeurs ? ` (${charge.processeur.coeurs_finis} ont fini)` : ""}, {charge.processeur.duree_s} s, {charge.processeur.erreurs_calcul ?? 0} erreur(s) de calcul{charge.processeur.gel_max_s >= 2 ? `, poste figé jusqu'à ${charge.processeur.gel_max_s} s` : ""}{suffixe(charge.processeur)}</div>}
       {charge.memoire && <div>Mémoire : {charge.memoire.mo} Mo testés sur {charge.memoire.libre_mo} Mo libres, {charge.memoire.blocs_errones} bloc(s) erroné(s){suffixe(charge.memoire)}</div>}
       {d && <div>Disque : {d.mo} Mo, écriture {d.ecriture_mo_s ?? "?"} Mo/s, lecture {d.lecture_mo_s ?? "?"} Mo/s, relecture {d.identique === true ? "identique" : d.identique === false ? "DIFFÉRENTE" : d.erreur || "?"}{suffixe(d)}</div>}
       {(charge.temperatures_apres || []).length > 0 && <div>Températures : {(charge.temperatures_avant || []).map((t) => t.celsius).join(" / ") || "?"} °C avant → {charge.temperatures_apres.map((t) => t.celsius).join(" / ")} °C après</div>}
@@ -197,7 +200,7 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
               <td>{p.alertes.filter((a) => a.severity === "critical").length > 0 && <span className="np-tone bad">{p.alertes.filter((a) => a.severity === "critical").length} critique(s) </span>}
                 {p.alertes.filter((a) => a.severity === "warning").length > 0 && <span className="np-tone warn">{p.alertes.filter((a) => a.severity === "warning").length} avertissement(s)</span>}
                 {!p.alertes.length && <span className="np-tone good">aucun</span>}</td>
-              <td>{date(p.at)}</td><td>{p.charge ? <span className={`np-tone ${p.charge.verdict === "aucun défaut reproduit" ? "good" : "bad"}`}>{p.charge.verdict}</span> : "—"}</td>
+              <td>{date(p.at)}</td><td>{p.charge ? <span className={`np-tone ${tonVerdict(p.charge.verdict)}`}>{p.charge.verdict}</span> : "—"}</td>
             </tr>))}</tbody></table>
         {detail && (
           <section className="infra-card">

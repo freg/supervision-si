@@ -32,3 +32,10 @@ test("date : ISO avec ou sans Z, valeur vide", () => {
   assert.match(date("2026-10-29 15:00:09"), /^29\/10 /);
   assert.equal(date(null), "—");
 });
+
+test("#926 : en file (active, suivie) et perdue (finale)", () => {
+  assert.equal(actif("file"), true);
+  assert.equal(actif("perdue"), false);
+  assert.equal(libelle(STATUTS, "perdue")[1], "bad");
+  assert.match(libelle(STATUTS, "file")[0], /file/);
+});

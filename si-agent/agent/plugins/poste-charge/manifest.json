@@ -1,6 +1,6 @@
 {
   "id": "poste-charge",
-  "version": "2",
+  "version": "3",
   "runner": "python",
   "entry": "poste_charge.py",
   "interval_seconds": 315360000,

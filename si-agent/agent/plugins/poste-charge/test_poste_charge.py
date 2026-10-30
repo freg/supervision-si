@@ -16,6 +16,22 @@ class Charge(unittest.TestCase):
         self.assertEqual((r["coeurs"], r["erreurs_calcul"]), (2, 0))
         self.assertGreater(r["iterations"], 0)
 
+    def test_cpu_detail_926(self):
+        r = pc.epreuve_cpu(1, coeurs=2)
+        self.assertEqual(r["coeurs_finis"], 2)
+        self.assertLess(r["gel_max_s"], 5)
+        self.assertIsNotNone(r["demarrage_max_s"])
+
+    def test_cpu_cale_detail_926(self):
+        r = pc.epreuve_cpu(30, coeurs=2, max_s=2)          # calcul plus long que le plafond -> calé, poste non figé
+        self.assertEqual((r["statut"], r["coeurs_finis"]), ("calé", 0))
+        sev, msg = pc.diagnostic_calage_cpu(r, 2)
+        self.assertEqual(sev, "warning")
+        self.assertIn("pas un signe matériel", msg)
+        self.assertIn("19 cœur(s) sur 20", pc.diagnostic_calage_cpu({"coeurs": 20, "coeurs_finis": 1, "gel_max_s": 0}, 300)[1])
+        self.assertEqual(pc.diagnostic_calage_cpu({"coeurs": 20, "coeurs_finis": 19, "gel_max_s": 42}, 300)[0], "critical")
+        self.assertEqual(pc.diagnostic_calage_cpu({"coeurs": 20}, 300)[0], "critical", "ancien format : prudence")
+
     def test_memoire(self):
         r = pc.epreuve_memoire(50, 8, libre=16 * 2 ** 20)
         self.assertEqual((r["mo"], r["blocs_errones"]), (8, 0))

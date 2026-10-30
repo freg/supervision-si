@@ -45,9 +45,10 @@ def _ecrire_live(chemin, data):
 
 
 def _travail(args):
-    """Calcul déterministe pendant `duree` s ; renvoie (itérations, nombre de résultats faux)."""
+    """Calcul déterministe pendant `duree` s ; renvoie (itérations, nombre de résultats faux, début, fin)."""
     duree, graine = args
-    fin, n, faux = time.time() + duree, 0, 0
+    t_debut = time.time()
+    fin, n, faux = t_debut + duree, 0, 0
     attendu = hashlib.sha256(str(graine).encode()).hexdigest()
     while time.time() < fin:
         for _ in range(2000):
@@ -57,7 +58,7 @@ def _travail(args):
         x = 1.0
         for i in range(1, 5000):
             x = (x * 1.0000001 + i) % 1e9
-    return n, faux
+    return n, faux, t_debut, time.time()
 
 
 def epreuve_cpu(duree, coeurs=None, stop=None, live=None, max_s=None):
@@ -66,23 +67,58 @@ def epreuve_cpu(duree, coeurs=None, stop=None, live=None, max_s=None):
     t0 = time.time()
     statut = "ok"
     pool = multiprocessing.Pool(coeurs)
-    futur = pool.map_async(_travail, [(duree, i) for i in range(coeurs)])
-    while not futur.ready():
-        el = time.time() - t0
+    # #926 : une tâche PAR cœur (et non map_async) -> en cas de calage, on sait combien de cœurs ont rendu leur calcul,
+    # quand ils ont démarré, et si la surveillance elle-même s'est figée (gel du poste) : « calé » devient interprétable.
+    futurs = [pool.apply_async(_travail, ((duree, i),)) for i in range(coeurs)]
+    gel_max, t_prec = 0.0, time.time()
+    while not all(f.ready() for f in futurs):
+        maintenant = time.time()
+        gel_max = max(gel_max, maintenant - t_prec - 1.0)     # tour de surveillance attendu toutes les ~1 s
+        t_prec = maintenant
+        el = maintenant - t0
         _ecrire_live(live, {"phase": "processeur", "elapsed_s": round(el, 1), "cible_s": duree,
-                            "pct": min(100, round(100 * el / max(duree, 1))), "coeurs": coeurs})
+                            "pct": min(100, round(100 * el / max(duree, 1))), "coeurs": coeurs,
+                            "coeurs_finis": sum(1 for f in futurs if f.ready())})
         if _stop_demande(stop):
-            statut = "interrompu"; pool.terminate(); break
+            statut = "interrompu"; break
         if max_s and el > max_s:
-            statut = "calé"; pool.terminate(); break
+            statut = "calé"; break
         time.sleep(1.0)
+    res, echecs = [], []
+    for f in futurs:
+        if f.ready():
+            try:
+                res.append(f.get(0))
+            except Exception as e:  # noqa: BLE001 -- un cœur dont le calcul a levé une exception
+                echecs.append(("%s: %s" % (type(e).__name__, e))[:200])
     if statut == "ok":
-        res = futur.get()
-        pool.close(); pool.join()
-        return {"statut": "ok", "coeurs": coeurs, "duree_s": round(time.time() - t0, 1),
-                "iterations": sum(r[0] for r in res), "erreurs_calcul": sum(r[1] for r in res)}
+        pool.close()
+    else:
+        pool.terminate()
     pool.join()
-    return {"statut": statut, "coeurs": coeurs, "duree_s": round(time.time() - t0, 1), "iterations": None, "erreurs_calcul": 0}
+    out = {"statut": statut, "coeurs": coeurs, "duree_s": round(time.time() - t0, 1),
+           "coeurs_finis": len(res), "gel_max_s": round(max(0.0, gel_max), 1),
+           "demarrage_max_s": round(max([r[2] - t0 for r in res] or [0]), 1) if res else None,
+           "iterations": sum(r[0] for r in res) if res else None, "erreurs_calcul": sum(r[1] for r in res)}
+    if echecs:
+        out["echecs"] = echecs[:5]
+    return out
+
+
+def diagnostic_calage_cpu(cpu, max_s):
+    """#926 : message d'une épreuve processeur calée -- distingue le gel du poste, les cœurs perdus, l'absence totale
+    de résultat. (Avant : « signature d'un disque/contrôleur qui lâche » pour toute épreuve calée, y compris le
+    processeur : à tort sur pc-paul, la suite du test ayant tourné normalement.)"""
+    n, k, gel = cpu.get("coeurs") or 0, cpu.get("coeurs_finis"), cpu.get("gel_max_s") or 0
+    if gel >= 10:
+        return "critical", "poste figé %d s pendant l'épreuve processeur (la surveillance elle-même s'est arrêtée) : blocage système ou matériel" % gel
+    if k is None:
+        return "critical", "épreuve processeur calée (aucune fin en %d s)" % max_s
+    if k == 0:
+        return "warning", ("aucun des %d cœurs n'a rendu son calcul en %d s alors que le poste répondait : processus de calcul bloqués "
+                           "ou empêchés de démarrer (logiciel de sécurité, environnement) -- pas un signe matériel" % (n, max_s))
+    return "warning", ("%d cœur(s) sur %d n'ont pas rendu leur calcul en %d s sans gel du poste : processus de calcul tués ou figés "
+                       "(logiciel de sécurité, économie d'énergie) -- à rejouer ; matériel peu probable (0 erreur de calcul)" % (n - k, n, max_s))
 
 
 def memoire_libre():
@@ -262,8 +298,13 @@ def main(argv=None, runner=subprocess.run):
         al.append({"code": "charge-disque", "severity": "critical", "message": "fichier relu différent de celui écrit : disque, câble ou contrôleur défectueux"})
     if dsk and dsk.get("statut") == "erreur" and dsk.get("erreur"):
         al.append({"code": "charge-disque-erreur", "severity": "warning", "message": "épreuve disque en erreur : %s" % dsk["erreur"]})
+    if cpu and cpu.get("echecs"):
+        al.append({"code": "charge-cpu-echec", "severity": "warning", "message": "calcul en échec sur %d cœur(s) : %s" % (len(cpu["echecs"]), cpu["echecs"][0])})
     for nom, r in (("processeur", cpu), ("mémoire", mem), ("disque", dsk)):
-        if r and r.get("statut") == "calé":
+        if r and r.get("statut") == "calé" and nom == "processeur":
+            sev, msg = diagnostic_calage_cpu(r, mx)
+            al.append({"code": "charge-calage-cpu", "severity": sev, "message": msg})
+        elif r and r.get("statut") == "calé":
             al.append({"code": "charge-calage", "severity": "critical", "message": "épreuve %s calée (aucune fin en %d s) : I/O ou système bloqué sous charge — signature d'un disque/contrôleur qui lâche" % (nom, mx)})
         elif r and r.get("statut") == "interrompu":
             al.append({"code": "charge-interrompu", "severity": "info", "message": "épreuve %s interrompue à la demande" % nom})
@@ -276,6 +317,8 @@ def main(argv=None, runner=subprocess.run):
     statuts = [r.get("statut") for r in (cpu, mem, dsk) if r]
     if any(x["severity"] == "critical" for x in al):
         verdict = "défaut reproduit"
+    elif "calé" in statuts:
+        verdict = "non concluant"            # #926 : épreuve processeur calée sans gel ni erreur -> à rejouer
     elif "interrompu" in statuts:
         verdict = "interrompu"
     elif not sel:

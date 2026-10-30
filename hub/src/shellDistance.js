@@ -3,6 +3,7 @@
 export const STATUTS = {
   en_attente: ["en attente de l'agent", "neutral"],
   lance: ["reçue par l'agent", "neutral"],
+  file: ["en file sur le poste", "neutral"],
   en_cours: ["en cours", "warn"],
   fini: ["terminée", "good"],
   interrompu: ["interrompue", "warn"],
@@ -10,6 +11,7 @@ export const STATUTS = {
   refuse: ["refusée par le poste", "bad"],
   refuse_agent: ["refusée", "bad"],
   erreur: ["erreur", "bad"],
+  perdue: ["perdue (agent redémarré ?)", "bad"],
 };
 
 export const MODES = {
@@ -31,7 +33,7 @@ export const AXES = [["materiel", "Matériel"], ["systeme", "Système"], ["viral
 export const libelle = (table, cle) => table[cle] || [cle || "—", "neutral"];
 
 /** Une commande attend-elle encore l'agent ou tourne-t-elle ? (le hub relève alors toutes les 3 s) */
-export const actif = (statut) => statut === "en_attente" || statut === "lance" || statut === "en_cours";
+export const actif = (statut) => statut === "en_attente" || statut === "lance" || statut === "file" || statut === "en_cours";
 
 /** Durée d'une commande (debut / fin en secondes Unix ; en cours : jusqu'à `maintenant`). */
 export function duree(job, maintenant = Date.now() / 1000) {

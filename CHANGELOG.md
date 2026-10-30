@@ -1,3 +1,23 @@
+## 2026-10-30 — Analyses à distance en file d'attente, commandes perdues signalées, test processeur interprétable (livraison #926)
+
+- Analyse à distance : quatre analyses lancées d'un coup, la quatrième était refusée (trois au plus en même temps sur
+  un poste). Au-delà de trois, elles attendent désormais **en file sur le poste** (« en file sur le poste », position
+  dans le motif) et démarrent dès qu'une place se libère ; une commande en file peut être retirée (Interrompre) ; si
+  le réglage du poste change pendant l'attente, elle est refusée au démarrage.
+- Commandes restées « reçue par l'agent » pour toujours (pc-paul, 29/10 : agent redémarré par la mise à jour pendant
+  l'exécution) : le central les marque **« perdue (agent redémarré ?) »** quand l'agent n'en donne plus de nouvelles
+  15 min après leur délai (file : 4 h de plus). Une commande jamais relevée (poste éteint) reste « en attente ».
+- Test de charge, épreuve processeur : le « défaut reproduit » de pc-paul (30/10 04:01) venait d'une épreuve processeur
+  « calée » sans erreur de calcul, la mémoire et le disque ayant tourné normalement juste après -- le message accusait
+  pourtant le disque. L'épreuve compte maintenant les cœurs qui ont rendu leur calcul, l'heure de démarrage du plus
+  tardif et le plus long gel de la surveillance : poste figé ≥ 10 s = défaut (critique) ; sinon « non concluant »
+  avec la cause probable (cœurs perdus ou bloqués, pas un signe matériel). Affiché dans Postes Windows (« N ont fini »,
+  « poste figé jusqu'à N s »), verdict « non concluant » en orange. Sonde poste-charge v3, agent **0.6.29**.
+- Vérifié : tests agent (file, retrait, réglage changé, exécution PowerShell réelle), central (file, perdue, longue
+  silencieuse non perdue, jamais relevée), sonde (cœurs finis, calage non matériel, gel), hub 466. Échecs déjà
+  présents avant : test_z_apprentissage, test_z_modeles, test_migctl, test_p2v_direct ; test_ping et test_z_xfer
+  instables selon l'ordre (verts isolés).
+
 ## 2026-10-29 — Agent : le test de charge ne part plus tout seul, les sondes longues ne bloquent plus l'agent (livraison #925)
 
 - Constat sur pc-paul après la mise à jour manuelle en 0.6.27 : plus aucun relevé après 17:39, commandes et

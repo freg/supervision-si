@@ -25,6 +25,7 @@ SORTIE_MAX = 400000        # caractères gardés (la fin de la sortie)
 SORTIE_DIRECT = 64000      # caractères poussés pendant l'exécution
 DELAI_MIN, DELAI_MAX, DELAI_DEFAUT = 5, 3600, 300
 EN_COURS_MAX = 3           # tâches simultanées par poste
+FILE_MAX = 20              # #926 : commandes en file au-delà (démarrées dès qu'une place se libère)
 GARDE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "garde.ps1")
 REFUS = "SI-SHELL-REFUS"
 

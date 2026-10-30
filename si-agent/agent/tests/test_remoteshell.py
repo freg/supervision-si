@@ -125,5 +125,49 @@ class Agent(unittest.TestCase):
         self.assertIn("remote-shell", ev)
 
 
+    @unittest.skipUnless(PWSH, "PowerShell absent")
+    def test_file_au_dela_de_trois_926(self):
+        # #926 : 4 analyses lancées d'un coup -> la 4e attend en FILE sur le poste (avant : refusée) ; une commande
+        # en file peut être retirée ; la file repart dès qu'une place se libère.
+        self.agent.cfg["remote_shell"] = "intervention"
+        for i in range(3):
+            self.assertTrue(self.envoyer(id="q%d" % i, script='Start-Sleep -Milliseconds 300; "fin %d"' % i, mode="intervention")["result"]["started"])
+        r = self.envoyer(id="q3", script='"quatrieme"', mode="intervention")
+        self.assertTrue(r["ok"])
+        self.assertEqual((r["result"]["queued"], r["result"]["position"]), ("q3", 1))
+        r = self.envoyer(id="q4", script='"cinquieme"', mode="intervention")
+        self.assertEqual(r["result"]["position"], 2)
+        self.assertFalse(self.envoyer(id="q4", script='"x"', mode="intervention")["ok"], "doublon refusé")
+        r = self.envoyer(id="q4", action="stop")
+        self.assertTrue(r["ok"] and r["result"]["file"])
+        m = self.agent.queue.latest(task="shell:q4", limit=1)[0]
+        self.assertEqual(m["data"]["statut"], "interrompu")
+        for i in range(3):
+            attendre(self.agent._shell["q%d" % i])
+        for _ in range(3):
+            self.clock[0] += 1
+            self.agent.shell_tick()
+        self.assertEqual(self.agent._shell_file, [])
+        attendre(self.agent._shell["q3"])
+        for _ in range(3):
+            self.clock[0] += 1
+            self.agent.shell_tick()
+        m = self.agent.queue.latest(task="shell:q3", limit=1)[0]
+        self.assertEqual(m["data"]["statut"], "fini")
+        self.assertIn("quatrieme", m["data"]["sortie"])
+
+    def test_file_mode_retire_pendant_l_attente_926(self):
+        self.agent.cfg["remote_shell"] = "lecture"
+        self.agent._shell = {"x%d" % i: type("T", (), {"termine": False})() for i in range(3)}
+        r = self.envoyer(id="q9", script="Get-Date")
+        self.assertEqual(r["result"]["queued"], "q9")
+        self.agent.cfg["remote_shell"] = "off"
+        self.agent._shell = {}
+        self.agent.shell_tick()
+        m = self.agent.queue.latest(task="shell:q9", limit=1)[0]
+        self.assertEqual(m["data"]["statut"], "erreur")
+        self.assertIn("plus autorisé", m["data"]["motif"])
+
+
 if __name__ == "__main__":
     unittest.main()

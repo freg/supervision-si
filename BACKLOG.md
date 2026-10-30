@@ -4076,3 +4076,9 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   ordonnancées ; sous Windows les sondes longues (> 2 min) en tâche de fond. Reste (à faire) : afficher sur la fiche
   de l'agent les sondes en cours d'exécution (`sondes_en_fond()` côté agent) ; étudier la même chose sous Linux sans
   preexec_fn (processus intermédiaire) pour les sondes serveur longues (systemes, lan-audit, copies-inventory).
+
+- pc-paul, lecture du diagnostic du 30/10 (étude en cours) : NVMe interne sain ; erreurs disque = Harddisk1 (disque
+  externe de la copie du 28/10, à confirmer) ; mémoire sans erreur ; indices système : Wi-Fi Killer (NDIS 10317,
+  échecs de retour d'économie d'énergie ×23), BIOS (HAL 20/21 ACPI ×50), Explorateur (ntshrui.dll, partages réseau),
+  DCOM ×518, Windows Update en échec ×72, stabilité 3/10 ; Defender désactivé. Épreuve processeur à rejouer en journée
+  avec la sonde v3 (#926). Reste : analyses Triage / ownCloud et Excel / Réseau / Veille, puis verdict.
