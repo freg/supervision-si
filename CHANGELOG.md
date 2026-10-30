@@ -1,3 +1,22 @@
+## 2026-10-30 — Fiche agent : « Commandes à distance » (un seul endroit), l'ancien « Commandes » devient « Historique » (livraison #929)
+
+- Confusion signalée : on se perd dans les commandes à distance. L'onglet « Commandes » de la fiche agent n'était pas
+  celui qui exécute les commandes à distance (c'était une console générique + un historique), et l'autorisation
+  (lecture seule / intervention) était noyée dans « Réglages » ; l'exécution réelle était ailleurs (Postes Windows ›
+  Analyse à distance). Onglets rangés par intention (observer / agir / configurer), pensés pour un utilisateur seul ou
+  l'IA interne, sans jargon. « Maintenance » n'est pas un onglet : c'est le rôle de tous les agents.
+- Nouvel onglet **« Commandes à distance »** : l'autorisation en choix clairs (Désactivées · Lecture seule ·
+  Intervention) EN HAUT, puis l'exécution (analyses en un clic + commande libre) juste dessous — tout au même endroit,
+  avec une phrase d'explication. En « désactivées », l'exécution est masquée.
+- L'ancien onglet « Commandes » devient **« Historique »** (ce qui a été envoyé et le résultat, en lecture) ; la console
+  générique passe en « Actions avancées » repliée pour ne pas la perdre. « Lancer une sonde » depuis l'onglet
+  **Sondes** s'exécute désormais directement (plus de détour par la console).
+- Le **Journal** montre aussi les dernières commandes (vue d'ensemble « ce qui s'est passé sur ce poste »), avec un
+  lien vers l'Historique complet. L'autorisation des commandes à distance quitte **Réglages** (qui pointe vers le
+  nouvel onglet). Hub seul, aucun changement d'agent (0.6.30).
+- Vérifié : onglets et liens profonds (ancienne section « commands » → onglet Historique, section « distance » →
+  Commandes à distance) ; suite hub (472). Non vérifié : rendu navigateur.
+
 ## 2026-10-30 — Analyse de poste : temps d'accès aux services de l'entreprise (brut + authentifié) (livraison #928)
 
 - Demande : dans l'analyse d'un poste, mesurer le temps d'accès aux sites de service (GED, cloud, annuaire, tickets…) :

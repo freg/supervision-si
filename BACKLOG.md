@@ -4104,3 +4104,10 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   S'appuyer sur ce que poste-windows relève déjà (logiciels, partages, lecteurs réseau, comptes) ; séparer nettement
   les actions de MODIFICATION (création de point de restauration, écriture sur clé/partage, import de trousseau) des
   simples relevés, et les soumettre aux règles d'autorisation (mode intervention).
+
+- Fiche agent, confusion « commandes » (30/10) -- LIVRÉ #929 : onglet « Commandes à distance » (autorisation +
+  exécution au même endroit), ancien « Commandes » → « Historique » (console en « Actions avancées » repliée),
+  Journal montre aussi les dernières commandes, autorisation sortie de Réglages. Reste (à faire) : sur un agent NON
+  Windows, l'onglet Commandes à distance propose des analyses orientées Windows (pwsh) — à filtrer par OS ; appliquer
+  le même rangement par intention à la fiche Postes Windows ; envisager de retirer « Analyse à distance » de Postes
+  Windows au profit d'un lien vers l'onglet de la fiche agent (éviter les deux portes d'entrée).

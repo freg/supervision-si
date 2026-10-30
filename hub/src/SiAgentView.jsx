@@ -35,6 +35,7 @@ import { useTableColumns, TableColumnsHead, ColumnsMenu, AutoColumns } from "./T
 import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } from "./agentFiche.js";   // #922
 import BoutonDetail from "./FenetreTexte.jsx";   // #923 : info-bulle importante -> mini bouton + fenêtre copiable
 import OsActions from "./OsActions.jsx";   // #880
+import AnalyseDistance from "./AnalyseDistance.jsx";   // #929 : exécution des commandes à distance dans la fiche agent
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -299,6 +300,16 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
     setNotice("Réglages enregistrés -- appliqués par l'agent à sa prochaine lecture de configuration (5 min au plus).");
     await load();
     loadDetail(selectedId);
+  }
+
+  // #929 : autorisation des commandes à distance, réglée directement dans l'onglet « Commandes à distance »
+  // (désactivées / lecture seule / intervention), et plus noyée dans « Réglages ».
+  async function handleRemoteShell(v) {
+    if (v === "intervention" && !window.confirm("Autoriser les commandes d'INTERVENTION (modification du poste) depuis le hub ? Chaque commande est confirmée et journalisée.")) return;
+    const r = await updateAgent(siAgentApiBase, selectedId, { remote_shell: v, actor });
+    if (r?.error) { setError(r.error); return; }
+    setNotice(`Commandes à distance : ${{ off: "désactivées", lecture: "lecture seule", intervention: "intervention autorisée" }[v]} — appliqué par l'agent à sa prochaine lecture de configuration (5 min au plus).`);
+    await loadDetail(selectedId);
   }
 
   async function handleAssign() {
@@ -990,6 +1001,21 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                     <>
                       <h3>Erreurs du journal 24 h ({host.logs?.lines?.length || 0}) <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· source {host.logs?.source || "—"}</span></h3>
                       {host.logs?.lines?.length ? <pre className="sa-log">{host.logs.lines.slice(0, 50).join("\n")}</pre> : <p className="muted">Aucune.</p>}
+                      {/* #929 : vue d'ensemble « ce qui s'est passé sur ce poste » -- les dernières commandes aussi, le détail est dans l'onglet Historique. */}
+                      <h3 style={{ marginTop: 12 }}>Dernières commandes <button type="button" className="secondary" style={{ marginLeft: 6 }} onClick={() => setOnglet("historique")}>tout l'historique ↗</button></h3>
+                      {!detail.commands?.length ? <p className="muted">Aucune commande envoyée à cet agent.</p> : (
+                        <div className="hub-table-scroll">
+                          <table><thead><tr><th>Quand</th><th>Commande</th><th>État</th></tr></thead>
+                            <tbody>{detail.commands.slice(0, 10).map((c) => (
+                              <tr key={c.id}>
+                                <td className="muted">{when(c.created_at)}</td>
+                                <td>{COMMAND_TYPES.find((t) => t.type === c.type)?.label || c.type}{c.params?.id && <> <code>{c.params.id}</code></>}</td>
+                                <td><Tone tone={c.status === "done" ? "good" : c.status === "failed" ? "bad" : "warn"}>{c.status === "done" ? "acquittée" : c.status === "failed" ? "échec" : "en attente"}</Tone>
+                                  {c.status === "failed" && c.result?.error && <> <BoutonDetail titre={`Échec : ${COMMAND_TYPES.find((t) => t.type === c.type)?.label || c.type}`} urgence="critique" texte={c.result.error} /></>}</td>
+                              </tr>))}</tbody>
+                          </table>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -1032,7 +1058,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                                   <td className="muted" title={last?.error || ""}>{last?.error && <BoutonDetail titre={`Dernier résultat : ${p.id}`} urgence={last.ok ? "info" : "critique"} texte={last.error} />}{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
                                   <td className="ups-actions">
                                     {p.assigned && <button className="secondary" onClick={() => handleUnassign(p)}>Retirer</button>}
-                                    <button className="secondary" onClick={() => { setCmdType("run_plugin"); setCmdPlugin(p.id); setOnglet("commands"); }}>Exécuter…</button>
+                                    <button className="secondary" title="lancer cette sonde maintenant sur l'hôte" onClick={async () => { const r = await sendCommand(siAgentApiBase, selectedId, "run_plugin", { id: p.id }); if (r?.error) { setError(r.error); return; } setNotice(`Sonde ${p.id} lancée — résultat d'ici 1 min (voir Historique).`); loadDetail(selectedId); }}>Exécuter…</button>
                                   </td>
                                 </tr>
                               );
@@ -1043,23 +1069,43 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                     </>
                   )}
 
+                  {/* #929 : onglet « Commandes à distance » -- autorisation (désactivées / lecture seule / intervention)
+                      ET exécution (analyses + commande libre) au même endroit. Le seul endroit où l'on agit en direct. */}
+                  {section.distance && (
+                    <>
+                      <h3>Commandes à distance</h3>
+                      <p className="muted" style={{ margin: "0 0 6px", textTransform: "none", letterSpacing: 0 }}>
+                        Depuis le hub, on peut faire exécuter des commandes d'analyse sur ce poste. Choisis d'abord ce qui est autorisé,
+                        puis lance une analyse en un clic ou une commande libre. En <b>lecture seule</b>, le poste refuse de lui-même toute
+                        commande qui modifierait quelque chose.
+                      </p>
+                      <fieldset className="sa-autorisation" style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "8px 10px", margin: "0 0 10px" }}>
+                        <legend style={{ padding: "0 6px", fontSize: 12 }}>Autorisation des commandes à distance sur ce poste</legend>
+                        {[["off", "Désactivées", "aucune commande à distance n'est acceptée"],
+                          ["lecture", "Lecture seule", "seules les commandes qui ne modifient rien (analyses, relevés)"],
+                          ["intervention", "Intervention", "autorise aussi les commandes qui modifient le poste — confirmé et journalisé"]].map(([v, lab, aide]) => (
+                          <label key={v} className="ups-form-check" style={{ display: "block", margin: "2px 0" }} title={aide}>
+                            <input type="radio" name="remote-shell" checked={(detail.remote_shell || "off") === v} onChange={() => handleRemoteShell(v)} />
+                            {" "}<b>{lab}</b> <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>— {aide}</span>
+                          </label>))}
+                      </fieldset>
+                      {(detail.remote_shell || "off") === "off"
+                        ? <p className="muted">Commandes à distance désactivées : choisis « Lecture seule » ci-dessus pour lancer des analyses.</p>
+                        : <AnalyseDistance key={detail.remote_shell} agent={selectedId} base={siAgentApiBase} actor={actor} masquerModeLigne />}
+                    </>
+                  )}
+
+                  {/* #929 : ancien onglet « Commandes » -> « Historique » (lecture). La console générique passe en
+                      « Actions avancées » repliée, pour ne pas la perdre, mais elle n'est plus la porte d'entrée. */}
                   {section.commands && (
                     <>
-                      <h3>Commandes</h3>
-                      <div className="ups-toolbar" style={{ margin: "0 0 6px" }}>
-                        <select value={cmdType} onChange={(e) => setCmdType(e.target.value)}>
-                          {COMMAND_TYPES.map((c) => <option key={c.type} value={c.type}>{c.label}</option>)}
-                        </select>
-                        {COMMAND_TYPES.find((c) => c.type === cmdType)?.needsPlugin && (
-                          <select value={cmdPlugin} onChange={(e) => setCmdPlugin(e.target.value)}>
-                            <option value="">— sonde —</option>
-                            {plugins.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
-                          </select>
-                        )}
-                        <button className="primary" onClick={handleCommand}>▶ Envoyer</button>
-                        <button className="secondary" onClick={refreshCommands}>⟳ Résultats</button>
-                      </div>
-                      {!detail.commands?.length ? <p className="muted">Aucune commande.</p> : (
+                      <h3>Historique des commandes</h3>
+                      <p className="muted" style={{ margin: "0 0 6px", textTransform: "none", letterSpacing: 0 }}>
+                        Ce qui a été envoyé à cet agent et le résultat. Pour agir en direct : onglet <b>Commandes à distance</b> ;
+                        pour lancer/activer une sonde : onglet <b>Sondes</b>.
+                        <button type="button" className="secondary" style={{ marginLeft: 8 }} onClick={refreshCommands}>⟳ Rafraîchir</button>
+                      </p>
+                      {!detail.commands?.length ? <p className="muted">Aucune commande envoyée à cet agent.</p> : (
                         <div className="hub-table-scroll">
                           <AutoColumns id="SiAgentView.13"><table>
                             <thead><tr><th>Quand</th><th>Commande</th><th>État</th><th>Résultat</th></tr></thead>
@@ -1080,6 +1126,24 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                           </table></AutoColumns>
                         </div>
                       )}
+                      <details style={{ marginTop: 10 }}>
+                        <summary className="muted" style={{ cursor: "pointer" }}>Actions avancées (envoyer une commande de maintenance)</summary>
+                        <p className="muted" style={{ margin: "6px 0", textTransform: "none", letterSpacing: 0 }}>
+                          Rarement utile directement : la plupart de ces actions se font depuis leur onglet (Sondes, Poste, et « Mises à jour » en tête de la Flotte).
+                        </p>
+                        <div className="ups-toolbar" style={{ margin: "0 0 6px" }}>
+                          <select value={cmdType} onChange={(e) => setCmdType(e.target.value)}>
+                            {COMMAND_TYPES.map((c) => <option key={c.type} value={c.type}>{c.label}</option>)}
+                          </select>
+                          {COMMAND_TYPES.find((c) => c.type === cmdType)?.needsPlugin && (
+                            <select value={cmdPlugin} onChange={(e) => setCmdPlugin(e.target.value)}>
+                              <option value="">— sonde —</option>
+                              {plugins.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
+                            </select>
+                          )}
+                          <button className="primary" onClick={handleCommand}>▶ Envoyer</button>
+                        </div>
+                      </details>
                     </>
                   )}
 
@@ -1093,10 +1157,10 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                         <label>Seuils de risques (JSON) <input value={settings.thresholds} onChange={(e) => setSettings({ ...settings, thresholds: e.target.value })} placeholder='{"disk_warning_percent": 80}' /></label>
                         <label className="ups-form-wide">Notes <input value={settings.notes} onChange={(e) => setSettings({ ...settings, notes: e.target.value })} /></label>
                         <label><input type="checkbox" checked={!!settings.filter_enabled} onChange={(e) => setSettings({ ...settings, filter_enabled: e.target.checked })} /> Filtrer les alertes (#607)</label>
-                        <label title="#919 : analyse technique à distance (Postes Windows › Analyse à distance). Lecture seule : le poste vérifie lui-même que la commande ne modifie rien.">Commandes à distance <select value={settings.remote_shell || "off"} onChange={(e) => { const v = e.target.value; if (v !== "intervention" || window.confirm("Autoriser les commandes d'INTERVENTION (modification du poste) depuis le hub ? Chaque commande est confirmée et journalisée.")) setSettings({ ...settings, remote_shell: v }); }}>
-                          <option value="off">désactivées</option><option value="lecture">lecture seule (analyse)</option><option value="intervention">intervention (modification)</option></select></label>
                         <label>Groupe de filtres <input value={settings.filter_group} onChange={(e) => setSettings({ ...settings, filter_group: e.target.value })} placeholder="postes-travail" list="sa-filter-groups" /><datalist id="sa-filter-groups"><option value="postes-travail" /><option value="silencieux" /></datalist></label>
                       </div>
+                      {/* #929 : l'autorisation des commandes à distance a quitté Réglages pour son propre onglet. */}
+                      <p className="muted" style={{ margin: "6px 0", textTransform: "none", letterSpacing: 0 }}>Autorisation des commandes à distance (désactivées / lecture seule / intervention) : onglet <button type="button" className="secondary" onClick={() => setOnglet("distance")}>Commandes à distance</button>.</p>
                       <h3 style={{ marginTop: 10 }}>Page d'état publiée sur le réseau du site</h3>
                       <p className="muted" style={{ margin: "0 0 6px" }}>L'agent sert sur son LAN une page « santé du réseau » (tableau Nebula du site), sans connexion ; le hub l'affiche en aperçu et en réel (Pages ouvertes → voir).</p>
                       <div className="ups-form-grid">

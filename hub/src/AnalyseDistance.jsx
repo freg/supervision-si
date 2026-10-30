@@ -76,7 +76,7 @@ function Detail({ base, agent, id, onRelancer }) {
   );
 }
 
-export default function AnalyseDistance({ agent, base, actor }) {
+export default function AnalyseDistance({ agent, base, actor, masquerModeLigne }) {   // #929 : masquer la ligne de mode quand l'onglet l'affiche déjà
   const [analyses, setAnalyses] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [reglage, setReglage] = useState(null);
@@ -110,11 +110,12 @@ export default function AnalyseDistance({ agent, base, actor }) {
 
   return (
     <div className="sh-page">
-      <p style={{ margin: "0 0 8px" }}>
-        Commandes à distance sur ce poste : {reglage ? <Ton table={MODES} cle={reglage} /> : <span className="infra-muted">…</span>}
-        {" "}<span className="infra-muted">— réglage : <a href={hubLink("si-agent", { agent, section: "settings" })}>Agents › {agent} › Réglages</a> › « Commandes à distance ».
-          En lecture seule, le poste vérifie lui-même avant d'exécuter que la commande ne modifie rien.</span>
-      </p>
+      {!masquerModeLigne && (
+        <p style={{ margin: "0 0 8px" }}>
+          Commandes à distance sur ce poste : {reglage ? <Ton table={MODES} cle={reglage} /> : <span className="infra-muted">…</span>}
+          {" "}<span className="infra-muted">— réglage : <a href={hubLink("si-agent", { agent, section: "distance" })}>Agents › {agent} › Commandes à distance</a>.
+            En lecture seule, le poste vérifie lui-même avant d'exécuter que la commande ne modifie rien.</span>
+        </p>)}
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
 
       <h4 style={{ margin: "10px 0 6px" }}>Analyses en un clic <span className="infra-muted">(lecture seule)</span></h4>

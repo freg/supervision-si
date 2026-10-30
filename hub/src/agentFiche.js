@@ -1,8 +1,13 @@
 // #922 : fiche agent en onglets et résumé du tableau des agents (pastille de collecte, version) -- module pur,
 // testé par hub/tests/agentFiche.test.mjs.
 
-/** Onglets de la fiche : [id, libellé, sections affichées]. Une seule section à l'écran, toutes à un clic. */
+/** Onglets de la fiche : [id, libellé, sections affichées]. Une seule section à l'écran, toutes à un clic.
+ * #929 : rangés par intention -- OBSERVER (lecture) puis AGIR SUR LE POSTE puis CONFIGURER. L'ancien onglet
+ * « Commandes » (console générique + historique) devient « Historique » ; l'action réelle est sur « Commandes à
+ * distance » (autorisation + exécution au même endroit). « Maintenance » n'est pas un onglet : c'est le rôle de
+ * tous les agents. */
 export const ONGLETS = [
+  // Observer (lecture)
   ["resume", "Résumé", ["risks", "system"]],
   ["network", "Réseau", ["network"]],
   ["hardware", "Matériel", ["hardware"]],
@@ -10,14 +15,17 @@ export const ONGLETS = [
   ["disks", "Disques et stockage", ["disks", "storage"]],
   ["ports", "Ports et services", ["ports", "services"]],
   ["logs", "Journal", ["logs"]],
-  ["control", "Poste", ["control"]],
+  ["historique", "Historique", ["commands"]],
+  // Agir sur le poste
   ["plugins", "Sondes", ["plugins"]],
-  ["commands", "Commandes", ["commands"]],
+  ["distance", "Commandes à distance", ["distance"]],
+  ["control", "Poste", ["control"]],
+  // Configurer
   ["settings", "Réglages", ["settings"]],
 ];
 
-/** Onglets utilisables même quand l'agent n'a encore rien remonté. */
-export const SANS_MESURE = new Set(["plugins", "commands", "settings"]);
+/** Onglets utilisables même quand l'agent n'a encore rien remonté (ne dépendent pas d'une mesure d'hôte). */
+export const SANS_MESURE = new Set(["plugins", "historique", "distance", "settings"]);
 
 /** Onglet qui contient une section (lien profond ?section=settings) ; null si inconnue. */
 export function ongletDe(section) {

@@ -4,14 +4,19 @@ import assert from "node:assert/strict";
 import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } from "../src/agentFiche.js";
 
 test("onglets : toute section a un onglet, liens profonds, sections par onglet", () => {
-  const toutes = ["risks", "system", "network", "hardware", "activity", "disks", "storage", "ports", "services", "logs", "control", "plugins", "commands", "settings"];
+  const toutes = ["risks", "system", "network", "hardware", "activity", "disks", "storage", "ports", "services", "logs", "control", "plugins", "commands", "distance", "settings"];
   for (const s of toutes) assert.ok(ongletDe(s), s);
   assert.equal(ongletDe("settings"), "settings");
   assert.equal(ongletDe("storage"), "disks");
+  assert.equal(ongletDe("commands"), "historique", "#929 : l'ancienne section commands est sous l'onglet Historique");
+  assert.equal(ongletDe("distance"), "distance", "#929 : onglet Commandes à distance");
   assert.equal(ongletDe("inconnue"), null);
   assert.deepEqual(sectionsDe("resume"), { risks: true, system: true });
+  assert.deepEqual(sectionsDe("historique"), { commands: true });
+  assert.deepEqual(sectionsDe("distance"), { distance: true });
   assert.deepEqual(sectionsDe("n'existe pas"), { risks: true, system: true });
-  assert.ok(SANS_MESURE.has("settings") && !SANS_MESURE.has("resume"));
+  assert.ok(SANS_MESURE.has("settings") && SANS_MESURE.has("distance") && SANS_MESURE.has("historique") && !SANS_MESURE.has("resume"));
+  assert.ok(!SANS_MESURE.has("commands"), "#929 : plus d'onglet id « commands »");
   assert.equal(new Set(ONGLETS.map((o) => o[0])).size, ONGLETS.length);
 });
 
