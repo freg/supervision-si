@@ -76,6 +76,11 @@ def _ps(s):
     return "'%s'" % str(s).replace("'", "''")
 
 
+def slug(app):
+    """Nom de dossier sûr pour une application (identique à la capture et à la restauration)."""
+    return "".join(ch if ch.isalnum() else "_" for ch in str(app))[:40]
+
+
 def manifeste(agent_id, cibles, montages, horodatage=None):
     return {"agent": agent_id, "cree": horodatage or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "confs": [{"app": c["app"], "cles": c["cles"], "dossiers": c["dossiers"]} for c in cibles],
@@ -97,21 +102,23 @@ def construire_script_capture(cibles, dossier_travail, archive, usb=None, unc=No
     n = 0
     for c in cibles:
         app = c["app"]
+        sl = slug(app)
         for cle in c.get("cles") or []:
             n += 1
-            fichier = "confs\\%s-%d.reg" % ("".join(ch if ch.isalnum() else "_" for ch in app)[:40], n)
+            fichier = "confs\\%s-%d.reg" % (sl, n)
             L.append("$f=Join-Path $t %s" % _ps(fichier))
             L.append("$o=(reg export %s $f /y) 2>&1" % _ps(cle))
             L.append("if (Test-Path $f) { $r.confs+=[ordered]@{app=%s; cle=%s; fichier=%s; octets=(Get-Item $f).Length} } "
                      "else { $r.erreurs+=('reg %s : '+($o-join' ')) }" % (_ps(app), _ps(cle), _ps(fichier), app.replace("'", "''")))
-        for dossier in c.get("dossiers") or []:
-            dst = "appdata\\%s" % "".join(ch if ch.isalnum() else "_" for ch in app)[:40]
+        for j, dossier in enumerate(c.get("dossiers") or [], 1):
+            # #934 : un sous-dossier par dossier source (appdata/<app>/<j>) -> restauration exacte vers le bon chemin.
+            rel = "appdata\\%s\\%d" % (sl, j)
             L.append("$src=[Environment]::ExpandEnvironmentVariables(%s)" % _ps(dossier))
             L.append("if (Test-Path $src) { $d=Join-Path $t %s; robocopy $src $d /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null; "
                      "$sz=(Get-ChildItem $d -Recurse -EA SilentlyContinue | Measure-Object Length -Sum).Sum; "
-                     "$r.dossiers+=[ordered]@{app=%s; source=%s; octets=[int64]$sz} } "
-                     "else { $r.dossiers+=[ordered]@{app=%s; source=%s; octets=0; absent=$true} }"
-                     % (_ps(dst), _ps(app), _ps(dossier), _ps(app), _ps(dossier)))
+                     "$r.dossiers+=[ordered]@{app=%s; source=%s; archive=%s; octets=[int64]$sz} } "
+                     "else { $r.dossiers+=[ordered]@{app=%s; source=%s; archive=%s; octets=0; absent=$true} }"
+                     % (_ps(rel), _ps(app), _ps(dossier), _ps(rel.replace("\\", "/")), _ps(app), _ps(dossier), _ps(rel.replace("\\", "/"))))
     # compression
     L += ["if (Test-Path $arch) { Remove-Item $arch -Force -EA SilentlyContinue }",
           "Compress-Archive -Path (Join-Path $t '*') -DestinationPath $arch -Force",
@@ -142,17 +149,98 @@ def construire_script_capture(cibles, dossier_travail, archive, usb=None, unc=No
     return "\r\n".join(L) + "\r\n"
 
 
-def extraire_json(sortie):
-    """Récupère le JSON entre SI-BK-DEBUT et SI-BK-FIN dans la sortie du script de capture."""
+def extraire_json(sortie, debut="SI-BK-DEBUT", fin="SI-BK-FIN"):
+    """Récupère le JSON entre deux marqueurs dans la sortie d'un script (capture : SI-BK ; restauration : SI-RST)."""
     txt = sortie or ""
-    d, f = txt.find("SI-BK-DEBUT"), txt.rfind("SI-BK-FIN")
+    d, f = txt.find(debut), txt.rfind(fin)
     if d < 0 or f < 0 or f <= d:
         return None
-    bloc = txt[d + len("SI-BK-DEBUT"):f].strip()
+    bloc = txt[d + len(debut):f].strip()
     try:
         return json.loads(bloc)
     except ValueError:
         return None
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# #934 : RESTAURATION (opération d'INTERVENTION). Simulation = lecture seule (liste ce qui serait restauré) ;
+# application = réimport du registre (avec sauvegarde de repli des clés écrasées), remise des dossiers de config,
+# et remontage des lecteurs/partages.
+def construire_script_simulation(archive_dir):
+    """Script PowerShell LECTURE SEULE : liste le contenu d'une archive de sauvegarde (clés .reg, dossiers de config,
+    présence de remonter.cmd, manifeste). N'écrit rien. Émet un JSON SI-RST-DEBUT/FIN. Pur : testé."""
+    a = _ps(archive_dir)
+    return "\r\n".join([
+        "$ErrorActionPreference='Continue'", "[Console]::OutputEncoding=[Text.Encoding]::UTF8", "$a=%s" % a,
+        "$r=[ordered]@{simulation=$true; confs=@(); dossiers=@(); remonter=$false; manifeste=$null; erreurs=@()}",
+        "if (-not (Test-Path $a)) { $r.erreurs+=('archive introuvable') }",
+        "Get-ChildItem (Join-Path $a 'confs') -Filter *.reg -EA SilentlyContinue | ForEach-Object { $r.confs+=[ordered]@{fichier=$_.Name; octets=$_.Length} }",
+        "Get-ChildItem (Join-Path $a 'appdata') -Directory -EA SilentlyContinue | ForEach-Object { $app=$_.Name; "
+        "Get-ChildItem $_.FullName -Directory -EA SilentlyContinue | ForEach-Object { $sz=(Get-ChildItem $_.FullName -Recurse -EA SilentlyContinue | Measure-Object Length -Sum).Sum; "
+        "$r.dossiers+=[ordered]@{app=$app; archive=('appdata/'+$app+'/'+$_.Name); octets=[int64]$sz} } }",
+        "$r.remonter=(Test-Path (Join-Path $a 'remonter.cmd'))",
+        "$mf=Join-Path $a 'manifeste.json'; if (Test-Path $mf) { try { $r.manifeste=(Get-Content $mf -Raw | ConvertFrom-Json) } catch { $r.erreurs+=('manifeste illisible') } }",
+        "Write-Output 'SI-RST-DEBUT'", "Write-Output ($r | ConvertTo-Json -Depth 6 -Compress)", "Write-Output 'SI-RST-FIN'", ""])
+
+
+def construire_script_restauration(cibles, archive_dir, rollback_dir, options=None):
+    """Script PowerShell d'APPLICATION (intervention) : pour chaque application, réimport des clés de registre (après
+    une sauvegarde de repli de l'état courant dans `rollback_dir`), remise des dossiers de config, puis, en option,
+    remontage (remonter.cmd). `cibles` = confs du manifeste [{app, cles, dossiers}]. Émet SI-RST-DEBUT/FIN. Pur."""
+    o = options or {}
+    reg_on = o.get("registre", True)
+    ad_on = o.get("appdata", True)
+    mt_on = o.get("montages", False)
+    L = ["$ErrorActionPreference='Continue'", "[Console]::OutputEncoding=[Text.Encoding]::UTF8",
+         "$a=%s" % _ps(archive_dir), "$rb=%s" % _ps(rollback_dir),
+         "$r=[ordered]@{simulation=$false; registre=@(); dossiers=@(); montages=$null; rollback=$rb; erreurs=@()}",
+         "New-Item -ItemType Directory -Force -Path $rb | Out-Null"]
+    n = 0
+    for c in cibles or []:
+        app = c.get("app") or ""
+        sl = slug(app)
+        if reg_on:
+            for cle in c.get("cles") or []:
+                n += 1
+                regf = "confs\\%s-%d.reg" % (sl, n)
+                rbf = "%s-%d.reg" % (sl, n)
+                L.append("$f=Join-Path $a %s" % _ps(regf))
+                L.append("if (Test-Path $f) { reg export %s (Join-Path $rb %s) /y *>$null; "   # repli de l'état courant
+                         "$o=(reg import $f) 2>&1; "
+                         "$r.registre+=[ordered]@{app=%s; cle=%s; ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim())} } "
+                         % (_ps(cle), _ps(rbf), _ps(app), _ps(cle)))
+        if ad_on:
+            for j, dossier in enumerate(c.get("dossiers") or [], 1):
+                rel = "appdata\\%s\\%d" % (sl, j)
+                L.append("$src=Join-Path $a %s; $dst=[Environment]::ExpandEnvironmentVariables(%s)" % (_ps(rel), _ps(dossier)))
+                L.append("if (Test-Path $src) { robocopy $src $dst /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP *>$null; "
+                         "$r.dossiers+=[ordered]@{app=%s; cible=$dst; ok=($LASTEXITCODE -lt 8)} }"
+                         % _ps(app))
+    if mt_on:
+        L.append("$rm=Join-Path $a 'remonter.cmd'; if (Test-Path $rm) { $o=(cmd /c $rm) 2>&1; "
+                 "$r.montages=[ordered]@{ok=($LASTEXITCODE -eq 0); detail=(($o|Out-String).Trim().Substring(0,[Math]::Min(500,($o|Out-String).Trim().Length)))} } "
+                 "else { $r.montages=[ordered]@{ok=$false; detail='remonter.cmd absent'} }")
+    L += ["Write-Output 'SI-RST-DEBUT'", "Write-Output ($r | ConvertTo-Json -Depth 6 -Compress)", "Write-Output 'SI-RST-FIN'", ""]
+    return "\r\n".join(L)
+
+
+def constats_restauration(resultat):
+    """Alertes à partir du résultat de restauration."""
+    out = []
+    r = resultat or {}
+    ko_reg = [x for x in r.get("registre") or [] if x.get("ok") is False]
+    if ko_reg:
+        out.append({"code": "restauration-registre", "severity": "critical",
+                    "message": "réimport de clés en échec : %s" % ", ".join(sorted({x.get("app") for x in ko_reg}))[:150]})
+    ko_ad = [x for x in r.get("dossiers") or [] if x.get("ok") is False]
+    if ko_ad:
+        out.append({"code": "restauration-dossiers", "severity": "warning",
+                    "message": "remise de dossiers en échec : %s" % ", ".join(sorted({x.get("app") for x in ko_ad}))[:150]})
+    if r.get("montages") and r["montages"].get("ok") is False:
+        out.append({"code": "restauration-montages", "severity": "warning", "message": "remontage en échec : %s" % (r["montages"].get("detail") or "")[:150]})
+    for e in r.get("erreurs") or []:
+        out.append({"code": "restauration-erreur", "severity": "warning", "message": str(e)[:200]})
+    return out
 
 
 def constats(resultat):

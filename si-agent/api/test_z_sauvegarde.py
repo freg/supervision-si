@@ -143,3 +143,36 @@ class PBS(unittest.TestCase):
         import json as _j
         self.assertNotIn("TOPSECRET", _j.dumps(red))
         self.assertEqual(red["token_secret"], "***")
+
+
+class Restauration(unittest.TestCase):
+    def setUp(self):
+        self.c = A.app.test_client()
+        for a, rs in (("pc-r-off", "off"), ("pc-r-lec", "lecture"), ("pc-r-int", "intervention")):
+            try:
+                store.create_agent(A.DB_PATH, a, "siege")
+            except ValueError:
+                pass
+            store.update_agent(A.DB_PATH, a, remote_shell=rs)
+
+    def test_gate(self):
+        src = {"source": {"chemin": "E:\\sauvegarde-pc.zip"}}
+        self.assertEqual(self.c.post("/agents/pc-r-off/restauration/lancer", json={"mode": "simulation", **src}).status_code, 403)
+        # lecture : simulation OK, appliquer refusé
+        self.assertEqual(self.c.post("/agents/pc-r-lec/restauration/lancer", json={"mode": "simulation", **src}).status_code, 200)
+        self.assertEqual(self.c.post("/agents/pc-r-lec/restauration/lancer", json={"mode": "appliquer", **src}).status_code, 403)
+        # intervention : appliquer OK
+        r = self.c.post("/agents/pc-r-int/restauration/lancer", json={"mode": "appliquer", "options": {"registre": True, "appdata": False, "montages": True}, **src})
+        self.assertEqual(r.status_code, 200)
+        cmd = [x for x in store.list_commands(A.DB_PATH, "pc-r-int") if x["type"] == "restauration-poste"][0]
+        self.assertEqual(cmd["params"]["mode"], "appliquer")
+        self.assertEqual(cmd["params"]["source"]["chemin"], "E:\\sauvegarde-pc.zip")
+
+    def test_sans_chemin(self):
+        self.assertEqual(self.c.post("/agents/pc-r-int/restauration/lancer", json={"mode": "simulation", "source": {}}).status_code, 400)
+
+    def test_caviardage_source(self):
+        red = store.redact_params({"source": {"chemin": "\\\\nas\\bk.zip", "unc": {"user": "u", "secret": "TOP-SECRET"}}, "mode": "appliquer"})
+        import json as _j
+        self.assertNotIn("TOP-SECRET", _j.dumps(red))
+        self.assertEqual(red["source"]["unc"]["secret"], "***")

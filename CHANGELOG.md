@@ -1,3 +1,21 @@
+## 2026-10-30 — Restauration d'une sauvegarde de poste (intervention) (livraison #934)
+
+- Contrepartie de #930/#931 : restaurer une archive de sauvegarde sur un poste, en vue d'une réinstallation. Section
+  « Restaurer » de l'onglet Sauvegarde : chemin de l'archive (clé USB ou partage accessible du poste), choix de ce
+  qu'on restaure (registre, dossiers AppData, montages).
+- Deux modes, clairement séparés : **Simuler** (LECTURE SEULE : liste les clés .reg, les dossiers et la présence de
+  remonter.cmd dans l'archive, n'écrit rien) et **Appliquer** (INTERVENTION : réimport des clés de registre après un
+  REPLI de l'état courant des clés écrasées, remise des dossiers de config à leur emplacement d'origine, puis
+  remontage des lecteurs/partages via remonter.cmd). L'application exige l'autorisation « intervention » des commandes
+  à distance (fiche de l'agent, #929) — refusée sinon, côté hub (403) et côté agent.
+- L'agent lit la liste des applications dans le manifeste de l'archive ; chaque dossier AppData est restauré à son
+  chemin exact (format d'archive #930 affiné : un sous-dossier par dossier source). La restauration tourne en tâche de
+  fond. Agent **0.6.33**.
+- Vérifié : tests des scripts (simulation sans aucune écriture ; application avec repli reg export avant reg import,
+  robocopy des dossiers, remontage ; options respectées), de l'agent (gate off/lecture/intervention, simulation,
+  application lisant le manifeste), du hub (gate 403, caviardage des identifiants de source) ; suites agent / API /
+  hub (478). Non vérifié : restauration réelle sur un poste Windows.
+
 ## 2026-10-30 — Tests de charge : impression dédiée, export CSV, rétention longue (livraison #933)
 
 - Suite de #932, les trois compléments demandés pour l'historique des tests de charge :

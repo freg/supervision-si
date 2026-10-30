@@ -101,6 +101,10 @@ export const fetchSauvegardePbsReglage = (apiBase) => fetchJson(apiBase, "/poste
 export const saveSauvegardePbsReglage = (apiBase, body) => fetchJson(apiBase, "/postes-sauvegarde-pbs", json("PUT", body));
 export const runSauvegardePbs = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`, json("POST", body || {}));
 export const fetchSauvegardePbs = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/sauvegarde/pbs`);
+
+// #934 : restauration d'une sauvegarde sur un poste (simulation lecture seule / application intervention).
+export const runRestauration = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/restauration/lancer`, json("POST", body || {}));
+export const fetchRestauration = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/restauration`);
 // #932 : historique des tests de charge d'un poste (relevés successifs, conservés 90 j).
 export const fetchChargeHistorique = (apiBase, agent, limit) => fetchJson(apiBase, `/postes/charge/historique?agent=${encodeURIComponent(agent)}${limit ? `&limit=${limit}` : ""}`);
 

@@ -4,7 +4,8 @@
 // La restauration (réimport) sera une opération d'intervention, livrée après.
 import { useCallback, useEffect, useState } from "react";
 import { fetchSauvegardeReglage, saveSauvegardeReglage, runSauvegarde, fetchSauvegarde,
-  fetchSauvegardePbsReglage, saveSauvegardePbsReglage, runSauvegardePbs, fetchSauvegardePbs } from "./siAgentClient.js";
+  fetchSauvegardePbsReglage, saveSauvegardePbsReglage, runSauvegardePbs, fetchSauvegardePbs,
+  runRestauration, fetchRestauration } from "./siAgentClient.js";
 import { octets, lignes, depuisLignes, resume } from "./sauvegardeLib.js";
 import BoutonDetail from "./FenetreTexte.jsx";
 
@@ -138,6 +139,67 @@ function SectionPbs({ agent, base, actor }) {
   );
 }
 
+// #934 : restauration d'une sauvegarde sur le poste. Simulation = lecture seule (liste ce qui serait restauré) ;
+// Appliquer = INTERVENTION (réimport du registre avec repli, remise des dossiers, remontage) -- exige l'autorisation
+// « intervention » des commandes à distance (fiche de l'agent). La restauration est volontairement séparée et gatée.
+function SectionRestauration({ agent, base, actor }) {
+  const [chemin, setChemin] = useState("");
+  const [opt, setOpt] = useState({ registre: true, appdata: true, montages: false });
+  const [res, setRes] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const charger = useCallback(() => fetchRestauration(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
+  useEffect(() => { charger(); }, [charger]);
+  const lancer = async (mode) => {
+    if (mode === "appliquer" && !window.confirm(`APPLIQUER la restauration sur ${agent} : le registre et les dossiers des applications seront ÉCRASÉS (un repli des clés est fait avant). Continuer ?`)) return;
+    setBusy(true); setMsg("");
+    const r = await runRestauration(base, agent, { mode, source: { chemin: chemin.trim() }, options: opt, actor });
+    setBusy(false);
+    if (r?.error) { setMsg(r.error); return; }
+    setMsg(mode === "simulation" ? "Simulation envoyée (lecture seule) — résultat dans ~1 min." : "Restauration envoyée (intervention) — résultat dans ~1 min.");
+    let n = 0; const t = setInterval(() => { n += 1; charger(); if (n >= 12) clearInterval(t); }, 6000);
+  };
+  const d = res?.resultat;
+  return (
+    <div className="infra-card" style={{ marginTop: 10 }}>
+      <b>Restaurer une sauvegarde</b> <span className="np-tone warn" style={{ fontSize: 12 }}>opération d'intervention</span>
+      <p className="infra-muted" style={{ margin: "4px 0", fontSize: 12 }}>
+        Applique une archive de sauvegarde (clé USB ou partage accessible du poste) : réimport des clés de registre
+        (avec repli des clés écrasées), remise des dossiers de config, remontage des lecteurs/partages. <b>Simuler</b> ne
+        fait que lister ce qui serait restauré. <b>Appliquer</b> exige l'autorisation « intervention » (fiche de l'agent › Commandes à distance).
+      </p>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <label>Archive (chemin sur le poste)<br /><input value={chemin} onChange={(e) => setChemin(e.target.value)} placeholder={"E:\\sauvegarde-pc-paul.zip"} style={{ width: 280 }} /></label>
+        <label className="ups-form-check"><input type="checkbox" checked={opt.registre} onChange={(e) => setOpt({ ...opt, registre: e.target.checked })} /> Registre</label>
+        <label className="ups-form-check"><input type="checkbox" checked={opt.appdata} onChange={(e) => setOpt({ ...opt, appdata: e.target.checked })} /> Dossiers AppData</label>
+        <label className="ups-form-check"><input type="checkbox" checked={opt.montages} onChange={(e) => setOpt({ ...opt, montages: e.target.checked })} /> Montages</label>
+      </div>
+      {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <button type="button" className="secondary" disabled={busy || !chemin.trim()} onClick={() => lancer("simulation")}>Simuler (lecture seule)</button>
+        <button type="button" className="danger" disabled={busy || !chemin.trim()} onClick={() => lancer("appliquer")}>⚠ Appliquer la restauration</button>
+        <button type="button" className="secondary" onClick={charger}>⟳</button>
+      </div>
+      {d && (
+        <div style={{ marginTop: 6 }}>
+          <div className="infra-muted">Dernier résultat {res.at ? new Date(res.at).toLocaleString("fr-FR") : ""} — {d.simulation ? "simulation" : "application"} :</div>
+          {d.simulation ? (
+            <div>
+              <div>{(d.confs || []).length} clé(s) de registre, {(d.dossiers || []).length} dossier(s), remontage {d.remonter ? "présent" : "absent"} dans l'archive.</div>
+              {(d.dossiers || []).length > 0 && <div className="infra-muted" style={{ fontSize: 12 }}>{d.dossiers.map((x) => `${x.app} (${octets(x.octets)})`).join(", ")}</div>}
+            </div>
+          ) : (
+            <div>
+              <div>Registre : {(d.registre || []).filter((x) => x.ok).length}/{(d.registre || []).length} importées · Dossiers : {(d.dossiers || []).filter((x) => x.ok).length}/{(d.dossiers || []).length} · Montages : {d.montages ? (d.montages.ok ? "ok" : "échec") : "—"}</div>
+              {d.rollback && <div className="infra-muted" style={{ fontSize: 12 }}>Repli des clés écrasées : <code>{d.rollback}</code></div>}
+              {(d.alerts || []).map((a, i) => <div key={i} className={`np-tone ${a.severity === "critical" ? "bad" : "warn"}`}>• {a.message} {a.severity === "critical" && <BoutonDetail titre="Détail restauration" urgence="critique" texte={a.message} />}</div>)}
+            </div>
+          )}
+        </div>)}
+    </div>
+  );
+}
+
 export default function Sauvegarde({ agent, base, actor }) {
   const [res, setRes] = useState(null);
   const [usb, setUsb] = useState("");
@@ -147,6 +209,7 @@ export default function Sauvegarde({ agent, base, actor }) {
   const [busy, setBusy] = useState(false);
   const [edite, setEdite] = useState(false);
   const [pbs, setPbs] = useState(false);
+  const [restaure, setRestaure] = useState(false);
   const charger = useCallback(() => fetchSauvegarde(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
   useEffect(() => { setRes(null); charger(); }, [charger]);
   const lancer = async () => {
@@ -174,11 +237,13 @@ export default function Sauvegarde({ agent, base, actor }) {
         <button type="button" className="primary" disabled={busy} onClick={lancer}>▶ Lancer la sauvegarde</button>
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer « que sauvegarder »" : "Que sauvegarder"}</button>
         <button type="button" className="secondary" onClick={() => setPbs((v) => !v)}>{pbs ? "Masquer PBS" : "Pousser vers PBS"}</button>
+        <button type="button" className="secondary" onClick={() => setRestaure((v) => !v)}>{restaure ? "Masquer restauration" : "Restaurer"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       {edite && <Editeur base={base} actor={actor} />}
       {pbs && <SectionPbs agent={agent} base={base} actor={actor} />}
+      {restaure && <SectionRestauration agent={agent} base={base} actor={actor} />}
       <Resultat resultat={res?.resultat} at={res?.at} />
     </div>
   );

@@ -4134,3 +4134,14 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   plusieurs runs côte à côte, et IMPRESSION. Prévoir une rétention plus longue pour ces mesures (ne pas purger comme
   les relevés courants). Le défaut de pc-paul est INTERMITTENT (reproduit puis non, « poste figé jusqu'à 2,8 s » sur
   un run propre) -> comparer les runs est nécessaire au diagnostic.
+
+- Restauration de sauvegarde -- LIVRÉ #934 : simulation (lecture) + application (intervention) avec repli des clés,
+  remise des dossiers, remontage ; gatée par l'autorisation intervention. Reste (à faire) : restauration depuis une
+  source UNC avec identifiants du coffre (comme #930) ; restauration depuis PBS (pbs10 -> restore -> partage ->
+  poste) ; point de restauration Windows créé avant application ; restauration ciblée par application depuis l'UI
+  (cases à cocher par appli, à partir de la simulation).
+
+- DEMANDÉ le 30/10 (« rapidement ») -- CONSEILS SUR LES POINTS CRITIQUES : à partir des tests de charge et du
+  diagnostic poste-windows (et SMART/température/événements), produire des propositions et conseils classés
+  (critique/alerte/info) avec actions concrètes (ex. BIOS Dell, pilote Wi-Fi Killer, défaut disque intermittent,
+  Defender désactivé…). À faire : #935, module de conseils + affichage dans l'onglet Diagnostic (imprimable).

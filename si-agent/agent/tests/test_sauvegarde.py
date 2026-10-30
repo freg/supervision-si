@@ -73,5 +73,45 @@ class Capture(unittest.TestCase):
         self.assertEqual(m["montages"], {"lecteurs": 2, "partages": 1, "imprimantes": 0})
 
 
+class Restauration(unittest.TestCase):
+    CIBLES = [{"app": "Thunderbird", "cles": ["HKCU\\Software\\Mozilla"], "dossiers": ["%APPDATA%\\Thunderbird"]},
+              {"app": "PuTTY", "cles": ["HKCU\\Software\\SimonTatham"], "dossiers": []}]
+
+    def test_slug_stable(self):
+        self.assertEqual(sv.slug("Microsoft Office 365!"), "Microsoft_Office_365_")
+
+    def test_simulation_lecture_seule(self):
+        s = sv.construire_script_simulation("C:\\tmp\\arch")
+        self.assertIn("simulation=$true", s)
+        self.assertIn("manifeste.json", s)
+        self.assertIn("SI-RST-DEBUT", s)
+        for interdit in ("reg import", "robocopy", "Remove-Item", "New-SmbShare"):
+            self.assertNotIn(interdit, s, "la simulation n'écrit rien (%s)" % interdit)
+
+    def test_restauration_registre_repli_et_import(self):
+        s = sv.construire_script_restauration(self.CIBLES, "C:\\tmp\\arch", "C:\\tmp\\rb", {"registre": True, "appdata": True, "montages": True})
+        # repli (reg export de l'état courant) AVANT le réimport
+        self.assertIn("reg export 'HKCU\\Software\\Mozilla' (Join-Path $rb", s)
+        self.assertIn("reg import $f", s)
+        self.assertIn("confs\\Thunderbird-1.reg", s)
+        self.assertIn("appdata\\Thunderbird\\1", s)
+        self.assertIn("robocopy $src $dst", s)
+        self.assertIn("remonter.cmd", s)
+        self.assertIn("SI-RST-DEBUT", s)
+
+    def test_restauration_options(self):
+        s = sv.construire_script_restauration(self.CIBLES, "C:\\a", "C:\\rb", {"registre": False, "appdata": False, "montages": False})
+        self.assertNotIn("reg import", s)
+        self.assertNotIn("robocopy", s)
+        self.assertNotIn("cmd /c", s)
+
+    def test_extraire_rst_et_constats(self):
+        out = "x\nSI-RST-DEBUT\n{\"registre\":[{\"app\":\"A\",\"ok\":false}],\"dossiers\":[],\"montages\":null,\"erreurs\":[]}\nSI-RST-FIN"
+        d = sv.extraire_json(out, "SI-RST-DEBUT", "SI-RST-FIN")
+        self.assertEqual(d["registre"][0]["ok"], False)
+        cs = {c["code"]: c for c in sv.constats_restauration(d)}
+        self.assertEqual(cs["restauration-registre"]["severity"], "critical")
+
+
 if __name__ == "__main__":
     unittest.main()

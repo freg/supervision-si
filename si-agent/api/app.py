@@ -3223,6 +3223,46 @@ def _pbs_commande(action, backup_id=None, fichier=None):
     return {"command": cmd["id"], "pousseur": pousseur, "action": action}, 200
 
 
+@app.route("/agents/<agent_id>/restauration/lancer", methods=["POST"])
+def restauration_lancer_route(agent_id):
+    """#934 : restaure une archive de sauvegarde sur le poste. `mode` simulation (lecture seule) ou appliquer
+    (INTERVENTION). L'application exige l'autorisation « intervention » des commandes à distance.
+    {mode, source:{chemin}, options:{registre,appdata,montages}, apps?, actor}."""
+    b = request.get_json(silent=True) or {}
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    mode = str(b.get("mode") or "simulation")
+    permis = a.get("remote_shell") or "off"
+    if permis == "off":
+        return jsonify({"error": "commandes a distance desactivees pour cet agent (fiche de l'agent > Commandes a distance)"}), 403
+    if mode == "appliquer" and permis != "intervention":
+        return jsonify({"error": "restauration = intervention : passer Commandes a distance en intervention avant d'appliquer"}), 403
+    source = b.get("source") if isinstance(b.get("source"), dict) else {}
+    if not str(source.get("chemin") or "").strip():
+        return jsonify({"error": "chemin de l'archive requis (cle USB ou partage accessible du poste)"}), 400
+    params = {"mode": mode, "source": {"chemin": str(source["chemin"]).strip()},
+              "options": b.get("options") if isinstance(b.get("options"), dict) else {"registre": True, "appdata": True, "montages": False}}
+    if isinstance(b.get("apps"), list):
+        params["apps"] = [str(x) for x in b["apps"]]
+    try:
+        c = store.create_command(DB_PATH, agent_id, "restauration-poste", params)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    _event("restauration", "warning" if mode == "appliquer" else "info",
+           "restauration (%s) envoyee a %s par %s" % (mode, agent_id, str(b.get("actor") or "?")[:64]),
+           agent_id=agent_id, details={"mode": mode})
+    return jsonify({"command": c["id"], "mode": mode}), 200
+
+
+@app.route("/agents/<agent_id>/restauration", methods=["GET"])
+def restauration_resultat_route(agent_id):
+    """#934 : dernier resultat de restauration (simulation ou application) d'un poste."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="restauration-poste", limit=1)
+    m = ms[0] if ms else None
+    return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
+
+
 @app.route("/agents/<agent_id>/sauvegarde/pbs", methods=["POST"])
 def sauvegarde_pbs_route(agent_id):
     """#931 : pousse vers PBS (pbs10) la dernière archive de sauvegarde du poste `agent_id`, OU fait un préflight

@@ -453,6 +453,7 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._restaure = None        # #934 : restauration de sauvegarde en tâche de fond (intervention)
         self._pbs = None             # #931 : poussée PBS en tâche de fond (sur l'agent du serveur PBS)
         self._sauvegarde = None      # #930 : sauvegarde confs+montages en tâche de fond
         self._acces = None           # #928 : test d'accès aux services en tâche de fond (secret en mémoire seulement)
@@ -804,6 +805,8 @@ class Agent(object):
                 return self._acces_services_lancer(params)
             if ctype == "sauvegarde-poste":             # #930 : sauvegarde des confs logicielles et des montages
                 return self._sauvegarde_lancer(params)
+            if ctype == "restauration-poste":           # #934 : restauration (simulation lecture / application intervention)
+                return self._restauration_lancer(params)
             if ctype == "pbs-push":                     # #931 : poussée d'une archive de sauvegarde vers PBS
                 return self._pbs_push_lancer(params)
             if ctype == "stop_plugin":
@@ -1728,6 +1731,90 @@ class Agent(object):
                 st["final_pushed"] = True
         if st.get("done") and not alive:
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
+
+    # -- #934 : restauration d'une sauvegarde (confs registre + dossiers + montages) -- INTERVENTION ---------------
+    def _restauration_lancer(self, params):
+        """Restaure une archive de sauvegarde (#930) sur ce poste. `mode` = « simulation » (lecture seule : liste ce
+        qui serait restauré) ou « appliquer » (réimport du registre avec repli, remise des dossiers, remontage).
+        L'application exige l'autorisation « intervention » des commandes à distance (comme #929). Tâche de fond ;
+        pousse la mesure `restauration-poste`."""
+        import os as _os
+        import shutil as _sh
+        import tempfile
+        import threading
+        import zipfile
+        from . import sauvegarde as bk, winhost
+        if not IS_WINDOWS and self.cmd is host.run_cmd:
+            return {"ok": False, "error": "restauration : Windows seulement"}
+        mode = str(params.get("mode") or "simulation")
+        permis = str(self.cfg.get("remote_shell") or "off")
+        if permis == "off":
+            return {"ok": False, "error": "commandes à distance désactivées sur ce poste (fiche de l'agent › Commandes à distance)"}
+        if mode == "appliquer" and permis != "intervention":
+            return {"ok": False, "error": "restauration = intervention : autoriser « intervention » dans Commandes à distance avant d'appliquer"}
+        source = params.get("source") if isinstance(params.get("source"), dict) else {}
+        chemin = str(source.get("chemin") or "").strip()
+        if not chemin:
+            return {"ok": False, "error": "params.source.chemin requis (archive .zip ou dossier)"}
+        st = getattr(self, "_restaure", None)
+        if st is not None and st.is_alive():
+            return {"ok": False, "error": "une restauration est déjà en cours"}
+        apps = params.get("apps") if isinstance(params.get("apps"), list) else None
+        options = params.get("options") if isinstance(params.get("options"), dict) else {"registre": True, "appdata": True, "montages": False}
+
+        def work():
+            data, tmp = None, None
+            try:
+                if not _os.path.exists(chemin):
+                    data = {"mode": mode, "erreurs": ["archive introuvable sur le poste : %s" % _os.path.basename(chemin)]}
+                else:
+                    if chemin.lower().endswith(".zip"):
+                        tmp = tempfile.mkdtemp(prefix="si-rst-")
+                        with zipfile.ZipFile(chemin) as z:
+                            z.extractall(tmp)
+                        arch = tmp
+                    else:
+                        arch = chemin
+                    if mode == "appliquer":
+                        cibles = []
+                        try:
+                            with open(_os.path.join(arch, "manifeste.json"), encoding="utf-8") as fh:
+                                cibles = (json.load(fh) or {}).get("confs") or []
+                        except (OSError, ValueError):
+                            cibles = []
+                        if apps:
+                            cibles = [c for c in cibles if c.get("app") in apps]
+                        rb = _os.path.join(self._charge_dir(), "restauration-repli", time.strftime("%Y%m%d-%H%M%S", time.gmtime(self.clock())))
+                        script = bk.construire_script_restauration(cibles, arch, rb, options)
+                    else:
+                        script = bk.construire_script_simulation(arch)
+                    sp = _os.path.join(tmp or self._charge_dir(), "restauration.ps1")
+                    with open(sp, "w", encoding="utf-8-sig") as fh:
+                        fh.write(script)
+                    argv = [winhost.POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", sp]
+                    confine = {"env": dict(_os.environ), "encoding": "auto", "cwd": tmp or arch} if self.cmd is host.run_cmd else None
+                    r = self.cmd(argv, timeout=1800, confined=confine) if confine else self.cmd(argv, timeout=1800)
+                    data = bk.extraire_json(getattr(r, "stdout", "") or "", "SI-RST-DEBUT", "SI-RST-FIN") or {"mode": mode, "erreurs": ["sortie illisible (code %s)" % getattr(r, "returncode", "?")]}
+                    data["mode"] = mode
+            except Exception as exc:  # noqa: BLE001
+                _log.warning("restauration : échec", exc_info=True)
+                data = {"mode": mode, "erreurs": ["échec : %s" % type(exc).__name__]}
+            finally:
+                if tmp:
+                    _sh.rmtree(tmp, ignore_errors=True)
+            al = bk.constats_restauration(data) if mode == "appliquer" else []
+            self.queue.put({"task": "restauration-poste", "at": _iso(self.clock()),
+                            "ok": not any(x.get("severity") == "critical" for x in al) and not data.get("erreurs"),
+                            "agent_id": self.agent_id, "data": dict(data, alerts=al)})
+            self.event("restauration", "warning" if (al or data.get("erreurs")) else "info",
+                       "restauration (%s) terminée%s" % (mode, " avec erreurs" if (al or data.get("erreurs")) else ""),
+                       {"mode": mode})
+
+        t = threading.Thread(target=work, name="si-agent-restauration", daemon=True)
+        self._restaure = t
+        t.start()
+        self.event("restauration", "warning" if mode == "appliquer" else "info", "restauration (%s) lancée" % mode, {"mode": mode})
+        return {"ok": True, "result": {"started": True, "mode": mode}}
 
     # -- #931 : poussée d'une archive de sauvegarde vers Proxmox Backup Server (agent du serveur PBS) ------------
     def _pbs_push_lancer(self, params):
