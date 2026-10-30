@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  943: [{ view: "postes-windows", hint: "Diagnostic › Plan de remise en état : conseils cochés « fait », bilan des tests avant / depuis, étape 2 = réinstallation native + redescente ; conseils NTFS / graphique / mémoire nommés" }],
   942: [{ view: "services", hint: "Tour › Mise à jour depuis le git : « Reconstruire seulement ce qui a changé » (registre de run.sh) ; durée attendue en pied de page" }],
   941: [{ view: "si-agent", params: { section: "sauvegardes" }, hint: "fiche agent › Sauvegardes : bouton « { } Inventaire JSON » -- clés, chemins, exports (mots de passe, favoris, historique), relevé, sans aucune valeur" }],
   940: [{ view: "sauvegardes", params: { onglet: "nas" }, hint: "NAS QNAP : connexions et accès, journaux, aide des outils, gestion à distance (essai en lecture, actions déclarées en intervention)" }],

@@ -1,7 +1,7 @@
 // #935 : conseils de diagnostic d'un poste.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { conseils, bilan } from "../src/conseilsDiagnostic.js";
+import { conseils, bilan, bilanEtape } from "../src/conseilsDiagnostic.js";
 
 // Détail calqué sur pc-paul (anonymisé) : Defender off, erreurs disque/contrôleur, arrêts brutaux, Explorer/ntshrui,
 // Wi-Fi Killer, HAL/ACPI, stabilité basse, disque interne sain à 60 °C.
@@ -165,4 +165,52 @@ test("#938 texte copiable et script des commandes", () => {
   assert.match(s, /# \[MODIFIE\] .*\nchkdsk E: \/scan/);
   assert.match(s, /# Lister les disques[^\n]*\nGet-PhysicalDisk/);
   assert.ok(!/undefined/.test(s));
+});
+
+test("#943 NTFS, pilote graphique, mémoire, cartes : éléments nommés", () => {
+  const d = {
+    poste: { memoire_octets: 16e9 },
+    reinstallation: { antivirus: [{ nom: "Defender", actif: true, a_jour: true }] },
+    diagnostic: {
+      categories: { fichiers: 3, graphique: 6, memoire: 3 },
+      fichiers_evenements: [{ volume: "E:", nombre: 2, disque: 1, ids: [["Ntfs 55", 1], ["Ntfs 98", 1]], dernier: "2026-10-27T10:00:00Z" }, { volume: "HarddiskVolume3", nombre: 1, ids: [["Ntfs 140", 1]] }],
+      gpu: [{ nom: "NVIDIA GeForce RTX 4060", pilote: "31.0.15.3623", date_pilote: "2023-07-01T00:00:00Z" }],
+      processus_memoire: [{ processus: "chrome.exe", mo: 3210, fois: 2 }, { processus: "acad.exe", mo: 2100, fois: 1 }],
+      pagefile: [{ fichier: "C:\\pagefile.sys", taille_mo: 4096, usage_mo: 1200, pic_mo: 4000 }],
+      cartes: [{ nom: "Wi-Fi", description: "Killer(R) Wi-Fi 6E AX1675i", pilote: "3.1.0.300", date_pilote: "2023-01-10T00:00:00Z" }, { nom: "Ethernet", description: "Realtek PCIe GbE", pilote: "10.1", date_pilote: "2019-01-01T00:00:00Z", etat: "Up", vitesse: "1 Gbps" }],
+      critiques: [{ t: "2026-10-23T10:00:00Z", categorie: "graphique" }],
+      evenements: [{ source: "Microsoft-Windows-NDIS", id: 10317, nombre: 5, exemple: "x" }],
+      disques: [], volumes: [], stabilite: [{ indice: 8 }], plantages: [],
+    },
+  };
+  const c = conseils(d, []);
+  const ntfs = c.find((x) => x.code === "ntfs");
+  assert.match(ntfs.action, /chkdsk sur E:/);
+  assert.ok(ntfs.elements[0].startsWith("2 évènement(s) sur le volume E: (disque n°1) : Ntfs 55 ×1, Ntfs 98 ×1"));
+  assert.ok(ntfs.etapes.some((e) => e.commande === "chkdsk E: /scan") && ntfs.etapes.some((e) => e.commande === "chkdsk E: /f"));
+  const g = c.find((x) => x.code === "graphique");
+  assert.equal(g.niveau, "critique");
+  assert.match(g.action, /« NVIDIA GeForce RTX 4060 » daté de plus d'un an/);
+  assert.ok(g.elements.some((e) => /relance du pilote le/.test(e)) && g.elements.some((e) => /pilote 31\.0\.15\.3623 du/.test(e)));
+  const m = c.find((x) => x.code === "memoire-epuisee");
+  assert.match(m.action, /« chrome\.exe » est le plus gourmand/);
+  assert.match(m.elements[0], /chrome\.exe : jusqu'à 3.210 Mo \(2 fois\)/);
+  assert.ok(m.elements.some((e) => /fichier d'échange/.test(e)) && m.elements.some((e) => /16 Go/.test(e)));
+  assert.ok(m.etapes.some((e) => /Navigateur gourmand/.test(e.texte)));
+  const w = c.find((x) => x.code === "wifi");
+  assert.match(w.elements[0], /^carte : Killer\(R\) Wi-Fi 6E AX1675i -- pilote 3\.1\.0\.300 du/);
+  const r = c.find((x) => x.code === "pilote-reseau@Ethernet");
+  assert.equal(r.niveau, "info");
+  assert.ok(!c.some((x) => x.code === "pilote-reseau@Wi-Fi"), "la carte Wi-Fi a déjà son conseil");
+});
+
+test("#943 bilan de l'étape 1 : avant / depuis", () => {
+  const h = [{ at: "2026-10-31T10:00:00Z", data: { verdict: "aucun défaut reproduit" } }, { at: "2026-10-31T09:00:00Z", data: { verdict: "aucun défaut reproduit" } }, { at: "2026-10-31T08:00:00Z", data: { verdict: "aucun défaut reproduit" } },
+    { at: "2026-10-29T10:00:00Z", data: { verdict: "défaut reproduit" } }, { at: "2026-10-28T10:00:00Z", data: { verdict: "aucun défaut reproduit" } }];
+  const b = bilanEtape(h, "2026-10-30T12:00:00Z");
+  assert.deepEqual([b.avant.n, b.avant.defauts, b.apres.n, b.apres.defauts, b.verdict], [2, 1, 3, 0, "amelioration"]);
+  assert.equal(bilanEtape(h.slice(0, 2), "2026-10-30T12:00:00Z").verdict, "insuffisant");
+  const h2 = h.map((r, i) => (i < 3 ? { ...r, data: { verdict: "défaut reproduit" } } : r));
+  assert.equal(bilanEtape(h2, "2026-10-30T12:00:00Z").verdict, "pas d'amélioration certaine");
+  assert.equal(bilanEtape(h, null).apres.n, 0);
 });

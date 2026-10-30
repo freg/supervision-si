@@ -162,6 +162,54 @@ export function conseils(detail, histo) {
       E("Pilote graphique : version et date ; réinstallation propre depuis le constructeur", "Get-CimInstance Win32_VideoController | Format-List Name, DriverVersion, DriverDate"),
       E(`BIOS / UEFI : comparer avec le constructeur${constructeur ? ` (${constructeur})` : ""} et mettre à jour`, "Get-CimInstance Win32_BIOS | Format-List SMBIOSBIOSVersion, ReleaseDate")]);
 
+  // --- #943 : système de fichiers (NTFS) : NOMMER le volume ---
+  if ((cat.fichiers || 0) > 0) {
+    const grp = d.fichiers_evenements || [];
+    const el = grp.map((g) => `${g.nombre} évènement(s) sur ${g.volume ? `le volume ${g.volume}${g.disque != null ? ` (disque n°${g.disque})` : ""}` : "un volume non cité"} : ${(g.ids || []).map((kv) => (Array.isArray(kv) ? `${kv[0]} ×${kv[1]}` : String(kv))).join(", ")}${g.dernier ? `, dernier le ${dateFr(g.dernier)}` : ""}`);
+    const lettres = grp.map((g) => g.volume).filter((v) => /^[A-Z]:$/.test(v || ""));
+    const et = [E("Évènements NTFS récents (volume cité dans le message)", "Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Ntfs'} -MaxEvents 15 | Format-List TimeCreated, Id, Message")];
+    for (const l of lettres) et.push(E(`Vérifier ${l} sans modifier (lecture seule)`, `chkdsk ${l} /scan`), E(`Si des erreurs sont trouvées : réparer (volume système = planifié au prochain redémarrage) [MODIFIE]`, `chkdsk ${l} /f`));
+    if (!lettres.length) et.push(E("Associer \\Device\\HarddiskVolumeN à une lettre", "Get-Partition | Format-Table DiskNumber, PartitionNumber, DriveLetter, Size"), E("Vérifier le volume identifié", "chkdsk <lettre:> /scan"));
+    et.push(E("Un volume externe (clé, disque USB) retiré sans éjection produit ces erreurs : éjecter proprement ; si c'est le disque interne, voir aussi « Erreurs disque / contrôleur »"));
+    add("ntfs", "alerte", "Système de fichiers à vérifier", `${cat.fichiers} alerte(s) NTFS (structure endommagée, vérification requise, échec d'écriture).`,
+      lettres.length ? `Lancer chkdsk sur ${lettres.join(", ")} (scan d'abord, puis réparation).` : "Identifier le volume (HarddiskVolumeN → lettre) puis chkdsk.", el, et);
+  }
+
+  // --- #943 : pilote graphique : NOMMER la carte et son pilote ---
+  if ((cat.graphique || 0) > 0) {
+    const gpus = d.gpu || [];
+    const el = [...dates(d.critiques, "graphique").map((t) => `relance du pilote le ${t}`), ...gpus.map((g) => `${g.nom}${g.pilote ? ` -- pilote ${g.pilote}` : ""}${g.date_pilote ? ` du ${dateFr(g.date_pilote).slice(0, 10)}` : ""}`)];
+    const vieux = gpus.filter((g) => g.date_pilote && (Date.now() - Date.parse(g.date_pilote)) > 365 * 86400e3);
+    add("graphique", (cat.graphique || 0) >= 5 ? "critique" : "alerte", "Pilote graphique qui décroche", `${cat.graphique} relance(s) du pilote d'affichage (Display 4101 : « a cessé de répondre et a été récupéré »).`,
+      vieux.length ? `Pilote de « ${vieux[0].nom} » daté de plus d'un an : mettre à jour depuis le constructeur de la carte (installation propre).` : "Mettre à jour le pilote depuis le constructeur de la carte (installation propre) ; si ça persiste sous charge, surchauffe ou carte défaillante.",
+      el, [E("Carte et pilote en place", "Get-CimInstance Win32_VideoController | Format-List Name, DriverVersion, DriverDate, Status"),
+        E(`Télécharger le pilote chez le constructeur de la carte${gpus.length ? ` (${gpus.map((g) => g.nom).join(", ")})` : ""} ; désinstaller l'ancien (DDU en mode sans échec si besoin) puis installer`),
+        E("Évènements du pilote (TDR) et ce qui tournait au même moment", "Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Display'} -MaxEvents 10 | Format-List TimeCreated, Message"),
+        E("Si les relances arrivent sous charge : températures (onglet Tests de charge) ; portable : nettoyage des grilles, mode performances sur secteur")]);
+  }
+
+  // --- #943 : mémoire virtuelle épuisée : NOMMER les processus ---
+  if ((cat.memoire || 0) > 0) {
+    const procs = d.processus_memoire || [];
+    const pf = (d.pagefile || [])[0];
+    const el = [...procs.map((x) => `${x.processus} : jusqu'à ${Math.round(x.mo).toLocaleString("fr-FR")} Mo (${x.fois} fois)`), pf ? `fichier d'échange ${pf.fichier} : ${pf.taille_mo} Mo, pic ${pf.pic_mo} Mo` : null,
+      poste.memoire_octets ? `mémoire physique : ${go(poste.memoire_octets)}` : null];
+    add("memoire-epuisee", (cat.memoire || 0) >= 3 ? "alerte" : "info", "Mémoire virtuelle épuisée", `${cat.memoire} fois sur la période.`,
+      procs.length ? `« ${procs[0].processus} » est le plus gourmand : fuite ou usage normal trop lourd pour ${poste.memoire_octets ? go(poste.memoire_octets) : "la mémoire du poste"} -- le fermer / le mettre à jour, ou ajouter de la mémoire.` : "Identifier le processus gourmand (message de l'évènement 2004) ; ajouter de la mémoire ou agrandir le fichier d'échange.",
+      el, [E("Processus cités par le détecteur", "Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Resource-Exhaustion-Detector'} -MaxEvents 5 | Format-List TimeCreated, Message"),
+        E("Mémoire consommée maintenant (10 premiers)", "Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 10 Name, @{n='Mo';e={[math]::Round($_.WorkingSet64/1MB)}}, @{n='PrivéMo';e={[math]::Round($_.PrivateMemorySize64/1MB)}}"),
+        E("Fichier d'échange : laisser « géré par le système » ou l'agrandir [MODIFIE]", "Get-CimInstance Win32_PageFileUsage | Format-List Name, AllocatedBaseSize, CurrentUsage, PeakUsage"),
+        E(procs.some((x) => /chrome|msedge|firefox/i.test(x.processus)) ? "Navigateur gourmand : limiter les onglets / extensions, activer la mise en veille des onglets" : "Application gourmande : mise à jour éditeur ; si fuite confirmée (croissance continue), redémarrage planifié")]);
+  }
+
+  // --- #943 : pilotes réseau anciens (cartes physiques relevées) ---
+  for (const c of d.cartes || []) {
+    if (c.date_pilote && (Date.now() - Date.parse(c.date_pilote)) > 3 * 365 * 86400e3 && !/wi-?fi|wireless|wlan/i.test(`${c.nom} ${c.description}`)) {
+      add("pilote-reseau@" + c.nom, "info", `Pilote réseau ancien : ${c.nom}`, `${c.description} -- pilote ${c.pilote || "?"} du ${dateFr(c.date_pilote).slice(0, 10)}.`, "Mettre à jour le pilote depuis le constructeur si des incidents réseau apparaissent (sinon, rien à faire).",
+        [`${c.description} (${c.etat || "?"}, ${c.vitesse || "?"})`], [E("Pilotes des cartes physiques", "Get-NetAdapter -Physical | Format-Table Name, InterfaceDescription, DriverVersion, DriverDate, Status")]);
+    }
+  }
+
   // --- Stabilité ---
   const stab = (d.stabilite || [])[0];
   if (stab && typeof stab.indice === "number" && stab.indice < 4) add("stabilite", "alerte", "Indice de stabilité bas", `Indice Windows ${stab.indice.toFixed(1)} / 10${stab.t ? ` au ${dateFr(stab.t).slice(0, 10)}` : ""}.`, "Traiter en priorité les plantages et arrêts ci-dessus ; l'indice remonte quand ils cessent.",
@@ -198,8 +246,9 @@ export function conseils(detail, histo) {
 
   // --- Journaux : pilotes et BIOS ---
   const wifi = journaux(d.evenements, "NDIS|wi-?fi|wlan|Killer");
+  const carteWifi = (d.cartes || []).find((c) => /wi-?fi|wireless|wlan|802\.11/i.test(`${c.nom} ${c.description}`));   // #943 : relevé réel (v5)
   if (wifi.length) {
-    const carte = wifi.map((e) => extraireAdaptateur(e.exemple)).find(Boolean);
+    const carte = carteWifi ? `${carteWifi.description}${carteWifi.pilote ? ` -- pilote ${carteWifi.pilote}${carteWifi.date_pilote ? ` du ${dateFr(carteWifi.date_pilote).slice(0, 10)}` : ""}` : ""}` : wifi.map((e) => extraireAdaptateur(e.exemple)).find(Boolean);
     add("wifi", "alerte", "Pilote Wi-Fi instable", `${wifi.reduce((n, e) => n + (e.nombre || 0), 0)} incident(s) réseau sans fil dans les journaux (${wifi.slice(0, 2).map((e) => `${e.source} ${e.id}`).join(", ")}).`, "Mettre à jour le pilote Wi-Fi (et l'utilitaire constructeur) ; désactiver l'économie d'énergie de la carte Wi-Fi.",
       [carte ? `carte : ${carte}` : null, ...wifi.slice(0, 2).map((e) => `${e.source} ${e.id} ×${e.nombre}${e.dernier ? `, dernier le ${dateFr(e.dernier)}` : ""}`)],
       [E("Carte et version du pilote installé", "Get-NetAdapter -Physical | Format-Table Name, InterfaceDescription, DriverVersion, DriverDate, Status"),
@@ -271,4 +320,21 @@ export function scriptConseils(liste) {
     for (const e of cmds) l.push(`# ${/Set-|\/delete|setacvalue|setactive|sfc|DISM|Dism|Update-Mp|cleanmgr|chkdsk|UsoClient/.test(e.commande) ? "[MODIFIE] " : ""}${e.texte}`, e.commande, "");
   }
   return l.join("\n");
+}
+
+
+/** #943 : bilan « avant / après » de l'étape 1 du plan de remise en état : tests de charge avant et depuis `depuis`
+ * (ISO) -> { avant: {n, defauts}, apres: {n, defauts}, verdict: "amelioration" | "pas d'amélioration certaine" | "insuffisant" }. */
+export function bilanEtape(histo, depuis) {
+  const runs = histo || [];
+  const t = depuis ? Date.parse(depuis) : NaN;
+  const est = (r) => String((r.data || {}).verdict || "").toLowerCase().startsWith("défaut reproduit");
+  const avant = runs.filter((r) => Number.isNaN(t) || Date.parse(r.at) < t);
+  const apres = runs.filter((r) => !Number.isNaN(t) && Date.parse(r.at) >= t);
+  const b = { avant: { n: avant.length, defauts: avant.filter(est).length }, apres: { n: apres.length, defauts: apres.filter(est).length } };
+  if (b.apres.n < 3) b.verdict = "insuffisant";
+  else if (b.apres.defauts === 0 && b.avant.defauts > 0) b.verdict = "amelioration";
+  else if (b.avant.n && b.apres.defauts / b.apres.n < (b.avant.defauts / b.avant.n) / 2) b.verdict = "amelioration";
+  else b.verdict = "pas d'amélioration certaine";
+  return b;
 }

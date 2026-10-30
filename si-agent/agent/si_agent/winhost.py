@@ -33,10 +33,35 @@ def script_path(name):
 
 
 def run_ps(cmd, name, timeout=None):
-    """(objet JSON | None, erreur | None) -- un script `win/<name>.ps1`."""
+    """(objet JSON | None, erreur | None) -- un script `win/<name>.ps1`.
+    #943 : sortie lue en OCTETS et décodée par host.decode_sortie (UTF-8 sinon page OEM) au lieu de la page ANSI de
+    Python -- les messages du journal arrivaient en « LÃ¢â‚¬â„¢horloge » quand la console du poste est en UTF-8."""
     argv = [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script_path(name)]
-    r = cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60))
+    r = cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60), confined={"encoding": "auto"}) if cmd is host.run_cmd else cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60))
     return parse_ps(r, name)
+
+
+_MOJIBAKE = ("Ã", "â€", "Â")
+
+
+def reparer_mojibake(texte):
+    """Texte UTF-8 lu comme du cp1252 (« Ã© » pour « é », « â€™ » pour « ’ ») -> texte d'origine, une ou deux couches ;
+    inchangé si le texte est sain ou si la réparation n'améliore rien."""
+    t = str(texte or "")
+    for _ in range(2):
+        if not any(m in t for m in _MOJIBAKE):
+            break
+        try:
+            r = t.encode("cp1252", "strict").decode("utf-8", "strict")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            try:
+                r = t.encode("latin-1", "strict").decode("utf-8", "strict")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                break
+        if r == t:
+            break
+        t = r
+    return t
 
 
 def parse_ps(r, name):
@@ -102,7 +127,7 @@ def map_host(raw, hostname=None):
                       "exposed": addr in ("0.0.0.0", "::", "*", "")})
     lines = []
     for e in raw.get("logs") or []:
-        lines.append("%s [%s] %s (%s) : %s" % (e.get("time") or "?", e.get("log") or "?", e.get("source") or "?", e.get("id"), e.get("message") or ""))
+        lines.append("%s [%s] %s (%s) : %s" % (e.get("time") or "?", e.get("log") or "?", e.get("source") or "?", e.get("id"), reparer_mojibake(e.get("message") or "")))   # #943
     acc = raw.get("accounts") or {}
     services = raw.get("services") or {}
     data = {

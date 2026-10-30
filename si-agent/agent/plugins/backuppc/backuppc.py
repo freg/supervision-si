@@ -244,6 +244,83 @@ def _lire(path):
         return ""
 
 
+# --- #943 : mode RELAIS par SSH -- le serveur BackupPC est trop ancien pour l'agent (Debian 7 « fichiers ») : un agent du
+# LAN exécute le relevé par ssh, sous l'utilisateur backuppc (sudo). Réglages : /etc/si-agent/backuppc.json =
+# [{"name": "fichiers", "host": "192.0.2.5", "user": "si-bk", "port": 22, "key": "/etc/si-agent/keys/backuppc"}].
+# Côté serveur : compte si-bk avec la clé, et dans sudoers : « si-bk ALL=(backuppc) NOPASSWD: /bin/sh ».
+SCRIPT_RELAIS = r'''
+B=""; for b in /usr/share/backuppc/bin/BackupPC_serverMesg /usr/local/BackupPC/bin/BackupPC_serverMesg /usr/local/bin/BackupPC_serverMesg /usr/bin/BackupPC_serverMesg; do [ -x "$b" ] && B="$b" && break; done
+C=""; for c in /etc/backuppc /etc/BackupPC /usr/local/BackupPC/conf; do [ -d "$c" ] && C="$c" && break; done
+T=$(sed -n "s/^[[:space:]]*\$Conf{TopDir}[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$C/config.pl" 2>/dev/null | head -n 1); [ -n "$T" ] || T=/var/lib/backuppc
+echo "=== chemins"; echo "bin=$B"; echo "conf=$C"; echo "topdir=$T"
+echo "=== info"; [ -n "$B" ] && "$B" status info 2>&1
+echo "=== hosts"; [ -n "$B" ] && "$B" status hosts 2>&1
+echo "=== queues"; [ -n "$B" ] && "$B" status queues 2>&1
+echo "=== conf"; cat "$C/hosts" 2>/dev/null
+echo "=== df"; df -kP "$T" 2>/dev/null | tail -n 1
+echo "=== backups"
+for d in "$T"/pc/*/; do h=$(basename "$d"); [ -f "$d/backups" ] && sed "s|^|$h	|" "$d/backups"; done
+echo "=== fin"
+'''
+
+
+def decouper(texte):
+    out, cur = {}, None
+    for l in str(texte or "").splitlines():
+        m = re.match(r"^=== (\w+)\s*$", l)
+        if m:
+            cur = m.group(1)
+            out.setdefault(cur, [])
+            continue
+        if cur:
+            out[cur].append(l)
+    return out
+
+
+def analyser_relais(sortie, now=None, **seuils):
+    """Sortie du SCRIPT_RELAIS -> même structure que le relevé local (analyser)."""
+    s = decouper(sortie)
+    chemins = dict(l.split("=", 1) for l in s.get("chemins", []) if "=" in l)
+    erreur = None
+    if not chemins.get("bin"):
+        erreur = "BackupPC_serverMesg introuvable sur le serveur relayé"
+    info_txt, hosts_txt, queues_txt = "\n".join(s.get("info", [])), "\n".join(s.get("hosts", [])), "\n".join(s.get("queues", []))
+    if not erreur and ("%Status" not in hosts_txt and "%Info" not in info_txt):
+        erreur = (hosts_txt or info_txt or "serveur BackupPC muet (sudo -u backuppc refusé ?)").strip()[:300]
+    hosts = parse_hosts("\n".join(s.get("conf", [])))
+    bks = {}
+    for l in s.get("backups", []):
+        if "\t" not in l:
+            continue
+        h, reste = l.split("\t", 1)
+        bks.setdefault(h, []).append(reste)
+    bks = {h: parse_backups("\n".join(v)) for h, v in bks.items()}
+    usage = None
+    df = [l for l in s.get("df", []) if l.strip()]
+    if df:
+        p = df[-1].split()
+        if len(p) >= 4 and p[1].isdigit():
+            usage = (int(p[1]) * 1024, int(p[2]) * 1024, int(p[3]) * 1024)
+    out = analyser(parse_perl_hash(info_txt) if not erreur else {}, parse_perl_hash(hosts_txt) if not erreur else {},
+                   parse_perl_hash(queues_txt) if queues_txt else {}, hosts, bks, usage, now=now, erreur_serveur=erreur, **seuils)
+    out["chemins"] = chemins
+    return out
+
+
+def relever_relais(cible, runner=subprocess.run, timeout=120):
+    argv = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=10", "-p", str(int(cible.get("port") or 22))]
+    if cible.get("key"):
+        argv += ["-i", str(cible["key"])]
+    argv += ["%s@%s" % (cible.get("user") or "si-bk", cible["host"]), "sudo", "-n", "-u", str(cible.get("backuppc_user") or "backuppc"), "sh", "-s"]
+    try:
+        r = runner(argv, input=SCRIPT_RELAIS, capture_output=True, text=True, timeout=timeout, check=False)
+    except Exception as e:  # noqa: BLE001
+        return None, "ssh : %s" % e
+    if "=== fin" not in (r.stdout or ""):
+        return None, (r.stderr or r.stdout or "code %s" % r.returncode).strip()[:300]
+    return r.stdout, None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default="")
@@ -254,7 +331,26 @@ def main(argv=None):
     ap.add_argument("--old-days", type=float, default=7)
     ap.add_argument("--full-warn", type=float, default=85)
     ap.add_argument("--full-crit", type=float, default=95)
+    ap.add_argument("--config", default="/etc/si-agent/backuppc.json")   # #943 : mode relais par SSH
     a = ap.parse_args(argv)
+    seuils = {"max_age_h": a.max_age_h, "old_days": a.old_days, "full_warn": a.full_warn, "full_crit": a.full_crit}
+    cibles = []
+    try:
+        with open(a.config, encoding="utf-8") as fh:
+            cibles = [c for c in json.load(fh) if isinstance(c, dict) and c.get("host")]
+    except (OSError, ValueError):
+        cibles = []
+    if cibles:
+        c = cibles[0]
+        sortie, err = relever_relais(c)
+        if err:
+            out = analyser({}, {}, {}, [], {}, None, erreur_serveur="relais SSH vers %s : %s" % (c.get("name") or c["host"], err), **seuils)
+        else:
+            out = analyser_relais(sortie, **seuils)
+        out["serveur"]["nom"] = c.get("name") or c["host"]
+        out["serveur"]["relais"] = True
+        print(json.dumps(out, ensure_ascii=False))
+        return 0
     binaire = a.bin or next((b for b in BIN_CANDIDATS if os.path.exists(b)), None)
     conf = a.conf or next((c for c in CONF_CANDIDATS if os.path.isdir(c)), CONF_CANDIDATS[0])
     topdir = a.topdir or _topdir(conf)

@@ -45,3 +45,23 @@ class ChargeHisto(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlanRemise943(unittest.TestCase):
+    def test_plan(self):
+        c = A.app.test_client()
+        try:
+            store.create_agent(A.DB_PATH, "pc-plan", "siege")
+        except ValueError:
+            pass
+        self.assertEqual(c.get("/agents/pc-plan/plan-remise").get_json()["etape"], 1)
+        r = c.put("/agents/pc-plan/plan-remise", json={"faits": {"wifi": True, "bios": True}, "actor": "freg"})
+        self.assertEqual(r.status_code, 200)
+        j = r.get_json()
+        self.assertEqual((j["etape"], sorted(j["faits"]), j["faits"]["wifi"]["par"]), (1, ["bios", "wifi"], "freg"))
+        self.assertTrue(j["debut_etape1"])
+        r = c.put("/agents/pc-plan/plan-remise", json={"etape": 2, "decision": "pas d'amélioration certaine", "actor": "freg"})
+        j = r.get_json()
+        self.assertEqual((j["etape"], sorted(j["faits"]), j["decision"]), (2, ["bios", "wifi"], "pas d'amélioration certaine"))
+        self.assertTrue(j["debut_etape2"])
+        self.assertEqual(c.get("/agents/inconnu-plan/plan-remise").status_code, 404)

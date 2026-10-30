@@ -1,3 +1,27 @@
+## 2026-10-30 — Diagnostic pc-paul : plan de remise en état en 2 étapes, conseils NTFS / graphique / mémoire nommés, encodage du journal, BackupPC relayé (livraison #943)
+
+- **Plan de remise en état** (« je vois 2 étapes ») en tête des conseils, partagé entre utilisateurs du hub
+  (`/agents/<id>/plan-remise`) : **étape 1** appliquer les conseils (case « fait » par conseil, qui l'a fait, quand) et
+  retester -- bilan automatique des tests de charge avant / depuis le début de l'étape (au moins 3 tests pour juger :
+  amélioration / pas d'amélioration certaine) ; **étape 2** si pas d'amélioration certaine : réinstallation système
+  native puis redescente de la sauvegarde applications / confs (liens Sauvegarde données / image, Inventaire JSON,
+  Réinstallation, Restaurer). Bouton « Passer à l'étape 2 » qui note la décision.
+- Conseils : **système de fichiers** (NTFS 55/98/140) avec le **volume nommé** (lettre ou HarddiskVolumeN, disque) et
+  `chkdsk <lettre> /scan` puis `/f` ; **pilote graphique** (Display 4101) avec la **carte et son pilote** (version, date ;
+  critique à partir de 5 relances, « plus d'un an » signalé) ; **mémoire virtuelle épuisée** avec les **processus
+  cités** par le détecteur (Mo, fois), le fichier d'échange et la mémoire du poste ; **carte Wi-Fi** nommée depuis le
+  relevé réel (plus seulement le texte des journaux) ; pilotes réseau de plus de 3 ans (info). Onglet Diagnostic :
+  tableau « Cartes (graphique, réseau) et pilotes ».
+- Sonde poste-windows **v5** : cartes graphiques, cartes réseau physiques (pilote, date, état, vitesse), fichier
+  d'échange, évènements NTFS rattachés au volume, processus des évènements 2004.
+- **Encodage** (« LÃ¢â‚¬â„¢horloge » dans Erreurs du journal 24 h, noté) : la sortie de host.ps1 est lue en octets et
+  décodée UTF-8 / OEM (comme les sondes #920) ; les messages déjà abîmés (une ou deux couches) sont réparés.
+- **BackupPC relayé** : le serveur BackupPC (« fichiers », Debian 7) est trop ancien pour l'agent -- la sonde backuppc
+  v2 sait relever **par SSH depuis un agent du LAN** (`/etc/si-agent/backuppc.json`, compte `si-bk`, sudoers
+  `si-bk ALL=(backuppc) NOPASSWD: /bin/sh`), même résultat que le relevé local.
+- Agent **0.6.37**. Vérifié : tests agent (poste-windows 8, backuppc 7, winhost 9, si_agent), API, hub (496), lint
+  JSX. Non vérifié : rendu ; collecte.ps1 v5 et le relais BackupPC sur machines réelles.
+
 ## 2026-10-30 — Tour de contrôle : reconstruire seulement ce qui a changé, durée attendue des mises à jour (livraison #942)
 
 - « À chaque fois que je passe par la tour, ça reconstruit tout et ça dure longtemps » : après un `git pull` fait à la
@@ -11,7 +35,7 @@
   durée, code) ; le pied de page affiche « ≈ N min restantes (habituellement M min, mêmes services / x s par service) »
   pendant une mise à jour, et `/version-hub` expose les 5 dernières durées. Fichiers jamais versionnés (.gitignore),
   exclus de l'empreinte de contenu.
-- Vérifié : tests services-api (tower 15, app 25), hub (496), lint JSX. Non vérifié : rendu ; le registre se remplit à
+- Vérifié : tests services-api (tower 15, app 25), hub (494), lint JSX. Non vérifié : rendu ; le registre se remplit à
   partir de la PROCHAINE construction par run.sh (avant : tous les services « sans entrée au registre » -- un passage
   par « + N sans entrée au registre » ou une cascade les inscrit).
 

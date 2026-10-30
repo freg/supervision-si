@@ -129,3 +129,29 @@ class Robustesse923(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V5Tests(unittest.TestCase):
+    """#943 : évènements NTFS par volume, processus gourmands, gpu / cartes transmis."""
+
+    def test_fichiers_memoire_gpu(self):
+        raw = dict(RAW, volumes=[{"lettre": "C:", "disque": 0, "octets": 1, "libre": 1}, {"lettre": "E:", "disque": 1, "octets": 1, "libre": 1}],
+                   gpu=[{"nom": "NVIDIA GeForce RTX 4060", "pilote": "31.0.15.3623", "date_pilote": "2023-07-01T00:00:00Z"}],
+                   cartes=[{"nom": "Wi-Fi", "description": "Killer(R) Wi-Fi 6E AX1675i", "pilote": "3.1.0.300", "date_pilote": "2023-01-10T00:00:00Z"}],
+                   critiques=RAW["critiques"] + [
+                       {"t": "2026-10-26T10:00:00Z", "source": "Ntfs", "id": 55, "message": "La structure du système de fichiers sur le volume E: a été endommagée."},
+                       {"t": "2026-10-27T10:00:00Z", "source": "Ntfs", "id": 98, "message": "Volume E: (\\Device\\HarddiskVolume5) requiert une vérification."},
+                       {"t": "2026-10-27T11:00:00Z", "source": "Ntfs", "id": 140, "message": "Échec d'écriture sur \\Device\\HarddiskVolume3."},
+                       {"t": "2026-10-28T10:00:00Z", "source": "Microsoft-Windows-Resource-Exhaustion-Detector", "id": 2004,
+                        "message": "Windows a diagnostiqué une insuffisance de mémoire virtuelle. Les programmes suivants ont consommé le plus de mémoire virtuelle : chrome.exe (4321) a consommé 3 210 Mo, acad.exe (555) a consommé 2 100 Mo, chrome.exe (4322) a consommé 900 Mo."}])
+        r = pw.analyse(json.loads(json.dumps(raw)))
+        fe = r["diagnostic"]["fichiers_evenements"]
+        self.assertEqual([(g["volume"], g["nombre"], g["disque"]) for g in fe], [("E:", 2, 1), ("HarddiskVolume3", 1, None)])
+        self.assertEqual(fe[0]["ids"][0][0] in ("Ntfs 55", "Ntfs 98"), True)
+        pm = r["diagnostic"]["processus_memoire"]
+        self.assertEqual([(x["processus"], x["mo"], x["fois"]) for x in pm], [("chrome.exe", 3210.0, 2), ("acad.exe", 2100.0, 1)])
+        self.assertEqual(r["diagnostic"]["gpu"][0]["nom"], "NVIDIA GeForce RTX 4060")
+        self.assertEqual(r["diagnostic"]["cartes"][0]["description"], "Killer(R) Wi-Fi 6E AX1675i")
+        self.assertEqual(r["diagnostic"]["categories"]["fichiers"], 3)
+        self.assertEqual(pw.volume_de_message("rien"), None)
+        self.assertEqual(pw.volume_de_message("The file system structure on volume C: is corrupt"), "C:")

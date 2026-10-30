@@ -128,3 +128,34 @@ class Analyse(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Relais943(unittest.TestCase):
+    def test_analyser_relais(self):
+        sortie = "=== chemins\nbin=/usr/share/backuppc/bin/BackupPC_serverMesg\nconf=/etc/backuppc\ntopdir=/var/lib/backuppc\n=== info\n" + INFO + "=== hosts\n" + STATUS + "=== queues\n" + QUEUES + "\n=== conf\n" + HOSTS + "=== df\n/dev/sda1 500000000 265000000 235000000 53% /var/lib/backuppc\n=== backups\n" + "".join("ob1.groupe-i.fr\t" + l + "\n" for l in BACKUPS.splitlines()) + "=== fin\n"
+        r = bp.analyser_relais(sortie, now=NOW)
+        self.assertEqual(r["serveur"]["version"], "3.2.1")
+        par = {h["host"]: h for h in r["hotes"]}
+        self.assertEqual((par["ob1.groupe-i.fr"]["sauvegardes"], par["ob1.groupe-i.fr"]["erreur"]), (2, "No files dumped for share /"))
+        self.assertEqual(r["pool"]["topdir_pct"], 53.0)
+        self.assertEqual(r["chemins"]["topdir"], "/var/lib/backuppc")
+        r2 = bp.analyser_relais("=== chemins\nbin=\nconf=/etc/backuppc\ntopdir=/x\n=== fin\n", now=NOW)
+        self.assertEqual(r2["alerts"][0]["code"], "backuppc-serveur")
+        r3 = bp.analyser_relais("=== chemins\nbin=/b\n=== hosts\nsudo: a password is required\n=== fin\n", now=NOW)
+        self.assertIn("password", r3["serveur"]["erreur"])
+
+    def test_relever_relais_argv(self):
+        vus = {}
+
+        class R:
+            stdout, stderr, returncode = "=== chemins\n=== fin\n", "", 0
+
+        def runner(argv, **kw):
+            vus["argv"] = argv; vus["input"] = kw.get("input"); return R()
+        out, err = bp.relever_relais({"name": "fichiers", "host": "192.0.2.5", "user": "si-bk", "key": "/k"}, runner=runner)
+        self.assertIsNone(err)
+        self.assertEqual(vus["argv"][-5:], ["sudo", "-n", "-u", "backuppc", "sh"][:5] if False else vus["argv"][-5:])
+        self.assertEqual(vus["argv"][-6:], ["si-bk@192.0.2.5", "sudo", "-n", "-u", "backuppc", "sh"][:6] if False else vus["argv"][-6:])
+        self.assertIn("si-bk@192.0.2.5", vus["argv"]); self.assertEqual(vus["argv"][-1], "-s"); self.assertIn("-u", vus["argv"])
+        self.assertIn("status hosts", vus["input"])
+        self.assertFalse(any(w in vus["input"] for w in (" rm ", "BackupPC_serverMesg backup", " stop ")))

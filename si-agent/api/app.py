@@ -3314,6 +3314,34 @@ def sauvegarde_resultat_route(agent_id):
     return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
 
 
+@app.route("/agents/<agent_id>/plan-remise", methods=["GET", "PUT"])
+def plan_remise_route(agent_id):
+    """#943 : plan de remise en état d'un poste (partagé entre utilisateurs du hub) : étape 1 = appliquer les conseils et
+    retester ; étape 2 = réinstallation native puis redescente des sauvegardes. {etape, faits: {code: {at, par}},
+    debut_etape1, decision, notes}."""
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    cle = "plan-remise/%s" % agent_id
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        cur = store.get_setting(DB_PATH, cle, {}) or {}
+        etape = int(b.get("etape") or cur.get("etape") or 1)
+        plan = {"etape": 2 if etape >= 2 else 1, "faits": {}, "debut_etape1": b.get("debut_etape1") or cur.get("debut_etape1") or store.now_iso(),
+                "decision": str(b.get("decision") or cur.get("decision") or "")[:400], "notes": str(b.get("notes") or cur.get("notes") or "")[:4000],
+                "maj": store.now_iso(), "par": str(b.get("actor") or "?")[:64]}
+        faits = b.get("faits") if isinstance(b.get("faits"), dict) else cur.get("faits") or {}
+        for k, v in faits.items():
+            if v:
+                plan["faits"][str(k)[:80]] = v if isinstance(v, dict) else {"at": store.now_iso(), "par": plan["par"]}
+        if etape >= 2 and not cur.get("debut_etape2"):
+            plan["debut_etape2"] = store.now_iso()
+        elif cur.get("debut_etape2"):
+            plan["debut_etape2"] = cur["debut_etape2"]
+        store.set_setting(DB_PATH, cle, plan)
+        return jsonify(plan), 200
+    return jsonify(store.get_setting(DB_PATH, cle, {"etape": 1, "faits": {}}) or {"etape": 1, "faits": {}}), 200
+
+
 @app.route("/agents/<agent_id>/sauvegarde/inventaire", methods=["GET"])
 def sauvegarde_inventaire_route(agent_id):
     """#941 : inventaire compact (JSON) des éléments de configuration par application : clés, dossiers, exports connus

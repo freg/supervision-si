@@ -145,6 +145,10 @@ $stabilite = @(); foreach ($s in (Get-CimInstance Win32_ReliabilityStabilityMetr
 $temperatures = @(); foreach ($z in (Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature)) { $temperatures += [ordered]@{ zone = $z.InstanceName; celsius = [math]::Round($z.CurrentTemperature / 10 - 273.15, 1) } }
 $os = Get-CimInstance Win32_OperatingSystem
 $cs = Get-CimInstance Win32_ComputerSystem
+# v5 (#943) : cartes graphiques et cartes réseau physiques (nom, pilote, date) -- pour que les conseils nomment le pilote
+$gpu = @(); foreach ($g in (Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue)) { $gpu += [ordered]@{ nom = $g.Name; pilote = $g.DriverVersion; date_pilote = Iso $g.DriverDate; memoire_octets = [int64]$g.AdapterRAM; etat = [string]$g.Status } }
+$cartes = @(); try { foreach ($c in (Get-NetAdapter -Physical -ErrorAction Stop)) { $cartes += [ordered]@{ nom = $c.Name; description = $c.InterfaceDescription; pilote = $c.DriverVersion; date_pilote = Iso $c.DriverDate; etat = [string]$c.Status; vitesse = [string]$c.LinkSpeed; mac = $c.MacAddress } } } catch { }
+$pagefile = @(); foreach ($pf in (Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue)) { $pagefile += [ordered]@{ fichier = $pf.Name; taille_mo = [int]$pf.AllocatedBaseSize; usage_mo = [int]$pf.CurrentUsage; pic_mo = [int]$pf.PeakUsage } }
 
 [ordered]@{
   jours = $Jours; nom = $env:COMPUTERNAME; systeme = $os.Caption; version = $os.Version; demarrage = Iso $os.LastBootUpTime
@@ -154,4 +158,5 @@ $cs = Get-CimInstance Win32_ComputerSystem
   licences = $licences; antivirus = $antivirus; logiciels = $logiciels
   evenements = $groupes; critiques = $critiques; plantages = $plantages; vidages = $vidages; memory_dmp = $(if ($memdmp) { Iso $memdmp.LastWriteTime } else { $null })
   disques = $disques; volumes = $volumes; stabilite = $stabilite; temperatures = $temperatures; partiel = $partiel
+  gpu = $gpu; cartes = $cartes; pagefile = $pagefile
 } | ConvertTo-Json -Depth 6 -Compress

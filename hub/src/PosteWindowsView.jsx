@@ -2,7 +2,7 @@
 // imprimantes, abonnements et licences, comptes de messagerie et agendas, logiciels) et diagnostic d'une panne
 // intermittente (évènements critiques, plantages, disques, stabilité) ; résultats des tests de charge à la demande.
 import { useCallback, useEffect, useState } from "react";
-import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive, fetchChargeHistorique } from "./siAgentClient.js";
+import { fetchPostesWindows, lancerCharge, stopCharge, fetchChargeLive, fetchChargeHistorique, fetchPlanRemise, savePlanRemise } from "./siAgentClient.js";
 import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
@@ -10,7 +10,7 @@ import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 import AccesServices from "./AccesServices.jsx";       // #928
 import Sauvegarde from "./Sauvegarde.jsx";             // #930
 import { resumeRun, comparer, csvHistorique } from "./chargeHistorique.js"; // #932/#933
-import { conseils, bilan, texteConseil, scriptConseils } from "./conseilsDiagnostic.js"; // #935 / #938
+import { conseils, bilan, texteConseil, scriptConseils, bilanEtape } from "./conseilsDiagnostic.js"; // #935 / #938 / #943
 import BoutonDetail from "./FenetreTexte.jsx";   // #938 : texte copiable des conseils
 import { imprimer } from "./impression.js"; // #935
 
@@ -62,13 +62,19 @@ function Commande({ texte }) {
   return <code className="cd-cmd" title="cliquer pour copier" onClick={copier} style={{ cursor: "pointer" }}>{texte}{ok ? " ✔" : ""}</code>;
 }
 
-function ConseilsDiagnostic({ detail, base }) {
+function ConseilsDiagnostic({ detail, base, actor }) {
   const [histo, setHisto] = useState([]);
   const [ouverts, setOuverts] = useState({});
   const [tout, setTout] = useState(false);
-  useEffect(() => { if (detail && detail.agent) fetchChargeHistorique(base, detail.agent, 50).then((r) => { if (r && !r.error) setHisto(r.historique || []); }); }, [base, detail && detail.agent]);
+  const [plan, setPlan] = useState({ etape: 1, faits: {} });   // #943 : plan de remise en état, partagé (API)
+  const [busyPlan, setBusyPlan] = useState(false);
+  useEffect(() => { if (detail && detail.agent) { fetchChargeHistorique(base, detail.agent, 50).then((r) => { if (r && !r.error) setHisto(r.historique || []); }); fetchPlanRemise(base, detail.agent).then((r) => { if (r && !r.error) setPlan(r); }); } }, [base, detail && detail.agent]);
+  const sauverPlan = async (body) => { setBusyPlan(true); const r = await savePlanRemise(base, detail.agent, { ...body, actor }); setBusyPlan(false); if (r && !r.error) setPlan(r); };
+  const cocher = (code, fait) => { const faits = { ...(plan.faits || {}) }; if (fait) faits[code] = true; else delete faits[code]; sauverPlan({ faits, etape: plan.etape }); };
   const liste = conseils(detail, histo);
   const b = bilan(liste);
+  const faits = liste.filter((c) => plan.faits?.[c.code]).length;
+  const be = bilanEtape(histo, plan.debut_etape1);
   if (!liste.length) return <div className="np-tone good" style={{ margin: "8px 0" }}>Aucun point critique relevé par le diagnostic et les tests. ✔</div>;
   const script = scriptConseils(liste);
   const exporterScript = () => {
@@ -95,12 +101,25 @@ function ConseilsDiagnostic({ detail, base }) {
         <button type="button" className="secondary" onClick={exporterScript} title="toutes les commandes proposées, en fichier texte">⇩ Commandes</button>
         <button type="button" className="secondary" onClick={() => { setTout(true); setTimeout(() => imprimer("impr-conseils"), 80); }} title="imprime avec toutes les procédures dépliées">🖨 Imprimer</button>
       </div>
+      <div className="cd-plan" style={{ margin: "6px 0", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: 6, fontSize: 13 }}>
+        <b>Plan de remise en état</b> — <span className={plan.etape === 2 ? "np-tone warn" : "np-tone good"}>étape {plan.etape} / 2</span>
+        {" "}· <b>1.</b> appliquer les conseils et retester ({faits}/{liste.length} faits{plan.debut_etape1 ? `, depuis le ${date(plan.debut_etape1)}` : ""}) ;
+        tests de charge : {be.avant.n} avant ({be.avant.defauts} défaut(s)), {be.apres.n} depuis ({be.apres.defauts} défaut(s)) → <span className={`np-tone ${be.verdict === "amelioration" ? "good" : be.verdict === "insuffisant" ? "neutral" : "warn"}`}>{be.verdict === "amelioration" ? "amélioration" : be.verdict === "insuffisant" ? "encore au moins 3 tests pour juger" : be.verdict}</span>
+        {" "}· <b>2.</b> si pas d'amélioration certaine : <b>réinstallation système native</b> puis redescente de la sauvegarde applications / confs
+        {" "}(<a href={hubLink("si-agent", { agent: detail.agent, section: "sauvegardes" })}>Sauvegarde données / image</a>, Inventaire JSON, onglet Réinstallation, puis Restaurer).
+        <span style={{ marginLeft: 8 }}>
+          {plan.etape === 1 ? <button type="button" className="secondary" disabled={busyPlan} onClick={() => { if (window.confirm("Passer à l'étape 2 (réinstallation native) : la décision « pas d'amélioration certaine » sera notée. Continuer ?")) sauverPlan({ etape: 2, decision: `pas d'amélioration certaine après ${faits} conseil(s) appliqué(s) ; tests : ${be.apres.defauts}/${be.apres.n} en défaut` }); }}>{busyPlan ? "⏳…" : "→ Passer à l'étape 2"}</button>
+            : <button type="button" className="secondary" disabled={busyPlan} onClick={() => sauverPlan({ etape: 1, decision: "retour à l'étape 1" })}>{busyPlan ? "⏳…" : "← Revenir à l'étape 1"}</button>}
+        </span>
+        {plan.decision && <div className="infra-muted" style={{ fontSize: 12 }}>décision : {plan.decision}{plan.par ? ` (${plan.par}, ${date(plan.maj)})` : ""}</div>}
+      </div>
       <ol style={{ margin: "6px 0", paddingLeft: 20 }}>
         {liste.map((c, i) => {
           const ouvert = tout || ouverts[c.code];
           return (
-            <li key={c.code + i} style={{ marginBottom: 8 }}>
-              <b className={`np-tone ${c.niveau === "critique" ? "bad" : c.niveau === "alerte" ? "warn" : "neutral"}`}>{c.titre}</b>
+            <li key={c.code + i} style={{ marginBottom: 8, opacity: plan.faits?.[c.code] ? 0.6 : 1 }}>
+              <label title="fait : appliqué sur le poste (partagé avec les autres utilisateurs du hub)"><input type="checkbox" checked={!!plan.faits?.[c.code]} disabled={busyPlan} onChange={(e) => cocher(c.code, e.target.checked)} /> </label>
+              <b className={`np-tone ${c.niveau === "critique" ? "bad" : c.niveau === "alerte" ? "warn" : "neutral"}`}>{c.titre}</b>{plan.faits?.[c.code] ? <span className="np-tone good"> fait</span> : null}
               <BoutonDetail titre={c.titre} urgence={c.niveau === "critique" ? "critique" : c.niveau === "alerte" ? "alerte" : "info"} texte={texteConseil(c)} />
               <div className="infra-muted" style={{ fontSize: 13 }}>{c.constat}</div>
               {c.elements?.length > 0 && <ul className="cd-elements" style={{ margin: "2px 0", paddingLeft: 16, fontSize: 13 }}>{c.elements.map((e, j) => <li key={j}>{e}</li>)}</ul>}
@@ -130,6 +149,8 @@ function Diagnostic({ d, charge }) {
     <Tableau titre="Chronologie des évènements critiques" lignes={d.critiques} cols={[["Date", (l) => date(l.t)], ["Nature", (l) => l.libelle], ["Source", (l) => `${l.source} ${l.id}`], ["Message", (l) => <span style={{ fontSize: 12 }}>{l.message}</span>]]} vide="aucun" />
     <Tableau titre="Applications qui plantent" lignes={d.plantages} cols={[["Application", (l) => l.application], ["Plantages", (l) => l.plantages], ["Blocages", (l) => l.blocages], ["Module en cause", (l) => (l.modules || []).join(", ") || "—"], ["Dernier", (l) => date(l.dernier)]]} />
     <Tableau titre="Disques" lignes={d.disques} cols={[["Modèle", (l) => l.modele], ["Type", (l) => `${l.media} ${l.bus}`], ["Santé", (l) => l.sante], ["Temp.", (l) => (l.temperature != null ? `${l.temperature} °C (max ${l.temperature_max ?? "?"})` : "—")], ["Usure", (l) => (l.usure != null ? `${l.usure} %` : "—")], ["Erreurs lect. / écr.", (l) => `${l.erreurs_lecture ?? "—"} / ${l.erreurs_ecriture ?? "—"}`], ["Heures", (l) => l.heures ?? "—"]]} />
+    {(d.gpu?.length || d.cartes?.length) ? <Tableau titre="Cartes (graphique, réseau) et pilotes" lignes={[...(d.gpu || []).map((g) => ({ type: "graphique", nom: g.nom, pilote: g.pilote, date: g.date_pilote, etat: g.etat })), ...(d.cartes || []).map((c) => ({ type: "réseau", nom: `${c.nom} -- ${c.description}`, pilote: c.pilote, date: c.date_pilote, etat: `${c.etat || ""} ${c.vitesse || ""}` }))]}
+      cols={[["Type", (l) => l.type], ["Carte", (l) => l.nom], ["Pilote", (l) => l.pilote || "—"], ["Date du pilote", (l) => <span className={l.date && (Date.now() - Date.parse(l.date)) > 365 * 86400e3 ? "np-tone warn" : ""}>{date(l.date)}</span>], ["État", (l) => l.etat || "—"]]} /> : null}
     <Tableau titre="Volumes" lignes={d.volumes} cols={[["Lecteur", (l) => l.lettre], ["Taille", (l) => go(l.octets)], ["Libre", (l) => `${go(l.libre)} (${l.octets ? Math.round((100 * l.libre) / l.octets) : "?"} %)`], ["Santé", (l) => l.sante]]} />
     {(d.stabilite || []).length > 0 && <div style={{ marginTop: 8 }}>Indice de stabilité Windows : {d.stabilite.slice(0, 10).map((s) => s.indice?.toFixed(1)).join(" ← ")} (le plus récent à gauche, sur 10)</div>}
     {(d.vidages || []).length > 0 && <div className="np-tone bad" style={{ marginTop: 6 }}>Vidages mémoire : {d.vidages.map((v) => `${v.fichier} (${date(v.t)})`).join(", ")}</div>}
@@ -350,7 +371,7 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
               <button className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF la fiche affichée">Imprimer</button>
               <button className="secondary" onClick={charger}>⟳</button>
             </div>
-            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "services" ? <AccesServices agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "sauvegarde" ? <Sauvegarde agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <><ConseilsDiagnostic detail={detail} base={siAgentApiBase} /><Diagnostic d={detail.diagnostic} charge={detail.charge} /></> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
+            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "services" ? <AccesServices agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "sauvegarde" ? <Sauvegarde agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <><ConseilsDiagnostic detail={detail} base={siAgentApiBase} actor={actor} /><Diagnostic d={detail.diagnostic} charge={detail.charge} /></> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
           </section>)}
       </>)}
     </div>

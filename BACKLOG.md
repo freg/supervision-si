@@ -4151,8 +4151,12 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
   NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).
   RETOUR du 30/10 -- LIVRÉ #938 : éléments nommés (disque visé interne/externe, carte Wi-Fi, mise à jour en échec,
-  dates, BIOS) et procédures avec commandes copiables + export. Reste : vérifier collecte.ps1 v4 sur pc-paul ; conseils
-  pour les catégories « fichiers » (NTFS) et « graphique » ; pondération apprise.
+  dates, BIOS) et procédures avec commandes copiables + export. #943 : plan de remise en état en 2 étapes (conseils
+  appliqués + retests, sinon réinstallation native + redescente des sauvegardes), conseils NTFS / graphique / mémoire
+  nommés, encodage du journal réparé. Reste : vérifier collecte.ps1 v5 sur pc-paul ; pondération apprise.
+- BackupPC : le serveur « fichiers » est en Debian 7 (relevé legacy par super-hub) -> sonde backuppc en mode relais SSH
+  livrée #943 ; à installer : compte si-bk + clé + sudoers sur fichiers, /etc/si-agent/backuppc.json sur super. Les
+  actions backuppc-ctl (lancer / arrêter) restent locales : à relayer de la même façon (à faire).
 
 - DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
   récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/

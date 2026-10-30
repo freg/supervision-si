@@ -1,6 +1,6 @@
 {
   "id": "poste-windows",
-  "version": "4",
+  "version": "5",
   "runner": "python",
   "entry": "poste_windows.py",
   "interval_seconds": 21600,

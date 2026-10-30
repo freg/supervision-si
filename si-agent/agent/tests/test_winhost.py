@@ -194,3 +194,16 @@ class RealScriptsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Mojibake943(unittest.TestCase):
+    def test_reparer(self):
+        from si_agent.winhost import reparer_mojibake as rep
+        src = "L’horloge matérielle en temps réel n’a pas été définie. État : 0xC00000BB."
+        une = src.encode("utf-8").decode("cp1252")                 # une couche : « L’horloge » -> « Lâ€™horloge »
+        deux = une.encode("utf-8").decode("cp1252")                # deux couches : « LÃ¢â‚¬â„¢horloge »
+        self.assertEqual(rep(une), src)
+        self.assertEqual(rep(deux), src)
+        self.assertEqual(rep("Failed to GetUserSid. hr: 0x8001012d"), "Failed to GetUserSid. hr: 0x8001012d")
+        self.assertEqual(rep("Déjà correct : été"), "Déjà correct : été")
+        self.assertEqual(rep(""), "")

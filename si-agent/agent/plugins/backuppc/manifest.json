@@ -1,13 +1,13 @@
 {
   "id": "backuppc",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "backuppc.py",
   "interval_seconds": 900,
   "timeout_seconds": 120,
   "args": ["--max-age-h", "48", "--old-days", "7", "--full-warn", "85", "--full-crit", "95"],
   "enabled": false,
-  "description": "BackupPC (#939), sur le serveur BackupPC (3.x / 4.x) : version et état du serveur, pool (taille, remplissage, nettoyage nocturne), chaque hôte sauvegardé (état, dernière sauvegarde réussie, dernière pleine / incrémentale, dernière erreur, erreurs de transfert), échecs à traiter, files d'attente. Constats : serveur injoignable, pool plein (85 / 95 %), hôte sans sauvegarde réussie depuis --max-age-h (critique au-delà de --old-days), dernière tentative en échec. Lecture seule : BackupPC_serverMesg status (sous l'utilisateur backuppc), /etc/backuppc/hosts et config.pl, pc/<hôte>/backups, df du TopDir. Privilégiée (root : lecture de pc/ et exécution sous backuppc).",
+  "description": "BackupPC (#939), sur le serveur BackupPC (3.x / 4.x) : version et état du serveur, pool (taille, remplissage, nettoyage nocturne), chaque hôte sauvegardé (état, dernière sauvegarde réussie, dernière pleine / incrémentale, dernière erreur, erreurs de transfert), échecs à traiter, files d'attente. Constats : serveur injoignable, pool plein (85 / 95 %), hôte sans sauvegarde réussie depuis --max-age-h (critique au-delà de --old-days), dernière tentative en échec. Lecture seule : BackupPC_serverMesg status (sous l'utilisateur backuppc), /etc/backuppc/hosts et config.pl, pc/<hôte>/backups, df du TopDir. Privilégiée (root : lecture de pc/ et exécution sous backuppc). v2 (#943) : mode RELAIS par SSH quand le serveur BackupPC est trop ancien pour l'agent (Debian 7) : /etc/si-agent/backuppc.json = [{\"name\", \"host\", \"user\": \"si-bk\", \"port\": 22, \"key\": \"/etc/si-agent/keys/backuppc\"}] sur un agent du LAN ; côté serveur, sudoers : si-bk ALL=(backuppc) NOPASSWD: /bin/sh.",
   "source": "bundled",
   "privileged": true
 }

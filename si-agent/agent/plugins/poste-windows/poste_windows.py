@@ -62,6 +62,57 @@ def est_externe(bus):
     return str(bus or "").strip().lower() in BUS_EXTERNES
 
 
+# #943 : volume visé par un évènement NTFS (« volume C: », « \\Device\\HarddiskVolume3 ») et processus cités par le
+# détecteur d'épuisement de ressources (Resource-Exhaustion-Detector 2004 : « ... chrome.exe (1234) a consommé 2 345 Mo »).
+RE_VOLUME_EVT = re.compile(r"\b([A-Z]):(?:\\|\s|$|\.)|HarddiskVolume(\d+)", re.IGNORECASE)
+RE_PROC_MEM = re.compile(r"([A-Za-z0-9_.-]+\.exe)\s*\((\d+)\)\s*(?:a consomm[ée]|consumed)\s*([\d\s\u00a0,.]+)\s*(?:Mo|MB|octets|bytes)", re.IGNORECASE)
+
+
+def volume_de_message(message):
+    m = RE_VOLUME_EVT.search(str(message or ""))
+    if not m:
+        return None
+    return ("%s:" % m.group(1).upper()) if m.group(1) else ("HarddiskVolume%s" % m.group(2))
+
+
+def processus_memoire(critiques):
+    """Processus les plus gourmands cités par les évènements « mémoire virtuelle épuisée » -> [{processus, mo, fois}]."""
+    cnt = {}
+    for e in critiques or []:
+        if e.get("categorie") != "memoire":
+            continue
+        for nom, _pid, mo in RE_PROC_MEM.findall(str(e.get("message") or "")):
+            try:
+                v = float(re.sub(r"[^\d.]", "", mo.replace(",", ".")) or 0)
+            except ValueError:
+                v = 0
+            c = cnt.setdefault(nom.lower(), {"processus": nom, "mo": 0, "fois": 0})
+            c["fois"] += 1
+            c["mo"] = max(c["mo"], v)
+    return sorted(cnt.values(), key=lambda x: -x["mo"])[:5]
+
+
+def fichiers_evenements(critiques, volumes):
+    """Évènements NTFS (catégorie fichiers) par volume visé, avec la lettre et le disque quand on les connaît."""
+    par_lettre = {str(v.get("lettre") or "").upper(): v for v in volumes or []}
+    grp = {}
+    for e in critiques or []:
+        if e.get("categorie") != "fichiers":
+            continue
+        v = volume_de_message(e.get("message"))
+        e["volume"] = v
+        g = grp.setdefault(v, {"volume": v, "nombre": 0, "ids": {}, "dernier": None, "disque": (par_lettre.get(v) or {}).get("disque")})
+        g["nombre"] += 1
+        k = "%s %s" % (e.get("source"), e.get("id"))
+        g["ids"][k] = g["ids"].get(k, 0) + 1
+        g["dernier"] = max(g["dernier"] or "", e.get("t") or "") or None
+    out = []
+    for g in grp.values():
+        g["ids"] = sorted(g["ids"].items(), key=lambda kv: -kv[1])
+        out.append(g)
+    return sorted(out, key=lambda g: -g["nombre"])
+
+
 def disques_evenements(critiques, disques):
     """Regroupe les évènements de catégorie « disque » par disque visé, enrichis du modèle / bus / lettres. Les évènements
     sans numéro (réinitialisation de contrôleur stornvme/storahci) vont sous numero None (« contrôleur »)."""
@@ -251,7 +302,10 @@ def analyse(raw, maintenant=None):
                        "plantages": plantages[:50], "vidages": raw.get("vidages") or [], "memory_dmp": raw.get("memory_dmp"),
                        "disques": raw.get("disques") or [], "volumes": raw.get("volumes") or [], "stabilite": raw.get("stabilite") or [],
                        "temperatures": raw.get("temperatures") or [],
-                       "disques_evenements": disques_evenements(raw.get("critiques") or [], raw.get("disques") or [])},   # #938
+                       "disques_evenements": disques_evenements(raw.get("critiques") or [], raw.get("disques") or []),   # #938
+                       "fichiers_evenements": fichiers_evenements(raw.get("critiques") or [], raw.get("volumes") or []),   # #943
+                       "processus_memoire": processus_memoire(raw.get("critiques") or []),                               # #943
+                       "gpu": raw.get("gpu") or [], "cartes": raw.get("cartes") or [], "pagefile": raw.get("pagefile") or []},   # #943
         "alerts": al,
     }
 
