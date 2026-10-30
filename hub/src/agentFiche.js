@@ -19,13 +19,14 @@ export const ONGLETS = [
   // Agir sur le poste
   ["plugins", "Sondes", ["plugins"]],
   ["distance", "Commandes à distance", ["distance"]],
+  ["sauvegardes", "Sauvegardes", ["sauvegardes"]],
   ["control", "Poste", ["control"]],
   // Configurer
   ["settings", "Réglages", ["settings"]],
 ];
 
 /** Onglets utilisables même quand l'agent n'a encore rien remonté (ne dépendent pas d'une mesure d'hôte). */
-export const SANS_MESURE = new Set(["plugins", "historique", "distance", "settings"]);
+export const SANS_MESURE = new Set(["plugins", "historique", "distance", "sauvegardes", "settings"]);
 
 /** Onglet qui contient une section (lien profond ?section=settings) ; null si inconnue. */
 export function ongletDe(section) {

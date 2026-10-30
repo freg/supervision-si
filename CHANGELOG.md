@@ -1,3 +1,18 @@
+## 2026-10-30 — Fiche agent : onglet Sauvegardes, boutons « Poste Windows » lisibles, Sauvegarde données / image, Boot USB urgence (livraison #936)
+
+- « Je verrais bien une section sauvegardes ici » : nouvel onglet **Sauvegardes** dans la fiche d'un agent (groupe
+  « Agir sur le poste »), qui reprend la gestion de sauvegarde par poste (#930 données confs + montages, #931 poussée
+  PBS, #934 restauration) sans passer par la tuile Postes Windows. Pour un agent non Windows : renvoi vers la tuile
+  Sauvegardes et Migration › Copies.
+- Les liens « Poste Windows : Diagnostic · Analyse à distance · Tests de charge » étaient à peine visibles : ce sont
+  maintenant des **boutons rouges, texte blanc** (lisibles sur fond sombre). Sur la même ligne, deux boutons
+  **Sauvegarde · données** / **Sauvegarde · image** et un bouton **Boot USB urgence** (croix blanche) ouvrent l'onglet
+  Sauvegardes sur la bonne section.
+- **Sauvegarde image du disque** et **Boot USB d'urgence** : sections posées dans l'onglet (périmètre expliqué,
+  marquées « à venir ») — la capture d'image par l'agent et le préparateur de clé de secours arrivent dans une
+  livraison suivante, sans changer le reste. Hub seul (agent 0.6.33 inchangé).
+- Vérifié : onglets et liens profonds (section « sauvegardes »), analyse CSS, suite hub (482). Non vérifié : rendu.
+
 ## 2026-10-30 — Propositions et conseils sur les points critiques (livraison #935)
 
 - Demande (« prévoir rapidement les propositions et conseils sur les points critiques et inquiétants relevés par les

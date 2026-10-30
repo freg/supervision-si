@@ -1,5 +1,11 @@
 [
  {
+  "n": 936,
+  "from": 936,
+  "date": "2026-10-30",
+  "title": "Fiche agent : onglet Sauvegardes, boutons « Poste Windows » lisibles, Sauvegarde données / image, Boot USB urgence"
+ },
+ {
   "n": 935,
   "from": 935,
   "date": "2026-10-30",
@@ -232,11 +238,5 @@
   "from": 896,
   "date": "2026-10-28",
   "title": "Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge"
- },
- {
-  "n": 895,
-  "from": 895,
-  "date": "2026-10-28",
-  "title": "Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik"
  }
 ]

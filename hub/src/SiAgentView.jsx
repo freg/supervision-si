@@ -36,6 +36,7 @@ import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } fro
 import BoutonDetail from "./FenetreTexte.jsx";   // #923 : info-bulle importante -> mini bouton + fenêtre copiable
 import OsActions from "./OsActions.jsx";   // #880
 import AnalyseDistance from "./AnalyseDistance.jsx";   // #929 : exécution des commandes à distance dans la fiche agent
+import Sauvegarde from "./Sauvegarde.jsx";   // #936 : section Sauvegardes dans la fiche agent
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -138,6 +139,7 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
+  const [sauvegardeMode, setSauvegardeMode] = useState("donnees");   // #936 : données | image | usb (boutons de l'en-tête)
   const [onglet, setOnglet] = useState(() => {   // #922 : fiche en onglets -- une section à l'écran, toutes à un clic
     const o = ongletDe(initialParams.section) || "resume";
     clearViewParams();
@@ -604,11 +606,14 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                 </select>
                 <h2 style={{ margin: 0 }}>{detail?.hostname || selectedId}</h2>
                 {detail && (() => { const v = versionEtat(detail.agent_version, status?.package?.version); return <Tone tone={v.ton} title={v.titre}>v{v.texte}</Tone>; })()}
-                {/windows/i.test(detail?.os || "") && (   /* #923 : un agent Windows mène directement à son poste */
+                {/windows/i.test(detail?.os || "") && (   /* #923/#936 : un agent Windows mène directement à son poste -- boutons rouges lisibles */
                   <span className="sa-liens-poste">Poste Windows :
                     <a href={hubLink("postes-windows", { agent: selectedId, onglet: "diagnostic" })}>Diagnostic</a>
                     <a href={hubLink("postes-windows", { agent: selectedId, onglet: "distance" })}>Analyse à distance</a>
                     <a href={hubLink("postes-windows", { agent: selectedId, onglet: "charge" })}>Tests de charge</a>
+                    <button type="button" className="sa-btn-poste" title="sauvegarde des données (confs + montages) -- onglet Sauvegardes" onClick={() => { setSauvegardeMode("donnees"); setOnglet("sauvegardes"); }}>Sauvegarde · données</button>
+                    <button type="button" className="sa-btn-poste" title="sauvegarde image du disque système -- onglet Sauvegardes" onClick={() => { setSauvegardeMode("image"); setOnglet("sauvegardes"); }}>Sauvegarde · image</button>
+                    <button type="button" className="sa-btn-poste sa-btn-croix" title="préparer une clé USB de démarrage de secours -- onglet Sauvegardes" onClick={() => { setSauvegardeMode("usb"); setOnglet("sauvegardes"); }}>Boot USB urgence</button>
                   </span>)}
                 {detail && (
                   <Tone tone={detail.config_applied ? "good" : "warn"} title={`version ${detail.config_version}`}>{detail.config_applied ? "configuration appliquée" : "configuration en attente"}</Tone>
@@ -1092,6 +1097,22 @@ export default function SiAgentView({ onBack, siAgentApiBase, actor }) {
                       {(detail.remote_shell || "off") === "off"
                         ? <p className="muted">Commandes à distance désactivées : choisis « Lecture seule » ci-dessus pour lancer des analyses.</p>
                         : <AnalyseDistance key={detail.remote_shell} agent={selectedId} base={siAgentApiBase} actor={actor} masquerModeLigne />}
+                    </>
+                  )}
+
+                  {/* #936 : section Sauvegardes dans la fiche agent -- gestion de sauvegarde par poste (Windows) :
+                      confs + montages -> clé USB / partage / PBS, et restauration (intervention). */}
+                  {section.sauvegardes && (
+                    <>
+                      <h3>Sauvegardes</h3>
+                      {/windows/i.test(detail?.os || "") || detail?.poste ? (
+                        <Sauvegarde agent={selectedId} base={siAgentApiBase} actor={actor} mode={sauvegardeMode} />
+                      ) : (
+                        <p className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+                          La sauvegarde par agent (configurations logicielles + montages) concerne les postes Windows (sonde poste-windows).
+                          Pour les serveurs et VM, voir la tuile <b>Sauvegardes</b> (récapitulatif PBS / copies / BackupPC / NAS) et <b>Migration › Copies et sauvegardes</b>.
+                        </p>
+                      )}
                     </>
                   )}
 

@@ -4145,3 +4145,14 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   (conseilsDiagnostic.js), classés par gravité avec action concrète, croisant diagnostic + tests de charge
   (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
   NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).
+
+- DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
+  récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/
+  onglet NAS QNAP (TimeMachine, snapshots, backups), pbs10, et un récapitulatif host/VM => sauvegarde on/off, dernière,
+  planification (cron), data / image. À faire (#937+) : tuile avec onglets Vue d'ensemble / Postes (agrégation des
+  sauvegarde-poste) / PBS (sonde pbs) / Copies host-VM (copies-inventory, pulled-backups) / BackupPC (nouvelle sonde
+  backuppc : BackupPC_serverMesg status + pc/*/backups) / NAS QNAP (snapshots + TimeMachine par SSH). Pièces livrées :
+  onglet Sauvegardes de la fiche agent (#936).
+- DEMANDÉ le 30/10 -- Sauvegarde IMAGE du disque d'un poste (wbadmin / image bloc vers partage ou PBS, planifiable) et
+  BOOT USB D'URGENCE (préparateur guidé WinPE/Linux + outils + accès à la dernière sauvegarde). Boutons et sections
+  posés (#936), backends à construire.

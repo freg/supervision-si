@@ -2904,8 +2904,14 @@ body { padding-bottom: 36px; }
 .sa-micro:hover, .sa-micro:focus-visible { opacity: 1; transform: scale(1.15); }
 .sa-micro.danger { color: var(--danger); }
 /* #923 : liens directs d'un agent Windows vers son poste */
-.sa-liens-poste { display: inline-flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
-.sa-liens-poste a { color: var(--accent); }
+.sa-liens-poste { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+/* #936 : liens « Poste Windows » peu visibles -> boutons rouges, texte blanc (lisibles sur fond sombre). */
+.sa-liens-poste a, .sa-liens-poste button.sa-btn-poste {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 5px;
+  background: var(--danger, #c0203a); color: #fff !important; font-weight: 600; font-size: 12.5px;
+  text-decoration: none; border: 1px solid rgba(0,0,0,.25); cursor: pointer; line-height: 1.5; }
+.sa-liens-poste a:hover, .sa-liens-poste button.sa-btn-poste:hover { filter: brightness(1.12); }
+.sa-liens-poste .sa-btn-croix::before { content: "✕"; color: #fff; font-weight: 700; }
 
 /* #923 : info-bulle importante -> mini bouton coloré (ligne survolée) + fenêtre défilante et copiable */
 .ft-mini { visibility: hidden; display: inline-block; width: 17px; height: 17px; border-radius: 50%; border: none; padding: 0; margin: 0 5px; font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; color: #fff; cursor: pointer; vertical-align: middle; flex: 0 0 auto; }

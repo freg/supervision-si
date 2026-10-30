@@ -4,8 +4,10 @@ import assert from "node:assert/strict";
 import { ONGLETS, SANS_MESURE, ongletDe, sectionsDe, collecte, versionEtat } from "../src/agentFiche.js";
 
 test("onglets : toute section a un onglet, liens profonds, sections par onglet", () => {
-  const toutes = ["risks", "system", "network", "hardware", "activity", "disks", "storage", "ports", "services", "logs", "control", "plugins", "commands", "distance", "settings"];
+  const toutes = ["risks", "system", "network", "hardware", "activity", "disks", "storage", "ports", "services", "logs", "control", "plugins", "commands", "distance", "sauvegardes", "settings"];
   for (const s of toutes) assert.ok(ongletDe(s), s);
+  assert.equal(ongletDe("sauvegardes"), "sauvegardes");
+  assert.ok(SANS_MESURE.has("sauvegardes"));
   assert.equal(ongletDe("settings"), "settings");
   assert.equal(ongletDe("storage"), "disks");
   assert.equal(ongletDe("commands"), "historique", "#929 : l'ancienne section commands est sous l'onglet Historique");

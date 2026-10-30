@@ -200,7 +200,39 @@ function SectionRestauration({ agent, base, actor }) {
   );
 }
 
-export default function Sauvegarde({ agent, base, actor }) {
+// #936 : sauvegarde IMAGE du disque système (scaffold : la capture d'image par l'agent arrive dans une livraison
+// suivante -- wbadmin / image bloc vers un partage ou PBS). Explique le périmètre et ce qu'il faut préparer.
+function SectionImage({ agent }) {
+  return (
+    <div className="infra-card" style={{ marginTop: 10 }}>
+      <b>Sauvegarde image du disque</b> <span className="np-tone warn" style={{ fontSize: 12 }}>à venir</span>
+      <p className="infra-muted" style={{ margin: "4px 0", fontSize: 13 }}>
+        Image complète du disque système de <b>{agent}</b> (système + applications + données), restaurable telle quelle sur le même matériel.
+        Complément de la sauvegarde « données » (confs + montages, réinstallation propre). Prévu : capture par l'agent
+        (image système Windows ou image bloc) vers un partage du NAS ou pbs10, planifiable, avec vérification et conservation.
+      </p>
+      <p className="infra-muted" style={{ margin: 0, fontSize: 12 }}>Pour l'instant : utilise la sauvegarde « données » ci-dessus ; l'image sera ajoutée ici sans changer le reste.</p>
+    </div>
+  );
+}
+
+// #936 : clé USB de démarrage de secours (scaffold : le préparateur -- image de secours WinPE/Linux + outils de
+// restauration, téléchargeable ou écrite sur la clé depuis le poste -- arrive dans une livraison suivante).
+function SectionUsb({ agent }) {
+  return (
+    <div className="infra-card" style={{ marginTop: 10 }}>
+      <b>Boot USB d'urgence</b> <span className="np-tone warn" style={{ fontSize: 12 }}>à venir</span>
+      <p className="infra-muted" style={{ margin: "4px 0", fontSize: 13 }}>
+        Clé USB de démarrage pour dépanner ou réinstaller <b>{agent}</b> quand Windows ne démarre plus : environnement de secours
+        (WinPE ou Linux), outils disque/mémoire, et accès à la dernière sauvegarde (données ou image) pour restaurer.
+        Prévu : préparation guidée depuis le hub (choix de la clé, écriture, vérification) et mise à jour de la clé quand la sauvegarde change.
+      </p>
+      <p className="infra-muted" style={{ margin: 0, fontSize: 12 }}>En attendant : garde une clé de secours à jour par poste critique ; je te guiderai pour la préparer à la main si besoin.</p>
+    </div>
+  );
+}
+
+export default function Sauvegarde({ agent, base, actor, mode }) {
   const [res, setRes] = useState(null);
   const [usb, setUsb] = useState("");
   const [unc, setUnc] = useState("");
@@ -210,6 +242,9 @@ export default function Sauvegarde({ agent, base, actor }) {
   const [edite, setEdite] = useState(false);
   const [pbs, setPbs] = useState(false);
   const [restaure, setRestaure] = useState(false);
+  const [image, setImage] = useState(mode === "image");     // #936
+  const [secours, setSecours] = useState(mode === "usb");   // #936 : section « Boot USB d'urgence »
+  useEffect(() => { setImage(mode === "image"); setSecours(mode === "usb"); }, [mode]);
   const charger = useCallback(() => fetchSauvegarde(base, agent).then((r) => { if (r && !r.error) setRes(r); }), [base, agent]);
   useEffect(() => { setRes(null); charger(); }, [charger]);
   const lancer = async () => {
@@ -238,12 +273,16 @@ export default function Sauvegarde({ agent, base, actor }) {
         <button type="button" className="secondary" onClick={() => setEdite((v) => !v)}>{edite ? "Masquer « que sauvegarder »" : "Que sauvegarder"}</button>
         <button type="button" className="secondary" onClick={() => setPbs((v) => !v)}>{pbs ? "Masquer PBS" : "Pousser vers PBS"}</button>
         <button type="button" className="secondary" onClick={() => setRestaure((v) => !v)}>{restaure ? "Masquer restauration" : "Restaurer"}</button>
+        <button type="button" className="secondary" onClick={() => setImage((v) => !v)}>{image ? "Masquer image" : "Sauvegarde image"}</button>
+        <button type="button" className="secondary" onClick={() => setSecours((v) => !v)}>{secours ? "Masquer USB" : "Boot USB urgence"}</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>
       {msg && <p className={`np-tone ${/envoyée/.test(msg) ? "neutral" : "bad"}`} style={{ margin: "4px 0" }}>{msg}</p>}
       {edite && <Editeur base={base} actor={actor} />}
       {pbs && <SectionPbs agent={agent} base={base} actor={actor} />}
       {restaure && <SectionRestauration agent={agent} base={base} actor={actor} />}
+      {image && <SectionImage agent={agent} />}
+      {secours && <SectionUsb agent={agent} />}
       <Resultat resultat={res?.resultat} at={res?.at} />
     </div>
   );
