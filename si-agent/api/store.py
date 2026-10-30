@@ -1749,20 +1749,28 @@ def _id_before(conn, cutoff):
     return best
 
 
-def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_retention=None, now=None):
+def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_retention=None, task_retention_long=None, now=None):
     """Efface les mesures plus vieilles que la rétention, en gardant toujours la dernière de chaque (agent, tâche).
     #869 : par petits lots d'ids (une transaction courte par lot, pause entre deux) -- l'ancienne requête relisait
     toute la table (15 Go) en tenant le verrou d'écriture plusieurs minutes : « database is locked » pour tous les agents.
-    task_retention : {tâche: jours} plus court pour les grosses mesures déjà agrégées ailleurs (guest-usage…)."""
+    task_retention : {tâche: jours} plus COURT pour les grosses mesures déjà agrégées ailleurs (guest-usage…).
+    #933 : task_retention_long : {tâche: jours} plus LONG que la rétention globale (tests de charge à conserver) --
+    ces tâches sont exclues de la purge globale et purgées à leur propre (longue) échéance."""
     now = time.time() if now is None else now
+    longs = {t: int(d) for t, d in (task_retention_long or {}).items() if d and int(d) > 0}
+    # plan : (tâche, jours, tâches_exclues) ; tâches_exclues ne sert que pour le plan global (tâche=None)
     plans = []
     if retention_days and retention_days > 0:
-        plans.append((None, retention_days))
+        plans.append((None, retention_days, set(longs)))
     for task, days in (task_retention or {}).items():
+        if task in longs:
+            continue
         if days and days > 0 and (not retention_days or retention_days <= 0 or days < retention_days):
-            plans.append((task, days))
+            plans.append((task, days, None))
+    for task, days in longs.items():
+        plans.append((task, days, None))
     total = 0
-    for task, days in plans:
+    for task, days, exclues in plans:
         cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - days * 86400))
         conn = _connect(db_path)
         try:
@@ -1772,8 +1780,11 @@ def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_ret
             conn.close()
         if last is None or start is None:
             continue
-        sql = ("DELETE FROM measurements WHERE id BETWEEN ? AND ?" + (" AND task = ?" if task else "") +
-               " AND EXISTS (SELECT 1 FROM measurements m2 WHERE m2.agent_id = measurements.agent_id"
+        exclues = sorted(exclues) if exclues else []
+        sql = ("DELETE FROM measurements WHERE id BETWEEN ? AND ?"
+               + (" AND task = ?" if task else "")
+               + ((" AND task NOT IN (%s)" % ",".join("?" * len(exclues))) if exclues else "")
+               + " AND EXISTS (SELECT 1 FROM measurements m2 WHERE m2.agent_id = measurements.agent_id"
                " AND m2.task = measurements.task AND m2.at > measurements.at)")
         lo = start
         while lo is not None and lo <= last:
@@ -1783,7 +1794,8 @@ def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_ret
                 # précédentes ne coûtent rien, contrairement à un pas fixe de numéros d'id
                 r = conn.execute("SELECT id FROM measurements WHERE id >= ? ORDER BY id LIMIT 1 OFFSET ?", (lo, batch - 1)).fetchone()
                 hi = min(r[0], last) if r else last
-                cur = conn.execute(sql, (lo, hi, task) if task else (lo, hi))
+                args = [lo, hi] + ([task] if task else []) + exclues
+                cur = conn.execute(sql, args)
                 conn.commit()
                 total += max(cur.rowcount, 0)
                 nxt = conn.execute("SELECT MIN(id) FROM measurements WHERE id > ?", (hi,)).fetchone()[0]

@@ -55,6 +55,32 @@ class PurgeLots(unittest.TestCase):
         self.assertEqual(self.count("agent_id = 'vieux'"), 1)          # dernière mesure de l'agent muet conservée
         self.assertEqual(self.count("agent_id = 'a1' AND task = 'host'"), 91)
 
+    def test_retention_longue_tests_de_charge(self):
+        # #933 : poste-charge conservé plus longtemps que la rétention globale, et exclu de la purge globale.
+        # DB propre, insertions en ORDRE CHRONOLOGIQUE (ids monotones avec received_at, comme en vrai).
+        db = os.path.join(tempfile.mkdtemp(), "charge.db")
+        store.ensure_schema(db)
+        c = sqlite3.connect(db)
+        for d in range(200, -1, -1):           # du plus vieux au plus récent
+            t = iso(self.now - d * DAY)
+            c.execute("INSERT INTO measurements (agent_id, task, at, data, received_at) VALUES (?,?,?,?,?)", ("a1", "host", t, "{}", t))
+            c.execute("INSERT INTO measurements (agent_id, task, at, data, received_at) VALUES (?,?,?,?,?)", ("a1", "plugin:poste-charge", t, "{}", t))
+        c.commit(); c.close()
+
+        def cnt(where, args=()):
+            cc = sqlite3.connect(db)
+            try:
+                return cc.execute("SELECT COUNT(*) FROM measurements WHERE " + where, args).fetchone()[0]
+            finally:
+                cc.close()
+        avant = cnt("task='plugin:poste-charge'")
+        store.purge_measurements(db, 90, batch=50, pause=0, now=self.now, task_retention_long={"plugin:poste-charge": 365})
+        self.assertEqual(cnt("task='plugin:poste-charge'"), avant, "tout gardé : tous < 365 j")
+        self.assertEqual(cnt("task='host' AND received_at < ?", (iso(self.now - 90 * DAY),)), 0, "host purgé à 90 j")
+        store.purge_measurements(db, 90, batch=50, pause=0, now=self.now, task_retention_long={"plugin:poste-charge": 150})
+        self.assertEqual(cnt("task='plugin:poste-charge' AND received_at < ?", (iso(self.now - 150 * DAY),)), 0, "> 150 j purgé")
+        self.assertEqual(cnt("task='plugin:poste-charge'"), 151, "jours 0..150 gardés (une mesure par jour)")
+
     def test_retention_par_tache(self):
         store.purge_measurements(self.db, 90, batch=50, pause=0, now=self.now, task_retention={"plugin:guest-usage": 3})
         self.assertEqual(self.count("agent_id = 'a1' AND task = 'plugin:guest-usage'"), 4)

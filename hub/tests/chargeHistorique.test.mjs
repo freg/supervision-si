@@ -43,3 +43,15 @@ test("comparaison côte à côte", () => {
   const gel = c.lignes.find((l) => l[0] === "Processeur — gel max");
   assert.deepEqual(gel, ["Processeur — gel max", "2.8 s", "0 s"]);
 });
+
+test("export CSV", async () => {
+  const { csvHistorique } = await import("../src/chargeHistorique.js");
+  const csv = csvHistorique([RUN1, RUN2]);
+  assert.ok(csv.startsWith("﻿"), "BOM UTF-8 pour Excel");
+  const lignes = csv.trim().split("\r\n");
+  assert.equal(lignes.length, 3, "en-tête + 2 runs");
+  assert.match(lignes[0], /^﻿?Date;Verdict;Épreuves/);
+  assert.match(lignes[1], /défaut reproduit;cpu disque/);
+  assert.match(lignes[1], /DIFFÉRENTE/);
+  assert.match(lignes[2], /2,8/, "virgule décimale (gel 2.8 -> 2,8)");
+});

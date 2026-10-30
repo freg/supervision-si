@@ -43,6 +43,23 @@ export const METRIQUES = [
   ["Alertes", (d) => String((d.alerts || []).length)],
 ];
 
+const _vir = (v) => (typeof v === "number" ? String(v).replace(".", ",") : v);
+const _champ = (v) => { const s = v == null ? "" : String(_vir(v)); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+
+/** Export CSV de l'historique (séparateur ';' et virgule décimale pour Excel FR ; BOM UTF-8). Chaîne prête à télécharger. */
+export function csvHistorique(runs) {
+  const entetes = ["Date", "Verdict", "Épreuves", "Cœurs finis", "Cœurs", "Gel max (s)", "Erreurs calcul",
+    "Mémoire testée (Mo)", "Blocs erronés", "Écriture (Mo/s)", "Lecture (Mo/s)", "Relecture", "Température max (°C)", "Alertes", "Critiques"];
+  const lignes = (runs || []).map((r) => {
+    const d = r.data || {}, p = d.processeur || {}, m = d.memoire || {}, dk = d.disque || {}, al = d.alerts || [];
+    return [d.debut || r.at, d.verdict || "", (d.epreuves || []).join(" "), p.coeurs_finis, p.coeurs, p.gel_max_s, p.erreurs_calcul,
+      m.mo, m.blocs_errones, dk.ecriture_mo_s, dk.lecture_mo_s,
+      dk.identique === true ? "identique" : dk.identique === false ? "DIFFÉRENTE" : dk.statut || "",
+      tempMax(d.temperatures_apres), al.length, al.filter((a) => a.severity === "critical").length];
+  });
+  return "﻿" + [entetes, ...lignes].map((l) => l.map(_champ).join(";")).join("\r\n") + "\r\n";
+}
+
 /** Matrice de comparaison : { entetes:[{at,debut,verdict,ton}], lignes:[[label, v1, v2,…]] }. */
 export function comparer(runs) {
   const list = runs || [];

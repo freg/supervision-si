@@ -1,3 +1,19 @@
+## 2026-10-30 — Tests de charge : impression dédiée, export CSV, rétention longue (livraison #933)
+
+- Suite de #932, les trois compléments demandés pour l'historique des tests de charge :
+  - **Impression dédiée** : à l'impression (bouton « Imprimer »), seule la zone de l'historique et de la comparaison
+    sort — menu, pied de page et autres panneaux masqués —, en noir sur blanc, tableaux pleine page, sans les boutons,
+    avec un en-tête « Tests de charge — <poste> — imprimé le … » (feuille de style @media print).
+  - **Export CSV** (bouton « ⤓ CSV ») : l'historique complet en CSV pour Excel (séparateur « ; », virgule décimale,
+    BOM UTF-8) — date, verdict, épreuves, cœurs finis/cœurs, gel, erreurs de calcul, mémoire, débits disque, relecture,
+    température, alertes.
+  - **Rétention longue** : les résultats de tests de charge sont conservés **730 jours** (2 ans) au lieu des 90 j des
+    relevés courants, pour la comparaison dans le temps (réglable par `SI_AGENT_RETENTION_TASKS_LONG`). La purge
+    exclut ces tâches de l'échéance globale et applique leur propre (longue) échéance. Hub + API seuls (agent 0.6.32).
+- Vérifié : tests de la purge (poste-charge gardé au-delà de 90 j, exclu du global, purgé à sa longue échéance ; les
+  autres tâches purgées normalement), de l'export CSV (colonnes, virgule décimale, BOM), analyse CSS (hub 478), API.
+  Non vérifié : rendu de l'impression et ouverture du CSV dans Excel.
+
 ## 2026-10-30 — Historique des tests de charge : consultation, comparaison, impression (livraison #932)
 
 - Demande (« il me faut absolument un stockage et une consultation facile des résultats pour impression et

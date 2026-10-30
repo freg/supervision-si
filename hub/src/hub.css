@@ -2920,3 +2920,21 @@ tr:hover .ft-mini, tr:focus-within .ft-mini, .ft-mini:focus-visible { visibility
 .ft-texte { margin: 0; padding: 12px; flex: 1; min-height: 0; overflow: auto; white-space: pre-wrap; word-break: break-word; user-select: text; font-size: 12.5px; line-height: 1.4; }
 .sa-cel-flex { display: flex; align-items: center; min-width: 0; }
 .sa-resultat-txt { font-size: 11px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* #933 : impression dédiée de l'historique des tests de charge. Seule la zone .pw-print est imprimée (le reste du
+   hub -- menu, pied, autres panneaux -- est masqué), en noir sur blanc, tableaux pleine page, sans les boutons. */
+@media print {
+  body * { visibility: hidden !important; }
+  .pw-print, .pw-print * { visibility: visible !important; }
+  .pw-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; }
+  .pw-print * { color: #000; background: transparent !important; border-color: #999; }
+  .pw-print button, .pw-print input, .pw-print select { display: none !important; }
+  .pw-print .infra-table-wrap { max-height: none !important; overflow: visible !important; }
+  .pw-print table { border-collapse: collapse; width: 100%; }
+  .pw-print th, .pw-print td { border: 1px solid #999 !important; padding: 2px 6px; }
+  .pw-print-entete { display: block !important; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+  .pw-print .np-tone.bad { color: #b00020 !important; }
+  .pw-print .np-tone.warn { color: #8a5a00 !important; }
+  .pw-print .np-tone.good { color: #1a7f37 !important; }
+  @page { margin: 12mm; }
+}

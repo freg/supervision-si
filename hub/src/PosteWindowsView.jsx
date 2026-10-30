@@ -9,7 +9,7 @@ import IpPing from "./IpPing.jsx";
 import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
 import AccesServices from "./AccesServices.jsx";       // #928
 import Sauvegarde from "./Sauvegarde.jsx";             // #930
-import { resumeRun, comparer } from "./chargeHistorique.js"; // #932
+import { resumeRun, comparer, csvHistorique } from "./chargeHistorique.js"; // #932/#933
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -130,12 +130,24 @@ function HistoriqueCharge({ agent, base, dernierAt }) {
   const toggle = (at) => setSel((l) => (l.includes(at) ? l.filter((x) => x !== at) : [...l, at]));
   const choisis = sel.map((at) => parAt[at]).filter(Boolean);
   const comp = choisis.length >= 2 ? comparer(choisis) : null;
+  const exporterCsv = () => {
+    try {
+      const blob = new Blob([csvHistorique(histo)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `tests-charge-${agent}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { /* téléchargement indisponible */ }
+  };
   return (
     <div className="pw-print">
+      <div className="pw-print-entete" style={{ display: "none" }}>Tests de charge — {agent} — imprimé le {new Date().toLocaleString("fr-FR")}</div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "4px 0" }}>
         <span className="infra-muted">{histo.length} test(s) conservé(s) (90 j). Coche plusieurs lignes pour comparer.</span>
         <span style={{ flex: 1 }} />
         {sel.length > 0 && <button type="button" className="secondary" onClick={() => setSel([])}>Vider la sélection</button>}
+        <button type="button" className="secondary" onClick={exporterCsv} title="exporter l'historique en CSV (Excel)">⤓ CSV</button>
         <button type="button" className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF (l'historique et la comparaison visibles)">🖨 Imprimer</button>
         <button type="button" className="secondary" onClick={charger}>⟳</button>
       </div>

@@ -4124,8 +4124,8 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
 
 - Consultation des résultats de tests de charge -- LIVRÉ #932 : onglet Tests de charge -> historique daté (verdict,
   épreuves, cpu/mém/disque, température, alertes), comparaison côte à côte de plusieurs runs, impression. Mesures
-  conservées 90 j. Reste (à faire) : feuille de style d'impression dédiée (masquer nav/pied, tableau pleine page) ;
-  rétention plus longue dédiée aux tests de charge si besoin ; export CSV de l'historique. [ANCIENNE NOTE]
+  conservées 730 j. Compléments LIVRÉS #933 : impression dédiée (@media print), export CSV, rétention longue
+  (SI_AGENT_RETENTION_TASKS_LONG, défaut plugin:poste-charge=730). [ANCIENNE NOTE]
   PRIORITÉ (30/10, « il me faut absolument ») -- STOCKAGE ET CONSULTATION DES RÉSULTATS DE TESTS DE CHARGE :
   aujourd'hui l'onglet Tests de charge ne montre que le DERNIER test (le hub ne garde que le dernier relevé
   poste-charge par poste) et l'Historique des commandes ne porte que « {started:true} » (test en tâche de fond). Les

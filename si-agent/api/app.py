@@ -126,6 +126,9 @@ RETENTION_DAYS = int(os.environ.get("SI_AGENT_RETENTION_DAYS", "90"))
 # #869 : rétention plus courte des grosses mesures déjà agrégées ailleurs (« tâche=jours,tâche=jours »)
 TASK_RETENTION = {k.strip(): int(v) for k, v in (x.split("=", 1) for x in os.environ.get(
     "SI_AGENT_RETENTION_TASKS", "plugin:guest-usage=3").split(",") if "=" in x) if v.strip().isdigit()}
+# #933 : rétention plus LONGUE des résultats de tests de charge (conservés pour comparaison dans le temps)
+TASK_RETENTION_LONG = {k.strip(): int(v) for k, v in (x.split("=", 1) for x in os.environ.get(
+    "SI_AGENT_RETENTION_TASKS_LONG", "plugin:poste-charge=730").split(",") if "=" in x) if v.strip().isdigit()}
 PUBLIC_URL = os.environ.get("SI_AGENT_PUBLIC_URL", "").rstrip("/")
 INTERNAL_URL = os.environ.get("SI_AGENT_INTERNAL_URL", "").rstrip("/")   # #905 : adresse LAN du central (itinérance : secours)
 CA_FILE = os.environ.get("SI_AGENT_CA_FILE", "/ca/ca.crt")
@@ -155,7 +158,7 @@ def _purge_loop():
         time.sleep(3600)
         try:
             t0 = time.time()
-            n = store.purge_measurements(DB_PATH, RETENTION_DAYS, task_retention=TASK_RETENTION)
+            n = store.purge_measurements(DB_PATH, RETENTION_DAYS, task_retention=TASK_RETENTION, task_retention_long=TASK_RETENTION_LONG)
             _log.info("purge : %d mesure(s) au-delà de %d jours (%s) en %.0f s", n, RETENTION_DAYS, TASK_RETENTION, time.time() - t0)
             n = store.purge_events(DB_PATH, EVENTS_RETENTION_DAYS)
             if n:
