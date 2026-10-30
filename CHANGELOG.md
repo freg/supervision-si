@@ -1,3 +1,19 @@
+## 2026-10-30 — Tuile « Sauvegardes » : vue d'ensemble des sauvegardes du SI (livraison #937)
+
+- Nouvelle tuile **Sauvegardes** (thème Sécurité & accès ; l'ancienne entrée devient « Sauvegardes du hub »), en
+  lecture seule : rien n'est lancé d'ici, chaque ligne renvoie vers l'endroit qui agit. Onglets : **Vue d'ensemble**
+  (verdict global, compteurs cliquables, « à traiter en premier », tableau des espaces de sauvegarde), **Postes**
+  (dernière sauvegarde de conf de chaque poste Windows + poussée PBS : état à jour / à surveiller / critique / jamais,
+  filtre « à traiter », export CSV, lien fiche › Sauvegardes), **PBS (pbs10)** (datastores, groupes en retard, alertes
+  de la sonde pbs), **Copies host / VM** (hôtes de secours de la sonde pulled-backups + verdicts de l'inventaire des
+  copies), **BackupPC** et **NAS QNAP** (volumes nas-snmp ; snapshots / TimeMachine « à venir »).
+- API : `GET /sauvegardes/apercu` (module pur `sauvegardes_apercu.py`, assemblé depuis les mesures déjà remontées ;
+  aucun secret). Règles : conf de poste fraîche < 7 j, critique > 30 j ou archive sans destination écrite.
+- Les textes importants ont leur mini bouton (fenêtre copiable) : détail d'un poste, alertes PBS, liste des points.
+- **À différer (noté)** : la liaison avec les services externes (connecteur BackupPC, SSH/API QNAP pour snapshots et
+  TimeMachine) -- sections posées « non relevé », rien ne les contacte.
+- Vérifié : tests API (5), tests hub (lib 5 + suite), lint JSX. Non vérifié : rendu.
+
 ## 2026-10-30 — Fiche agent : onglet Sauvegardes, boutons « Poste Windows » lisibles, Sauvegarde données / image, Boot USB urgence (livraison #936)
 
 - « Je verrais bien une section sauvegardes ici » : nouvel onglet **Sauvegardes** dans la fiche d'un agent (groupe

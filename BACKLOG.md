@@ -4145,6 +4145,9 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   (conseilsDiagnostic.js), classés par gravité avec action concrète, croisant diagnostic + tests de charge
   (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
   NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).
+  RETOUR du 30/10 (à traiter ensuite, #938) : 1. les éléments demandés par un conseil doivent être identifiés par le
+  diagnostic et présentés dans le conseil (ex. « identifier le disque concerné interne vs externe » -> le conseil nomme
+  le disque, Harddisk1 = externe VHDX…) ; 2. actions plus précises : commandes, procédure ou liste d'actions (copiables).
 
 - DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
   récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/
@@ -4152,7 +4155,11 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   planification (cron), data / image. À faire (#937+) : tuile avec onglets Vue d'ensemble / Postes (agrégation des
   sauvegarde-poste) / PBS (sonde pbs) / Copies host-VM (copies-inventory, pulled-backups) / BackupPC (nouvelle sonde
   backuppc : BackupPC_serverMesg status + pc/*/backups) / NAS QNAP (snapshots + TimeMachine par SSH). Pièces livrées :
-  onglet Sauvegardes de la fiche agent (#936).
+  onglet Sauvegardes de la fiche agent (#936) ; TUILE livrée #937 (Vue d'ensemble / Postes / PBS / Copies host-VM /
+  BackupPC « non relevé » / NAS volumes). À DIFFÉRER (demande du 30/10) : la liaison/connexion avec les services
+  externes -- sonde backuppc, connecteur QNAP (snapshots, TimeMachine) ; les sections restent posées sans rien
+  contacter. Reste aussi : récapitulatif host/VM on/off + planification (cron) par invité dans la tuile (aujourd'hui
+  renvoi vers Maintenance PVE et l'inventaire des copies).
 - DEMANDÉ le 30/10 -- Sauvegarde IMAGE du disque d'un poste (wbadmin / image bloc vers partage ou PBS, planifiable) et
   BOOT USB D'URGENCE (préparateur guidé WinPE/Linux + outils + accès à la dernière sauvegarde). Boutons et sections
   posés (#936), backends à construire.

@@ -101,6 +101,7 @@ export const PATHS = {
   "view:infra": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #749 : vue d'ensemble PVE / PBS
   "view:htop": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #800 : htop en direct
   "view:nas": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #883 : NAS (SNMP)
+  "view:sauvegardes": ["etats/maintenant", "services/hub", "equipements/hotes/hyperviseurs"],   // #937 : sauvegardes (postes, PBS, copies, NAS)
   "view:vpn": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #884 : VPN WireGuard
   "view:postes-windows": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #896 : postes Windows
   "view:sockets": ["etats/maintenant", "equipements/reseau"],   // #906 : sockets (netstat)

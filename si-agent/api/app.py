@@ -76,6 +76,7 @@ import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
 import services_poste  # noqa: E402  -- #928 : sites de service à tester depuis un poste (temps d'accès)
 import sauvegarde_conf  # noqa: E402  -- #930 : sélection des confs logicielles à sauvegarder
+import sauvegardes_apercu  # noqa: E402  -- #937 : tuile « Sauvegardes » (aperçu central)
 import htoprelay  # noqa: E402  -- #800 : relais si-htop (tuile htop, constats -> événements)
 import datarf  # noqa: E402  -- #806 : tuile Data RF (sondes radio des sites)
 import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
@@ -3311,6 +3312,36 @@ def sauvegarde_resultat_route(agent_id):
     ms = store.list_measurements(DB_PATH, agent_id, task="sauvegarde-poste", limit=1)
     m = ms[0] if ms else None
     return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
+
+
+@app.route("/sauvegardes/apercu", methods=["GET"])
+def sauvegardes_apercu_route():
+    """#937 : tuile « Sauvegardes » -- aperçu central (lecture seule, aucune commande) : postes (sauvegarde-poste +
+    poussée PBS), serveur(s) PBS (sonde pbs), copies host/VM (pulled-backups + inventaire des copies), NAS (volumes
+    nas-snmp), BackupPC (sonde à venir)."""
+    conn = store._connect(DB_PATH)
+    try:
+        sauv = infra.latest(conn, "sauvegarde-poste")
+        pw = infra.latest(conn, "plugin:poste-windows")
+        m_pbs = infra.latest(conn, "plugin:pbs")
+        m_cop = infra.latest(conn, "plugin:pulled-backups")
+        m_nas = infra.latest(conn, "plugin:nas-snmp")
+    finally:
+        conn.close()
+    noms = {a: h for a, h, _at, _d in pw}
+    noms.update({a: h for a, h, _at, _d in sauv if h})
+    agents = [{"agent_id": a, "hostname": noms.get(a) or a} for a in sorted(noms)]
+    r = store.get_setting(DB_PATH, "postes-sauvegarde-pbs", {}) or {}
+    pousses = []
+    if r.get("pousseur"):
+        pousses = [m.get("data") or {} for m in store.list_measurements(DB_PATH, r["pousseur"], task="pbs-push", limit=200)]
+    try:
+        _rep, inv, _regles, _c = _inventaire()
+        res_inv = inv.get("resume") if isinstance(inv, dict) else None
+    except Exception:  # noqa: BLE001 -- l'inventaire des copies ne doit pas faire tomber la tuile
+        res_inv = None
+    return jsonify(sauvegardes_apercu.assembler(sauv, pousses, agents, m_pbs, m_cop, res_inv, m_nas,
+                                                backuppc={"etat": "non relevé", "message": "sonde backuppc à venir (#938)"})), 200
 
 
 @app.route("/agents/<agent_id>/acces-services/tester", methods=["POST"])
