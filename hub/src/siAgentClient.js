@@ -83,6 +83,12 @@ export const fetchShellJobs = (apiBase, agent) => fetchJson(apiBase, `${_ag(agen
 export const fetchShellJob = (apiBase, agent, id) => fetchJson(apiBase, `${_ag(agent)}/shell/${encodeURIComponent(id)}`);
 export const runShell = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/shell`, json("POST", body));
 export const stopShell = (apiBase, agent, id) => fetchJson(apiBase, `${_ag(agent)}/shell/${encodeURIComponent(id)}/stop`, json("POST", {}));
+
+// #928 : temps d'accès aux services de l'entreprise depuis un poste (brut + authentifié). Le secret reste au coffre.
+export const fetchServicesPoste = (apiBase) => fetchJson(apiBase, "/services-poste");
+export const saveServicesPoste = (apiBase, services, actor) => fetchJson(apiBase, "/services-poste", json("PUT", { services, actor }));
+export const runAccesServices = (apiBase, agent, body) => fetchJson(apiBase, `${_ag(agent)}/acces-services/tester`, json("POST", body || {}));
+export const fetchAccesServices = (apiBase, agent) => fetchJson(apiBase, `${_ag(agent)}/acces-services`);
 export async function fetchChargeLive(apiBase, agent) {
   try {
     const r = await fetch(`${apiBase}/postes/charge/live?agent=${encodeURIComponent(agent)}`, { credentials: "include" });

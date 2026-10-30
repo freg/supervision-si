@@ -4086,3 +4086,21 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
 - Tuile NAS -- LIVRÉ #927 : potentiel d'évolution (baies, réserve non allouée, extensible jusqu'à, conseils chiffrés).
   Reste (à faire) : rattacher chaque volume à sa réserve quand il y en a plusieurs (SNMP ne le donne pas : SSH ou
   API QTS) ; tendance de remplissage (date estimée de saturation à partir de l'historique des relevés).
+
+- Analyse de poste : accès aux services -- LIVRÉ #928 : onglet « Accès services » (temps brut + authentifié formulaire/
+  Basic/jeton, secret au coffre, mesure en tâche de fond). Reste (à faire) : auth Keycloak/SSO (OIDC, flot code) ;
+  historique/tendance des temps par site ; préréglage « sites de l'entreprise » pour web-audit (temps bruts comparés
+  entre postes) ; option marqueur d'échec par site.
+
+- DEMANDÉ le 30/10 (À FAIRE APRÈS l'analyse de pc-paul) -- sonde de gestion sauvegarde / restauration d'un poste
+  Windows, en vue d'une réinstallation (système identique ou plus récent, départ de zéro) :
+  * points de restauration Windows (lister, créer, déclencher) ;
+  * sauvegarde/restauration via l'outil du fabricant ou de Microsoft, vers une clé et un partage ;
+  * export des clés de base de registre des applications, à redéployer sur le nouveau système ;
+  * liste des applications à réinstaller ;
+  * liste des partages à reconstruire ;
+  * trousseaux (identifiants Windows / navigateurs) à sauvegarder puis redéployer, avec interaction utilisateur
+    (sauvegarde = export, restauration = import).
+  S'appuyer sur ce que poste-windows relève déjà (logiciels, partages, lecteurs réseau, comptes) ; séparer nettement
+  les actions de MODIFICATION (création de point de restauration, écriture sur clé/partage, import de trousseau) des
+  simples relevés, et les soumettre aux règles d'autorisation (mode intervention).

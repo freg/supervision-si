@@ -453,6 +453,7 @@ class Agent(object):
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
+        self._acces = None           # #928 : test d'accès aux services en tâche de fond (secret en mémoire seulement)
         self._fond = {}              # #925 : sondes longues en tâche de fond {id: thread}
         self._fond_autorise = IS_WINDOWS or bool(cfg.get("plugins_background"))
         self._charge = None          # #916 : test de charge en tâche de fond (live + stop pendant l'exécution)
@@ -797,6 +798,8 @@ class Agent(object):
                 return {"ok": bool(meas.get("ok")), "result": meas.get("data"), "error": meas.get("error")}
             if ctype == "shell":                        # #919 : analyse technique à distance (PowerShell)
                 return self._shell_commande(params)
+            if ctype == "acces-services":               # #928 : temps d'accès aux services (brut + authentifié)
+                return self._acces_services_lancer(params)
             if ctype == "stop_plugin":
                 # #913/#916 : arrêt d'un test de charge -- pose la sentinelle lue par le plugin ENTRE blocs/itérations.
                 # poste-charge tournant en tâche de fond (#916), la boucle traite ce stop PENDANT le test -> arrêt effectif en cours de route.
@@ -1719,6 +1722,47 @@ class Agent(object):
                 st["final_pushed"] = True
         if st.get("done") and not alive:
             self._charge = None   # résultat final + courbe finale déjà poussés par run_one_plugin dans le thread
+
+    # -- #928 : test d'accès aux services de l'entreprise (brut + authentifié) ------------------------------------
+    def _acces_services_lancer(self, params):
+        """Mesure en TÂCHE DE FOND le temps d'accès aux sites de service (le secret, injecté par le hub depuis le
+        coffre, reste en mémoire : jamais de sous-processus, de fichier ni de trace). Pousse la mesure `acces-services`
+        à la fin ; la boucle principale l'envoie au central. Un seul test à la fois."""
+        import threading
+        from . import accesservices
+        cibles = params.get("cibles")
+        if not isinstance(cibles, list) or not cibles:
+            return {"ok": False, "error": "params.cibles (liste non vide) requis"}
+        st = getattr(self, "_acces", None)
+        if st is not None and st.is_alive():
+            return {"ok": False, "error": "un test d'accès aux services est déjà en cours"}
+        try:
+            timeout = max(2.0, min(60.0, float(params.get("timeout") or accesservices.TIMEOUT)))
+        except (TypeError, ValueError):
+            timeout = accesservices.TIMEOUT
+        n = len(cibles)
+
+        def work():
+            try:
+                data = accesservices.mesurer(cibles, timeout=timeout)
+            except Exception as exc:  # noqa: BLE001 -- ne jamais remonter un secret dans l'erreur
+                _log.warning("test d'accès aux services : échec", exc_info=True)
+                data = {"at": _iso(self.clock()), "sites": [], "alerts": [
+                    {"code": "acces-services-erreur", "severity": "warning", "message": "test en échec : %s" % type(exc).__name__}]}
+            self.queue.put({"task": "acces-services", "at": _iso(self.clock()),
+                            "ok": not any(x.get("severity") == "critical" for x in data.get("alerts") or []),
+                            "agent_id": self.agent_id, "data": data})
+            for al in data.get("alerts") or []:
+                try:
+                    self.event("acces-services", al.get("severity") or "info", al.get("message") or "", {"code": al.get("code")})
+                except Exception:  # noqa: BLE001
+                    pass
+
+        t = threading.Thread(target=work, name="si-agent-acces-services", daemon=True)
+        self._acces = t
+        t.start()
+        self.event("acces-services", "info", "test d'accès aux services lancé (%d site(s))" % n, {"sites": n})
+        return {"ok": True, "result": {"started": True, "sites": n}}
 
     # -- #919 : commandes à distance (analyse technique depuis le hub) ---------------------------------------------
     def _shell_commande(self, params):

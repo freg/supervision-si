@@ -60,6 +60,7 @@ COPY si-agent/api/accueil.py .
 COPY si-agent/api/priorites.py .
 COPY si-agent/api/modeles.py .
 COPY si-agent/api/shell_analyses.py .
+COPY si-agent/api/services_poste.py .
 COPY si-agent/api/diffusion.py .
 COPY si-agent/api/banc.py .
 COPY si-agent/api/skills.py .

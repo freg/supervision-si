@@ -1,5 +1,11 @@
 [
  {
+  "n": 928,
+  "from": 928,
+  "date": "2026-10-30",
+  "title": "Analyse de poste : temps d'accès aux services de l'entreprise (brut + authentifié)"
+ },
+ {
   "n": 927,
   "from": 927,
   "date": "2026-10-30",
@@ -232,11 +238,5 @@
   "from": 888,
   "date": "2026-10-28",
   "title": "Onglet VPN : opérateur d'origine et stabilité des connexions par utilisateur"
- },
- {
-  "n": 887,
-  "from": 887,
-  "date": "2026-10-28",
-  "title": "Page Agents : ligne d'installation avec un site contenant des espaces"
  }
 ]

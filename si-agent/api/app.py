@@ -74,6 +74,7 @@ import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Pro
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
+import services_poste  # noqa: E402  -- #928 : sites de service à tester depuis un poste (temps d'accès)
 import htoprelay  # noqa: E402  -- #800 : relais si-htop (tuile htop, constats -> événements)
 import datarf  # noqa: E402  -- #806 : tuile Data RF (sondes radio des sites)
 import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
@@ -3071,6 +3072,57 @@ def navigateurs_route():
         a = agents.get(n["agent_id"]) or {}
         out.append(dict(n, hostname=a.get("hostname"), os=a.get("os"), last_seen_at=a.get("last_seen_at"), agent_version=a.get("agent_version")))
     return jsonify({"navigateurs": out}), 200
+
+
+@app.route("/services-poste", methods=["GET", "PUT"])
+def services_poste_route():
+    """#928 : liste des sites de service testés depuis un poste (GET) / remplacement (PUT {services:[...], actor}).
+    Aucun secret dans la liste : seulement le NOM d'un accès du coffre."""
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        liste, err = services_poste.valider(b.get("services"))
+        if err:
+            return jsonify({"error": err}), 400
+        store.set_setting(DB_PATH, "services-poste", liste)
+        _event("services-poste", "info", "sites de service : %d déclaré(s) par %s" % (len(liste), str(b.get("actor") or "?")[:64]))
+    return jsonify({"services": store.get_setting(DB_PATH, "services-poste", []) or []}), 200
+
+
+@app.route("/agents/<agent_id>/acces-services/tester", methods=["POST"])
+def acces_services_tester_route(agent_id):
+    """#928 : lance le test d'accès aux services depuis `agent_id`. Révèle les accès du coffre et compose les cibles ;
+    le secret ne sort jamais en réponse ni en trace (commande caviardée). {actor?, services?} -- services facultatifs
+    pour tester une sélection ; sinon toute la liste configurée."""
+    b = request.get_json(silent=True) or {}
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    if isinstance(b.get("services"), list):
+        liste, err = services_poste.valider(b["services"])
+        if err:
+            return jsonify({"error": err}), 400
+    else:
+        liste = store.get_setting(DB_PATH, "services-poste", []) or []
+    if not liste:
+        return jsonify({"error": "aucun site de service configuré (régler la liste : onglet « Accès services »)"}), 400
+    cibles, erreurs = services_poste.cibles_pour_mesure(liste, reveler_acces)
+    try:
+        c = store.create_command(DB_PATH, agent_id, "acces-services", {"cibles": cibles, "timeout": int(b.get("timeout") or 10)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    avec_auth = sum(1 for x in cibles if x.get("auth"))
+    _event("acces-services", "info", "test d'accès aux services envoyé à %s (%d site(s), %d authentifié(s))%s par %s"
+           % (agent_id, len(cibles), avec_auth, (" -- %d accès coffre indisponible(s)" % len(erreurs)) if erreurs else "",
+              str(b.get("actor") or "?")[:64]), agent_id=agent_id,
+           details={"sites": len(cibles), "authentifies": avec_auth, "coffre_ko": [e["nom"] for e in erreurs]})
+    return jsonify({"command": c["id"], "sites": len(cibles), "authentifies": avec_auth, "coffre_indisponibles": erreurs}), 200
+
+
+@app.route("/agents/<agent_id>/acces-services", methods=["GET"])
+def acces_services_resultat_route(agent_id):
+    """#928 : dernier résultat du test d'accès aux services d'un agent (temps bruts + authentifiés, sans secret)."""
+    ms = store.list_measurements(DB_PATH, agent_id, task="acces-services", limit=1)
+    m = ms[0] if ms else None
+    return jsonify({"agent": agent_id, "at": (m or {}).get("at"), "resultat": (m or {}).get("data")}), 200
 
 
 # -- #799/#800 : parcours appris dans le navigateur d'un hôte, joués avec les accès du coffre, demandés en langage courant --

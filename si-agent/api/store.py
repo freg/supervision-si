@@ -161,7 +161,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell")  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell", "acces-services")  # #928 acces-services (temps d'accès aux services, brut + authentifié)  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
@@ -971,6 +971,8 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("params.kind et params.name requis")
     if ctype == "shell":  # #919
         _check_shell_params(params)
+    if ctype == "acces-services" and not isinstance((params or {}).get("cibles"), list):   # #928
+        raise ValueError("params.cibles (liste) requis")
     if ctype == "power_schedule" and not isinstance(params, dict):
         raise ValueError("params (objet) requis")
     if ctype == "watchdog_config" and not isinstance((params or {}).get("apps"), list):
@@ -990,6 +992,16 @@ def create_command(db_path, agent_id, ctype, params=None):
     return get_command(db_path, cid)
 
 
+def _redact_cible(c):   # #928
+    if not isinstance(c, dict) or not isinstance(c.get("auth"), dict):
+        return c
+    au = dict(c["auth"])
+    for k in ("secret", "valeur", "password"):
+        if au.get(k):
+            au[k] = "***"
+    return dict(c, auth=au)
+
+
 def redact_params(params):
     """#628 : mot de passe d'autologon jamais renvoyé au hub."""
     p = dict(params or {})
@@ -1006,6 +1018,8 @@ def redact_params(params):
     if isinstance(p.get("ligne"), str):   # #831 : ligne d'installation (jeton) jouée dans un émulateur
         import re as _re
         p["ligne"] = _re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=)([^\s\"'&]+)", r"\1***", p["ligne"])
+    if isinstance(p.get("cibles"), list):   # #928 : secrets d'accès aux services (mot de passe / jeton du coffre)
+        p["cibles"] = [_redact_cible(c) for c in p["cibles"]]
     if p.get("jeton"):   # #832 : jeton de jonction k3s
         p["jeton"] = "***"
     if isinstance(p.get("argv"), list):   # #825 : jeton d'enrôlement dans la ligne d'installation jouée dans une VM de banc

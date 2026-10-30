@@ -1,3 +1,25 @@
+## 2026-10-30 — Analyse de poste : temps d'accès aux services de l'entreprise (brut + authentifié) (livraison #928)
+
+- Demande : dans l'analyse d'un poste, mesurer le temps d'accès aux sites de service (GED, cloud, annuaire, tickets…) :
+  temps bruts, puis temps de chargement en passant l'authentification. Pour les identifiants, le cache de mots de
+  passe du navigateur est ÉCARTÉ (lecture du magasin du navigateur = geste de logiciel malveillant, fragile, exposant
+  tous les mots de passe) : on utilise un compte de supervision dédié dont le secret reste au coffre.
+- Nouvel onglet « Accès services » de la fiche poste : pour chaque site, temps d'accès BRUT décomposé (DNS, connexion,
+  TLS, premier octet, total, code, sans suivre les redirections ni s'authentifier) et, si un accès du coffre est
+  configuré, temps de chargement en PASSANT l'authentification (formulaire avec jeton anti-CSRF, HTTP Basic, ou en-tête
+  de jeton) jusqu'à la page connectée, avec « connecté oui/non ». Éditeur de la liste des sites intégré (type d'auth,
+  nom de l'accès au coffre, champs du formulaire).
+- Sécurité : la liste configurée ne contient AUCUN secret, seulement le nom d'un accès du coffre « Accès d'équipements ».
+  Au lancement, le hub révèle l'accès (credentials-api) et compose la commande ; le secret ne vit qu'en mémoire (côté
+  hub puis côté agent : pas de sous-processus, pas de fichier, pas de ligne de commande), n'apparaît jamais dans les
+  réponses d'API (commande caviardée) ni dans les traces/événements, et jamais dans la mesure remontée. La mesure
+  tourne en tâche de fond sur l'agent (la boucle reste libre). Agent **0.6.30**.
+- Vérifié : tests de la mesure (brut, formulaire CSRF succès/échec, Basic, jeton, aucun secret en sortie, erreur sans
+  chaîne de requête — serveur HTTP local), de l'agent (tâche de fond, refus concurrent, secret transmis en mémoire),
+  du hub (validation refusant tout secret dans la config, injection coffre + signalement des accès indisponibles,
+  caviardage, routes), helpers hub ; suites agent / API / hub (472). Non vérifié : rendu navigateur, flot réel sur un
+  vrai site (optick3 / owncloud) — à essayer sur pc-paul.
+
 ## 2026-10-30 — Tuile NAS : potentiel d'évolution des volumes (livraison #927)
 
 - Demande : « ajouter à la tuile une vision du potentiel d'évolution pour accroître / étendre les volumes : nombre

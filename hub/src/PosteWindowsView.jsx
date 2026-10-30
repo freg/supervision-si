@@ -7,6 +7,7 @@ import { hubLink, viewParams, clearViewParams } from "./hubLinks.js";
 import { echantillons, serieDisque, dernierEtat, estFini } from "./chargeLive.js";
 import IpPing from "./IpPing.jsx";
 import AnalyseDistance from "./AnalyseDistance.jsx";   // #919
+import AccesServices from "./AccesServices.jsx";       // #928
 
 const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const date = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -179,7 +180,7 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
   const [params] = useState(() => { const p = viewParams(); clearViewParams(); return p; });   // #923 : ?agent=pc-paul&onglet=distance
   const [choix, setChoix] = useState(params.agent || "");
   const [detail, setDetail] = useState(null);
-  const [onglet, setOnglet] = useState(["diagnostic", "charge", "distance", "reinstallation"].includes(params.onglet) ? params.onglet : "diagnostic");
+  const [onglet, setOnglet] = useState(["diagnostic", "charge", "distance", "services", "reinstallation"].includes(params.onglet) ? params.onglet : "diagnostic");
   useEffect(() => { fetchPostesWindows(siAgentApiBase).then((l) => { setListe(l); if (l.length === 1 && !params.agent) setChoix(l[0].agent); }); }, [siAgentApiBase]);
   const charger = useCallback(() => { if (choix) fetchPostesWindows(siAgentApiBase, choix).then((l) => setDetail(l[0] || null)); }, [siAgentApiBase, choix]);
   useEffect(() => { setDetail(null); charger(); }, [charger]);
@@ -211,10 +212,11 @@ export default function PosteWindowsView({ onBack, siAgentApiBase, actor }) {
               <button className={onglet === "charge" ? "primary" : "secondary"} onClick={() => setOnglet("charge")}>Tests de charge</button>
               <button className={onglet === "reinstallation" ? "primary" : "secondary"} onClick={() => setOnglet("reinstallation")}>Réinstallation</button>
               <button className={onglet === "distance" ? "primary" : "secondary"} onClick={() => setOnglet("distance")} title="commandes PowerShell passées par l'agent, résultats interprétés">Analyse à distance</button>
+              <button className={onglet === "services" ? "primary" : "secondary"} onClick={() => setOnglet("services")} title="temps d'accès aux sites de service (GED, cloud, annuaire, tickets…), brut et authentifié">Accès services</button>
               <button className="secondary" onClick={() => window.print()} title="imprimer ou enregistrer en PDF la fiche affichée">Imprimer</button>
               <button className="secondary" onClick={charger}>⟳</button>
             </div>
-            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
+            {onglet === "distance" ? <AnalyseDistance agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "services" ? <AccesServices agent={detail.agent} base={siAgentApiBase} actor={actor} /> : onglet === "diagnostic" ? <Diagnostic d={detail.diagnostic} charge={detail.charge} /> : onglet === "charge" ? <ChargePilotage agent={detail.agent} base={siAgentApiBase} charge={detail.charge} /> : <Reinstallation r={detail.reinstallation} />}
           </section>)}
       </>)}
     </div>
