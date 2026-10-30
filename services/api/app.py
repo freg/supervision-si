@@ -1253,12 +1253,64 @@ def git_state(fetch=True):
     except ValueError:
         st["nodes"] = 0
     st["running"] = _running_main()
+    try:   # #942 : rattrapage ciblé -- services en retard sur HEAD d'après le registre de déploiement de scripts/run.sh
+        st["rattrapage"] = _plan_rattrapage(st["running"])
+    except Exception as exc:  # noqa: BLE001
+        st["rattrapage"] = {"steps": [], "error": "rattrapage non calculé : %s" % exc}
     try:   # #666 : services du compose touchés par les commits entrants mais jamais démarrés ici (nouveaux modules)
         paths = _compose_paths()
         st["new_services"] = sorted(svc for svc, p in paths.items() if svc not in st["running"] and any(f.startswith(pre.rstrip("/") + "/") or f == pre for pre in p["build"] for f in st.get("changed") or []))
     except Exception:  # noqa: BLE001
         st["new_services"] = []
     return st
+
+
+def _deploye():
+    try:
+        return json.loads((_read(".deploye.json") or b"{}").decode("utf-8")) or {}
+    except (ValueError, UnicodeDecodeError):
+        return {}
+
+
+def _plan_rattrapage(running):
+    """#942 : plan ciblé des services dont les fichiers de construction ont changé depuis leur hash déployé."""
+    dep = _deploye()
+    _, head, _ = _git(["rev-parse", "--short", "HEAD"])
+    head = head.strip()
+
+    def diff_depuis(h):
+        rc, out, _ = _git(["diff", "--name-only", "%s..HEAD" % h])
+        if rc:
+            return None
+        return [l for l in out.splitlines() if l]
+    r = tower.plan_rattrapage(dep, head, diff_depuis, _compose_paths(), running)
+    r["head"] = head
+    r["enregistres"] = len(dep)
+    return r
+
+
+@app.route("/git/rattraper", methods=["POST"])
+def git_rattraper_route():
+    """#942 : reconstruit SEULEMENT les services en retard sur HEAD (après un git pull fait à la main), sans git pull ni
+    cascade. Le plan vient du registre .deploye.json tenu par scripts/run.sh ; {inconnus: true} inclut aussi les
+    services sans entrée au registre."""
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    plan = _plan_rattrapage(_running_main())
+    steps = list(plan["steps"])
+    if body.get("inconnus") and plan["inconnus"]:
+        for i, lot in enumerate(tower.batches(plan["inconnus"]), 1):
+            steps.append({"label": "reconstruire %d service(s) sans entrée au registre (lot %d)" % (len(plan["inconnus"]), i), "cmd": "./scripts/run.sh up -d --build " + " ".join(lot)})
+    if not steps:
+        return jsonify({"error": "rien à rattraper : tous les services en marche sont construits sur HEAD"}), 409
+    hist = tower.lire_historique((_read(".maj-historique.jsonl") or b"").decode("utf-8", "replace"))
+    est = tower.estimation_maj(hist, services=plan["rebuild"] + (plan["inconnus"] if body.get("inconnus") else []))
+    label = "rattrapage ciblé : %d service(s) à reconstruire, %d à redémarrer (HEAD %s)" % (len(plan["rebuild"]) + (len(plan["inconnus"]) if body.get("inconnus") else 0), len(plan["restart"]), plan["head"])
+    job = launch_job("git-rattrapage", label, steps, g.user["username"], {"git": {"mode": "cible", "head": plan["head"]}, "estimation": est})
+    event("git-rattrapage", "%s lancé par %s" % (label, g.user["username"]), job=job["id"])
+    return jsonify({"job": job, "plan": plan, "estimation": est}), 202
 
 
 @app.route("/git", methods=["GET"])
@@ -1621,6 +1673,15 @@ def version_hub():
             if time.time() - float(m.get("debut") or 0) < 7200:
                 out["maj"] = m
         except (OSError, ValueError, TypeError):
+            pass
+        try:   # #942 : durée attendue de la mise à jour en cours et dernières durées (historique de scripts/run.sh)
+            hist = tower.lire_historique((_read(".maj-historique.jsonl") or b"").decode("utf-8", "replace"))
+            out["durees"] = [{"numero": h.get("numero"), "n": h.get("n"), "duree_s": h.get("duree_s"), "rc": h.get("rc"), "fin": h.get("fin")} for h in hist[-5:]]
+            if out["maj"]:
+                mots = [m for m in str(out["maj"].get("commande") or "").split() if not m.startswith("-") and m not in ("up", "build", "restart")]
+                noms = [m for m in mots if tower.SERVICE_RE.match(m)]
+                out["maj"]["estimation"] = tower.estimation_maj(hist, services=noms) if noms else tower.estimation_maj(hist, n_services=max(1, len(_running_main())))
+        except Exception:  # noqa: BLE001
             pass
     return jsonify(out), 200
 

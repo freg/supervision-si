@@ -16,6 +16,7 @@ Docker ni fichiers réels :
 """
 import fnmatch
 import posixpath
+import json
 import re
 
 # -- livraisons ----------------------------------------------------------------
@@ -524,3 +525,89 @@ def echecs(jobs):
         (resolus.append((j, par)) if par else non_resolus.append(j))
     non_resolus.sort(key=lambda j: -(j.get("at") or 0))
     return non_resolus, resolus
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# #942 : « à chaque fois que je passe par la tour, ça reconstruit tout et ça dure longtemps » -- après un git pull fait
+# à la main, la tour ne connaissait plus l'écart : elle proposait la cascade. scripts/run.sh tient maintenant un registre
+# de déploiement (.deploye.json : par service, hash de la dernière construction réussie) et un historique des durées
+# (.maj-historique.jsonl). D'où : un plan de RATTRAPAGE ciblé (seuls les services dont les fichiers de construction ont
+# changé depuis leur hash déployé) et une ESTIMATION de durée.
+
+def plan_rattrapage(deploye, head, diff_depuis, main_paths, running, main_compose="docker-compose.yml"):
+    """deploye : {service: {hash, numero, at}} ; head : hash court courant ; diff_depuis(hash) -> [fichiers changés entre
+    ce hash et HEAD] (None si le hash est inconnu du dépôt) ; -> {steps, rebuild, restart, inconnus, a_jour, details}."""
+    running = sorted(s for s in (running or []) if SERVICE_RE.match(s))
+    rebuild, restart, inconnus, a_jour, details = [], [], [], [], {}
+    cache = {}
+    for svc in running:
+        d = (deploye or {}).get(svc) or {}
+        h = str(d.get("hash") or "")
+        p = (main_paths or {}).get(svc) or {"build": [], "mounts": []}
+        if not h or h == "sans-git":
+            inconnus.append(svc)
+            continue
+        if h == head or head.startswith(h) or h.startswith(head):
+            a_jour.append(svc)
+            continue
+        if h not in cache:
+            cache[h] = diff_depuis(h)
+        changed = cache[h]
+        if changed is None:
+            inconnus.append(svc)
+            continue
+        rel = relevant_changes(changed)
+        if any(_under(pre, r) for pre in p["build"] for r in rel):
+            rebuild.append(svc)
+            details[svc] = {"depuis": h, "numero": d.get("numero"), "fichiers": [r for r in rel if any(_under(pre, r) for pre in p["build"])][:12]}
+        elif any(_under(pre, r) for pre in p["mounts"] for r in rel):
+            restart.append(svc)
+        elif main_compose in changed:
+            restart.append(svc)
+        else:
+            a_jour.append(svc)
+    steps = []
+    if rebuild:
+        for i, lot in enumerate(batches(rebuild), 1):
+            steps.append({"label": "reconstruire %d service(s) en retard%s" % (len(rebuild), " (lot %d/%d)" % (i, (len(rebuild) + BUILD_BATCH - 1) // BUILD_BATCH) if len(rebuild) > BUILD_BATCH else ""),
+                          "cmd": "./scripts/run.sh up -d --build " + " ".join(lot)})
+    if restart:
+        steps.append({"label": "redémarrer %d service(s) (fichiers montés ou compose)" % len(restart), "cmd": "./scripts/run.sh up -d " + " ".join(restart)})
+    return {"steps": steps, "rebuild": rebuild, "restart": restart, "inconnus": inconnus, "a_jour": a_jour, "details": details}
+
+
+def lire_historique(texte, limite=200):
+    """.maj-historique.jsonl -> [dict] (lignes valides, les plus récentes en dernier)."""
+    out = []
+    for l in str(texte or "").splitlines()[-limite:]:
+        try:
+            r = json.loads(l)
+        except ValueError:
+            continue
+        if isinstance(r, dict) and isinstance(r.get("duree_s"), (int, float)):
+            out.append(r)
+    return out
+
+
+def _mediane(v):
+    v = sorted(v)
+    return v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2.0
+
+
+def estimation_maj(historique, n_services=None, services=None):
+    """Durée attendue (s) d'une mise à jour de `n_services` (ou de la liste `services`), d'après les constructions
+    RÉUSSIES passées : même ensemble de services si on l'a déjà fait (médiane), sinon médiane par service × n.
+    -> {estimation_s, base, echantillons} ou None."""
+    ok = [h for h in historique or [] if h.get("rc") == 0 and h.get("duree_s", 0) > 0 and h.get("n")]
+    if not ok:
+        return None
+    if services:
+        cible = sorted(services)
+        memes = [h["duree_s"] for h in ok if sorted(h.get("services") or []) == cible][-5:]
+        if memes:
+            return {"estimation_s": round(_mediane(memes)), "base": "mêmes services (%d fois)" % len(memes), "echantillons": len(memes)}
+        n_services = len(cible)
+    if not n_services:
+        return None
+    par_service = [h["duree_s"] / float(h["n"]) for h in ok[-20:]]
+    return {"estimation_s": round(_mediane(par_service) * n_services), "base": "%.0f s par service (médiane de %d constructions)" % (_mediane(par_service), len(par_service)), "echantillons": len(par_service)}

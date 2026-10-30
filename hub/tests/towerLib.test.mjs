@@ -91,3 +91,18 @@ test("#733 instances : nom et état", () => {
   assert.deepEqual(instanceState({ state: { running: ["a"], missing: ["b"] } }), { tone: "orange", text: "partielle : 1 service(s) arrêté(s) (b)" });
   assert.equal(instanceState({ state: { running: ["a", "b"], missing: [] } }).tone, "green");
 });
+
+// #942 : rattrapage ciblé et durée attendue.
+import { rattrapageTexte, dureeTexte, resteTexte } from "../src/towerLib.js";
+
+test("#942 rattrapage : texte et estimation", () => {
+  assert.match(rattrapageTexte({ rebuild: ["hub", "si-agent-api"], restart: ["tickets-api"], inconnus: [] }), /2 à reconstruire \(hub, si-agent-api\) · 1 à redémarrer/);
+  assert.match(rattrapageTexte({ rebuild: [], restart: [], inconnus: [], head: "abc" }), /construits sur HEAD \(abc\)/);
+  assert.equal(rattrapageTexte({ error: "x" }), "x");
+  assert.equal(rattrapageTexte(null), null);
+  assert.equal(dureeTexte(200), "3 min 20 s"); assert.equal(dureeTexte(45), "45 s"); assert.equal(dureeTexte(null), "?");
+  const m = { debut: 1000, estimation: { estimation_s: 300, base: "mêmes services (2 fois)" } };
+  assert.equal(resteTexte(m, 1100), "≈ 3 min 20 s restantes (habituellement 5 min, mêmes services (2 fois))");
+  assert.match(resteTexte(m, 1400), /plus long que d'habitude/);
+  assert.equal(resteTexte({ debut: 1 }), null);
+});

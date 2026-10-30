@@ -1,3 +1,20 @@
+## 2026-10-30 — Tour de contrôle : reconstruire seulement ce qui a changé, durée attendue des mises à jour (livraison #942)
+
+- « À chaque fois que je passe par la tour, ça reconstruit tout et ça dure longtemps » : après un `git pull` fait à la
+  main (hors tour), la tour ne connaissait plus l'écart et proposait la cascade (tous les services en marche, par lots
+  de 6 -- 40 services, charge 72 sur 4 CPU). `scripts/run.sh` tient maintenant un **registre de déploiement**
+  (`.deploye.json` : par service, hash et numéro de la dernière construction réussie) ; la tour en déduit un **plan de
+  rattrapage ciblé** (seuls les services dont les fichiers de construction ont changé depuis leur hash déployé ; ceux à
+  redémarrer ; ceux sans entrée au registre, à part) et un bouton **« ⬆️ Reconstruire seulement ce qui a changé (N) »**
+  (`POST /git/rattraper`, sans git pull ni cascade). La cascade reste disponible, marquée « (long) ».
+- **Durée des mises à jour** (demandée) : `run.sh` journalise chaque construction (`.maj-historique.jsonl` : services,
+  durée, code) ; le pied de page affiche « ≈ N min restantes (habituellement M min, mêmes services / x s par service) »
+  pendant une mise à jour, et `/version-hub` expose les 5 dernières durées. Fichiers jamais versionnés (.gitignore),
+  exclus de l'empreinte de contenu.
+- Vérifié : tests services-api (tower 15, app 25), hub (496), lint JSX. Non vérifié : rendu ; le registre se remplit à
+  partir de la PROCHAINE construction par run.sh (avant : tous les services « sans entrée au registre » -- un passage
+  par « + N sans entrée au registre » ou une cascade les inscrit).
+
 ## 2026-10-30 — Inventaire JSON des éléments de configuration par application (livraison #941)
 
 - Demande : « un inventaire détaillé des éléments de configuration détectés : clés de registre, chemins / fichiers… pas

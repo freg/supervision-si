@@ -4,6 +4,7 @@
 // travaille : IA (priorités, essais de skills, évaluations), sources consultées (veille des modèles, veille cyber).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hubLink } from "./hubLinks.js";
+import { resteTexte } from "./towerLib.js";   // #942 : durée attendue de la mise à jour en cours
 
 const ICONE = { ia: "🧠", source: "📡", emulation: "📟", orchestration: "🧩" };
 // #837 : un travail lié à une tuile (commandes Émulation / Orchestration) est un lien vers elle
@@ -76,7 +77,7 @@ export default function BarreEtatHub({ charge, servicesBase, siAgentBase, vulnBa
   return (
     <div className={`barre-etat-hub${ouvert ? " ouverte" : ""}`}>
       {m && <div className="barre-maj">⟳ mise à jour en cours{m.numero ? ` vers #${m.numero}` : ""} : {m.sujet || ""} — <b>{m.etape}</b>
-        <span className="infra-muted"> · depuis {duree(Math.max(0, Math.round(Date.now() / 1000 - (m.debut || 0))))}{m.commande ? ` · run.sh ${m.commande}` : ""}</span></div>}
+        <span className="infra-muted"> · depuis {duree(Math.max(0, Math.round(Date.now() / 1000 - (m.debut || 0))))}{resteTexte(m) ? ` · ${resteTexte(m)}` : ""}{m.commande ? ` · run.sh ${m.commande}` : ""}</span></div>}
       {hs && vuMaj && <div className="barre-maj">⟳ redémarrage des services ({vuMaj.etape}) — reconnexion automatique…</div>}
       {nouvelle && plusTard !== nouvelle && dejaEssaye(nouvelle) && <div className="barre-maj">⚠ livraison #{nouvelle} servie mais cet écran est toujours #{charge} après rechargement : l'interface du hub n'a pas été reconstruite (pas de lien : opération manuelle — sur super, <code>./scripts/run.sh up -d --build hub</code> depuis la racine du projet){" "}
         <button type="button" className="secondary" onClick={() => rechargerSansCache(nouvelle)}>Réessayer</button>{" "}

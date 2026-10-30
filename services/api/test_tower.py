@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import unittest
 
 import tower
@@ -193,3 +194,48 @@ class Echecs(unittest.TestCase):
         self.assertEqual([(a["id"], b["id"]) for a, b in res], [("a", "b")])
         self.assertEqual(tower.cle_job({"kind": "rebuild", "label": "reconstruire hub"}), "rebuild|reconstruire hub")
         self.assertEqual(tower.echecs([]), ([], []))
+
+
+# #942 : rattrapage ciblé après un git pull manuel, estimation de durée.
+class Rattrapage942(unittest.TestCase):
+    PATHS = {"hub": {"build": ["hub", "shared"], "mounts": []}, "si-agent-api": {"build": ["si-agent/api", "si-agent/agent", "shared"], "mounts": []},
+             "tickets-api": {"build": ["tickets/api", "shared"], "mounts": ["tickets/data"]}, "cacti-api": {"build": ["cacti"], "mounts": []}}
+
+    def test_plan(self):
+        deploye = {"hub": {"hash": "aaaa111", "numero": "939"}, "si-agent-api": {"hash": "aaaa111", "numero": "939"}, "tickets-api": {"hash": "bbbb222", "numero": "900"},
+                   "cacti-api": {"hash": "cccc333", "numero": "941"}}
+        diffs = {"aaaa111": ["hub/src/X.jsx", "si-agent/api/app.py", "CHANGELOG.md", "shared/DELIVERY_NUMBER"], "bbbb222": ["tickets/data/seed.sql", "hub/src/Y.jsx"]}
+        r = tower.plan_rattrapage(deploye, "cccc333", lambda h: diffs.get(h), self.PATHS, ["hub", "si-agent-api", "tickets-api", "cacti-api", "inconnu-api"])
+        self.assertEqual(r["rebuild"], ["hub", "si-agent-api"])
+        self.assertEqual(r["restart"], ["tickets-api"])
+        self.assertEqual(r["a_jour"], ["cacti-api"])
+        self.assertEqual(r["inconnus"], ["inconnu-api"])
+        self.assertEqual(r["steps"][0]["cmd"], "./scripts/run.sh up -d --build hub si-agent-api")
+        self.assertEqual(r["steps"][1]["cmd"], "./scripts/run.sh up -d tickets-api")
+        self.assertEqual(r["details"]["hub"]["fichiers"], ["hub/src/X.jsx"])
+        # hash déployé inconnu du dépôt (rebase) -> inconnu, pas de reconstruction aveugle
+        r2 = tower.plan_rattrapage({"hub": {"hash": "zzzz"}}, "cccc333", lambda h: None, self.PATHS, ["hub"])
+        self.assertEqual((r2["inconnus"], r2["steps"]), (["hub"], []))
+        # tout à jour
+        r3 = tower.plan_rattrapage({"hub": {"hash": "cccc333"}}, "cccc333", lambda h: [], self.PATHS, ["hub"])
+        self.assertEqual((r3["a_jour"], r3["steps"]), (["hub"], []))
+        # beaucoup de services : lots de BUILD_BATCH
+        many = {("s%d" % i): {"build": ["s%d" % i], "mounts": []} for i in range(14)}
+        r4 = tower.plan_rattrapage({("s%d" % i): {"hash": "a"} for i in range(14)}, "b", lambda h: ["s%d/x" % i for i in range(14)], many, ["s%d" % i for i in range(14)])
+        self.assertEqual(len(r4["steps"]), 3)
+
+    def test_estimation(self):
+        hist = "\n".join(json.dumps(x) for x in [
+            {"numero": "939", "services": ["si-agent-api", "hub"], "n": 2, "duree_s": 180, "rc": 0},
+            {"numero": "940", "services": ["hub", "si-agent-api"], "n": 2, "duree_s": 200, "rc": 0},
+            {"numero": "940", "services": ["a", "b", "c", "d", "e", "f"], "n": 6, "duree_s": 720, "rc": 0},
+            {"numero": "941", "services": ["hub"], "n": 1, "duree_s": 5, "rc": 1},
+            "pas du json"]) 
+        h = tower.lire_historique(hist)
+        self.assertEqual(len(h), 4)
+        e = tower.estimation_maj(h, services=["hub", "si-agent-api"])
+        self.assertEqual((e["estimation_s"], e["echantillons"]), (190, 2))
+        e2 = tower.estimation_maj(h, n_services=12)
+        self.assertEqual(e2["estimation_s"], 12 * 100)   # médiane par service : 90, 100, 120 -> 100
+        self.assertIsNone(tower.estimation_maj([], n_services=3))
+        self.assertIsNone(tower.estimation_maj(h))

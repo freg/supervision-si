@@ -150,3 +150,33 @@ export function instanceState(i) {
   if (miss) return { tone: "orange", text: `partielle : ${miss} service(s) arrêté(s) (${st.missing.join(", ")})` };
   return { tone: "green", text: `en marche (${run} service(s))` };
 }
+
+
+/** #942 : texte de l'état de rattrapage (services en retard sur HEAD d'après le registre de scripts/run.sh). */
+export function rattrapageTexte(r) {
+  if (!r) return null;
+  if (r.error) return r.error;
+  const n = (r.rebuild || []).length, m = (r.restart || []).length, u = (r.inconnus || []).length;
+  if (!n && !m && !u) return `tous les services en marche sont construits sur HEAD${r.head ? ` (${r.head})` : ""}`;
+  const parts = [];
+  if (n) parts.push(`${n} à reconstruire (${r.rebuild.join(", ")})`);
+  if (m) parts.push(`${m} à redémarrer (${r.restart.join(", ")})`);
+  if (u) parts.push(`${u} sans entrée au registre (${r.inconnus.join(", ")})`);
+  return parts.join(" · ");
+}
+
+/** Durée lisible « 3 min 20 s ». */
+export function dureeTexte(s) {
+  if (s == null || !Number.isFinite(s)) return "?";
+  const x = Math.max(0, Math.round(s));
+  return x < 60 ? `${x} s` : `${Math.floor(x / 60)} min${x % 60 ? ` ${x % 60} s` : ""}`;
+}
+
+/** #942 : « ≈ 2 min restantes (habituellement 5 min pour ces services) » ; null sans estimation. */
+export function resteTexte(maj, maintenant = Date.now() / 1000) {
+  const e = maj?.estimation?.estimation_s;
+  if (!e) return null;
+  const ecoule = Math.max(0, maintenant - (maj.debut || maintenant));
+  const reste = e - ecoule;
+  return reste > 0 ? `≈ ${dureeTexte(reste)} restantes (habituellement ${dureeTexte(e)}, ${maj.estimation.base})` : `plus long que d'habitude (${dureeTexte(e)} attendues, ${maj.estimation.base})`;
+}

@@ -4177,6 +4177,16 @@ Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et son
   dernière sauvegarde). Reste : enrichir EXPORTS pour les logiciels déduits (CAO, métier) au fil des postes.
 - RÈGLE GÉNÉRALE notée le 30/10 (appliquée #939 aux boutons existants, à respecter partout ensuite) : un bouton d'action
   passe « en cours » dès le clic même s'il y a un autre effet visible.
+- DEMANDÉ le 30/10 -- SAUVEGARDES AUTOMATIQUES DU SI DE SUPERVISION : « le hub devrait gérer en automatique ses propres
+  sauvegardes, tous les agents aussi et les hubs secondaires / proxys ». Existant : sauvegarde du hub planifiée par
+  backup-restore (#459, GFS, chiffrée par SI_BACKUP_PASSPHRASE du .env -- à vérifier qu'elle est réglée) mais locale
+  (<projet>/backups). À faire (#943+) : commande agent `sauvegarde-systeme` (conf / état de l'agent, rôle hub :
+  archives du hub + .env, hub secondaire : /opt/si-collecteur, proxy : /etc/si-proxy) avec rotation locale, remontée
+  au hub (petites archives) et poussée PBS (proxmox-backup-client depuis l'hôte) ; planificateur dans si-agent-api
+  (heure, agents, rôles) ; onglet « SI de supervision » dans la tuile Sauvegardes (état du hub via backup-restore,
+  dernière auto-sauvegarde par agent, lancer maintenant).
+- Tour : #942 rattrapage ciblé + durées ; reste : estimation affichée AVANT de lancer (sur le plan), historique des
+  durées par service dans la tour.
 - DEMANDÉ le 30/10 -- Sauvegarde IMAGE du disque d'un poste (wbadmin / image bloc vers partage ou PBS, planifiable) et
   BOOT USB D'URGENCE (préparateur guidé WinPE/Linux + outils + accès à la dernière sauvegarde). Boutons et sections
   posés (#936), backends à construire.

@@ -220,6 +220,8 @@ CONTENT_HASH="$(find "$HERE_DIR" \
   -type f \
   -not -name "VERSION.json" \
   -not -name ".maj-en-cours.json" \
+  -not -name ".deploye.json" \
+  -not -name ".maj-historique.jsonl" \
   -not -name ".env" \
   -not -name ".env.example" \
   -not -name ".last-imported-realm.json" \
@@ -345,3 +347,41 @@ PYMAJ
     trap 'rm -f "$MAJ_FILE"' EXIT ;;
 esac
 docker compose "$@"
+RC=$?
+# #942 : registre de déploiement (.deploye.json : par service, numéro / hash / date de la dernière construction réussie)
+# et historique des durées (.maj-historique.jsonl) -- lus par la tour de contrôle pour ne reconstruire que ce qui a
+# changé après un git pull fait à la main, et pour estimer la durée d'une mise à jour. Jamais versionnés.
+case " $* " in
+  *" --build "*|*" build "*)
+    python3 - "$HERE_DIR" "$DELIVERY_NUMBER" "$GIT_HASH" "$RC" "$*" <<'PYDEP' 2>/dev/null || true
+import json, os, re, subprocess, sys, time
+racine, numero, hachage, rc, args = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5]
+mots = [m for m in args.split() if not m.startswith("-") and m not in ("up", "build", "restart")]
+noms = [m for m in mots if re.match(r"^[a-z0-9][a-z0-9_-]{0,62}$", m)]
+if not noms:
+    try:
+        noms = subprocess.run(["docker", "compose", "config", "--services"], cwd=racine, capture_output=True, text=True, timeout=60).stdout.split()
+    except Exception:
+        noms = []
+fin = time.time()
+maj = {}
+try:
+    maj = json.load(open(os.path.join(racine, ".maj-en-cours.json")))
+except Exception:
+    pass
+debut = float(maj.get("debut") or fin)
+with open(os.path.join(racine, ".maj-historique.jsonl"), "a") as fh:
+    fh.write(json.dumps({"numero": numero, "hash": hachage, "services": noms, "n": len(noms), "commande": args[:300], "debut": debut, "fin": fin, "duree_s": round(fin - debut), "rc": rc}) + "\n")
+if rc == 0 and noms:
+    p = os.path.join(racine, ".deploye.json")
+    try:
+        d = json.load(open(p))
+    except Exception:
+        d = {}
+    for n in noms:
+        d[n] = {"numero": numero, "hash": hachage, "at": fin}
+    json.dump(d, open(p, "w"))
+PYDEP
+    ;;
+esac
+exit $RC

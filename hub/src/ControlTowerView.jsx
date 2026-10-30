@@ -16,8 +16,8 @@ import { viewParams } from "./hubLinks.js";
 import versionInfo from "./VERSION.json";  // #700
 import {
   fetchServices, fetchSettings, saveSettings, fetchEvents, fetchConfigs, fetchConfig, saveConfig,
-  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort, fetchMirror, mirrorAction } from "./servicesClient.js";
-import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, versionStatus, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions } from "./towerLib.js";
+  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, gitRattraper, fetchRepartition, saveRepartition, applyRepartition, migrateCohort, fetchMirror, mirrorAction } from "./servicesClient.js";
+import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, versionStatus, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions, rattrapageTexte } from "./towerLib.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
@@ -169,6 +169,17 @@ function GitUpdate({ apiBase, token, openJob }) {
   const [last, setLast] = useState(null);
   const refresh = useCallback(async (fetch = true) => { setBusy("fetch"); const r = await fetchGit(apiBase, token, fetch); setBusy(""); setG(r); }, [apiBase, token]);
   useEffect(() => { refresh(false); }, [refresh]);
+  // #942 : après un git pull fait à la main, reconstruire SEULEMENT ce qui a changé (registre .deploye.json de run.sh)
+  const rattraper = async (inconnus) => {
+    const r0 = g?.rattrapage || {};
+    const n = (r0.rebuild || []).length + (inconnus ? (r0.inconnus || []).length : 0);
+    if (!window.confirm(`Reconstruire ${n} service(s) en retard sur HEAD${(r0.restart || []).length ? ` et redémarrer ${r0.restart.length}` : ""}, sans git pull ni cascade ?`)) return;
+    setBusy("rattraper"); setError(null);
+    const r = await gitRattraper(apiBase, token, { inconnus: !!inconnus });
+    setBusy("");
+    if (r.error) { setError(r.error); return; }
+    setLast(r); if (r.job?.id) openJob(r.job.id);
+  };
   const launch = async (mode) => {
     const what = mode === "cascade" ? `TOUT mettre à jour en cascade (git pull, reconstruction de ${(g?.running || []).length} service(s) en marche + passerelle${g?.nodes > 1 ? ` + ${g.nodes - 1} autre(s) nœud(s)` : ""}${agents ? " + agents hôtes" : ""}) ?` : `Mettre à jour le central (git pull puis ${(g?.plan?.steps || []).length} étape(s) ciblée(s)) ?`;
     if (!window.confirm(what + " Le hub et la tour seront momentanément indisponibles.")) return;
@@ -186,14 +197,18 @@ function GitUpdate({ apiBase, token, openJob }) {
       {blocker && <p className="hub-error" style={{ margin: "0 0 6px" }}>{blocker}</p>}
       {g && versionStatus(versionInfo.delivery_number, g).state === "rebuild" && (
         <p className="hub-warning" style={{ margin: "0 0 6px" }}>⚠️ {versionStatus(versionInfo.delivery_number, g).text} (code récupéré sans passer par la tour).
-          « ⛓️ Tout mettre à jour en cascade » reconstruit tous les services en marche.</p>
+          Utiliser « ⬆️ Reconstruire seulement ce qui a changé » ci-dessous ; la cascade reconstruit TOUS les services en marche (long).</p>
       )}
+      {g?.rattrapage && <p className="muted" style={{ margin: "0 0 6px" }}>Retard sur HEAD (registre de run.sh, {g.rattrapage.enregistres ?? 0} service(s) connus) : {rattrapageTexte(g.rattrapage)}
+        {(g.rattrapage.steps || []).length > 0 && <details style={{ marginTop: 4 }}><summary className="muted">plan de rattrapage : {g.rattrapage.steps.length} étape(s)</summary><ol style={{ margin: "4px 0", fontSize: 12 }}>{g.rattrapage.steps.map((s, i) => <li key={i}>{s.label} — <code>{s.cmd}</code></li>)}</ol></details>}</p>}
       {(g?.incoming || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">{g.incoming.length} commit(s) entrant(s)</summary><ul style={{ margin: "4px 0", fontSize: 12 }}>{g.incoming.map((c) => <li key={c.hash}><code>{c.hash}</code> {c.subject}</li>)}</ul></details>}
       {(g?.plan?.steps || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">plan ciblé du central : {g.plan.steps.length} étape(s){(g.plan.not_running || []).length ? ` (non démarrés ici : ${g.plan.not_running.join(", ")})` : ""}</summary><ol style={{ margin: "4px 0", fontSize: 12 }}>{g.plan.steps.map((s, i) => <li key={i}>{s.label} — <code>{s.cmd}</code></li>)}</ol></details>}
       {(g?.new_services || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px" }}>Nouveaux services dans ces commits, jamais démarrés ici — à lancer avec la mise à jour : {g.new_services.map((s) => <label key={s} style={{ marginRight: 10 }}><input type="checkbox" checked={!!startNew[s]} onChange={(e) => setStartNew({ ...startNew, [s]: e.target.checked })} /> <code>{s}</code></label>)}</p>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button type="button" className="primary" disabled={!!busy || !!blocker || !g?.behind} onClick={() => launch("central")}>⬆️ Mettre à jour le central</button>
-        <button type="button" className="secondary" disabled={!!busy || !!blocker} onClick={() => launch("cascade")}>⛓️ Tout mettre à jour en cascade</button>
+        {((g?.rattrapage?.rebuild || []).length > 0 || (g?.rattrapage?.restart || []).length > 0) && <button type="button" className="primary" disabled={!!busy} onClick={() => rattraper(false)} title="sans git pull : seulement les services dont le code a changé depuis leur dernière construction">{busy === "rattraper" ? "⏳ en cours…" : `⬆️ Reconstruire seulement ce qui a changé (${(g.rattrapage.rebuild || []).length + (g.rattrapage.restart || []).length})`}</button>}
+        {(g?.rattrapage?.inconnus || []).length > 0 && <button type="button" className="secondary" disabled={!!busy} onClick={() => rattraper(true)} title="inclut les services jamais construits par run.sh depuis la tenue du registre">{busy === "rattraper" ? "⏳…" : `+ ${g.rattrapage.inconnus.length} sans entrée au registre`}</button>}
+        <button type="button" className="secondary" disabled={!!busy || !!blocker} onClick={() => launch("cascade")}>⛓️ Tout mettre à jour en cascade (long)</button>
         <label className="muted"><input type="checkbox" checked={agents} onChange={(e) => setAgents(e.target.checked)} /> agents hôtes aussi (commande <code>update</code> aux agents éligibles, réglages de la tuile Agents hôtes)</label>
         <button type="button" className="secondary" disabled={!!busy} onClick={() => refresh(true)}>↻</button>
       </div>

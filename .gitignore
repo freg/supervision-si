@@ -165,3 +165,6 @@ rsyslog-listener/data/*
 
 messages/data/*
 !messages/data/.gitkeep
+# #942 : registre de déploiement et historique des durées (tour de contrôle)
+.deploye.json
+.maj-historique.jsonl

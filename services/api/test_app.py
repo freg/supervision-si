@@ -356,6 +356,14 @@ class VersionHub(unittest.TestCase):   # #830
             self.assertEqual(c.get("/version-hub").json["maj"]["numero"], "831")
             _j.dump({"numero": "831", "debut": _ti.time() - 9000}, open(os.path.join(d, ".maj-en-cours.json"), "w"))
             self.assertIsNone(c.get("/version-hub").json["maj"])
+            # #942 : estimation de durée d'après l'historique de run.sh
+            with open(os.path.join(d, ".maj-historique.jsonl"), "w") as fh:
+                fh.write(_j.dumps({"numero": "940", "services": ["si-agent-api", "hub"], "n": 2, "duree_s": 200, "rc": 0, "fin": 1}) + "\n")
+                fh.write(_j.dumps({"numero": "941", "services": ["hub", "si-agent-api"], "n": 2, "duree_s": 160, "rc": 0, "fin": 2}) + "\n")
+            _j.dump({"numero": "942", "etape": "construction", "debut": _ti.time(), "commande": "up -d --build si-agent-api hub"}, open(os.path.join(d, ".maj-en-cours.json"), "w"))
+            j = c.get("/version-hub").json
+            self.assertEqual(j["maj"]["estimation"]["estimation_s"], 180)
+            self.assertEqual(len(j["durees"]), 2)
         finally:
             appmod.PROJECT_DIR = avant
 
