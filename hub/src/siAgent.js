@@ -131,6 +131,52 @@ export function riskSummaryText(summary) {
 // Lignes du tableau des disques d'une mesure host.
 // #438 : un montage illisible (FUSE/sshfs sans allow_other, NFS périmé) ou
 // invisible depuis le conteneur est listé avec sa raison, tailles à « — ».
+/** Stockage de l'hôte (#503) : volumes, partitions et systèmes de fichiers
+ * (lsblk, LVM, RAID logiciel, ZFS) rendus lisibles ; absent = null. */
+export function storageSummary(host) {
+  const st = host?.storage;
+  if (!st || !Array.isArray(st.available) || st.available.length === 0) return null;
+  const blocks = (st.blocks || []).map((b) => ({
+    name: b.name, type: b.type, parent: b.parent || null, size: b.size == null ? "—" : formatBytes(b.size),
+    fstype: b.fstype || "", mountpoint: b.mountpoint || "", model: b.model || "",
+    media: b.rotational == null ? "" : b.rotational ? "HDD" : "SSD", removable: !!b.removable,
+    depth: 0,
+  }));
+  const byName = new Map(blocks.map((b) => [b.name, b]));
+  for (const b of blocks) { let p = b.parent, d = 0; while (p && byName.has(p) && d < 8) { d += 1; p = byName.get(p).parent; } b.depth = d; }
+  const zfs = st.zfs || null;
+  const pools = (zfs?.pools || []).map((p) => ({
+    pool: p.pool, state: p.state || p.health || "?", tone: /^(FAULTED|UNAVAIL|DEGRADED|REMOVED)$/.test(p.state || "") ? "bad" : p.state === "ONLINE" ? "good" : "warn",
+    size: formatBytes(p.size), alloc: formatBytes(p.alloc), free: formatBytes(p.free),
+    gauge: p.capacity_percent == null ? null : gauge(p.capacity_percent, 80, 90),
+    fragmentation: p.fragmentation_percent == null ? "—" : `${Math.round(p.fragmentation_percent)} %`,
+    errors: (p.devices || []).filter((d) => d.read || d.write || d.cksum).map((d) => `${d.name} r${d.read}/w${d.write}/c${d.cksum}`),
+    scrub: p.scrub_age_s == null ? (p.scan ? "jamais terminé" : "—") : p.scrub_age_s === 0 ? "en cours" : `il y a ${formatAge(p.scrub_age_s)}`,
+    devices: p.devices || [],
+  }));
+  const datasets = (zfs?.datasets || []).map((d) => ({
+    name: d.name, type: d.type === "volume" ? "zvol" : "dataset", mountpoint: d.mountpoint || "",
+    used: formatBytes(d.used), avail: d.avail == null ? "—" : formatBytes(d.avail),
+    quota: d.quota ? formatBytes(d.quota) : d.volsize ? formatBytes(d.volsize) : "",
+    gauge: d.used_percent == null ? null : gauge(d.used_percent, 85, 95),
+    ratio: d.compressratio ? `${d.compressratio.toFixed(2)}x` : "",
+    snapshots: d.snapshots?.count || 0, snapUsed: d.snapshots?.used ? formatBytes(d.snapshots.used) : "",
+    snapOldest: d.snapshots?.oldest_age_s == null ? "" : formatAge(d.snapshots.oldest_age_s),
+    snapNewest: d.snapshots?.newest_age_s == null ? "" : formatAge(d.snapshots.newest_age_s),
+  }));
+  const lvm = st.lvm ? {
+    groups: (st.lvm.groups || []).map((g) => ({ vg: g.vg, size: formatBytes(g.size), free: formatBytes(g.free), pv: g.pv_count, lv: g.lv_count })),
+    volumes: (st.lvm.volumes || []).map((v) => ({
+      lv: v.lv, vg: v.vg, kind: v.kind || "", size: formatBytes(v.size), pool: v.pool || "", origin: v.origin || "",
+      data: v.data_percent == null ? null : gauge(v.data_percent, 85, 95), meta: v.metadata_percent == null ? null : gauge(v.metadata_percent, 85, 95),
+      active: v.active,
+    })),
+  } : null;
+  const md = (st.md || []).map((a) => ({ array: a.array, level: a.level, devices: (a.devices || []).join(" "), active: a.active, total: a.total,
+    tone: a.degraded ? "bad" : a.resync ? "warn" : "good", state: a.degraded ? "dégradé" : a.resync || a.state || "actif" }));
+  return { available: st.available, blocks, pools, datasets, snapshotTotal: zfs?.snapshot_total || 0, lvm, md };
+}
+
 export function diskRows(host) {
   return (host?.disks || []).map((d) => ({
     mountpoint: d.mountpoint,
@@ -224,11 +270,23 @@ export const EVENT_KIND_LABELS_FR = {
   "command-unknown": "Commande inconnue",
   "tls-insecure": "TLS non vérifié",
   "notification-test": "Test de notification",
+  // #613 : alimentation, réveil, lanceurs, chien de garde
+  "command-power": "Redémarrage / arrêt demandé", "command-wol": "Réveil réseau émis", "command-startup": "Lanceur modifié",
+  "watchdog-config": "Chien de garde configuré", "watchdog-error": "Chien de garde : erreur",
+  "image-started": "Image du poste lancée", "image-progress": "Image du poste en cours", "image-finished": "Image du poste terminée", "image-failed": "Image du poste échouée",
+  "autologon-armed": "Session rouverte au prochain démarrage (une fois)", "autologon-cleared": "Autologon une fois : nettoyé", "clock-skew": "Horloge du poste décalée",
+  "deferred": "Commande programmée", "deferred-run": "Commande programmée : exécution", "deferred-done": "Commande programmée : faite", "deferred-failed": "Commande programmée : échec",
+  "image-upload-started": "Transfert de l'image vers le serveur lancé", "image-upload-progress": "Transfert de l'image en cours", "image-upload-finished": "Transfert de l'image terminé", "image-upload-failed": "Transfert de l'image échoué", "image-received": "Image reçue sur le serveur", "image-deleted": "Image locale supprimée", "image-delete-failed": "Suppression locale de l'image impossible",
+  "update-started": "Windows Update : installation lancée", "update-finished": "Windows Update : installation terminée", "update-failed": "Windows Update : échec", "command-protection": "Pare-feu / Defender modifié", "command-rdp": "Bureau à distance modifié",
+  "bench-started": "Banc de charge lancé", "bench-finished": "Banc de charge terminé", "bench-stopped": "Banc de charge arrêté",
+  "enroll-token-created": "Jeton d'enrôlement créé", "enroll-token-revoked": "Jeton d'enrôlement révoqué",
+  "app-down": "Application arrêtée", "app-restarted": "Application relancée", "app-restart-failed": "Relance impossible", "app-recovered": "Application de retour",
 };
 
 export const EVENT_SEVERITIES = ["critical", "warning", "info"];
 
 export function eventKindLabel(kind) {
+  if (kind === "alert-filters") return "filtres d'alertes modifiés";  // #607
   return EVENT_KIND_LABELS_FR[kind] || kind || "—";
 }
 
@@ -287,4 +345,71 @@ export function bannerHeadline(summary) {
   if (summary.agents_blocked?.length) parts.push(`${summary.agents_blocked.length} bloqué${summary.agents_blocked.length > 1 ? "s" : ""}`);
   if (!parts.length) return `Agents hôtes : rien à signaler sur ${summary.window_hours} h (${summary.agents} agent${summary.agents > 1 ? "s" : ""})`;
   return `Agents hôtes, ${summary.window_hours} h : ${parts.join(", ")}`;
+}
+
+/** #552 : adresse de la page publiée par un agent sur le LAN de son site --
+ *  http://<hôte>:<port>/ avec le nom d'hôte quand il existe (résolu sur le
+ *  site), sinon la dernière IP connue ; null si la publication est inactive. */
+export function publishedPageUrl(agent) {
+  const pub = agent && agent.publish;
+  if (!pub || !pub.enabled) return null;
+  const host = (agent.hostname || agent.last_ip || "").trim();
+  if (!host) return null;
+  return `http://${host}:${pub.port || 8081}/`;
+}
+
+
+// #742 : présentation de la flotte par catégorie (rôle et OS). Ordre des groupes fixe ; dans un groupe, l'ordre
+// choisi (listOrder.js). Une étiquette dans le libellé de l'agent force la catégorie : #pve #pbs #sonde #vm #windows #linux.
+export const AGENT_CATEGORIES = [
+  { id: "proxmox", label: "Proxmox (PVE / PBS)" },
+  { id: "sonde", label: "Sondes" },
+  { id: "vm", label: "Machines virtuelles" },
+  { id: "windows", label: "Windows" },
+  { id: "linux", label: "Linux" },
+  { id: "other", label: "Autres (macOS…)" },
+];
+const PROBE_PLUGINS = ["wifi-probe", "path-probe", "broadcast-probe", "windows-probe"];
+const TAGS = { pve: "proxmox", pbs: "proxmox", proxmox: "proxmox", sonde: "sonde", probe: "sonde", vm: "vm", windows: "windows", linux: "linux" };
+
+export function agentCategory(a) {
+  const label = String(a?.label || "");
+  const tag = (label.match(/#(pve|pbs|proxmox|sonde|probe|vm|windows|linux)\b/i) || [])[1];
+  if (tag) return TAGS[tag.toLowerCase()];
+  const os = String(a?.os || "").toLowerCase();
+  const names = `${a?.agent_id || ""} ${a?.hostname || ""} ${label}`.toLowerCase();
+  const plugins = a?.plugin_ids || [];
+  if (plugins.includes("proxmox") || plugins.includes("pbs") || /proxmox/.test(os) || /(^|[\s._-])(pve|pbs)[0-9a-z-]*/.test(names)) return "proxmox";
+  if (/raspberry/i.test(a?.hardware_model || "") || /(sonde|probe|rpi|raspberry)/.test(names) || plugins.some((p) => PROBE_PLUGINS.includes(p))) return "sonde";
+  const virt = String(a?.virtualization || "").toLowerCase();
+  if (virt && !["none", "null", "no", "false"].includes(virt)) return "vm";
+  if (/windows/.test(os)) return "windows";
+  if (/darwin|mac ?os|os x/.test(os)) return "other";
+  return "linux";
+}
+
+export function proxmoxRole(a) {
+  const s = `${(a?.plugin_ids || []).join(" ")} ${a?.agent_id || ""} ${a?.hostname || ""} ${a?.label || ""}`.toLowerCase();
+  const pbs = /\bpbs/.test(s), pve = /\bproxmox\b|\bpve/.test(s);
+  return pbs && pve ? "PVE + PBS" : pbs ? "PBS" : "PVE";
+}
+
+// Gravité d'un agent pour l'ordre « Gravité » : risques critiques, hors ligne, avertissements, ok, jamais vu.
+export function agentSeverity(a) {
+  if (a?.risks?.state === "critical") return 0;
+  if (a?.online === "offline") return 1;
+  if (a?.risks?.state === "warning") return 2;
+  if (a?.online === "never") return 4;
+  return 5;
+}
+
+/** Groupes [{id, label, agents, counts}] non vides, dans l'ordre AGENT_CATEGORIES ; `order` = fonction de tri d'une liste. */
+export function groupFleet(agents, order = (xs) => xs) {
+  const by = {};
+  for (const a of agents || []) (by[agentCategory(a)] ||= []).push(a);
+  return AGENT_CATEGORIES.filter((c) => by[c.id]).map((c) => {
+    const list = order(by[c.id]);
+    return { ...c, agents: list, counts: { total: list.length, critical: list.filter((a) => a.risks?.state === "critical").length,
+      offline: list.filter((a) => a.online === "offline").length, warning: list.filter((a) => a.risks?.state === "warning").length } };
+  });
 }

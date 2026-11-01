@@ -19,7 +19,7 @@ import json
 import re
 import time
 
-from . import host, netview
+from . import antivirus, host, netview
 
 MACOS_TIMEOUTS = {"logs": 20}
 
@@ -344,9 +344,26 @@ def collect_all(files=None, cmd=host.run_cmd, usage=None, which=None, sleep=None
         "logs": {"source": "unified-log" if logtxt is not None else None, "lines": log_lines},
         "accounts": accounts, "partial": partial,
     }
+    data["antivirus"] = collect_antivirus(out, exists or __import__("os").path.exists)
     if include_tools:
         data["tools"] = collect_tools(which or __import__("shutil").which)
     return data, None
+
+
+XPROTECT_PLIST = "/Library/Apple/System/Library/CoreServices/XProtect.bundle/Contents/Info.plist"
+
+
+def collect_antivirus(out, exists, now=None):
+    """#520 : produits reconnus (fichiers + démons, `ps -axo comm`), XProtect
+    (version + âge du bundle), Gatekeeper (`spctl --status`), SIP (`csrutil status`)."""
+    ps = out(["ps", "-axo", "comm"]) or ""
+    version = (out(["defaults", "read", XPROTECT_PLIST[:-len(".plist")], "CFBundleShortVersionString"]) or "").strip() or None
+    age = None
+    mtime = (out(["stat", "-f", "%m", XPROTECT_PLIST]) or "").strip()
+    if mtime.isdigit():
+        age = max(0, int(((now or time.time()) - int(mtime)) / 86400))
+    return antivirus.map_macos(exists, ps, xprotect_version=version, xprotect_age_days=age,
+                               spctl=out(["spctl", "--status"]), csrutil=out(["csrutil", "status"]))
 
 
 KNOWN_TOOLS = ("bash", "zsh", "python3", "docker", "ssh", "brew", "sysctl", "lsof", "system_profiler", "networksetup")

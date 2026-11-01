@@ -1,0 +1,4 @@
+Bloc d'IP;Correspondances DNS;Version;Type;Pays;Service Attaché;Description
+203.0.113.10/32;2;IPV4;DEDICATED;;ns1000001.ip-203-0-113.eu;serveur principal
+203.0.113.11/32;1;IPV4;FAILOVER;fr;ns1000001.ip-203-0-113.eu;
+198.51.100.20/32;1;IPV4;DEDICATED;;ns2000002.ip-198-51-100.eu;

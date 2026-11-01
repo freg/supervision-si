@@ -1,0 +1,333 @@
+# -*- coding: utf-8 -*-
+"""Tests de notify-api (#590) : producteurs (jeton interne / consommateur
+externe), catalogue et groupe par défaut, résolution, regroupement, rafale,
+administration, fil d'envoi (SMTP simulé : succès, échecs, backoff,
+disjoncteur, abandon)."""
+import json
+import os
+import sys
+import tempfile
+import time
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, HERE)
+sys.path.append(os.path.join(ROOT, "si-proxy", "admin"))
+os.environ["NOTIFY_DB"] = os.path.join(tempfile.mkdtemp(prefix="notify-"), "n.sqlite")
+os.environ["NOTIFY_INTERNAL_TOKEN"] = "interne-test"
+os.environ["NOTIFY_WORKER"] = "0"
+os.environ["NOTIFY_SMTP_HOST"] = "smtp.exemple.test"
+os.environ["NOTIFY_SMTP_FROM"] = "hub@exemple.test"
+
+import jwt  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
+from jwt.algorithms import RSAAlgorithm  # noqa: E402
+
+import app as appmod  # noqa: E402
+import auth  # noqa: E402
+
+KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def jwks():
+    j = json.loads(RSAAlgorithm.to_jwk(KEY.public_key()))
+    j.update({"kid": "k1", "use": "sig", "alg": "RS256"})
+    return {"keys": [j]}
+
+
+def token(username="francois", groups=("administrateurs",)):
+    return jwt.encode({"preferred_username": username, "name": username, "exp": int(time.time()) + 300, "iat": int(time.time()), "typ": "Bearer", "groups": list(groups)}, KEY, algorithm="RS256", headers={"kid": "k1"})
+
+
+class Base(unittest.TestCase):
+    def setUp(self):
+        appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les notifications")
+        c = appmod._conn()
+        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in", "push_subs", "push_out", "pauses"):
+            c.execute("DELETE FROM " + t)
+        c.commit()
+        c.close()
+        appmod.SENDER = appmod.Sender()
+        self.sent = []
+        appmod.SENDER.deliver = lambda rcpt, subj, body: (self.sent.append((rcpt, subj, body)) or (True, ""))
+        self.c = appmod.app.test_client()
+        self.adm = {"Authorization": "Bearer " + token()}
+        self.prod = {"X-Notify-Token": "interne-test", "X-Notify-Consumer": "mikrotik"}
+
+    def notify(self, action, subject="s", **kw):
+        return self.c.post("/notify", headers=self.prod, json=dict({"action": action, "subject": subject, "body": "b"}, **kw))
+
+
+class Producers(Base):
+    def test_auth_and_catalog(self):
+        self.assertEqual(self.c.post("/notify", json={"action": "a.b"}).status_code, 401)
+        self.assertEqual(self.c.get("/actions").status_code, 401)
+        self.assertEqual(self.c.get("/actions", headers={"Authorization": "Bearer " + token("bob", [])}).status_code, 403)
+        r = self.c.post("/actions/register", headers=self.prod, json={"actions": [{"id": "mikrotik.nat.add", "label": "Ajout de règle NAT", "severity": "warning"}, {"id": "Bad Name"}]})
+        self.assertEqual(r.get_json(), {"registered": ["mikrotik.nat.add"], "rejected": ["Bad Name"]})
+        acts = self.c.get("/actions", headers=self.adm).get_json()["actions"]
+        self.assertEqual((acts[0]["id"], acts[0]["default_group"], acts[0]["groups"]), ("mikrotik.nat.add", "auto:mikrotik", []))
+        groups = self.c.get("/groups", headers=self.adm).get_json()["groups"]
+        self.assertEqual([g["id"] for g in groups], ["auto:mikrotik"])
+        self.assertTrue(groups[0]["auto"])
+
+    def test_no_recipients_then_resolve(self):
+        r = self.notify("cisco.restore", "restauration sw1")
+        self.assertEqual(r.status_code, 202)
+        self.assertEqual(r.get_json()["status"], "no-recipients")
+        # l'administrateur renseigne le groupe par défaut -> les suivantes partent
+        self.assertEqual(self.c.put("/groups/auto:cisco", headers=self.adm, json={"emails": ["Reseau@Exemple.test", "x@exemple.test"]}).status_code, 200)
+        self.assertEqual(self.c.put("/groups/auto:cisco", headers=self.adm, json={"emails": ["pas une adresse"]}).status_code, 400)
+        r = self.notify("cisco.restore", "restauration sw1 bis").get_json()
+        self.assertEqual((r["status"], r["recipients"]), ("queued", 2))
+        self.assertEqual(appmod.SENDER.tick(), 1)
+        rcpt, subj, body = self.sent[0]
+        self.assertEqual(rcpt, ["reseau@exemple.test", "x@exemple.test"])
+        self.assertEqual(subj, "[Hub SI] restauration sw1 bis")
+        # retry du premier (sans destinataires) maintenant que le groupe est renseigné
+        first = self.c.get("/queue?status=no-recipients", headers=self.adm).get_json()["queue"][0]
+        self.assertEqual(self.c.post("/queue/%d/retry" % first["id"], headers=self.adm).status_code, 200)
+        self.assertEqual(appmod.SENDER.tick(), 1)
+
+    def test_destinataires_explicites_et_pieces_jointes(self):
+        """#703 : `to` en plus des groupes (liste noire appliquée), pièces jointes base64 envoyées puis effacées."""
+        import base64
+        self.c.post("/blacklist", headers=self.adm, json={"kind": "email", "value": "bloque@exemple.test"})
+        att = [{"filename": "../rapport.xlsx", "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "data": base64.b64encode(b"PK-fichier").decode()}]
+        r = self.notify("nebula.rapport", to=["Alice@exemple.test", "bloque@exemple.test", "pas-une-adresse"], attachments=att)
+        self.assertEqual(r.status_code, 202, r.get_json())
+        self.assertEqual((r.get_json()["status"], r.get_json()["recipients"], r.get_json()["attachments"]), ("queued", 1, 1))
+        got = []
+        appmod.SENDER.deliver = lambda rcpt, subj, body, attachments=None: (got.append((rcpt, attachments)) or (True, ""))
+        appmod.SENDER.tick()
+        self.assertEqual(got[0][0], ["alice@exemple.test"])
+        self.assertEqual((got[0][1][0]["filename"], got[0][1][0]["data"]), ("rapport.xlsx", b"PK-fichier"))
+        self.assertEqual(appmod._conn().execute("SELECT COUNT(*) FROM attachments").fetchone()[0], 0)
+        self.assertEqual(self.notify("nebula.rapport", attachments=[{"filename": "x", "content_type": "text/plain", "data": "@@@"}]).status_code, 400)
+        self.assertEqual(self.notify("nebula.rapport", attachments=[{}] * 6).status_code, 400)
+        # sans `to` ni groupe garni : comportement inchangé
+        self.assertEqual(self.notify("nebula.autre").get_json()["status"], "no-recipients")
+
+    def test_meta_group_assignment_and_blacklist(self):
+        self.c.put("/groups/auto:mikrotik", headers=self.adm, json={"emails": ["reseau@exemple.test"]}) if False else None
+        self.notify("mikrotik.nat.add")
+        self.assertEqual(self.c.post("/groups", headers=self.adm, json={"name": "Astreinte", "emails": ["astreinte@exemple.test"]}).get_json()["id"], "g:astreinte")
+        m = self.c.post("/groups", headers=self.adm, json={"name": "Infra", "kind": "meta", "members": ["g:astreinte", "auto:mikrotik"]}).get_json()
+        self.assertEqual(m["id"], "m:infra")
+        self.assertEqual(self.c.post("/groups", headers=self.adm, json={"name": "Boucle", "kind": "meta", "members": ["m:boucle"]}).status_code, 400)
+        self.assertEqual(self.c.put("/actions/mikrotik.*/groups", headers=self.adm, json={"groups": ["m:infra"]}).status_code, 200)
+        self.assertEqual(self.c.put("/actions/mikrotik.nat.add/groups", headers=self.adm, json={"groups": ["g:inconnu"]}).status_code, 400)
+        r = self.notify("mikrotik.reboot", "reboot").get_json()
+        self.assertEqual((r["status"], r["recipients"]), ("queued", 1))
+        self.c.post("/blacklist", headers=self.adm, json={"kind": "email", "value": "astreinte@exemple.test", "reason": "en congé"})
+        self.assertEqual(self.notify("mikrotik.reboot", "reboot 2").get_json()["status"], "no-recipients")
+        self.c.delete("/blacklist/email/astreinte@exemple.test", headers=self.adm)
+        self.c.post("/blacklist", headers=self.adm, json={"kind": "action", "value": "mikrotik.*"})
+        self.assertEqual(self.notify("mikrotik.reboot", "reboot 3").get_json()["reason"], "action en liste noire")
+        self.assertEqual(self.c.delete("/groups/auto:mikrotik", headers=self.adm).status_code, 400)
+        self.assertEqual(self.c.delete("/groups/g:astreinte", headers=self.adm).status_code, 200)
+        infra = [g for g in self.c.get("/groups", headers=self.adm).get_json()["groups"] if g["id"] == "m:infra"][0]
+        self.assertEqual(infra["members"], ["auto:mikrotik"])
+
+    def test_external_consumer(self):
+        r = self.c.post("/consumers", headers=self.adm, json={"name": "GED externe"}).get_json()
+        tok = r["token"]
+        self.assertEqual(r["name"], "ged-externe")
+        self.c.put("/groups/auto:ged", headers=self.adm, json={"emails": ["doc@exemple.test"]}) if False else None
+        rr = self.c.post("/notify", headers={"X-Notify-Token": tok}, json={"action": "ged.upload", "subject": "nouveau document"})
+        self.assertEqual(rr.status_code, 202)
+        self.assertEqual(self.c.get("/consumers", headers=self.adm).get_json()["consumers"][0]["name"], "ged-externe")
+        self.assertEqual(self.c.post("/notify", headers={"X-Notify-Token": "faux"}, json={"action": "ged.upload"}).status_code, 401)
+
+    def test_coalesce_and_burst(self):
+        self.c.put("/groups/auto:tower", headers=self.adm, json={"emails": ["ops@exemple.test"]}) if False else None
+        self.notify("tower.heal.restart", "x")  # crée le groupe auto
+        self.c.put("/groups/auto:tower", headers=self.adm, json={"emails": ["ops@exemple.test"]})
+        self.c.put("/settings", headers=self.adm, json={"burst_threshold": 5, "coalesce_seconds": 60})
+        ids = {self.notify("tower.heal.restart", "ged-api relancé").get_json()["status"] for _ in range(3)}
+        self.assertEqual(ids, {"queued", "merged"})
+        for i in range(10):
+            self.notify("tower.heal.restart", "service %d" % i)
+        counts = self.c.get("/queue", headers=self.adm).get_json()["counts"]
+        self.assertGreaterEqual(counts.get("held", 0), 5)
+        self.assertTrue(any(q["subject"].startswith("Rafale") for q in self.c.get("/queue?status=queued", headers=self.adm).get_json()["queue"]))
+        n = appmod.SENDER.tick()
+        self.assertTrue(any("regroupée" in b for _, _, b in self.sent))
+        rel = self.c.post("/queue/release", headers=self.adm).get_json()["released"]
+        self.assertGreaterEqual(rel, 5)
+
+
+class Pauses(Base):   # #853 : pauses planifiées (fermeture de site, coupure électrique)
+    def test_pause_retient_puis_bilan(self):
+        now = time.time()
+        self.assertEqual(self.c.post("/pauses", headers=self.adm, json={"motif": "", "debut": now, "fin": now + 60}).status_code, 400)
+        r = self.c.post("/pauses", headers=self.adm, json={"type": "fermeture", "motif": "fermeture du site", "debut": now - 10, "fin": now + 3600,
+                                                          "consommateurs": "si-agent, nebula", "contexte": {"site": "site-alpha"}})
+        self.assertEqual(r.status_code, 201)
+        pid = r.get_json()["id"]
+        agent = {"X-Notify-Token": "interne-test", "X-Notify-Consumer": "si-agent"}
+        neb = {"X-Notify-Token": "interne-test", "X-Notify-Consumer": "nebula"}
+        r1 = self.c.post("/notify", headers=agent, json={"action": "si-agent.agent-offline", "subject": "muet", "context": {"site": "site-alpha", "agent_id": "pc-a"}}).get_json()
+        r2 = self.c.post("/notify", headers=agent, json={"action": "si-agent.agent-offline", "subject": "muet", "context": {"site": "bureau"}}).get_json()
+        r3 = self.c.post("/notify", headers=neb, json={"action": "nebula.veille-campus", "subject": "panne", "context": {"module": "nebula"}}).get_json()
+        r4 = self.notify("mikrotik.nat.add").get_json()                      # autre producteur : jamais couvert
+        self.assertEqual((r1["status"], r2["status"], r3["status"], r4["status"]), ("paused", "no-recipients", "paused", "no-recipients"))
+        act = self.c.get("/pauses/actives", headers=neb).get_json()["pauses"]
+        self.assertEqual([p["id"] for p in act], [pid])
+        self.assertEqual(self.c.get("/pauses/actives", headers=self.prod).get_json()["pauses"], [])      # mikrotik
+        lst = self.c.get("/pauses", headers=self.adm).get_json()["pauses"]
+        self.assertEqual((lst[0]["etat"], lst[0]["retenues"]), ("en cours", 2))
+        c = appmod._conn()
+        appmod.bilan_pauses(c, now + 7200)
+        b = c.execute("SELECT subject, body FROM queue WHERE action = 'notify.maintenance-fin'").fetchone()
+        c.close()
+        self.assertIn("2 notification(s) retenue(s)", b["subject"])
+        self.assertIn("si-agent.agent-offline", b["body"])
+        c = appmod._conn(); appmod.bilan_pauses(c, now + 7300)
+        n = c.execute("SELECT COUNT(*) AS n FROM queue WHERE action = 'notify.maintenance-fin'").fetchone()["n"]; c.close()
+        self.assertEqual(n, 1)                                                # un seul bilan
+
+
+class Delivery(Base):
+    def test_backoff_breaker_abandon(self):
+        self.notify("cisco.write", "w")
+        self.c.put("/groups/auto:cisco", headers=self.adm, json={"emails": ["a@exemple.test"]})
+        self.c.put("/settings", headers=self.adm, json={"breaker_failures": 2, "breaker_cooldown": 100, "retry_max": 3})
+        self.notify("cisco.write", "w2")
+        appmod.SENDER.deliver = lambda r, s, b: (False, "connexion refusée")
+        t0 = time.time()
+        self.assertEqual(appmod.SENDER.tick(t0), 0)
+        row = self.c.get("/queue", headers=self.adm).get_json()["queue"][0]
+        self.assertEqual((row["attempts"], row["status"]), (1, "queued"))
+        self.assertAlmostEqual(row["due_at"], t0 + 60, delta=2)
+        self.assertEqual(appmod.SENDER.tick(t0 + 61), 0)  # 2e échec -> disjoncteur ouvert
+        self.assertTrue(appmod.SENDER.state()["breaker_open"])
+        self.assertEqual(appmod.SENDER.tick(t0 + 150), 0)  # ouvert : rien tenté
+        self.assertEqual(self.c.get("/queue", headers=self.adm).get_json()["queue"][0]["attempts"], 2)
+        appmod.SENDER.tick(t0 + 400)  # 3e tentative après refroidissement -> abandon
+        row = self.c.get("/queue", headers=self.adm).get_json()["queue"][0]
+        self.assertEqual(row["status"], "failed")
+        appmod.SENDER.deliver = lambda r, s, b: (True, "")
+        self.assertEqual(self.c.post("/queue/%d/retry" % row["id"], headers=self.adm).status_code, 200)
+        self.assertEqual(appmod.SENDER.tick(t0 + 500), 1)
+
+    def test_smtp_settings(self):
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "port": 465, "security": "ssl", "user": "hub", "password": "s3cret", "from": "hub@exemple.test"}}).get_json()
+        self.assertEqual((r["smtp"]["host"], r["smtp"]["port"], r["smtp"]["security"], r["smtp"]["password_set"]), ("mail.exemple.test", 465, "ssl", True))
+        self.assertNotIn("password", r["smtp"])  # jamais renvoyé
+        cfg = appmod.smtp_config()
+        self.assertEqual((cfg["password"], cfg["from"]), ("s3cret", "hub@exemple.test"))
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "port": 587, "security": "starttls", "user": "hub", "from": "hub@exemple.test"}}).get_json()
+        self.assertTrue(r["smtp"]["password_set"])  # vide = inchangé
+        self.assertEqual(self.c.put("/settings", headers=self.adm, json={"smtp": {"security": "tls1"}}).status_code, 400)
+        self.assertEqual(self.c.put("/settings", headers=self.adm, json={"smtp": {"port": 0}}).status_code, 400)
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "security": "starttls", "from": "hub@exemple.test", "clear_password": True}}).get_json()
+        self.assertFalse(r["smtp"]["password_set"])
+        self.assertTrue(any(e["event"] == "smtp" for e in self.c.get("/events", headers=self.adm).get_json()["events"]))
+
+    def test_disabled_and_rate(self):
+        self.notify("cisco.write", "w")
+        self.c.put("/groups/auto:cisco", headers=self.adm, json={"emails": ["a@exemple.test"]})
+        self.c.put("/settings", headers=self.adm, json={"enabled": False})
+        self.assertEqual(self.notify("cisco.write", "w2").get_json()["status"], "held")
+        self.c.put("/settings", headers=self.adm, json={"enabled": True, "max_per_minute": 2})
+        self.c.post("/queue/release", headers=self.adm)
+        for i in range(4):
+            self.notify("cisco.write", "w%d" % (10 + i))
+        self.assertEqual(appmod.SENDER.tick(), 2)
+        self.assertEqual(appmod.SENDER.tick(), 0)  # débit atteint pour la minute
+        self.assertEqual(self.c.get("/health").get_json()["queue"].get("queued"), 3)
+        self.assertTrue(self.c.get("/events", headers=self.adm).get_json()["events"])
+
+class Sms(Base):   # #787 : SMS internes (canal du hub, distinct du client externe)
+    def test_normaliser(self):
+        import sms
+        self.assertEqual([sms.normaliser(x) for x in ("06 12 34 56 78", "33612345678", "0033612345678", "+33612345678", "12", "abc")],
+                         ["+33612345678"] * 4 + [None, None])
+        self.assertEqual(sms.destinataires("06 12 34 56 78, +33612345678;bad"), (["+33612345678"], ["bad"]))
+        self.assertEqual((sms.segments("a" * 160), sms.segments("a" * 161), sms.segments("€" * 71)), (1, 2, 2))
+
+    def test_envoi_reception_et_fil(self):
+        tok = self.c.post("/consumers", headers=self.adm, json={"name": "modem sms"}).get_json()["token"]
+        self.assertEqual(self.c.get("/sms/send?number=0612345678&message=x").status_code, 401)
+        r = self.c.get("/sms/send", query_string={"number": "33612345678", "message": "Alerte : arrêt", "key": tok})
+        self.assertEqual((r.status_code, r.get_json()["status"]), (200, "queued"))
+        r = self.c.post("/sms", headers=self.prod, json={"to": "0698765432, faux", "text": "test"})
+        self.assertEqual((r.status_code, r.get_json()["rejected"]), (202, ["faux"]))
+        self.assertEqual(self.c.get("/sms/recu", query_string={"jeton": tok, "de": "+33611111111", "texte": "STATUS"}).status_code, 200)
+        self.assertEqual(self.c.get("/sms/journal").status_code, 401)
+        j = self.c.get("/sms/journal", headers=self.adm).get_json()
+        self.assertEqual((len(j["out"]), j["counts"], j["in"][0]["from_number"], j["in"][0]["consumer"]), (2, {"queued": 2}, "+33611111111", "modem-sms"))
+        envoyes = []
+        appmod.SMS_SENDER.deliver = lambda n, t: (envoyes.append((n, t)) or (False, "relais injoignable : x", "")) if len(envoyes) == 0 else (envoyes.append((n, t)) or (True, "", "{}"))
+        self.assertEqual(appmod.SMS_SENDER.tick(), 0)               # échec : backoff, on s'arrête là
+        st = {r["id"]: r for r in self.c.get("/sms/journal", headers=self.adm).get_json()["out"]}
+        self.assertEqual(sorted((r["status"], r["attempts"]) for r in st.values()), [("queued", 0), ("queued", 1)])
+        self.assertEqual(appmod.SMS_SENDER.tick(now=time.time() + 3600), 2)
+        j = self.c.get("/sms/journal", headers=self.adm).get_json()
+        self.assertEqual(j["counts"], {"sent": 2})
+        self.assertEqual(envoyes[0], ("+33612345678", "Alerte : arrêt"))
+        sid = j["out"][0]["id"]
+        self.assertEqual(self.c.post("/sms/%d/retry" % sid, headers=self.adm).status_code, 409)   # déjà envoyé
+        r = self.c.post("/sms/envoyer", headers=self.adm, json={"to": "+33600000000", "text": "depuis la tuile"})
+        self.assertEqual(r.status_code, 202)
+        self.assertEqual(self.c.post("/sms/%d/drop" % r.get_json()["queued"][0], headers=self.adm).status_code, 200)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class UiUrlTest(unittest.TestCase):   # #791 : lien « accès direct » de l'onglet SMS
+    def test_sans_identifiants(self):
+        import app as m
+        self.assertEqual(m.ui_url("http://u:p@192.0.2.10:8090/compose?key=x"), "http://192.0.2.10:8090/compose")
+        self.assertEqual(m.ui_url("https://192.0.2.29"), "https://192.0.2.29")
+        self.assertEqual(m.ui_url("javascript:alert(1)"), "")
+        self.assertEqual(m.ui_url(""), "")
+
+
+class PushRoutes(Base):   # #796 : abonnements des appareils, seuils, file d'envoi, abonnement périmé
+    def sub(self, n=1):
+        from cryptography.hazmat.primitives.asymmetric import ec
+        import push
+        ua = ec.generate_private_key(ec.SECP256R1())
+        return {"endpoint": "https://push.example.org/sub/%d" % n, "keys": {"p256dh": push.b64u(push._pub_bytes(ua.public_key())), "auth": push.b64u(b"0123456789abcdef")}}
+
+    def test_parcours(self):
+        k = self.c.get("/push/key").get_json()["publicKey"]
+        self.assertEqual(len(k), 87)                                   # 65 octets en base64url
+        self.assertEqual(self.c.post("/push/subscribe", json={"subscription": self.sub()}).status_code, 401)
+        self.assertEqual(self.c.post("/push/subscribe", headers=self.adm, json={"subscription": {"endpoint": "http://x"}}).status_code, 400)
+        r = self.c.post("/push/subscribe", headers=self.adm, json={"subscription": self.sub(1), "label": "téléphone", "min_severity": "critical"}).get_json()
+        self.c.post("/push/subscribe", headers=self.adm, json={"subscription": self.sub(2), "label": "tablette", "min_severity": "warning"})
+        self.assertEqual(r["min_severity"], "critical")
+        self.assertEqual(self.notify("a.b", "alerte", severity="warning").get_json()["push"], 1)      # tablette seulement
+        self.assertEqual(self.notify("a.b", "panne", severity="critical").get_json()["push"], 2)
+        self.assertEqual(self.notify("a.b", "info", severity="info").get_json()["push"], 0)
+        calls = []
+
+        class R(object):
+            status = 201
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def opener(req, timeout=20):
+            import urllib.error
+            calls.append(req.full_url)
+            if req.full_url.endswith("/2"):
+                raise urllib.error.HTTPError(req.full_url, 410, "Gone", {}, None)
+            return R()
+        import app as m
+        self.assertEqual(m.PushSender(opener=opener).tick(), 1)
+        self.assertEqual(len(calls), 3)
+        lst = self.c.get("/push/subscriptions", headers=self.adm).get_json()
+        self.assertEqual([x["label"] for x in lst["subscriptions"]], ["téléphone"])      # abonnement périmé supprimé
+        self.assertEqual(lst["queue"].get("sent"), 1)
+        sid = lst["subscriptions"][0]["id"]
+        self.assertTrue(self.c.post("/push/test", headers=self.adm, json={"endpoint": "https://push.example.org/sub/1"}).get_json()["ok"])
+        self.assertEqual(self.c.post("/push/test", headers=self.adm, json={}).status_code, 400)
+        self.assertTrue(self.c.delete("/push/subscribe", headers=self.adm, json={"endpoint": "https://push.example.org/sub/1"}).get_json()["deleted"])
+        self.assertEqual(self.c.get("/push/subscriptions", headers=self.adm).get_json()["subscriptions"], [])
+        self.assertFalse(self.c.delete("/push/subscriptions/%d" % sid, headers=self.adm).get_json()["ok"])

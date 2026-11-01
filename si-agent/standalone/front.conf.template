@@ -1,0 +1,54 @@
+# Front autonome des agents hôtes (livraison #517) -- rendu par envsubst
+# (image nginx, /etc/nginx/templates). Variables : SI_STANDALONE_HTTP_PORT.
+#
+# Deux publics, deux régimes :
+#  - les AGENTS (/api/si-agent/api/v1/…, /ca, /health) : signature HMAC
+#    par agent vérifiée par si-agent-api, JAMAIS d'auth basique (un agent
+#    n'a pas de mot de passe humain) -- mêmes chemins que derrière la
+#    passerelle du hub, préfixe /api/si-agent retiré de la même façon ;
+#  - les HUMAINS (/agents/ = interface, /api/si-agent/* = gestion) : auth
+#    basique nginx (htpasswd généré par run.sh depuis .env) -- le bouchon
+#    qui remplace Keycloak en mode dégradé.
+server {
+    listen ${SI_STANDALONE_HTTP_PORT};
+    server_name _;
+    client_max_body_size 50m;
+    root /usr/share/nginx/html;
+
+    location = / { return 302 /agents/; }
+    location = /agents { return 302 /agents/; }
+
+    location = /agents/logout {
+        # 401 volontaire : le navigateur redemande un identifiant
+        add_header WWW-Authenticate 'Basic realm="Agents hotes"' always;
+        return 401;
+    }
+
+    location /agents/ {
+        auth_basic "Agents hotes";
+        auth_basic_user_file /etc/nginx/htpasswd;
+        try_files $uri $uri/ /agents/index.html;
+    }
+
+    # --- agents (HMAC), sans auth basique ---------------------------------
+    location /api/si-agent/api/v1/ {
+        proxy_pass http://si-agent-api:5000/api/v1/;
+        include /etc/nginx/proxy-headers.conf;
+    }
+    location = /api/si-agent/ca {
+        proxy_pass http://si-agent-api:5000/ca;
+        include /etc/nginx/proxy-headers.conf;
+    }
+    location = /api/si-agent/health {
+        proxy_pass http://si-agent-api:5000/health;
+        include /etc/nginx/proxy-headers.conf;
+    }
+
+    # --- gestion (interface, humains) : auth basique ----------------------
+    location /api/si-agent/ {
+        auth_basic "Agents hotes";
+        auth_basic_user_file /etc/nginx/htpasswd;
+        proxy_pass http://si-agent-api:5000/;
+        include /etc/nginx/proxy-headers.conf;
+    }
+}

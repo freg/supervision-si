@@ -1,0 +1,607 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Real work allocation / Timesheet &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Collaboration" href="Collaboration.html" />
+    <link rel="prev" title="Rapports" href="Report.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Report.html" title="Rapports"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Real work allocation / Timesheet</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <span class="target" id="index-0"></span><section id="real-work-allocation">
+<span id="index-1"></span><span id="id1"></span><h1>Saisie du travail réel<a class="headerlink" href="#real-work-allocation" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="timesheet">
+<span id="id2"></span><h2>Feuille de temps<a class="headerlink" href="#timesheet" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran est dédié à la saisie du travail réel.</p>
+<p>La ressource complète son travail chaque jour, pour chaque tâche affectée.</p>
+<p>La saisie des données pour une ressource se fait sur une base hebdomadaire.</p>
+<p>Le coût correspondant au travail réel est automatiquement mis à jour sur l’affectation, l’activité et le projet.</p>
+<figure class="align-center" id="id5">
+<img alt="Écran de la zone de feuille de temps" src="_images/REALWORK_SCR_TimeSheetZone.png" />
+<figcaption>
+<p><span class="caption-text">Écran de la zone de feuille de temps</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic">
+<p class="topic-title">Zones de l’interface</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="Un" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#selectiontimesheet"><span class="std std-ref">Sélection et filtres</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Deux" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#switchdisplay-timesheet"><span class="std std-ref">Changer l’affichage</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Trois" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#tools-timesheet"><span class="std std-ref">Outils</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Quatre" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#data-entryvalidation-timesheet"><span class="std std-ref">Validation de saisie</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Cinq" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#taskzone-imputation"><span class="std std-ref">Zone de tâches</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#entryfield-timesheet"><span class="std std-ref">Champ de saisie</span></a></p>
+</aside>
+<section id="selection-and-filters">
+<span id="selectiontimesheet"></span><h3>Sélection et filtres<a class="headerlink" href="#selection-and-filters" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Ce filtre permet de sélectionner une feuille de temps pour une ressource et pour une période.</p>
+<p class="rubric" id="resourceselection">Sélection de la ressource</p>
+<ul class="simple">
+<li><p>Par défaut, les utilisateurs ne peuvent se sélectionner eux-mêmes qu’en tant que ressource.</p></li>
+<li><p>L’accès à la feuille de temps des autres ressources dépend de <a class="reference internal" href="AccessRights.html#specific-access"><span class="std std-ref">Accès spécifiques</span></a>.</p></li>
+</ul>
+<p class="rubric">Période de sélection</p>
+<p>Par défaut, la période est déterminée en fonction du jour actuel.</p>
+<p>Les périodes ciblées sont affichées à différents endroits de l’écran.</p>
+<ul class="simple">
+<li><p>Vous pouvez sélectionner le numéro de la semaine et son année directement avec les filtres correspondants.</p></li>
+<li><p>Le filtre « premier jour » vous permet de choisir une date spécifique, jour, mois et année. La semaine complète contenant cette date sera affichée.</p></li>
+<li><p>Le bouton aujourd’hui cible la semaine en cours</p></li>
+<li><p>Le jour J est mis en évidence.</p></li>
+</ul>
+</section>
+<section id="switch-display">
+<span id="switchdisplay-timesheet"></span><h3>Changer l’affichage<a class="headerlink" href="#switch-display" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Par défaut, l’affichage de la feuille de temps est présenté par semaine.</p>
+<p>En cliquant sur le bouton « passer en vue mensuelle », l’affichage de la feuille de temps passe en vue mensuelle.</p>
+<p>Les dates de début et de fin d’un élément ne sont plus affichées dans ce mode.</p>
+</section>
+<section id="tools">
+<span id="tools-timesheet"></span><h3>Outils<a class="headerlink" href="#tools" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSave.png"><img alt="Enregistrer" src="_images/iconSave.png" style="width: 19.2px; height: 19.2px;" /></a> pour enregistrer les données de la feuille de temps.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconRefresh.png"><img alt="Actualiser" src="_images/iconRefresh.png" style="width: 19.2px; height: 19.2px;" /></a> pour actualiser les données.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSubMenu.png"><img alt="Sous-menu" src="_images/iconSubMenu.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher les options.</p></li>
+</ul>
+<figure class="align-default" id="id6">
+<img alt="options de la feuille de temps" src="_images/REALWORK_BOX_Options.png" />
+<figcaption>
+<p><span class="caption-text">Options de la feuille de temps</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="display">
+<h4>Affichage<a class="headerlink" href="#display" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Les boutons bascule vous aident à filtrer les informations visibles sur votre feuille de temps.</p>
+<p>Faites basculer le bouton vers la droite (bouton vert) pour activer l’affichage.</p>
+<p class="rubric">Réunions hebdomadaires uniquement</p>
+<p>Les réunions récurrentes affichent toutes les réunions avec une réunion par ligne. Selon la période et la fréquence de vos réunions récurrentes, de nombreuses lignes peuvent être affichées.</p>
+<p>Avec cette option, vous n’affichez que les réunions pour la semaine affichée à l’écran.</p>
+<p class="rubric">Éléments fermés</p>
+<p>Faites basculer le bouton pour afficher les tâches fermées. Tâches archivées.</p>
+<p class="rubric">Éléments terminés</p>
+<p>Faites basculer le bouton pour afficher les tâches terminées. Avec le reste à faire à 0.</p>
+<p class="rubric">Éléments non démarrés</p>
+<p>Faites basculer le bouton pour afficher les tâches non démarrées. L’état macro <strong>en cours</strong> doit être activé et enregistré pour les tâches pour cette option.</p>
+<p class="rubric">Éléments suspendus</p>
+<p>Faites basculer le bouton pour afficher les tâches qui ont été suspendues. L’état macro <strong>pause</strong> doit être activé et enregistré pour les tâches pour cette option.</p>
+<p class="rubric">ID</p>
+<p>Afficher l’ID pour identifier toutes les tâches individuelles.</p>
+<p class="rubric" id="show-plannedwork">Travail planifié</p>
+<p>Le travail planifié est indiqué sur chaque cellule de saisie, dans le coin supérieur gauche, en bleu clair.</p>
+<p>Vous permet d’afficher le temps de travail planifié par jour pour la ressource affectée à la tâche.</p>
+<figure class="align-default" id="id7">
+<img alt="Zone d'affichage du travail planifié" src="_images/REALWORK_ZONE_PlannedWork.png" />
+<figcaption>
+<p><span class="caption-text">Travail planifié</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Ressource sélectionnée pour le projet uniquement</p>
+<p>Vous pouvez limiter l’affichage de la liste déroulante <a class="reference internal" href="#resourceselection"><span class="std std-ref">sélection de ressource</span></a>.</p>
+<p>Si vous avez sélectionné un projet dans votre <a class="reference internal" href="Gui.html#project-selector"><span class="std std-ref">sélecteur de projet</span></a>, vous ne verrez que les ressources affectées à ce projet.</p>
+<p class="rubric">Couleur des projets et couleur des activités</p>
+<p>Possibilité d’afficher les couleurs du projet et/ou de l’activité directement sur la feuille de temps.</p>
+<figure class="align-default" id="id8">
+<img alt="Zone d'affichage du travail planifié" src="_images/REALWORK_ZONE_ProjectsColor.png" />
+<figcaption>
+<p><span class="caption-text">Travail planifié</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="filter">
+<h4>Filtre<a class="headerlink" href="#filter" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Les filtres rapides sont utilisés pour définir la liste des tâches affichées par nom et ID.</p>
+</section>
+<section id="export">
+<h4>Exporter<a class="headerlink" href="#export" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconPrint.png"><img alt="Imprimer" src="_images/iconPrint.png" style="width: 19.2px; height: 19.2px;" /></a> pour imprimer la feuille de temps.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconPDF.png"><img alt="Exporter en PDF" src="_images/iconPDF.png" style="width: 19.2px; height: 19.2px;" /></a> pour exporter la feuille de temps au format PDF.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconCSV.png"><img alt="Exporter CSV" src="_images/iconCSV.png" style="width: 19.2px; height: 19.2px;" /></a> pour exporter la feuille de temps au format CSV.</p></li>
+</ul>
+</section>
+</section>
+<section id="data-entry-validation">
+<span id="data-entryvalidation-timesheet"></span><h3>Validation de saisie<a class="headerlink" href="#data-entry-validation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Saisir le réel comme planifié</p>
+<p>Le travail planifié sur une activité pour une ressource est reporté pour chaque jour.</p>
+<p>Si aucun chiffre n’est affiché, cela signifie que la ressource n’est pas censée être informée du travail réel sur cette activité pendant cette période.</p>
+<figure class="align-default" id="id9">
+<img alt="Travail planifié pour la ressource" src="_images/REALWORK_ZONE_PlanWork.png" />
+<figcaption>
+<p><span class="caption-text">Travail planifié pour la ressource</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Même si du travail planifié est prévu pour une ressource, rien ne l’oblige à accomplir son travail comme prévu.</p>
+<p>L’option <a class="reference internal" href="#show-plannedwork"><span class="std std-ref">Afficher le travail planifié</span></a> doit être activée.</p>
+<p class="rubric">Répartir le travail</p>
+<p>Vous avez la possibilité de réduire la granularité de votre activité en distribuant le travail effectué sur celle-ci en « différents postes ».</p>
+<p>De cette façon, vous pouvez rapporter avec précision quelle tâche vous avez effectuée.</p>
+<p>Il est nécessaire d’activer l’accès spécifique <a class="reference internal" href="AccessRights.html#specific-access-right"><span class="std std-ref">Activation de la décomposition des affectations</span></a></p>
+<figure class="align-default" id="id10">
+<img alt="Travail réparti pour l'activité" src="_images/REALWORK_ZONE_DispatchWork.png" />
+<figcaption>
+<p><span class="caption-text">Travail réparti pour l’activité</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez sur <a class="reference internal" href="_images/iconSplit.png"><img alt="Diviser" src="_images/iconSplit.png" style="width: 19.2px; height: 19.2px;" /></a> pour répartir le travail sur une ligne de votre activité.</p>
+<p>Dans la fenêtre contextuelle, saisissez le nom de votre poste, s’il existe, il sera disponible dans la liste déroulante.</p>
+<figure class="align-default" id="id11">
+<img alt="Fenêtre contextuelle de répartition du travail" src="_images/REALWORK_BOX_DispatchWork.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de répartition du travail</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Si aucun poste n’a encore été saisi, cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un poste.</p>
+<p>Saisissez le temps que vous avez passé sur ce poste.</p>
+<p>Les champs <strong>Incertitudes</strong> et <strong>avancement</strong> ne sont pas obligatoires et peuvent être laissés vides.</p>
+<p>Valider.</p>
+<figure class="align-default" id="id12">
+<img alt="Résultat de la répartition du travail" src="_images/REALWORK_ZONE_ResultDispatchWork.png" />
+<figcaption>
+<p><span class="caption-text">Résultat de la répartition du travail</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La quantité de travail est automatiquement calculée.</p>
+<p>Aucune restriction n’est faite même si vous avez du travail planifié sur une autre activité.</p>
+<p>Comme toute ligne de la feuille de temps, vous pouvez dépasser l’ETP de la ressource si les paramètres vous le permettent.</p>
+<p>Pour visualiser la répartition du travail, cliquez sur <a class="reference internal" href="_images/iconSplit.png"><img alt="Diviser" src="_images/iconSplit.png" style="width: 19.2px; height: 19.2px;" /></a>.</p>
+<p>Vous pouvez éditer et modifier cette liste.</p>
+<p>Pour voir tout le « travail » sur vos activités, le rapport <a class="reference internal" href="Report.html#report-realwork"><span class="std std-ref">Liste des travaux pour une activité</span></a> est disponible.</p>
+<p class="rubric">Soumettre le travail</p>
+<p>ProjeQtOr propose un système de validation des charges qui permet de suivre les informations du travail réel des ressources par un manager hiérarchique.</p>
+<p>Après l’envoi du travail réel, vous ne pouvez plus modifier le temps de travail réel pour la semaine.</p>
+<p>Vous devez annuler la demande de validation pour effectuer une modification.</p>
+<p class="rubric">Valider le travail</p>
+<p>Les chefs de projet peuvent valider le travail ou tout autre profil personnalisé autorisé à le faire.</p>
+<p>Seules les personnes disposant des autorisations nécessaires peuvent voir ce bouton</p>
+<p>Lorsque le travail est validé, la ressource ne peut plus modifier son travail sur cette semaine. De même, l’annulation de la validation ne sera plus disponible.</p>
+<p>Le système de validation est optionnel et peut donc être masqué.</p>
+</section>
+<section id="task-zone">
+<span id="taskzone-imputation"></span><h3>Zone de tâches<a class="headerlink" href="#task-zone" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La liste affiche les tâches affectées à la ressource sélectionnée dans la liste.</p>
+<p>Vous verrez les activités planifiées pour la ressource, les réunions, les tickets, les sessions de planning poker, les sessions de test, affichés avec un niveau projet.</p>
+<p>Cliquez sur le nom de l’élément pour accéder à l’écran de détails de l’élément.</p>
+<p>Les tâches affectées avec du travail réel sont toujours affichées, même lorsqu’elles sont fermées.</p>
+<p>La fonction de la ressource sur cette tâche est affichée à la fin de la ligne.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Une ressource peut avoir plusieurs <a class="reference internal" href="Concept.html#resource-function-cost"><span class="std std-ref">fonctions</span></a>.</p>
+<p>Il est possible d”<a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">affecter</span></a> la même ressource plusieurs fois mais avec des fonctions différentes pour surveiller les coûts du projet.</p>
+</div>
+<ul class="simple">
+<li><p>L’icône <a class="reference internal" href="_images/iconAddComment.png"><img alt="Ajouter un commentaire" src="_images/iconAddComment.png" style="width: 19.2px; height: 19.2px;" /></a> vous permet d’ajouter un commentaire.</p></li>
+<li><p>L’icône <a class="reference internal" href="_images/iconComment.png"><img alt="Commentaire" src="_images/iconComment.png" style="width: 19.2px; height: 19.2px;" /></a> indique qu’il y a un commentaire sur la tâche affectée.</p></li>
+<li><p>Déplacez simplement la souris sur l’icône pour voir le dernier commentaire avec sa date et l’heure de sa création.</p></li>
+<li><p>Cliquez pour voir tous les commentaires</p></li>
+<li><p>Un commentaire global peut être ajouté sur le suivi hebdomadaire.</p></li>
+</ul>
+<p>Les colonnes Début et Fin affichent les dates planifiées pour chaque activité.</p>
+<section id="charges-on-tickets">
+<span id="chargeticket"></span><h4>charges sur les tickets<a class="headerlink" href="#charges-on-tickets" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Le ticket est le seul élément qui n’apparaît pas sous le projet, même s’il est créé au sein d’un projet, sauf s’il est lié à une <a class="reference internal" href="PlanningElements.html#activity-planning"><span class="std std-ref">Planification de l’Activité</span></a>.</p>
+<p>Cela s’explique par le fait que le ticket est considéré comme une tâche non affectée à réaliser. Il n’est donc pas consolidé avec les éléments planifiés.</p>
+<p>Lorsque le ticket n’est pas lié à une activité de planification, il est listé sous </p>
+<figure class="align-default" id="id13">
+<img alt="Travail non affecté avec ticket" src="_images/REALWORK_ZONE_TicketNotAssigned.png" />
+<figcaption>
+<p><span class="caption-text">Travail non affecté avec ticket</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une fois le ticket lié à une activité de planification, elle-même renseignée avec une affectation et une charge,</p>
+<p>le ticket sera affiché sous le nom de l’activité de planification sous le projet correct et à la date d’échéance pour la ressource sélectionnée.</p>
+<figure class="align-default" id="id14">
+<img alt="Ticket affecté à une activité de planification" src="_images/REALWORK_ZONE_TicketAssigned.png" />
+<figcaption>
+<p><span class="caption-text">Ticket affecté à une activité de planification</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="entry-field">
+<span id="entryfield-timesheet"></span><h3>Champ de saisie<a class="headerlink" href="#entry-field" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Afin de voir et connaître les affectations sur une tâche, plusieurs colonnes indiquent les périodes affectées à une ressource</p>
+<p class="rubric">Affecté</p>
+<p>C’est le travail affecté à la ressource qui est calculé par le logiciel.</p>
+<p class="rubric">Travail réel</p>
+<p>C’est le travail effectivement réalisé et déclaré par la ressource.</p>
+<p class="rubric">Reste à faire</p>
+<p>C’est le travail que la ressource doit encore fournir pour cette tâche</p>
+<p>Le reste à faire est automatiquement diminué lors de la saisie du travail réel.</p>
+<p>Les ressources peuvent ajuster cette valeur pour estimer le travail nécessaire pour terminer la tâche.</p>
+<p class="rubric">Réévalué</p>
+<p>C’est le travail requis pour terminer la tâche. C’est le travail réel + le reste à faire. Voir : « progress-section-date-duration »</p>
+<ul class="simple">
+<li><p>Vous ne pouvez pas modifier le Travail affecté, le Travail réel et le Réévalué directement dans les colonnes.</p></li>
+<li><p>Ces informations sont calculées directement par le logiciel sur la base de ce que vous avez saisi</p></li>
+</ul>
+<p class="rubric" id="real-work-entry">Saisie du travail réel</p>
+<ul class="simple">
+<li><p>Zone de saisie du travail réel. Il est possible de saisir du travail réel les jours de congé.</p></li>
+<li><p>Les colonnes de jours de congé sont affichées en gris.</p></li>
+<li><p>Les jours de congé sont définis dans la <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">définition du calendrier</span></a> de la ressource.</p></li>
+</ul>
+<p class="rubric">Total des jours</p>
+<p>Sur la dernière ligne se trouve la somme de tous les jours de la semaine.</p>
+<p>C’est une synthèse affichée pour chaque projet et globalement pour toute la semaine.</p>
+<p>La capacité de la ressource est définie par le nombre d’heures par jour et la capacité de la ressource (ETP).</p>
+<figure class="align-default" id="id15">
+<img alt="Total du jour" src="_images/REALWORK_ZONE_TimesheetTotalDay.png" />
+<figcaption>
+<p><span class="caption-text">Zone Total du jour</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Le total du jour est <strong>vert</strong> si les saisies sont complètement dans la capacité ETP de la ressource</p></li>
+<li><p>Le total du jour est <strong>rouge clair</strong> si les saisies sont supérieures à la capacité ETP de la ressource.</p></li>
+<li><p>Le total du jour est <strong>rouge foncé</strong> si les saisies sont supérieures au travail journalier maximum autorisé sur la ressource.</p></li>
+<li><p>Un message vous avertit que vous dépassez le quota fixe autorisé.</p></li>
+<li><p>Vous ne pourrez pas enregistrer la feuille de temps avec un quota plus élevé.</p></li>
+<li><p>Le total du jour est <strong>sans couleur</strong> si les saisies sont inférieures à la capacité ETP de la ressource.</p></li>
+<li><p>Le total du jour est <strong>orange</strong> si les saisies ne sont pas enregistrées.</p></li>
+</ul>
+<figure class="align-default" id="id16">
+<img alt="Total du jour avec Planification manuelle" src="_images/REALWORK_ZONE_PlanningManualCase.png" />
+<figcaption>
+<p><span class="caption-text">Total du jour avec Planification manuelle</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<ul>
+<li><p><a class="reference internal" href="GlobalParameters.html#unitforwork-section"><span class="std std-ref">Unité pour le travail</span></a></p>
+<p>Permet de définir l’unité de temps pour le travail réel et la charge de travail et le nombre de jours travaillés par semaine. Le nombre d’heures par jour est défini ici.</p>
+</li>
+<li><p><a class="reference internal" href="GlobalParameters.html#realworkallocation-section"><span class="std std-ref">Feuille de temps</span></a></p>
+<p>Vous pouvez définir de nombreux leviers, alertes ou options d’affichage</p>
+</li>
+<li><p><a class="reference internal" href="GlobalParameters.html#gp-genereation-alert-realwork"><span class="std std-ref">Génération d’alertes si le travail réel n’est pas saisi</span></a></p>
+<p>Vous pouvez déclencher des alertes sur la saisie du travail réel pour différents collaborateurs. Ces messages peuvent être envoyés à une fréquence définie par e-mail ou affichés comme une alerte directement dans l’application.</p>
+</li>
+<li><p><a class="reference internal" href="GlobalParameters.html#automatic-planning-calcul"><span class="std std-ref">Alimentation automatique du réel</span></a></p>
+<p>Vous pouvez remplir automatiquement le travail réel à partir du travail planifié jusqu’à une date donnée, puis déclencher le calcul automatique des projets à partir du lendemain de cette date.</p>
+</li>
+</ul>
+</div>
+</section>
+<section id="the-status-of-tasks">
+<span id="timesheet-status-task"></span><h3>Le statut des tâches<a class="headerlink" href="#the-status-of-tasks" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le statut de la tâche peut être modifié automatiquement en fonction des saisies sur le travail réel et le reste à faire.</p>
+<ul class="simple">
+<li><p>Passer au premier statut <strong>en cours</strong> : si la valeur du paramètre est définie sur « Oui », lorsque du travail réel est saisi sur une tâche, son statut sera automatiquement modifié au premier statut « En cours ».</p></li>
+<li><p>Passer au premier statut <strong>terminé</strong> : si la valeur du paramètre est définie sur « Oui », lorsque le reste à faire est mis à zéro sur une tâche, son statut sera automatiquement modifié au premier statut « terminé ».</p></li>
+</ul>
+<p class="rubric">Validation du changement de statut</p>
+<p>Une icône sera affichée sur la tâche si un changement de statut est applicable.</p>
+<ul class="simple">
+<li><p><img alt="Statut de début" src="_images/statusStart.png" /> En raison du travail réel saisi, le statut de la tâche sera modifié au premier statut « En cours ».</p></li>
+<li><p><img alt="Statut de début KO" src="_images/statusStartKO.png" /> Le travail réel est saisi, mais le statut de la tâche ne changera pas en raison d’un problème.</p></li>
+<li><p><img alt="Statut de fin" src="_images/statusFinish.png" /> En raison du reste à faire à zéro, le statut de la tâche sera modifié au premier statut « terminé ».</p></li>
+<li><p><img alt="Statut de fin KO" src="_images/statusFinishKO.png" /> Plus de reste à faire, mais le statut de la tâche ne changera pas en raison d’un problème.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Si un <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">responsable</span></a> ou un <a class="reference internal" href="Glossary.html#term-Result"><span class="xref std std-term">résultat</span></a> sont définis comme obligatoires dans la définition du type d’élément pour la tâche. Il est impossible de définir ces valeurs par l’écran de saisie du travail réel.</p>
+<p>Le changement de statut doit être effectué dans la section traitement de l’écran de définition de la tâche.</p>
+</div>
+</section>
+</section>
+<section id="pool-of-ressource-management">
+<span id="timesheet-pool"></span><h2>Gestion du réservoir de ressources<a class="headerlink" href="#pool-of-ressource-management" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Lorsque l’option <strong>afficher les réservoirs sur la feuille de temps</strong> est activée, lorsqu’une ressource est affectée à une activité en même temps qu’un réservoir de ressources dont elle fait partie, elle verra la ligne pour elle-même et la ligne pour le réservoir de ressources.</p>
+<p>Lorsque l’option est désactivée, la ressource ne voit que sa ligne.</p>
+<figure class="align-default" id="id17">
+<img alt="Feuille de temps avec les lignes de ressource et de réservoir de ressources" src="_images/REALWORK_ZONE_TimesheetPool1.png" />
+<figcaption>
+<p><span class="caption-text">Feuille de temps avec les lignes de ressource et de réservoir de ressources</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque l’option est définie sur <strong>non</strong>, vous pouvez choisir d’afficher au moins le reste à faire sur celle-ci.</p>
+<p>L’option suivante <strong>afficher le réservoir pour mettre à jour leur reste à faire</strong> vous permet d’afficher une ligne pour le réservoir sous la ligne de ressource pour modifier le reste à faire.</p>
+<p>une icône apparaît alors à la fin de la ligne de ressource pour le réservoir.</p>
+<figure class="align-default" id="id18">
+<img alt="icône réservoir de ressources" src="_images/REALWORK_ZONE_IconPool.png" />
+<figcaption>
+<p><span class="caption-text">icône réservoir de ressources pour le reste à faire</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez dessus et une ligne est disponible pour modifier le reste à faire pour le réservoir de ressources.</p>
+<figure class="align-default" id="id19">
+<img alt="ligne de réservoir de ressources" src="_images/REALWORK_ZONE_PoolRAF.png" />
+<figcaption>
+<p><span class="caption-text">ligne de réservoir de ressource</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="timesheet-validation">
+<span id="validation-timesheet"></span><h2>Validation de la feuille de temps<a class="headerlink" href="#timesheet-validation" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-default" id="id20">
+<img alt="Validation de la feuille de temps" src="_images/REALWORK_ZONE_TimesheetValidation.png" />
+<figcaption>
+<p><span class="caption-text">Validation de la feuille de temps</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>L’écran de validation de la feuille de temps permet au chef de projet de recevoir, vérifier et valider le temps alloué hebdomadairement par les ressources à une activité pour tous les projets.</p>
+<section id="id3">
+<h3>Sélection et filtres<a class="headerlink" href="#id3" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez filtrer l’affichage de cet écran par ressource, par équipe et par période.</p>
+<p>La visibilité des ressources dans la liste est définie selon vos droits définis par votre profil.</p>
+<p>Vous pouvez augmenter la restriction d’affichage avec la possibilité de n’afficher que certaines des demandes de validation.</p>
+</section>
+<section id="color-code">
+<h3>Code couleur<a class="headerlink" href="#color-code" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Selon le travail accompli par la ressource, et selon la charge de travail attendue pour cette ressource.</p>
+<p>Le chef de projet reçoit la feuille de temps avec un code couleur précis.</p>
+<ul class="simple">
+<li><p><strong>Vert :</strong> Le travail accompli est le même que celui attendu.</p></li>
+<li><p><strong>Rouge :</strong> La charge de travail renseignée est plus courte ou plus longue. Elle ne correspond pas au travail attendu.</p></li>
+<li><p><strong>Orange :</strong> le travail n’est pas le même que le travail attendu mais la charge est la même.</p></li>
+</ul>
+<figure class="align-default" id="id21">
+<img alt="code orange" src="_images/REALWORK_ZONE_ImputationOrange.png" />
+<figcaption>
+<p><span class="caption-text">Exemple de charges complétées qui génèrent le code couleur orange</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="validation">
+<h3>Validation<a class="headerlink" href="#validation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Dans la colonne <strong>Feuille de temps soumise</strong>, vous voyez la date et l’heure auxquelles la ressource a envoyé la soumission.</p>
+<p>Dans la colonne <strong>Validation de la feuille de temps</strong>, vous avez la possibilité de valider le travail ou d’annuler la soumission pour que la ressource puisse corriger son travail.</p>
+</section>
+</section>
+<section id="monthly-consolidation">
+<span id="index-2"></span><span id="id4"></span><h2>Consolidation mensuelle<a class="headerlink" href="#monthly-consolidation" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>La consolidation mensuelle vous permet de visualiser, contrôler et valider les allocations de ressources à un projet particulier pour un mois entier. Cet écran listera tous les projets sur lesquels l’utilisateur a une visibilité.</p>
+<figure class="align-default" id="id22">
+<img alt="Écran de consolidation mensuelle" src="_images/REALWORK_SCR_MonthlyConsolidation.png" />
+<figcaption>
+<p><span class="caption-text">Écran de consolidation mensuelle</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Les filtres limiteront la liste :</strong></p>
+<ul class="simple">
+<li><p>Projet pour restreindre les projets listés à ce projet et ses sous-projets</p></li>
+<li><p>Type de projet pour restreindre les projets listés aux projets de ce type</p></li>
+<li><p>Organisation pour restreindre les projets listés aux projets de cette organisation</p></li>
+<li><p>Mois et année pour restreindre à cette date</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Par défaut, ce sera le dernier mois pour lequel les projets sont encore bloqués, ou à défaut ce sera le mois en cours.</p>
+</div>
+<p><strong>Cet écran affichera pour chaque projet non validé :</strong></p>
+<ul class="simple">
+<li><p>Le CA actuellement connu</p></li>
+<li><p>La charge validée actuellement connue</p></li>
+<li><p>La charge réelle totale actuellement connue du projet</p></li>
+<li><p>La charge réelle consommée sur le projet pour le mois sélectionné</p></li>
+<li><p>Le reste à faire actuellement connu</p></li>
+<li><p>La charge réévaluée actuellement connue</p></li>
+<li><p>La marge actuellement connue (charge) = charge validée - charge réévaluée</p></li>
+</ul>
+<p>Pour les projets validés, les données affichées sont celles stockées lors de la validation.</p>
+<p class="rubric">Bloquer un projet sur un mois</p>
+<p>Les boutons <a class="reference internal" href="_images/unlocked.png"><img alt="Déverrouillé" src="_images/unlocked.png" style="width: 19.2px; height: 19.2px;" /></a> et <a class="reference internal" href="_images/locked.png"><img alt="Verrouillé" src="_images/locked.png" style="width: 19.2px; height: 19.2px;" /></a> vous permettent de bloquer ou débloquer les charges au-delà de la date de fin de mois. Lorsque le projet est bloqué pour un mois donné, vous ne pouvez pas saisir de charge pour le mois suivant, même s’il a commencé. Le blocage sera propagé récursivement aux sous-projets.</p>
+<p class="rubric">Valider un projet sur un mois</p>
+<p>Les boutons <a class="reference internal" href="_images/submitted.png"><img alt="Déverrouillé" src="_images/submitted.png" style="width: 19.2px; height: 19.2px;" /></a> et <a class="reference internal" href="_images/unsubmitted.png"><img alt="Verrouillé" src="_images/unsubmitted.png" style="width: 19.2px; height: 19.2px;" /></a> vous permettent de bloquer ou débloquer les charges au-delà de la date de fin de mois. Lorsque le projet est bloqué pour un mois donné, vous ne pouvez pas saisir de charge pour le mois suivant, même s’il a commencé. Le blocage sera propagé récursivement aux sous-projets.</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>L’accès au bouton de blocage / déblocage et au bouton de validation sera configuré par un <a class="reference internal" href="AccessRights.html#monthly-consolidation-rights"><span class="std std-ref">droit spécifique</span></a>.</p>
+</div>
+</section>
+<section id="absences">
+<span id="absence"></span><h2>Absences<a class="headerlink" href="#absences" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les absences doivent être déclarées le plus tôt possible afin que le calcul de votre planning de projet tienne compte de l’indisponibilité des ressources.</p>
+<p>ProjeQtOr propose deux types d’enregistrements de travail non productif :</p>
+<ul class="simple">
+<li><p>Un système simple, celui des absences, lié à un projet administratif qui permettra d’enregistrer du travail réel à l’avenir.</p></li>
+<li><p>un système complexe, celui des <a class="reference internal" href="HumanResources.html#human-resources"><span class="std std-ref">ressources humaines</span></a>, lié à un système de contrats et de droits acquis au fil du temps.</p></li>
+</ul>
+<p>Les absences sont liées à un projet de type administratif.</p>
+<figure class="align-default" id="id23">
+<img alt="écran des absences" src="_images/REALWORK_SCR_Absence.png" />
+<figcaption>
+<p><span class="caption-text">écran des absences</span><a class="headerlink" href="#id23" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Un seul projet est nécessaire pour toutes les ressources, sans qu’elles soient allouées à ce projet.</p>
+<aside class="topic">
+<p class="topic-title">Sections</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="Un" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#resource-selector"><span class="std std-ref">Sélecteur de ressource</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Deux" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#type-absence"><span class="std std-ref">Types d’absences</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Trois" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#accelerator"><span class="std std-ref">Accélérateur</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Quatre" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#calendar-absence"><span class="std std-ref">calendrier</span></a></p>
+</aside>
+<p class="rubric" id="resource-selector">Sélecteur de ressource</p>
+<p>Selon vos droits et votre profil, vous pouvez avoir accès aux ressources que vous gérez ou uniquement à vous-même.</p>
+<p>Sélectionnez la ressource dont vous souhaitez ajouter les jours non productifs ainsi que l’année sur laquelle ces jours seront conservés.</p>
+<p class="rubric" id="type-absence">Types d’absences</p>
+<p>Chaque type d’absence est une activité liée au projet administratif.</p>
+<p>Vous pouvez créer autant d’activités que de types d’absences.</p>
+<p>vous devez d’abord sélectionner une activité pour pouvoir cliquer sur les jours du calendrier.</p>
+<p class="rubric" id="accelerator">Accélérateur</p>
+<p>Après avoir sélectionné le type de congé, cliquez sur les accélérateurs pour saisir la valeur sélectionnée directement dans les cases de dates du calendrier.</p>
+<ul class="simple">
+<li><p>1 : journée complète</p></li>
+<li><p>0,5 : demi-journée sur le type de congé sélectionné</p></li>
+<li><p>0 : supprimer les jours déjà saisis</p></li>
+</ul>
+<p>Vous pouvez combiner une récurrence d’absence pour un jour donné.</p>
+<ul class="simple">
+<li><p>Sélectionnez la valeur du jour (0,5, 1) puis sélectionnez un jour dans la liste déroulante.</p></li>
+<li><p>Les jours correspondants seront marqués absents pour la valeur précédemment sélectionnée à partir de la date actuelle jusqu’à la fin de l’année en cours.</p></li>
+</ul>
+<p>Vous pouvez également sélectionner une période entre deux dates pour appliquer la valeur sélectionnée.</p>
+<p class="rubric" id="calendar-absence">Calendrier</p>
+<p>Sélectionnez le type de congé dans la liste existante.</p>
+<p>Cliquez sur les cases des dates concernées par le travail non productif ou utilisez les accélérateurs.</p>
+<p>Les cases sont remplies avec la couleur du type de congé.</p>
+<p>Si vous utilisez le système d’absence des ressources humaines, vous verrez apparaître le projet dédié.</p>
+<figure class="align-default" id="id24">
+<img alt="liste des projets et des activités associées sur l'écran des absences" src="_images/REALWORK_ZONE_ListProject.png" />
+<figcaption>
+<p><span class="caption-text">liste des projets et des activités associées sur l’écran des absences</span><a class="headerlink" href="#id24" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les absences enregistrées via le système de ressources humaines seront toujours affichées sur l’écran des absences.</p>
+<p>Autres couleurs</p>
+<p><a class="reference internal" href="_images/REALWORK_ZONE_AbsenceGraypal.png"><img alt="Jours de congé" src="_images/REALWORK_ZONE_AbsenceGraypal.png" style="width: 17.849999999999998px; height: 18.549999999999997px;" /></a> indique les jours non ouvrés.</p>
+<p><a class="reference internal" href="_images/REALWORK_ZONE_AbsenceGray.png"><img alt="Jours imputés" src="_images/REALWORK_ZONE_AbsenceGray.png" style="width: 19.25px; height: 19.25px;" /></a> indique le travail réel (feuille de temps).</p>
+<p><a class="reference internal" href="_images/REALWORK_ZONE_AbsenceStrie.png"><img alt="Jours soumis à validation" src="_images/REALWORK_ZONE_AbsenceStrie.png" style="width: 19.25px; height: 18.9px;" /></a> indique que la semaine a été soumise/validée.</p>
+<p><a class="reference internal" href="_images/REALWORK_ZONE_AbsenceGrayStrie.png"><img alt="Jours soumis à validation après imputation" src="_images/REALWORK_ZONE_AbsenceGrayStrie.png" style="width: 18.9px; height: 18.9px;" /></a> indique que le travail réel enregistré a été soumis/validé.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Saisie du travail réel</a><ul>
+<li><a class="reference internal" href="#timesheet">Feuille de temps</a><ul>
+<li><a class="reference internal" href="#selection-and-filters">Sélection et filtres</a></li>
+<li><a class="reference internal" href="#switch-display">Changer l’affichage</a></li>
+<li><a class="reference internal" href="#tools">Outils</a><ul>
+<li><a class="reference internal" href="#display">Affichage</a></li>
+<li><a class="reference internal" href="#filter">Filtre</a></li>
+<li><a class="reference internal" href="#export">Exporter</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#data-entry-validation">Validation de saisie</a></li>
+<li><a class="reference internal" href="#task-zone">Zone de tâches</a><ul>
+<li><a class="reference internal" href="#charges-on-tickets">charges sur les tickets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#entry-field">Champ de saisie</a></li>
+<li><a class="reference internal" href="#the-status-of-tasks">Le statut des tâches</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pool-of-ressource-management">Gestion du réservoir de ressources</a></li>
+<li><a class="reference internal" href="#timesheet-validation">Validation de la feuille de temps</a><ul>
+<li><a class="reference internal" href="#id3">Sélection et filtres</a></li>
+<li><a class="reference internal" href="#color-code">Code couleur</a></li>
+<li><a class="reference internal" href="#validation">Validation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#monthly-consolidation">Consolidation mensuelle</a></li>
+<li><a class="reference internal" href="#absences">Absences</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Report.html"
+                          title="Chapitre précédent">Rapports</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Collaboration.html"
+                          title="Chapitre suivant">Collaboration</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Report.html" title="Rapports"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Real work allocation / Timesheet</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

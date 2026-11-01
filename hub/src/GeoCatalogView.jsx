@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchStatus, fetchPositions, fetchPosition, sync as syncCatalog, loadCommunes, validate, correct, reset, useRef as useRefApi, push } from "./geoCatalogClient.js";
 import { STATUS_LABELS, SOURCE_LABELS, confidenceTone, filterPositions, sortPositions, summarize, orderedRefs, mapPoints, validCoords, fmtCoord } from "./geoCatalog.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Catalogue de positions » (livraison #429, backlog 67) : pour
 // chaque lieu du SI, la ou les données de référence (fiches agrégées ou
 // extraites des référentiels), l'interprétation géographique la plus
@@ -136,7 +137,7 @@ export default function GeoCatalogView({ onBack, geoCatalogApiBase, groups = [],
             ))}
           </div>
           <div className="ss-frame-body">
-            <table className="gc-table">
+            <AutoColumns id="GeoCatalogView.1"><table className="gc-table">
               <thead><tr><th>Donnée(s) de référence</th><th>Interprétation la plus précise</th><th>Position</th><th>Justesse</th><th></th></tr></thead>
               <tbody>{shown.map((p) => {
                 const refs = orderedRefs(p.refs);
@@ -163,7 +164,7 @@ export default function GeoCatalogView({ onBack, geoCatalogApiBase, groups = [],
                   </tr>
                 );
               })}</tbody>
-            </table>
+            </table></AutoColumns>
             {shown.length === 0 && <p className="muted" style={{ padding: 8 }}>{rows.length ? "Rien pour ce filtre." : "Catalogue vide : lancer « Synchroniser » (lit les géolocalisations de pixel-grid)."}</p>}
           </div>
         </div>

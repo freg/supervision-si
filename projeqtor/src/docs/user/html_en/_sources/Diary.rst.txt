@@ -1,0 +1,280 @@
+.. include:: ImageReplacement.txt
+   
+.. index:: Diary
+.. index:: Resource (Diary)
+
+
+.. _diary:
+
+#####
+Diary
+#####
+
+The calendar allows you to view a resource's scheduled tasks in a calendar-like view.
+
+This view can be daily, weekly, or monthly, and the tiles can be personalized.
+
+
+.. figure:: /images/GUI/DIARY_SCR_DiaryPresentation.png
+   :alt: Diary calendar selector
+   :align: center
+   
+   Diary calendar
+   
+Display Options
+###############
+   
+
+.. topic:: Display options for the calendar
+
+   |one| :ref:`First day<firstday>`
+   
+   |two| :ref:`Today button<todaydiary>`
+   
+   |three| :ref:`Format Date<formatdiary>`
+      
+   |four| :ref:`Resource<resourcediary>`
+      
+   |five| :ref:`Options<optionsdiary>`
+
+  
+.. _firstday:
+    
+.. rubric:: First day
+
+Displays a specific date.
+
+The first day of the week or month is displayed depending on the selected view (weekly, monthly).
+
+
+
+
+.. _todaydiary:
+    
+.. rubric:: Today button
+
+Click on the today button to go to today's date.
+
+
+
+.. _formatdiary:
+
+.. rubric:: Display format 
+
+Choose from 3 different display modes: monthly, weekly or daily
+
+   * **Month**
+   
+     Allows you to view the full month (1 to 31).
+   
+   * **Week**
+   
+     Allows you to view the 5 days of the week with days off or not. Monday to friday with disply of hours.
+   
+   * **Day**
+   
+     Allows you to view the full day with hours.
+   
+
+You can also change this display by clicking on the edges of the day boxes.
+
+* Click the arrow to the left of the box to display the week.
+
+* Click the day number to display the full day only. 
+
+.. figure:: /images/GUI/DIARY_ZONE_ArrowFormatDate.png
+   :alt: arrow to change the calendar display format
+   
+   Arrow to change the calendar display format
+   
+
+
+.. _resourcediary:
+
+.. rubric:: Resource
+
+The resource drop-down list allows you to select the resource of your choice to view their calendar.
+
+You must have visibility rights to the resources; otherwise, you will only see your name.
+
+This field is read-only if you do not have visibility rights on other resources. 
+
+
+
+.. _optionsdiary:
+
+Diary Options
+#############
+
+
+
+.. figure:: /images/GUI/DIARY_BOX_OptionsDiary.png
+   :alt: Diary options
+   
+   Diary options
+   
+   
+Display on Diary
+****************
+
+   
+**Show large element**
+
+Switch from a standard "tile" to a wider tile that fits the height of the square and which allows more informations to be displayed.
+
+
+.. figure:: /images/GUI/DIARY_ZONE_LargeElement.png
+   :alt: large element on diary
+   
+   Large element on diary
+   
+   
+When the "Large Element" view is selected, a new option appears allowing you to display the workload on the element.
+
+This is the "show work on element" option
+
+   
+.. figure:: /images/GUI/DIARY_BOX_NewOption.png
+   :alt: New option with large element
+   
+   New option with large element
+   
+   
+.. seealso:: 
+   
+   :ref:`workload on element<workelement>`
+   
+      
+
+**Show idle element**
+
+As on any ProjeQtOr screen, you have the possibility to display closed elements.
+
+
+**Show done element**
+
+In the same way you have the possibility of displaying the elements already completed, that is to say in a "done" status.
+
+
+
+**Show offdays (weekend)**
+
+Display or not non-working days
+
+.. figure:: /images/GUI/DIARY_SCR_WithoutDaysOff.png
+   :alt: Diary view without days off
+   
+   View of the newspaper without non-working days on the weekend
+
+
+.. _workelement:
+
+**Show Work on element**
+
+.. figure:: /images/GUI/DIARY_ZONE_WorkDiary.png
+   :alt: Show work on element
+   
+   Show work on element
+
+
+
+
+.. _itemdiary:
+
+Diary management
+****************
+
+.. figure:: /images/GUI/DIARY_BOX_ManagementOptions.png
+   :alt: Diary management
+   
+   Diary management
+
+* In a case, click on |Add| to create a new item.
+
+* Click on |Status| to display status and filter items.
+
+.. figure:: /images/GUI/DIARY_ZONE_StatusFilter.png
+   :alt: Status filters
+   
+   Status filters
+
+* Click on |GlobalView| to display only certain items on the calendar like activities, meetings, actions, tickets...
+
+.. image:: /images/GUI/DIARY_ZONE_SelectedItem.png
+
+
+
+
+
+.. _daynumber:
+
+Display on tiles and case
+*************************
+
+The tiles are customizable and you can choose what information to see directly on the tile.
+
+.. figure:: /images/GUI/DIARY_BOX_DisplayOntiles.png
+   :alt: Display on tiles options
+   
+   Display on tiles options
+   
+
+You can display:
+
+   * the status, 
+   * the responsible, 
+   * the priority of the item, 
+   * the type, 
+   * the product version linked, 
+   * the planning/parent activity linked
+   * the project name and his color.
+   
+Some elements are only visible on large tiles.   
+
+* Click |Edit| to open the pop-up window corresponding to the selected item.
+
+* Click |Time| to directly open the timesheet screen with the selected item's row and the current day.
+
+* Click on |Goto| click to open the item on its dedicated screen.
+
+
+
+Create an item on a case
+------------------------
+   
+You can add certain items directly from the calendar.
+
+Hover over a box to see the create button appear.
+
+This also works on days off.
+
+.. Figure:: /images/GUI/DIARY_BOX_NewItem.png
+   :alt: New item
+   
+   New item
+   
+
+   
+   
+   
+.. _diary-items:
+
+Diary Items
+***********
+
+Each item the resource is assigned to is displayed in its log.
+
+All types of holidays and deliveries are also displayed.
+
+The color that appears on the objects are those of the project to which they are attached.
+
+.. image:: /images/GUI/DIARY_ZONE_DetailDay.png
+ 
+ 
+Right click on an item allow you to diplayed the contextual menu.
+
+Several actions are proposed. 
+
+
+.. image:: /images/GUI/DIARY_BOX_ContextualMenu.png
+

@@ -16,4 +16,4 @@ RUN mkdir -p /app/data
 EXPOSE 5000
 
 # gunicorn en prod-like dès le squelette, évite de changer de serveur plus tard
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app:app"]

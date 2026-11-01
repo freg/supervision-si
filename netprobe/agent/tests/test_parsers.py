@@ -254,6 +254,8 @@ class Iperf3(unittest.TestCase):
         self.assertFalse(P.parse_iperf3_json("not json")["ok"])
         self.assertFalse(P.parse_iperf3_json("[]")["ok"])
         self.assertFalse(P.parse_iperf3_json('{"end":{}}')["ok"])
+        u = P.parse_iperf3_json('{"end":{"sum":{"bits_per_second":8000000,"jitter_ms":2.3456,"lost_percent":0.42,"lost_packets":3,"packets":700}}}')
+        self.assertEqual((u["ok"], u["sent_mbps"], u["jitter_ms"], u["loss_pct"], u["packets"]), (True, 8.0, 2.346, 0.42, 700))
 
 
 class SysFiles(unittest.TestCase):

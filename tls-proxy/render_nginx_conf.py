@@ -99,6 +99,7 @@ TROIS types de service, traités différemment :
   avec ce préfixe. Non plus vérifié en conditions réelles.
 """
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -158,6 +159,20 @@ SERVICES = [
     # retro-api (livraison #243) -- tuile "Rétro-ingénierie", item 30
     # du backlog.
     ("RETRO_API_PORT", "retro-api", 5000, "/api/retro/", "api"),
+    # portage-api (livraison #650) -- projets de portage PHP → Python (imports volumineux : voir client_max_body_size).
+    ("PORTAGE_API_PORT", "portage-api", 5000, "/api/portage/", "api"),
+    # qa-api (livraison #651) -- tests QA en ligne d'un site déployé (Playwright), captures servies par l'API.
+    ("QA_API_PORT", "qa-api", 5000, "/api/qa/", "api"),
+    # datasync-api (livraison #652) -- API source centrale : les connecteurs du parc poussent ici (lots jusqu'à 64 Mo).
+    ("DATASYNC_API_PORT", "datasync-api", 5000, "/api/datasync/", "api"),
+    # vuln-api (livraison #688) -- SBOM, OSV, EPSS, KEV (SBOM d'hôte : jusqu'à 100 Mo, voir client_max_body_size).
+    ("VULN_API_PORT", "vuln-api", 5000, "/api/vuln/", "api"),
+    # groupware-api (livraison #664) -- noyau groupware (partages, catégories, liens, préférences) ; radicale = CalDAV/CardDAV
+    # sous /dav/ (préfixe retiré, X-Script-Name pour que Radicale génère des hrefs en /dav/…, méthodes WebDAV passées telles quelles).
+    ("GROUPWARE_API_PORT", "groupware-api", 5000, "/api/groupware/", "api"),
+    ("RADICALE_PORT", "radicale", 5232, "/dav/", "dav"),
+    # dns-api (livraison #656) -- DNS éditable (OVH / Scaleway / intranet BIND).
+    ("DNS_API_PORT", "dns-api", 5000, "/api/dns/", "api"),
     # backup-restore-api (livraison #249) -- sous-volet "backup-restore",
     # item 27 du backlog, marqué URGENT par la personne.
     ("BACKUP_RESTORE_API_PORT", "backup-restore-api", 5000, "/api/backup-restore/", "api"),
@@ -177,6 +192,8 @@ SERVICES = [
     ("TASKS_API_PORT", "tasks-api", 5000, "/api/tasks/", "api"),
     # rights-api (livraison #283) -- service central de droits.
     ("RIGHTS_API_PORT", "rights-api", 5000, "/api/rights/", "api"),
+    # accounts-api (livraison #557) -- comptes et groupes (Keycloak).
+    ("ACCOUNTS_API_PORT", "accounts-api", 5000, "/api/accounts/", "api"),
     # netprobe-api (livraisons #295/#297/#301) -- sondage réseau actif.
     # Manque trouvé en finalisant #301 : la tuile hub et son client
     # appelaient déjà /api/netprobe, jamais routé -- 404 systématique
@@ -190,10 +207,25 @@ SERVICES = [
     # est retiré ici (même mécanique que netprobe). Ajouté dès la
     # première livraison (piège #301).
     ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # hermes-web (livraison #911) -- tuile « Hermes ». Service OPTIONNEL (profil compose « hermes »). Chemin /hermes/
+    # (préfixe retiré) : /hermes/api/... -> hermes-web:8092 /api/... ; type « api-stream » = SANS TAMPON (SSE du chat).
+    ("HERMES_WEB_PORT", "hermes-web", 8092, "/hermes/", "api-stream"),
+    # network-equipment-api (livraison #506) -- équipements réseau (identification, profils SNMP).
+    ("NETWORK_EQUIPMENT_API_PORT", "network-equipment-api", 5000, "/api/network-equipment/", "api"),
     # si-proxy-admin-api (livraison #454) -- pont de la tuile « Bastion »
     # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
     # première livraison (piège #301).
     ("SI_PROXY_ADMIN_API_PORT", "si-proxy-admin-api", 5000, "/api/si-proxy/", "api"),
+    # services-api (livraison #584) -- feu tricolore / redémarrage des
+    # conteneurs. Socket Docker derrière, mais jeton Keycloak vérifié +
+    # liste d'utilisateurs (même modèle que si-proxy-admin-api), d'où le
+    # routage -- contrairement à docker-monitor-api (#376) sans auth.
+    ("SERVICES_API_PORT", "services-api", 5000, "/api/services/", "api"),
+    # notify-api (livraison #590) -- notifications et gestionnaire d'envoi ;
+    # routé aussi pour les services EXTERNES (jeton de consommateur).
+    ("NOTIFY_API_PORT", "notify-api", 5000, "/api/notify/", "api"),
+    # licenses-api (livraison #595) -- licences logicielles par site.
+    ("LICENSES_API_PORT", "licenses-api", 5000, "/api/licenses/", "api"),
     # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
     ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.
@@ -204,6 +236,10 @@ SERVICES = [
     # jamais laissé pour une passe ultérieure.
     ("RELATIONS_API_PORT", "relations-api", 5000, "/api/relations/", "api"),
     ("IMAP_CLIENT_API_PORT", "imap-client-api", 5000, "/api/imap-client/", "api"),
+    # imap-connectors (livraison #489) — gestionnaire de connecteurs
+    # IMAP : boîtes de réception → API du hub (tickets, pont « suivi »,
+    # Zenoss→pixel-grid, SMS, notifications), journal + statistiques.
+    ("IMAP_CONNECTORS_API_PORT", "imap-connectors", 5000, "/api/imap-connectors/", "api"),
     # glpi-api (livraison #192) -- import Excel pour l'instant, base
     # du futur "tuile+api" GLPI (backlog).
     ("GLPI_API_PORT", "glpi-api", 5000, "/api/glpi/", "api"),
@@ -217,8 +253,37 @@ SERVICES = [
     ("RSYSLOG_LISTENER_API_PORT", "rsyslog-listener", 5000, "/api/rsyslog-listener/", "api"),
     ("LDAP_ADMIN_API_PORT", "ldap-admin-api", 5000, "/api/ldap-admin/", "api"),
     ("PREFS_API_PORT", "prefs-api", 5000, "/api/prefs/", "api"),
+    ("MESSAGES_API_PORT", "messages-api", 5000, "/api/messages/", "api"),   # #903 : blog du hub
     ("VAULT_API_PORT", "vault-api", 5000, "/api/vault/", "api"),
     ("SUPERVISION_FRONTEND_PORT", "frontend", 5173, "/app/", "spa"),
+    # projeqtor-app (livraison #476) — fork de ProjeQtOr (Apache/PHP).
+    # Type "spa" : préfixe CONSERVÉ, jamais de rewrite — le docroot
+    # Apache contient le dossier projeqtor/ (/var/www/html/projeqtor),
+    # les URLs /projeqtor/... s'y résolvent donc directement, comme
+    # dans le déploiement traditionnel de ProjeQtOr en sous-dossier.
+    ("PROJEQTOR_PORT", "projeqtor-app", 80, "/projeqtor/", "spa"),
+    # projeqtor-bridge (livraison #484) — pont « suivi »/ProjeQtOr/hub.
+    # URI À PART, demandée explicitement : formulaire PUBLIC de dépôt
+    # de demande (LAN, sans authentification) + import/export xlsx au
+    # format imposé + statut de la sync. Le service sert lui-même ses
+    # pages sous ce préfixe (jamais de rewrite, comme projeqtor-app).
+    ("PROJEQTOR_BRIDGE_PORT", "projeqtor-bridge", 5000, "/demande/", "spa"),
+    # mikrotik (livraison #485) — supervision/commande des routeurs
+    # MikroTik (API REST RouterOS v7). Le service sert lui-même son
+    # interface sous ce préfixe (jamais de rewrite, même patron que
+    # projeqtor-bridge).
+    ("MIKROTIK_API_PORT", "mikrotik-api", 5000, "/mikrotik/", "spa"),
+    # cisco-api (livraison #508) -- équipements Cisco, page servie par le service.
+    ("CISCO_API_PORT", "cisco-api", 5000, "/cisco/", "spa"),
+    # service-watch-api (livraison #531) -- entrées de services, page servie par le service.
+    ("SERVICE_WATCH_API_PORT", "service-watch-api", 5000, "/service-watch/", "spa"),
+    # assistant-api (livraison #532) -- PoC assistant IA, page servie par le service (profil assistant).
+    ("ASSISTANT_API_PORT", "assistant-api", 5000, "/assistant/", "spa"),
+    # credentials-api (livraison #498) — coffre des accès d'équipements.
+    # Le service sert sa page sous ce préfixe ; la révélation
+    # (/credentials/reveal/) répond 404 dès que la requête porte les
+    # en-têtes X-Forwarded-* posés ici : jamais accessible du navigateur.
+    ("CREDENTIALS_API_PORT", "credentials-api", 5000, "/credentials/", "spa"),
     ("SUPERVISION_HUB_PORT", "hub", 5173, "/", "spa"),
     ("TICKETS_PORTAL_PORT", "tickets-portal", 5173, "/tickets/", "spa"),
     ("DBA_PORTAL_PORT", "dba-portal", 5173, "/dba/", "spa"),
@@ -322,6 +387,45 @@ API_LOCATION_TEMPLATE = """\
     }}
 """
 
+# SSE / flux (hermes-web, #911) : comme "api" (préfixe retiré) MAIS SANS TAMPON -- un flux Server-Sent Events doit
+# arriver au fil de l'eau (sinon la réponse reste bloquée côté passerelle jusqu'à la fin, piège déjà vécu sur pcia).
+API_STREAM_LOCATION_TEMPLATE = """\
+    location {path} {{
+        set $backend {service}:{container_port};
+        rewrite ^{path}(.*)$ /$1 break;
+        proxy_pass http://$backend$uri$is_args$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        chunked_transfer_encoding on;
+        proxy_read_timeout 960s;
+    }}
+"""
+
+# WebDAV (Radicale, #664) : comme "api" (préfixe retiré) + X-Script-Name = préfixe pour que les hrefs renvoyés (PROPFIND)
+# soient en /dav/… ; corps jusqu'à 100 Mo (import d'un agenda), délai long (synchronisation initiale d'un téléphone).
+DAV_LOCATION_TEMPLATE = """\
+    location {path} {{
+        set $backend {service}:{container_port};
+        rewrite ^{path}(.*)$ /$1 break;
+        proxy_pass http://$backend$uri$is_args$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Script-Name /dav;
+        proxy_pass_header Authorization;
+        proxy_read_timeout 600s;
+        client_max_body_size 100m;
+    }}
+"""
+
 # SPA/Keycloak : préfixe CONSERVÉ -- AUCUN `rewrite` (contrairement à
 # "api" ci-dessus) : sans rewrite, $uri reste le chemin ORIGINAL reçu
 # tel quel, transmis explicitement (voir API_LOCATION_TEMPLATE
@@ -389,6 +493,19 @@ server {{
     listen {gateway_port} ssl;
     server_name _;
 
+    # #734 : HTTP/2 (requêtes multiplexées sur une connexion), sessions TLS réutilisées (pas de poignée complète à
+    # chaque connexion), JSON / JS / CSS compressés. Le frontal Apache public retire déjà Accept-Encoding vers
+    # l'amont (scripts/front-reverse-proxy.sh, substitution d'origine) : il reçoit toujours du non compressé.
+    http2 on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1h;
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types application/json application/javascript text/javascript text/css text/plain application/xml image/svg+xml;
+
     # Résolveur DNS interne de Docker (adresse standard, fixe, sur
     # tout réseau défini par l'utilisateur -- voir docstring du
     # module pour le raisonnement complet). "valid=10s" : durée de
@@ -416,6 +533,105 @@ server {{
 
 FOOTER = "}\n"
 
+# #574 : relais HTTPS entiers sur un port dédié -- une interface web tierce
+# (ex. Proxmox) servie à la racine (elle ne supporte pas un sous-chemin),
+# atteinte à travers un tunnel SSH du hub (ssh-tunnels-api:<port local>)
+# ouvert depuis un hôte qui, lui, voit la cible. Websockets relayés
+# (consoles noVNC). Réglage .env : RELAY1_PORT / RELAY1_TARGET (et RELAY2_*).
+RELAY_TEMPLATE = """
+# Relais {label} : port {port} -> https://{target} (#574)
+server {{
+    listen {port} ssl;
+    server_name _;
+    resolver 127.0.0.11 valid=10s;
+    ssl_certificate     /etc/nginx/tls/server.crt;
+    ssl_certificate_key /etc/nginx/tls/server.key;
+    client_max_body_size 2G;
+    location / {{
+        set $relay_upstream https://{target};
+        proxy_pass $relay_upstream;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }}
+}}
+"""
+
+
+# #798 : écran web du navigateur d'un hôte d'agent (noVNC), publié par le bastion (SI_PROXY_PUBLISH=<port>=<shim>:127.0.0.1:6080)
+# puis servi SOUS LA MÊME ORIGINE que le hub : /navigateur/<nom>/ -> http://si-proxy:<port>/ (websocket relayé).
+# Réglage .env : NAVIGATEURS=ovh1=6490,campus=6491. Mot de passe VNC demandé par l'écran.
+NAV_LOCATION_TEMPLATE = """
+    # Navigateur de l'hôte « {nom} » (#798) : écran noVNC publié par le bastion sur si-proxy:{port}
+    location /navigateur/{nom}/ {{
+        resolver 127.0.0.11 valid=10s;
+        set $nav_upstream_{i} http://si-proxy:{port};
+        rewrite ^/navigateur/{nom}/(.*)$ /$1 break;
+        proxy_pass $nav_upstream_{i};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }}
+"""
+
+
+def navigateurs_from_env(env):
+    """[(nom, port)] d'après NAVIGATEURS=nom=port,nom=port (noms : minuscules, chiffres, tirets)."""
+    raw = os.environ.get("NAVIGATEURS", env.get("NAVIGATEURS", "")).strip()
+    out, vus = [], set()
+    for item in [x.strip() for x in raw.split(",") if x.strip()]:
+        nom, _, port = item.partition("=")
+        nom, port = nom.strip(), port.strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", nom):
+            raise ValueError("NAVIGATEURS : nom invalide « %s » (minuscules, chiffres, tirets)" % nom)
+        if not port.isdigit() or not (1024 <= int(port) <= 65535):
+            raise ValueError("NAVIGATEURS : port invalide pour %s : %s" % (nom, port))
+        if nom in vus:
+            raise ValueError("NAVIGATEURS : %s en double" % nom)
+        vus.add(nom)
+        out.append((nom, int(port)))
+    return out
+
+
+def relays_from_env(env):
+    """[(port, target, label)] d'après RELAYn_PORT / RELAYn_TARGET / RELAYn_LABEL (n = 1..4)."""
+    out = []
+    for n in range(1, 5):
+        target = os.environ.get("RELAY%d_TARGET" % n, env.get("RELAY%d_TARGET" % n, "")).strip()
+        port = os.environ.get("RELAY%d_PORT" % n, env.get("RELAY%d_PORT" % n, "")).strip()
+        if not target or not port:
+            continue
+        if not port.isdigit() or not (1024 <= int(port) <= 65535):
+            raise ValueError("RELAY%d_PORT invalide : %s" % (n, port))
+        if not re.fullmatch(r"[A-Za-z0-9._-]+:\d{2,5}", target):
+            raise ValueError("RELAY%d_TARGET attendu sous la forme service:port : %s" % (n, target))
+        label = os.environ.get("RELAY%d_LABEL" % n, env.get("RELAY%d_LABEL" % n, "")).strip() or ("relais %d" % n)
+        out.append((int(port), target, label))
+    return out
+
+
+def instance_routes():
+    """#731 : routes des instances clonées (deploy/instances.json) -- vide si le registre ou le module manque."""
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "deploy"))
+        import instances
+        return instances.routes(instances.load_registry())
+    except Exception:
+        return []
+
 
 def build_config(env):
     gateway_port = resolve_gateway_port(env)
@@ -423,7 +639,7 @@ def build_config(env):
     locations = []
     summary = [f"  Port unique (GATEWAY_PORT) : {gateway_port}", ""]
     seen_paths = {}
-    for var_name, service, container_port, path, kind in SERVICES:
+    for var_name, service, container_port, path, kind in SERVICES + instance_routes():
         if service == "__HOST_IP__":
             service = host_ip
         if path in seen_paths:
@@ -432,14 +648,24 @@ def build_config(env):
 
         if kind == "api":
             template = API_LOCATION_TEMPLATE
+        elif kind == "dav":
+            template = DAV_LOCATION_TEMPLATE
         elif kind == "api-static":
             template = API_LOCATION_TEMPLATE_STATIC
+        elif kind == "api-stream":
+            template = API_STREAM_LOCATION_TEMPLATE
         else:
             template = SPA_LOCATION_TEMPLATE
         locations.append(template.format(path=path, service=service, container_port=container_port))
         summary.append(f"  {path:<20} -> {service}:{container_port}  ({kind}, {var_name} historique)")
 
+    for i, (nom, port) in enumerate(navigateurs_from_env(env)):
+        locations.append(NAV_LOCATION_TEMPLATE.format(nom=nom, port=port, i=i))
+        summary.append(f"  /navigateur/{nom}/  -> si-proxy:{port}  (écran du navigateur de l'hôte, #798)")
     config = HEADER_TEMPLATE.format(gateway_port=gateway_port) + "\n".join(locations) + FOOTER
+    for port, target, label in relays_from_env(env):
+        config += RELAY_TEMPLATE.format(port=port, target=target, label=label)
+        summary.append(f"  relais {label} : port {port} -> https://{target}")
     return config, summary
 
 

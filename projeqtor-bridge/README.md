@@ -1,0 +1,209 @@
+# projeqtor-bridge — pont « suivi » / ProjeQtOr / hub
+
+Livraison #484. Pont entre le **format Excel imposé par la société**
+(« Tableau des suivis des demandes »), **ProjeQtOr**
+(source de vérité des demandes) et la **gestion de tickets du hub**
+(file « imports à valider », même mécanisme que les imports ICS #273).
+
+## Ce que fait le module
+
+| Besoin (demandé) | Réponse |
+| --- | --- |
+| Module d'import prenant le format en entrée | `POST /demande/import` (upload xlsx) + bouton sur `/demande/admin` |
+| Module d'export agrégé au même format | `GET /demande/export` — toutes les demandes ProjeQtOr, colonnes/listes/formules identiques au fichier imposé |
+| Interface simplifiée non authentifiée (LAN) | `GET /demande/` — formulaire public, URI à part, sans authentification (confirmé explicitement) |
+| Les demandes saisies vont dans ProjeQtOr | Création via l'API REST ProjeQtOr (compte dédié, jamais admin) |
+| Les demandes ProjeQtOr arrivent dans les imports à valider du hub | Boucle de sync → `POST /tickets/import-external` de tickets-api (`pending_validation=1`) |
+| Import des utilisateurs depuis le LDAP central | `docker compose exec projeqtor-bridge python ldap_import.py [--dry-run]` |
+
+## Principe structurant : ProjeQtOr est la source de vérité
+
+Tout ce qui entre (formulaire public, import xlsx) est **écrit dans
+ProjeQtOr** ; le hub n'importe rien directement. La synchronisation
+ProjeQtOr → hub lit `/api/Ticket/updated/...` et pousse chaque nouvelle
+demande vers tickets-api — qui **déduplique** par
+`source_type + source_nom` (« ProjeQtOr #<id> »). L'état local du pont
+(`data/sync_state.json`) n'est qu'une optimisation de trafic : sa perte
+ne crée jamais de doublon.
+
+## Saisie publique : deux présentations sans icône (#500)
+
+Demandé explicitement : « une page hors hub et non authentifiée (mais
+propulsée par le même httpd/URL) permettant aux utilisateurs de saisir
+rapidement une demande : pas d'icône, deux designs ». Même posture LAN
+que `/demande/` (#484), servies par ce service derrière tls-proxy :
+
+- **`/demande/rapide`** — dépouillé « tabloïd » (papier, une colonne,
+  aucun pictogramme) : demandeur, sujet, priorité, catégorie, durée,
+  commentaire, et un champ **Détails** qui ouvre un **volet** de texte
+  formaté (gras, italique, listes) avec un titre ; on peut ajouter
+  autant de blocs qu'on veut, les modifier, les retirer. À l'envoi, le
+  HTML de l'éditeur est converti côté service en texte lisible partout
+  (`**gras**`, `_italique_`, puces `- `), balises et scripts retirés —
+  jamais de HTML stocké.
+- **`/demande/tableau`** — « Excel en ligne » identique au fichier
+  attendu à l'import : lettres de colonnes, numéros de lignes à partir
+  de 9, en-tête ligne 8 rouge et gras, mêmes colonnes (Id, Date de
+  demande, Demandeur, Sujet, Niveau de priorité, Catégorie, Durée (j),
+  Commentaire, Accomplissement, Date de cloture), listes déroulantes
+  alimentées par les référentiels, Entrée en fin de ligne ajoute une
+  ligne. « Vérifier » = analyse sans création ; « Envoyer » passe par
+  `POST /demande/import` en JSON (`{rows: [...]}`) — exactement le
+  chemin du fichier.
+
+Les deux alimentent **la gestion de tickets du hub (imports à valider)
+et ProjeQtOr** (`target` par défaut `both`) ; ProjeQtOr indisponible
+n'empêche jamais l'enregistrement côté hub. `/demande/referentiels`
+renvoie les listes par défaut du format (`source: "defaut"`) quand
+ProjeQtOr n'a rien : une page publique n'est jamais sans liste.
+
+**Une seule clé par demande, jamais de doublon** : chaque demande passée
+par le pont reçoit une clé `<LABEL>:…` (Id du tableau, empreinte, ou
+tirage pour une saisie) qui est à la fois l'`externalReference` du
+ticket ProjeQtOr et le `source_nom` du ticket hub (`source_type`
+`demande`). La synchronisation ProjeQtOr → hub reconnaît cette clé et
+retrouve « déjà connu » ; seuls les tickets nés dans ProjeQtOr arrivent
+par elle (`projeqtor` / `ProjeQtOr #id`).
+
+## Import d'un tableau (#497) : xlsx, xls, csv → hub et/ou ProjeQtOr
+
+Constat de la personne sur un fichier réel : « l'import ne fonctionne
+pas et n'est pas branché sur les tickets du hub, seulement sur
+ProjeQtOr ». Depuis #497, `POST /demande/import` (page `/demande/admin`) :
+
+- **Formats** reconnus à la signature du fichier, jamais à l'extension :
+  `.xlsx` (openpyxl), `.xls` Excel 97-2003 (xlrd), `.csv` (`;` `,` tab,
+  UTF-8 ou cp1252). Un fichier qui n'est rien de tout cela répond 400
+  « fichier illisible ».
+- **En-têtes cherchés par nom** dans les 40 premières lignes (synonymes :
+  Sujet / Objet / Demande / Titre, Demandeur / Utilisateur / Contact,
+  Date / Date de demande, Priorité / Niveau / Urgence, Catégorie / Type,
+  Durée / Charge, Commentaire / Description, Accomplissement /
+  Avancement, Clôture / Fermeture). Sans en-têtes reconnaissables :
+  format imposé (ligne 8, colonnes A..O), signalé dans les
+  avertissements. Une colonne absente est laissée vide, signalée.
+- **Valeurs tolérées** : dates en texte (`12/09/2026`, `2026-09-12`, …)
+  ou numéro de série Excel, durées `3`, `3 j`, `1,5`, accomplissement
+  `0.5`, `50 %`, `50`. Une valeur inexploitable est laissée vide et
+  signalée ligne par ligne ; seule une ligne sans sujet est ignorée.
+- **Cibles** (`target`) : `tickets` (gestion de tickets du hub, file
+  « imports à valider », `source_type=tableau`, `source_nom=<LABEL>:<Id>`
+  ou empreinte date+demandeur+sujet — réimporter le même fichier ne crée
+  jamais de doublon, tickets-api répond 409 « déjà connu »),
+  `projeqtor`, ou `both` (défaut). ProjeQtOr injoignable n'empêche
+  jamais l'import côté hub, et inversement ; chaque cible rend son
+  compte (`cibles.tickets`, `cibles.projeqtor`).
+- **`dry_run=1`** (« Analyser sans importer ») : aperçu des lignes
+  interprétées + avertissements, rien n'est créé.
+
+## Format « suivi des demandes »
+
+Source unique : `suivi_format.py` (colonnes, listes de référence,
+validations, formules J/K/L/M, table `Tableau1` A8:K104). Le même code
+sert à l'import **et** à l'export — les deux ne peuvent pas dériver.
+
+Correspondance ProjeQtOr (voir `mapping.py`) :
+
+| Colonne du tableau | Champ ProjeQtOr |
+| --- | --- |
+| Sujet | `name` |
+| Commentaire | `description` + ligne récap `[<LABEL>]` |
+| Demandeur | `idContact` (résolu par nom) |
+| Niveau de priorité | `idUrgency` (résolu par nom) |
+| Catégorie | `idTicketType` (résolu par nom) |
+| Date de demande | `creationDateTime` |
+| Date de clôture | `done=1` + `doneDateTime` |
+| Id | `externalReference` (`<LABEL>:<id>`) |
+
+**Rien de perdu** : durée (j) et accomplissement n'ont pas de colonne
+ProjeQtOr native — ils sont inscrits dans la ligne `[<LABEL>]` de la
+description et relus par l'export. Un nom non résolu (absent des
+référentiels ProjeQtOr) n'empêche jamais la création : il est signalé
+dans le compte rendu et conservé en clair.
+
+`<LABEL>` est le marqueur choisi au déploiement : `PROJEQTOR_BRIDGE_LABEL`
+dans `.env` (défaut `SUIVI`), typiquement le nom du service de support
+— une valeur de déploiement, jamais dans le dépôt (#494). Le choisir
+une fois : le changer après des imports casse la relecture des
+anciennes demandes à l'export (`tests/test_mapping.py` couvre les
+deux sens).
+
+## Mise en route
+
+1. Créer dans ProjeQtOr un utilisateur dédié (ex. `bridge`) avec le
+   profil suffisant pour créer des tickets (profil « Gestionnaire de
+   projet » ou équivalent).
+2. Reporter son mot de passe dans `.env` (`PROJEQTOR_API_PASSWORD` —
+   `sync-env.py` insère les clés automatiquement depuis #479).
+3. `./scripts/chantier.sh` — le service est routé par tls-proxy sous
+   `/demande/` (penser au `restart tls-proxy` après le premier
+   déploiement, piège #151).
+4. Formulaire public : `https://<hôte>:6443/demande/` ; import/export :
+   `/demande/admin`.
+
+## Import LDAP central
+
+Adresse et compte de lecture dans `.env` (`CENTRAL_LDAP_*` — secret,
+renseigné à la main). Attributs par défaut `uid`/`cn`/`mail`,
+surchargeables. Toujours `--dry-run` d'abord :
+
+```bash
+docker compose exec projeqtor-bridge python ldap_import.py --dry-run
+docker compose exec projeqtor-bridge python ldap_import.py
+```
+
+Un utilisateur existant (même login, insensible à la casse/accents)
+n'est jamais écrasé ni dupliqué. Le mot de passe local créé est
+aléatoire et inutilisable — l'authentification réelle se fait par LDAP
+(paramLdap_*, voir projeqtor/README.md) ; ProjeQtOr exige simplement
+qu'un mot de passe local existe.
+
+## Posture de sécurité (assumée, confirmée par la personne)
+
+`/demande/` est **sans authentification sur le LAN** : quiconque sur le
+réseau peut déposer une demande, importer ou exporter. C'est le même
+niveau de confiance que le reste du hub côté client (aucune
+vérification de rôle côté serveur, voir prefs-api/README). Ne jamais
+exposer `/demande/` hors du LAN sans reconsidérer ce choix.
+
+## Tests
+
+`tests/smoke_test.py` — app Flask contre un faux ProjeQtOr et un faux
+tickets-api en mémoire : formulaire, référentiels, dépôt (résolu, non
+résolu, validations), import du fichier xlsx réel, export relu,
+synchronisation avec déduplication (état local **et** côté hub).
+Le format xlsx a en plus son propre round-trip vérifié
+(parse → régénère → reparse) pendant le développement.
+
+## Espace « Simple » pour les non-initiés (livraison #541)
+
+Brief et principes : `docs/ergonomie-redesign.md`. Quatre écrans dans la
+charte de la saisie rapide (`static/simple.css`), servis sous `/demande/` :
+
+| Adresse | Question | Ce qu'elle fait |
+|---|---|---|
+| `/demande/accueil` | Que voulez-vous faire ? | quatre portes en phrases ; affiche d'abord les pannes connues |
+| `/demande/rapide` | Quelque chose ne marche pas | l'existant, plus le **numéro de suivi** (`D-…`) après l'envoi |
+| `/demande/suivi` | Où en est ma demande ? | `GET /demande/suivi/<D-…>` : reçue / en cours / résolue, dates, conseil -- jamais le contenu ni un nom |
+| `/demande/etat` | Est-ce que ça marche ? | `GET /demande/etat.json` : services en français, états datés, dépendances propagées (« X en panne, donc Y ne marche pas ») |
+
+Le numéro public dérive de la clé du pont (`<label>:s:<hex>` → `D-<hex>`),
+le suivi cherche le ticket hub `source_type = demande` correspondant via
+`/queue`. Référentiel des services : `ETAT_SERVICES_FILE`
+(`/data/services.json`, exemple fictif fourni : id, nom courant, sert_a,
+depend_de) ; états : `ETAT_ETATS_FILE` (`/data/etats.json`, posé par
+l'exploitation ; un service absent = ça marche). Logique pure dans
+`simple.py` (`plain_status`, `impacted`, `etat_des_services`,
+`public_ref`), tests `tests/test_simple.py`.
+
+États vivants (#542) : un service peut déclarer `sources.service_watch`
+(noms d'entrées) ; le pont interroge `SERVICE_WATCH_API_INTERNAL_URL`
+(`/service-watch/entries`), la pire entrée fait l'état (critical → panne,
+warning → dégradé, `depuis` = dernier passage), les états posés par
+l'exploitation l'emportent (message humain, prévision). Depuis #545,
+deux autres sources : `sources.cortex` (clés d'entités `ip:` / `mac:` /
+`name:` ; un incident ouvert ou pris en charge qui les touche → panne ou
+dégradé, message selon la prise en charge, `CORTEX_API_INTERNAL_URL`) et
+`sources.si_agent` (noms d'hôtes ; agent hors ligne → panne,
+`SI_AGENT_API_INTERNAL_URL`, `/fleet`). Entre sources automatiques, la
+pire l'emporte. Suite : référentiel partagé avec le hub.

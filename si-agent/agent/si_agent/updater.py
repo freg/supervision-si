@@ -1,0 +1,267 @@
+# -*- coding: utf-8 -*-
+"""Auto-mise à jour de l'agent (livraison #522), déclenchée par une commande
+`update` du central -- jamais spontanée.
+
+Demandé : « que les agents soient en mesure de s'auto mettre à jour, que
+dans le front on voie l'état des mises à jour, avec un contrôle sur le
+déploiement : un premier qui bêta-teste, puis activation volontaire de
+l'administrateur ; auto-installation mais déploiement contrôlé depuis le
+central ». Le CENTRAL décide (canal bêta, activation générale, cadence) et
+envoie `update {version, sha256, url}` ; l'AGENT télécharge l'archive par
+le même TLS que ses dépôts, vérifie le SHA-256, l'extrait et lance
+l'installeur de sa plateforme en mode `--upgrade` (configuration, secret,
+CA et sondes conservés), DÉTACHÉ de son propre processus (systemd-run /
+nouvelle session) puisque l'installeur le redémarre. Il acquitte
+« démarré » avant de s'arrêter ; au redémarrage, un marqueur permet
+d'émettre `agent-updated` (ou `agent-update-failed` si la version n'a pas
+changé). Logique pure séparée (vérification, choix de l'installeur,
+marqueur) : tests/test_updater.py."""
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+
+def verify_archive(data, expected_sha256):
+    """SHA-256 de l'archive téléchargée == annoncé par le central."""
+    got = hashlib.sha256(data).hexdigest()
+    exp = (expected_sha256 or "").lower().replace("sha256:", "")
+    return got == exp, got
+
+
+def safe_extract(tar, dest):
+    """Extraction refusant tout chemin sortant de dest."""
+    base = os.path.abspath(dest)
+    for m in tar.getmembers():
+        target = os.path.abspath(os.path.join(base, m.name))
+        if not (target == base or target.startswith(base + os.sep)):
+            raise ValueError("chemin refusé dans l'archive : %s" % m.name)
+        if m.issym() or m.islnk():
+            raise ValueError("lien refusé dans l'archive : %s" % m.name)
+    tar.extractall(base)
+
+
+def find_root(dest):
+    """Le dossier si-agent-agent-<version>/ extrait (un seul attendu)."""
+    dirs = [d for d in os.listdir(dest) if d.startswith("si-agent-agent-") and os.path.isdir(os.path.join(dest, d))]
+    return os.path.join(dest, dirs[0]) if len(dirs) == 1 else None
+
+
+def systemd_version(run=None):
+    """#696 : version de systemd (`systemd-run --version` -> « systemd 232 ... »), 0 si inconnue."""
+    import re
+    import subprocess
+    try:
+        out = (run or (lambda a: subprocess.run(a, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10).stdout.decode("utf-8", "replace")))(
+            ["systemd-run", "--version"])
+        m = re.search(r"systemd (\d+)", out or "")
+        return int(m.group(1)) if m else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def installer_command(root, platform=None, which=None, log_path=None, sd_version=None):
+    """Commande DÉTACHÉE de l'installeur en mode --upgrade, selon la plateforme.
+    #685 : sous systemd-run, la sortie de l'installeur part dans le journal de
+    l'unité transitoire, pas dans la sortie de systemd-run -- d'où des échecs
+    « journal vide » ; elle est redirigée explicitement vers `log_path`."""
+    platform = platform or sys.platform
+    which = which or shutil.which
+    if platform == "win32":
+        # #921 : lancé par une tâche planifiée ponctuelle (voir _spawn_tache_windows), donc déjà HORS de la tâche de
+        # l'agent : -Relance évite la seconde relance de #918 (seulement si l'installeur du paquet la connaît).
+        ps1 = os.path.join(root, "windows", "install.ps1")
+        argv = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1, "-Upgrade"]
+        try:
+            with open(ps1, encoding="utf-8-sig", errors="replace") as fh:
+                if "$Relance" in fh.read():
+                    argv.append("-Relance")
+        except OSError:
+            pass
+        return argv, "windows-task"
+    if platform == "darwin":
+        return ["/bin/bash", os.path.join(root, "install-macos.sh"), "--upgrade"], "setsid"
+    script = os.path.join(root, "install.sh")
+    if which("systemd-run"):
+        unit = "si-agent-update-%d" % int(time.time())
+        # #696 : --collect n'existe qu'à partir de systemd 236 (Debian 9 = 232 : « unrecognized option »)
+        sd = systemd_version() if sd_version is None else sd_version
+        base = ["systemd-run", "--unit", unit] + (["--collect"] if sd >= 236 else []) + ["--quiet"]
+        if log_path:
+            return base + ["/bin/bash", "-c", 'exec /bin/bash "$0" --upgrade >>"$1" 2>&1', script, log_path], "systemd-run"
+        return base + ["/bin/bash", script, "--upgrade"], "systemd-run"
+    return ["/bin/bash", script, "--upgrade"], "setsid"
+
+
+def _vt(v):
+    try:
+        return tuple(int(x) for x in str(v or "0").split("."))
+    except ValueError:
+        return (0,)
+
+
+def pending_path(state_path):
+    return os.path.join(os.path.dirname(state_path or "/var/lib/si-agent/state.json"), "update-pending.json")
+
+
+def write_pending(path, from_version, to_version, command_id, now=None, log_path=None):
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"from": from_version, "to": to_version, "command": command_id, "at": int(now or time.time()), "log": log_path}, fh)
+
+
+def log_tail(path, lines=30):
+    """#576 : dernières lignes du journal de l'installeur (diagnostic d'une mise à jour qui n'a rien donné)."""
+    if not path:
+        return ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return "".join(fh.readlines()[-lines:])[-4000:]
+    except OSError:
+        return ""
+
+
+STALL_SECONDS = 900
+
+
+def check_stalled(path, current_version, now=None):
+    """#576 : l'installeur a été lancé mais l'agent tourne toujours, même
+    version, après STALL_SECONDS -> événement agent-update-failed avec la fin
+    du journal de l'installeur ; le marqueur est consommé. None sinon."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            p = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if (now or time.time()) - int(p.get("at") or 0) < STALL_SECONDS or _vt(current_version) >= _vt(p.get("to")):
+        return None
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    tail = log_tail(p.get("log"))
+    return ("agent-update-failed", "warning", "mise à jour %s → %s : l'installeur n'a pas relancé l'agent (toujours en %s)%s"
+            % (p.get("from"), p.get("to"), current_version, (" -- " + tail.strip().splitlines()[-1][:200]) if tail.strip() else " -- journal vide"),
+            dict(p, log_tail=tail))
+
+
+def check_pending(path, current_version, now=None):
+    """Au démarrage : (événement, détails) ou None ; le marqueur est consommé."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            p = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    if p.get("to") == current_version or _vt(current_version) > _vt(p.get("to")):  # une version plus récente vaut succès
+        return ("agent-updated", "info", "agent mis à jour %s → %s" % (p.get("from"), current_version), p)
+    return ("agent-update-failed", "warning", "mise à jour %s → %s non appliquée (version courante %s)" % (p.get("from"), p.get("to"), current_version), dict(p, log_tail=log_tail(p.get("log"))))
+
+
+def run_update(agent, params, fetch, spawn=None, current_version=None):
+    """Exécute la commande `update`. `fetch(path) -> bytes` télécharge par le
+    client HTTP de l'agent (même TLS, même CA) ; `spawn(cmd, mode)` lance
+    l'installeur détaché (injectable pour les tests)."""
+    current_version = current_version or __import__("si_agent").__version__
+    target = str(params.get("version") or "")
+    if not target:
+        return {"ok": False, "error": "params.version requis"}
+    if target == current_version:
+        return {"ok": True, "result": {"already": True, "version": current_version}}
+    url = params.get("url") or "/package"
+    try:
+        data = fetch(url)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": "téléchargement impossible : %s" % exc}
+    ok, got = verify_archive(data, params.get("sha256"))
+    if not ok:
+        return {"ok": False, "error": "SHA-256 différent (reçu %s…) : archive refusée" % got[:16]}
+    # #577 : JAMAIS dans /tmp -- le service tourne avec PrivateTmp=true, et
+    # l'installeur lancé par systemd-run vit dans une autre unité (autre /tmp) :
+    # il ne trouvait pas le script, d'où des mises à jour « lancées » sans
+    # effet ni journal. L'archive s'extrait dans le dossier d'état de l'agent.
+    base = os.path.join(os.path.dirname(pending_path(agent.cfg.get("state_path"))), "update")
+    try:
+        os.makedirs(base, exist_ok=True)
+        for old in os.listdir(base):  # une seule extraction à la fois
+            shutil.rmtree(os.path.join(base, old), ignore_errors=True)
+    except OSError:
+        base = None
+    dest = tempfile.mkdtemp(prefix="si-agent-update-", dir=base)
+    try:
+        with tarfile.open(fileobj=__import__("io").BytesIO(data), mode="r:gz") as tar:
+            safe_extract(tar, dest)
+        root = find_root(dest)
+        if not root:
+            return {"ok": False, "error": "archive sans dossier si-agent-agent-<version>"}
+    except (tarfile.TarError, ValueError, OSError) as exc:
+        shutil.rmtree(dest, ignore_errors=True)
+        return {"ok": False, "error": "archive illisible : %s" % exc}
+    pend = pending_path(agent.cfg.get("state_path"))
+    log_path = os.path.join(os.path.dirname(pend), "update-%d.log" % int(time.time()))  # #576 : sortie de l'installeur conservée
+    cmd, mode = installer_command(root, log_path=log_path)
+    write_pending(pend, current_version, target, params.get("command_id"), log_path=log_path)
+    try:
+        (spawn or _spawn)(cmd, mode, log_path)
+    except Exception as exc:  # noqa: BLE001 -- lancement impossible (droits, binaire) : dit tout de suite
+        try:
+            os.unlink(pend)
+        except OSError:
+            pass
+        return {"ok": False, "error": "lancement de l'installeur impossible : %s" % exc}
+    return {"ok": True, "result": {"started": True, "from": current_version, "to": target, "installer": mode, "log": log_path}}
+
+
+TACHE_MAJ_WINDOWS = "si-agent-update"
+
+
+def _spawn_tache_windows(cmd, log_path=None, run=subprocess.run):
+    """#921 : l'installeur Windows est lancé par une TÂCHE PLANIFIÉE ponctuelle (compte SYSTEM) qui exécute un petit
+    .cmd redirigeant toute sa sortie (erreurs comprises) dans le journal de mise à jour. Constat sur pc-paul : lancé
+    par l'agent en processus « détaché » (sans console), powershell.exe ne démarrait pas -- journaux update-*.log
+    vides, aucune mise à jour automatique jamais aboutie ; et lancé dans la tâche de l'agent, il serait tué avec lui
+    à l'arrêt de l'agent (#918). Ici : console cachée normale, tâche indépendante de celle de l'agent."""
+    dossier = os.path.dirname(log_path) if log_path else tempfile.gettempdir()
+    enveloppe = os.path.join(dossier, "update-run.cmd")
+    ligne = subprocess.list2cmdline(cmd) + ((' >> "%s" 2>&1' % log_path) if log_path else "")
+    with open(enveloppe, "w", encoding="mbcs" if sys.platform == "win32" else "utf-8", errors="replace", newline="") as fh:
+        fh.write("@echo off\r\n" + ligne + "\r\n")
+    for argv in (["schtasks", "/Create", "/F", "/TN", TACHE_MAJ_WINDOWS, "/RU", "SYSTEM", "/RL", "HIGHEST",
+                  "/SC", "ONCE", "/ST", "00:00", "/TR", '"%s"' % enveloppe],
+                 ["schtasks", "/Run", "/TN", TACHE_MAJ_WINDOWS]):
+        r = run(argv, capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            raise OSError("%s : %s" % (" ".join(argv[:2]), ((r.stdout or "") + (r.stderr or "")).strip()[:300]))
+    return enveloppe
+
+
+def _spawn(cmd, mode, log_path=None):
+    if mode == "windows-task":
+        try:
+            _spawn_tache_windows(cmd, log_path)
+            return
+        except Exception as exc:  # noqa: BLE001 -- repli : lancement direct, console cachée (jamais « détaché »)
+            if log_path:
+                try:
+                    with open(log_path, "a", encoding="utf-8") as fh:
+                        fh.write("tâche planifiée de mise à jour impossible (%s) : lancement direct\n" % exc)
+                except OSError:
+                    pass
+            mode = "windows-direct"
+    try:
+        out = open(log_path, "ab") if log_path else subprocess.DEVNULL
+    except OSError:
+        out = subprocess.DEVNULL
+    kw = {"stdin": subprocess.DEVNULL, "stdout": out, "stderr": subprocess.STDOUT if out is not subprocess.DEVNULL else subprocess.DEVNULL, "close_fds": True}
+    if mode in ("detached", "windows-direct") and sys.platform == "win32":
+        # #921 : console cachée (CREATE_NO_WINDOW) et non DETACHED_PROCESS, avec lequel powershell.exe ne démarrait pas
+        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    elif mode == "setsid":
+        kw["start_new_session"] = True
+    subprocess.Popen(cmd, **kw)

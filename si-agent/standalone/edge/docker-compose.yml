@@ -1,0 +1,16 @@
+# Aiguillage sur super (livraison #517) -- un seul conteneur nginx sur le
+# port de la passerelle, vers la VM autonome des agents. Projet compose
+# si-agent-edge, piloté par si-agent/standalone/run.sh edge … ; INCOMPATIBLE
+# avec tls-proxy en marche (même port) : arrêter la passerelle du hub avant.
+services:
+  edge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-6443}:${GATEWAY_PORT:-6443}"
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - SI_STANDALONE_UPSTREAM=${SI_STANDALONE_UPSTREAM:?SI_STANDALONE_UPSTREAM (ip:port du front autonome) manquant dans .env}
+    volumes:
+      - ./edge.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${PKI_DIR:-../../../pki}/server:/etc/nginx/tls:ro

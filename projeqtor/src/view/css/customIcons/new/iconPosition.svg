@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Calque_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="128px" height="128px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve">
+<path fill="none" stroke="#FF0000" stroke-width="5.1263" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M44.182,76.295c-2.17-4.84-5.965-9.35-9.658-9.35c-4.489,0-2.203,3.443-8.408,3.443H25.41c-6.206,0-3.921-3.443-8.408-3.443
+	c-5.373,0-10.961,9.543-11.449,15.76c-0.485,6.174,0,2.24,0,2.24"/>
+<path fill="none" stroke="#FF0000" stroke-width="5.1263" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M80.757,88.174"/>
+<path fill="none" stroke="#FF0000" stroke-width="5.1263" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M124.409,82.42c0,0,0.521,5.029,0-0.293c-0.526-5.354-6.563-13.57-12.365-13.57c-4.849,0-2.379,2.967-9.081,2.967H102.2
+	c-6.701,0-4.233-2.967-9.08-2.967c-3.662,0-7.415,3.273-9.819,7.031"/>
+<ellipse fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" cx="64.051" cy="45.211" rx="16.727" ry="21.953"/>
+<path fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M114.572,50.231c0,1.403-1.139,2.546-2.545,2.546h-18.67c-1.406,0-2.545-1.143-2.545-2.546V31.136c0-1.406,1.139-2.545,2.545-2.545
+	h18.67c1.406,0,2.545,1.139,2.545,2.545V50.231z"/>
+<polygon fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" points="
+	24.759,53.413 9.611,53.413 17.184,40.685 24.759,27.955 32.333,40.685 39.908,53.413 "/>
+<path fill="none" stroke="#FF0000" stroke-width="6.4159" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M89.283,110.91V91.211c0,0-0.145-1.771-0.846-4.086c-1.324-4.361-4.63-10.65-12.696-10.65c-12.346,0-10.487,0-10.487,0h-4.762
+	c0,0,1.858,0-10.489,0c-12.346,0-13.542,14.736-13.542,14.736v19.699"/>
+<path fill="none" stroke="#FF0000" stroke-width="5.1263" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+	M77.337,61.081"/>
+<g id="Calque_2" display="none">
+	<g display="inline">
+		<path fill="#FF0000" d="M58.242,71.699l2.234,26.217l31.167-59.624L32.04,69.458L58.242,71.699z M64.55,77.678l-0.964-11.313
+			l-2.424-0.214l-8.907-0.758L78.004,51.93L64.55,77.678z M70.143,16.587V9.075h-5.768v7.512
+			c-23.596,1.438-42.438,20.281-43.876,43.869h-7.512v5.767h7.512c1.438,23.59,20.281,42.424,43.876,43.869v7.506h5.768v-7.506
+			c23.588-1.445,42.416-20.279,43.861-43.869h7.52v-5.767h-7.52C112.559,36.868,93.73,18.026,70.143,16.587z M67.259,104.465
+			c-22.72-0.044-41.095-18.427-41.125-41.125c0.029-22.712,18.404-41.087,41.125-41.131c22.697,0.044,41.072,18.419,41.116,41.131
+			C108.331,86.053,89.956,104.421,67.259,104.465z"/>
+	</g>
+</g>
+</svg>

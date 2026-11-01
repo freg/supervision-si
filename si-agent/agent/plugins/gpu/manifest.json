@@ -1,0 +1,13 @@
+{
+  "id": "gpu",
+  "version": "1",
+  "runner": "python",
+  "entry": "gpu_probe.py",
+  "interval_seconds": 120,
+  "timeout_seconds": 30,
+  "args": [],
+  "enabled": false,
+  "description": "Cartes graphiques de l'hôte (#782) : modèle, pilote, mémoire vidéo occupée / totale, charge, température, consommation, processus qui occupent la carte (NVIDIA : nvidia-smi ; Intel et autres : lspci + capteurs du noyau). Constats : carte sans pilote (inutilisable), mémoire vidéo presque pleine, température élevée, nvidia-smi en échec. Lecture seule. Non privilégiée.",
+  "source": "bundled",
+  "privileged": false
+}

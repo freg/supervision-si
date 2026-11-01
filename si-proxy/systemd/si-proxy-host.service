@@ -10,6 +10,8 @@ Wants=network-online.target
 Type=simple
 EnvironmentFile=/etc/si-proxy/host.env
 WorkingDirectory=/opt/si-proxy
+# #575 : SI_PROXY_HOST_NAME (nom du shim) et SI_PROXY_SERVER_NAME (tunnel SSH) lus dans host.env
+Environment=SI_PROXY_HOST_NAME=hub
 ExecStart=/usr/bin/python3 -m siproxy.hostshim --relay ${SI_PROXY_RELAY} --ca ${SI_PROXY_CA} --token ${SI_PROXY_HOST_TOKEN} --shell-user ${SI_PROXY_SHELL_USER} --log-level ${SI_PROXY_LOG_LEVEL}
 Restart=always
 RestartSec=5

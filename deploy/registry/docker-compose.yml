@@ -1,0 +1,16 @@
+# #738 : registre d'images local du déploiement réparti, sur le nœud constructeur (« builder » dans deploy/nodes.json).
+# Lancement : cd <dépôt>/deploy/registry && SI_REGISTRY_BIND=10.99.0.3 docker compose up -d
+# Écoute sur l'adresse VPN/LAN du nœud seulement (jamais publié sur Internet) ; données dans un volume nommé.
+name: si-registry
+services:
+  registry:
+    image: registry:2.8.3
+    restart: unless-stopped
+    ports:
+      - "${SI_REGISTRY_BIND:-127.0.0.1}:${SI_REGISTRY_PORT:-5005}:5000"
+    environment:
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    volumes:
+      - si_registry:/var/lib/registry
+volumes:
+  si_registry:

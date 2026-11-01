@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchProxyStatus, fetchProxyAudit, fetchProxySummary, killProxySession, disableProxy, enableProxy, unbanProxyIp } from "./siProxyClient.js";
 import { KIND_LABELS, EVENT_LABELS, fmtDuration, fmtBytes, clientLabel, describeEvent, sortAudit, refusalsByPeer, headline } from "./siProxy.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 5000;
 
 function Tone({ tone, children, title }) {
@@ -81,7 +82,15 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
           {status && !status.error && (
             <>
               {" · "}relais : <Tone tone="good">joignable</Tone>
-              {" · "}shim host : {status.host_connected ? <Tone tone="good">connecté</Tone> : <Tone tone="bad">absent</Tone>}
+              {" · "}shim{(status.hosts || []).length > 1 ? "s" : ""} host : {status.host_connected ? <Tone tone="good">{(status.hosts || ["hub"]).join(", ")}</Tone> : <Tone tone="bad">aucun</Tone>}
+              {(status.publications || []).length > 0 && (
+                <>{" · "}publications : {status.publications.map((p, i) => (
+                  <span key={p.port} title={`port ${p.port} du hub → ${p.target} par le shim « ${p.via} »${p.up ? "" : " (shim non connecté)"}`}>
+                    {i > 0 ? ", " : ""}<Tone tone={p.up ? "good" : "bad"}>{p.port} → {p.target} via {p.via}</Tone>
+                    {p.up && <> <a href={`https://${window.location.hostname}:${p.port}/`} target="_blank" rel="noopener noreferrer">ouvrir ↗</a></>}
+                  </span>
+                ))}</>
+              )}
               {" · "}TLS mutuel : {status.mtls ? <Tone tone="good">oui (CN {status.allow_cn?.join(", ")})</Tone> : <Tone tone="warn">non (jeton seul)</Tone>}
               {" · "}compteurs : {status.counters?.opened ?? 0} ouvertes, {status.counters?.closed ?? 0} fermées, {status.counters?.refused ?? 0} refus
             </>
@@ -101,7 +110,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         <h2 style={{ margin: "0 0 6px" }}>Sessions en cours ({sessions.length})</h2>
         {sessions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune session ouverte.</p> : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SiProxyView.1"><table>
               <thead><tr><th>#</th><th>Type</th><th>Cible</th><th>Client</th><th>Depuis</th><th>Ouverte</th><th>Durée</th><th></th></tr></thead>
               <tbody>
                 {sessions.map((s) => (
@@ -112,7 +121,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>
@@ -149,10 +158,10 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         )}
         {!summary?.targets?.length ? <p className="muted" style={{ margin: 0 }}>Aucune cible jointe dans le journal.</p> : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SiProxyView.2"><table>
               <thead><tr><th>Cible</th><th>Sessions</th><th>Types</th><th>Volume</th><th>Dernière</th></tr></thead>
               <tbody>{summary.targets.map((t) => <tr key={t.target}><td>{t.target}</td><td>{t.count}</td><td>{(t.kinds || []).map((k) => KIND_LABELS[k] || k).join(", ")}</td><td>{fmtBytes(t.bytes)}</td><td>{when(t.last)}</td></tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         <p className="muted" style={{ margin: "6px 0 0" }}>Ces cibles apparaissent aussi comme liens « bastion » dans la tuile Supervision SI (onglet Liens) — catégorie Bastion.</p>
@@ -168,7 +177,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         </h2>
         {rows.length === 0 ? <p className="muted" style={{ margin: 0 }}>Journal vide.</p> : (
           <div className="hub-table-scroll" style={{ maxHeight: 360 }}>
-            <table>
+            <AutoColumns id="SiProxyView.3"><table>
               <thead><tr><th>Quand</th><th>Événement</th><th>Détail</th></tr></thead>
               <tbody>
                 {rows.map((ev, i) => (
@@ -179,7 +188,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>

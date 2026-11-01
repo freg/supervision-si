@@ -165,6 +165,31 @@ def get_oids_route():
     return jsonify({"host": host, "port": port, "values": values}), 200
 
 
+@app.route("/walk", methods=["POST"])
+def walk_route():
+    """WALK d'un sous-arbre arbitraire (livraison #506, pour
+    network-equipment-api : ENTITY-MIB, LLDP, CDP, BRIDGE-MIB…) -- corps
+    {host, community | target_id, oid, max_rows?, port?, timeout?} ->
+    {rows: [{oid, value}], truncated}. `oid` numérique ; au plus 5000
+    lignes (défaut 2000)."""
+    body = request.get_json(silent=True) or {}
+    host, community, port, timeout, error = _target_params(body)
+    if error:
+        return jsonify({"error": error}), 400
+    oid = str(body.get("oid") or "").strip().strip(".")
+    if not oid or not oid.replace(".", "").isdigit() or oid.count(".") < 2:
+        return jsonify({"error": "'oid' : sous-arbre numérique requis (ex. 1.3.6.1.2.1.47.1.1.1.1)"}), 400
+    try:
+        max_rows = max(1, min(int(body.get("max_rows") or 2000), 5000))
+    except (TypeError, ValueError):
+        return jsonify({"error": "'max_rows' invalide"}), 400
+    try:
+        rows, truncated = snmp_client.walk_subtree(host, community, oid, port=port, timeout=timeout, max_rows=max_rows)
+    except snmp_client.SnmpError as exc:
+        return jsonify({"error": str(exc)}), 502
+    return jsonify({"host": host, "port": port, "oid": oid, "rows": rows, "truncated": truncated}), 200
+
+
 @app.route("/walk-interfaces", methods=["POST"])
 def query_interfaces():
     """WALK de la table des interfaces (IF-MIB) sur une cible --

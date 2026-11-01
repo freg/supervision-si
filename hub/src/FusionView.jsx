@@ -5,6 +5,7 @@ import {
   visibleColumns, toggleColumnVisibility, FUSION_COLUMNS, SOURCE_LABELS,
 } from "./fusionLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Fusion IP/MAC » (livraison #431, backlog 64 point 4, suite) --
 // l'onglet de l'ancienne maquette promu dans le hub : corrélation par IP
 // entre IPAM et Zenoss, calculée dans le navigateur, positions depuis
@@ -138,14 +139,14 @@ export default function FusionView({ onBack, ipamApiBase, zenossApiBase, pixelGr
             </span>
           </div>
           <div className="ss-frame-body">
-            <table className="fu-table">
+            <AutoColumns id="FusionView.1"><table className="fu-table">
               <thead><tr>{cols.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
               <tbody>{rows.slice(0, 2000).map((row) => (
                 <tr key={row.ip} className={selectedIp === row.ip ? "active" : ""} onClick={() => setSelectedIp(selectedIp === row.ip ? null : row.ip)}>
                   {cols.map((c) => <td key={c.key}>{cell(row, c.key)}</td>)}
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
             {rows.length === 0 && <p className="muted" style={{ padding: 8 }}>{loading ? "Chargement…" : merged.length ? "Rien pour ces filtres." : "Aucune IP : vérifier IPAM et Zenoss (VITE_IPAM_API_BASE_URL, VITE_ZENOSS_API_BASE_URL)."}</p>}
             {rows.length > 2000 && <p className="muted" style={{ padding: 8 }}>{rows.length} lignes, 2000 affichées : affiner le filtre.</p>}
           </div>

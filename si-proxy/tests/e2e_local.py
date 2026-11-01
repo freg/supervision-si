@@ -57,10 +57,15 @@ env = dict(os.environ, PYTHONPATH=ROOT)
 relay = subprocess.Popen([sys.executable,"-m","siproxy.relay","--cert",f"{TMP}/s.crt","--key",f"{TMP}/s.key",
     "--bind","127.0.0.1","--port",str(RELAY_PORT),"--host-token",HOST_TOKEN,"--client-token",CLIENT_TOKEN,"--log-level","WARNING",
     "--audit-log",AUDIT,"--control-port",str(CTRL_PORT),"--admin-token",ADMIN_TOKEN,
-    "--ban-threshold","3","--ban-window","60","--ban-minutes","1"],
+    "--ban-threshold","3","--ban-window","60","--ban-minutes","1",
+    "--publish",f"{PROXY_PORT+21}=campus:{IP or '127.0.0.1'}:{TARGET_PORT}","--publish",f"{PROXY_PORT+22}=absent:{IP or '127.0.0.1'}:{TARGET_PORT}",
+    "--publish-allow","127.0.0.0/8"],
     env=env, cwd=".", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 shim = subprocess.Popen([sys.executable,"-m","siproxy.hostshim","--relay",f"localhost:{RELAY_PORT}","--ca",f"{TMP}/ca.crt",
     "--token",HOST_TOKEN,"--shell-user","root","--log-level","WARNING"], env=env, cwd=".", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# #575 : un second shim nommé « campus » (même machine ici), joint par --via
+shim2 = subprocess.Popen([sys.executable,"-m","siproxy.hostshim","--relay",f"localhost:{RELAY_PORT}","--ca",f"{TMP}/ca.crt",
+    "--token",HOST_TOKEN,"--shell-user","root","--name","campus","--log-level","WARNING"], env=env, cwd=".", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(2.0)
 
 fails=[]
@@ -150,7 +155,7 @@ def ctrl(method, path, token=ADMIN_TOKEN):
 
 # Test 4 : /status + /audit (le refus du test 3 doit y figurer, sans jeton)
 st, body = ctrl("GET","/status")
-ok4 = st==200 and body.get("host_connected") is True and body.get("enabled") is True and body["counters"]["refused"]>=2
+ok4 = st==200 and body.get("host_connected") is True and body.get("enabled") is True and body["counters"]["refused"]>=2 and sorted(body.get("hosts") or [])==["campus","hub"]
 print("Test 4a contrôle /status :", "OK" if ok4 else "ECHEC %s %s"%(st,body))
 if not ok4: fails.append("status")
 st, body = ctrl("GET","/audit?limit=50")
@@ -217,7 +222,50 @@ ok7 = ok7 and body.get("killed") is True and exited and body2["counters"]["activ
 print("Test 7 session listée puis tuée (client sorti) :", "OK" if ok7 else "ECHEC sid=%s killed=%s exited=%s active=%s"%(sid,body.get("killed"),exited,body2["counters"]))
 if not ok7: fails.append("kill")
 
-for p in (proxy,cli,shim,relay):
+# Test 8 (#575) : la même cible par le shim « campus » (--via), puis un shim inconnu -> refus
+proxy2 = subprocess.Popen([sys.executable,"-m","siproxy.client","proxy","--relay",f"localhost:{RELAY_PORT}","--via","campus",
+    "--ca",f"{TMP}/ca.crt","--token",CLIENT_TOKEN,"--listen",f"127.0.0.1:{PROXY_PORT+11}"], env=env, cwd=".", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+proxy3 = subprocess.Popen([sys.executable,"-m","siproxy.client","proxy","--relay",f"localhost:{RELAY_PORT}","--via","nulle-part",
+    "--ca",f"{TMP}/ca.crt","--token",CLIENT_TOKEN,"--listen",f"127.0.0.1:{PROXY_PORT+12}"], env=env, cwd=".", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1.5)
+def via_get(port):
+    try:
+        c=socket.create_connection(("127.0.0.1",port),5); c.settimeout(8)
+        c.sendall(f"CONNECT {IP}:{TARGET_PORT} HTTP/1.1\r\nHost: {IP}\r\n\r\n".encode())
+        resp=c.recv(300); c.close(); return resp
+    except OSError as exc:
+        return repr(exc).encode()
+r_ok = via_get(PROXY_PORT+11); r_ko = via_get(PROXY_PORT+12)
+ok2c = b"200" in r_ok and b"200" not in r_ko
+print("Test 8 --via campus OK / via inconnu refusé :", "OK" if ok2c else "ECHEC %r %r"%(r_ok[:80], r_ko[:80]))
+if not ok2c: fails.append("via")
+for p_ in (proxy2, proxy3): p_.terminate()
+
+# Test 9 (#583) : port publié par le relais -> cible via le shim « campus », sans client siproxy ni jeton
+# (TCP brut, GET direct) ; le même sur un shim absent est fermé sans réponse ; l'état de contrôle les liste.
+def raw_get(port, timeout=8):
+    try:
+        c=socket.create_connection(("127.0.0.1",port),5); c.settimeout(timeout)
+        c.sendall(b"GET / HTTP/1.0\r\nHost: x\r\n\r\n")
+        buf=b""
+        while True:
+            d=c.recv(4096)
+            if not d: break
+            buf+=d
+        c.close(); return buf
+    except OSError as exc:
+        return repr(exc).encode()
+r_pub = raw_get(PROXY_PORT+21); r_abs = raw_get(PROXY_PORT+22, timeout=4)
+st9, body9 = ctrl("GET","/status")
+pubs = {p["port"]: p for p in (body9.get("publications") or [])}
+ok9 = (b"PAGE-DU-HUB-OK" in r_pub and b"PAGE-DU-HUB-OK" not in r_abs
+       and pubs.get(PROXY_PORT+21, {}).get("up") is True and pubs.get(PROXY_PORT+22, {}).get("up") is False
+       and body9.get("publish_allow") == ["127.0.0.0/8"])
+print("Test 9 port publié via campus / shim absent fermé / état :", "OK" if ok9 else "ECHEC %r %r %r"%(r_pub[:80], r_abs[:80], body9.get("publications")))
+if not ok9: fails.append("publish")
+
+
+for p in (proxy,cli,shim,shim2,relay):
     try: p.kill()
     except Exception: pass
 httpd.shutdown()

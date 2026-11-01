@@ -45,3 +45,23 @@ export async function fetchResourceTypes(apiBase) {
   const data = await fetchJson(apiBase, "/resource-types");
   return Array.isArray(data?.resource_types) ? data.resource_types : [];
 }
+
+// ------------------------------------------------ matrice des droits (#559)
+const jsonInit = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+export async function fetchVisible(apiBase, groups, user, ids, resourceType = "hub-tile") {
+  const data = await fetchJson(apiBase, "/visible", jsonInit("POST", { groups, user, ids, resource_type: resourceType }));
+  return data && !data.error ? data : null;  // null = injoignable : le hub reste ouvert (comportement historique)
+}
+export async function fetchMatrix(apiBase, resourceType = "hub-tile") {
+  return fetchJson(apiBase, `/matrix?resource_type=${encodeURIComponent(resourceType)}`);
+}
+export async function putCatalog(apiBase, groups, user, items, resourceType = "hub-tile") {
+  return fetchJson(apiBase, "/catalog", jsonInit("PUT", { groups, user, items, resource_type: resourceType }));
+}
+export async function putMatrix(apiBase, groups, user, grants) {
+  return fetchJson(apiBase, "/matrix", jsonInit("PUT", { groups, user, grants }));
+}
+export async function putRestriction(apiBase, groups, user, subject, restricted) {
+  return fetchJson(apiBase, "/restrictions", jsonInit("PUT", { groups, user, subject, restricted }));
+}

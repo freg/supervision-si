@@ -1,0 +1,3003 @@
+/*** COPYRIGHT NOTICE *********************************************************
+ *
+ * Copyright 2009-2017 ProjeQtOr - Pascal BERNARD - support@projeqtor.org
+ * Contributors : -
+ *
+ * This file is part of ProjeQtOr.
+ * 
+ * ProjeQtOr is free software: you can redistribute it and/or modify it under 
+ * the terms of the GNU Affero General Public License as published by the Free 
+ * Software Foundation, either version 3 of the License, or (at your option) 
+ * any later version.
+ * 
+ * ProjeQtOr is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for 
+ * more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along with
+ * ProjeQtOr. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You can get complete code of ProjeQtOr, other resource, help and information
+ * about contributors at http://www.ProjeQtOr.org 
+ *     
+ *** DO NOT REMOVE THIS NOTICE ************************************************/
+
+/* ============ */
+/* MODERN UI    */
+/* ============ */
+
+/* === GENERIC INPUT FORM CSS ========================================================= INPUT ===*/
+
+.ProjeQtOrNewGui .dijitTextBox, .ProjeQtOrNewGui .dijitValidationTextBox {
+    border: 1px solid var(--color-light);
+    background: #fff url() repeat-x top left;
+    barckground-color: #ffffff !important;
+}
+.ProjeQtOrNewGui .dijitTextBoxReadOnly, .ProjeQtOrNewGui .dijitTextBoxDisabled {
+    color: #606060 !important;
+    background-color: var(--color-lighter);
+    background-image: none;
+}
+
+.ProjeQtOrNewGui .dijitTextBox, .ProjeQtOrNewGui .dijitValidationTextBox {
+	color: var(--color-text);
+}
+.menu__link--current {
+ color: var(--color-dark-secondary);
+ border-left: 3px solid var(--color-dark-secondary);
+}
+.menu__link:hover {
+	color: var(--color-light-secondary);
+}
+.menu__linkDirect:hover {
+	color: var(--color-light-secondary);
+}
+.cke_chrome, .cke_bottom, .longTextLabel  {
+    border: 1px solid var(--color-light) !important;
+}
+.cke_bottom {
+	color: var(--color-medium) !important;
+}
+.longTextLabel {
+	border-bottom:0 !important;
+}
+.todoListTab {
+	border: 0 !important;
+}
+/* === LABEL CSS ====================================================================== LABEL === */
+
+label, .ProjeQtOrNewGui label, 
+.label, .ProjeQtOrNewGui .label, 
+.smallLabel, .ProjeQtOrNewGui .smallLabel, 
+.labelMultiple, .ProjeQtOrNewGui .labelMultiple{
+    text-shadow: 0px 0px var(--color-background);
+    color:var(--color-medium);
+}
+.ProjeQtOrNewGui .smallTabLabel, .ProjeQtOrNewGui .smallTabLabelRight {
+  color:var(--color-medium);
+}
+.ProjeQtOrNewGui #attachmentFileDropArea .dijitUploaderHover .dijitButtonNode, #attachmentFileDropAreaEmail .dijitUploaderHover .dijitButtonNode {
+	border-color: var(--color-secondary);
+}
+.labelWithThumb, .ProjeQtOrNewGui .labelWithThumb{
+  background-color: var(--color-background);
+  color:var(--color-medium);
+}
+.tabLabel, .ProjeQtOrNewGui .tabLabel {
+  background-color: transparent;
+  color:var(--color-medium);
+}
+.longTextLabel {
+  color:var(--color-medium);
+}
+.ProjeQtOrNewGui .textColorNewGui, .ProjeQtOrNewGui .newGuiIconText{
+  color:var(--color-dark);
+}
+.ProjeQtOrNewGui .newGuiIconText:hover{
+  color:var(--color-secondary);
+}
+.detail span.generalColClass {
+	color:var(--color-medium);
+} 
+/* === GANTT SPECIFIC CSS ============================================================= GANTT ===*/
+
+.ProjeQtOrNewGui label.ganttScale {
+	float: none;
+	background-color:var(--color-darker);
+	font-weight:normal;
+	text-shadow: 0px 0px;
+	color:var(--color-white);
+}
+
+.ProjeQtOrNewGui .ganttScaleText {
+	text-shadow: 0px 0px;
+}
+
+.ProjeQtOrNewGui .ganttNoLeftBorder {
+	border-left: 0;
+}
+
+.ProjeQtOrNewGui .ganttTaskgroup {
+	background-color:var(--color-light);
+}
+
+.ProjeQtOrNewGui .ganttRightSubTitle {
+	background: url();
+	background-color:var(--color-lighter);
+}
+
+.ProjeQtOrNewGui .ganttRightTitle, .ProjeQtOrNewGui .ganttLeftTopLine, .ProjeQtOrNewGui .ganttLeftTitle {
+	background-color:var(--color-darker);
+	text-shadow: 0px 0px;
+	font-weight:normal;
+  color:var(--color-white);
+}
+	
+.ProjeQtOrNewGui .ganttLeftTopLine .dijitReset.dijitInline.dijitButtonNode {
+	background: var(--color-darker) ;
+}
+
+.ProjeQtOrNewGui .ganttRowHover.dojoxGridRowSelected, .ProjeQtOrNewGui .dojoxGridRowSelected.dojoDndItemOver, .ProjeQtOrNewGui .ganttTaskrow.dojoxGridRowSelected {
+	color: #000000 !important;
+} 
+/* === GRID AND LINKED TO GRID CSS ==================================================== GRID ===*/
+
+.dojoxGridCell {
+  border: 1px solid transparent;
+}
+.dojoxGridRow {
+	color: var(--color-text);
+}
+.ProjeQtOrNewGui .dojoxGridHeader .dojoxGridCell {
+  background-color: var(--color-grid-header-bg) !important;
+  border: 1px solid #ccc;
+  border-right: 1px solid var(--color-grid-header-bg);
+  border-top: 0;
+  color: var(--color-grid-header-text) !important;
+  text-shadow: none;
+  font-size: 10pt;
+  padding-top: 0px;
+  vertical-align:bottom;
+  padding-bottom: 5px;
+}
+
+.ProjeQtOrNewGui .dojoxGridRowOdd, .ProjeQtOrNewGui .dojoxGridRow  {
+  background-color: var(--color-background);
+}
+
+.ProjeQtOrNewGui .dojoxGridRowSelected {
+  background-color: var(--color-grid-selected-bg) !important;
+  color: var(--color-grid-selected-text) !important;
+  /* border:1px solid grey !important; */ /* PBER : removed as it addss an axtra height on Gant Chart for selected line */
+}
+
+.ProjeQtOrNewGui .editModeRowSelected {
+  background-color: var(--color-light-secondary) !important;
+  color: unset !important;
+}
+
+.ProjeQtOrNewGui .favoriteProjectListSelected {
+  background-color: var(--color-light-secondary) !important;
+  color: var(--color-dark-secondary) !important;
+}
+
+.ProjeQtOrNewGui .dojoxGridRowOver .dojoxGridCell{
+  background: var(--color-light-secondary) !important;
+  color: var(--color-dark-secondary) !important;
+}
+
+.historyDataClosetable, .noteDataClosetable, .attachmentDataClosetable, .linkDataCloseTable, .assignDataCloseTable {
+	border:0;
+}
+/* === BUTTONS (AND SIMILAR) CSS ====================================================== BUTTON ===*/
+
+.ProjeQtOrNewGui .dijitButtonNode, 
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButtonNode {
+  background: transparent;
+  -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+  border-color : #b3b3b3;
+  color:var(--color-text);
+}
+
+.ProjeQtOrNewGui .dijitButtonDisabled .dijitButtonNode, 
+.ProjeQtOrNewGui .dijitButtonDisabled .dijitReset.dijitInline.dijitButtonNode { 
+  background: rgba(128,128,128,0.2) !important;
+}
+
+.ProjeQtOrNewGui .dijitButtonDisabled .dijitButtonNode, .ProjeQtOrNewGui .dijitButtonDisabled .dijitReset.dijitInline.dijitButtonNode { 
+  background: rgba(255,255,255,0.3) !important;
+}
+.ProjeQtOrNewGui #subscribeButtonDiv .dijitButtonDisabled .dijitButtonNode, 
+.ProjeQtOrNewGui #subscribeButtonDiv .dijitButtonDisabled .dijitReset.dijitInline.dijitButtonNode {
+  background: transparent ! important; 
+}
+
+.ProjeQtOrNewGui #changeScreenLayoutAutherPos{
+	background: var(--color-background);
+	height: 36px;
+	left:-35px;
+	width: 108px;
+	position: absolute;
+	border:1px solid var(--color-light);
+}
+
+.ProjeQtOrNewGui .multipleLayoutClass {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	background-color: transparent;
+}
+
+.ProjeQtOrNewGui .verticalLayoutClass {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	background-color: transparent;
+}
+
+.ProjeQtOrNewGui .verticalLayoutClass {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	background-color: transparent;
+}
+
+.ProjeQtOrNewGui .selectedLayoutPos {
+    background: var(--color-button-background-selected) !important;
+}
+
+.ProjeQtOrNewGui .selectedLayoutPosCoverList{
+	background: var(--color-button-background-selected) !important;
+}
+/* === MENU BUTTONS AND ITEMS CSS ===================================================== MENU ===*/
+
+.dijitComboBoxMenu {
+	 background: var(--color-background);
+}
+.dijitReset.dijitMenuItem  {
+	font-size: 10pt;
+	padding: 5px 5px 5px 10px;
+	color: #555555;
+	-webkit-transition: all 0.8s ease;
+  -moz-transition: all 0.8s ease;
+  -o-transition: all 0.8s ease;
+  -ms-transition: all 0.8s ease;
+  transition: all 0.8s ease;
+}
+.dijitReset.dijitMenuItem.dijitMenuItemHover {
+	/* color: var(--color-background); */
+	background: var(--color-light);
+}
+
+.dijitComboBoxMenu, .dijitMenuItem {
+   background-color:#ffffff;
+   background-image: url();
+}
+
+/*=== TITLE PANE ====================================================================== PANE ===*/
+
+.ProjeQtOrNewGui .dijitTitlePane .dijitTitlePaneTitle {
+	background:var(--color-background) !important;
+	color: var(--color-section-title-text) !important;
+	/* border-bottom: 1px solid var(--color-section-title-border);*/
+	border-top: 2px solid var(--color-section-title-border);
+	margin-top:10px;
+	font-size:120%;
+	Height:25px;
+	font-weight:normal !important;
+}
+
+.ProjeQtOrNewGui .dijitTitlePane .dijitArrowNode {
+    background-image: url(images/spriteArrows.png);
+}
+.ProjeQtOrNewGui .dijitTitlePane .messageHeader .dijitArrowNode {
+	 -webkit-filter : brightness(0) invert(1);
+  filter : brightness(0) invert(1);
+}
+.dijitTitlePaneTextNode {
+	 font-weight:normal;
+}
+
+/*=== LAYOUTS AND SCREEN DISPOSITION ================================================== LAYOUT ===*/
+
+.ProjeQtOrNewGui #mapDiv, .ProjeQtOrNewGui #listDiv, .ProjeQtOrNewGui #formDiv, .ProjeQtOrNewGui .display, .ProjeQtOrNewGui .background, .ProjeQtOrNewGui .dijitTitlePaneContentInner, .ProjeQtOrNewGui .dijitTabPane, .ProjeQtOrNewGui #mainDiv, .ProjeQtOrNewGui #centerDiv {
+    background-color: var(--color-background); 
+}
+
+.ProjeQtOrNewGui #toolBarDiv, .ProjeQtOrNewGui #statusBarDiv, .ProjeQtOrNewGui .statusBar, .ProjeQtOrNewGui #menuBArNewGuiAcces{
+	background: url() var(--color-toolbar) !important;
+	color: var(--color-toolbar-text) !important;
+}
+.ProjeQtOrNewGui .titleProject {
+	color: var(--color-toolbar-text) !important;
+	background: url() transparent !important;
+}
+
+.ProjeQtOrNewGui .dijitAccordionTitle2, .ProjeQtOrNewGui .reportTableColumnHeader2, .ProjeQtOrNewGui .largeReportHeader2 {
+  background: url() var(--color-light) !important;
+}
+.ProjeQtOrNewGui .dijitAccordionTitle, .ProjeQtOrNewGui .reportTableColumnHeader, .ProjeQtOrNewGui .largeReportHeader {
+    background: url() #ffffff !important;
+    color: --var(--color-text) !important;
+    text-shadow: none !important;
+    border-top: 0px;
+    border-bottom: 1px solid var(--color-medium);
+}
+.ProjeQtOrNewGui .dijitAccordionTitle{
+	background: url() var(--color-background) !important;
+}
+.ProjeQtOrNewGui #activityStreamTop {
+	border-bottom: 1px solid var(--color-medium);
+}
+.ProjeQtOrNewGui #activityStreamTop_splitter{
+	background-color:#ffffff  !important;
+}
+
+.ProjeQtOrNewGui #toolBarDiv, .ProjeQtOrNewGui #statusBarDiv, .ProjeQtOrNewGui .statusBar {
+	background: var(--color-toolbar) !important;
+}
+
+.ProjeQtOrNewGui #menuBarLeft {
+	background: var(--color-reference);
+}
+
+.ProjeQtOrNewGui #menuBarRight, .ProjeQtOrNewGui #menuBarRight .statusBar {
+	background: var(--color-white) !important;
+}
+
+.ProjeQtOrNewGui #menuBarAccesLeft{
+	background: var(--color-menu) !important;
+}
+
+.ProjeQtOrNewGui #menuBarAccesBottom{
+	border-top:2px solid var(--color-toolbar);
+}
+
+.ProjeQtOrNewGui #statusBarDiv {
+  border-bottom:0;
+  border-top:0;
+  padding:0;
+}
+
+.ProjeQtOrNewGui #centerDiv {
+  border-top:0;
+}
+
+.ProjeQtOrNewGui #statusBarDiv {
+	background: var(--color-background) !important;
+}
+
+.ProjeQtOrNewGui #listHeaderDiv,.ProjeQtOrNewGui .listTitle {
+	background-color: var(--color-list-header) !important;
+	color: var(--color-list-header-text) !important;
+}
+
+.ProjeQtOrNewGui #buttonDiv, .ProjeQtOrNewGui .title {
+  background-color: var(--color-detail-header) !important;
+  color: var(--color-detail-header-text) !important;
+}
+.ProjeQtOrNewGui #buttonDiv {
+  border-bottom : 1px solid var(--color-detail-header-border);
+}
+
+/*=========================================================================================================================================================== TODO ===*/
+
+.ProjeQtOrNewGui .tabLabel {
+  font-size: 10pt;
+  background-color: tranparent;
+  color:var(--color-medium);
+  padding-right:10px;
+}
+.ProjeQtOrNewGui .largeLabel {
+  width: 380px;
+  background-color: tranparent;
+  color:var(--color-text);
+}
+
+.ProjeQtOrNewGui .parameterFocusLabel{
+	color: white !important;
+    font-weight: bold !important;
+}
+
+.ProjeQtOrNewGui .dijitToolbar {
+ margin: 5px 2px 5px 0px;
+ padding: 2px 5px 6px 5px;
+ border: 0px solid #b3b3b3;
+ background-color: var(--color-background); 
+ background-image: none; 
+}
+.ProjeQtOrNewGui .toolbarForSelect {
+	position:absolute;
+	top:-9px;
+	right:25px;
+	/*left:-50px;*/
+	display:none;
+	opacity:0;
+	width:200px;
+	padding-right:0px;
+	-webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+}
+.ProjeQtOrNewGui .roundedButton {
+  border-radius: 5px !important;
+  border: 1px solid #dddddd;
+}
+.ProjeQtOrNewGui .roundedIconButton {
+	border: 0px solid var(--color-background);
+	border-radius:0px !important;
+	cursor: pointer;
+}
+.ProjeQtOrNewGui .roundedButton:hover, .ProjeQtOrNewGui .roundedButtonSmall:hover  {
+  border: 0px solid var(--color-background);
+  border-color: var(--color-background);
+  border-bottom-color: var(--color-background);
+  color: #3C3C3C;
+  background: transparent url();
+}
+.ProjeQtOrNewGui .roundedButtonNoBorder:hover {
+	border: 0px solid var(--color-background);
+	background: transparent url();
+}
+
+.ProjeQtOrNewGui .roundedVisibleButton:hover {
+  border: 1px solid var(--color-secondary);
+  color:var(--color-secondary) !important;
+}
+.ProjeQtOrNewGui .dijitReadOnly .dijitReset.dijitInline.dijitButtonNode, 
+.ProjeQtOrNewGui .dijitDisabled .dijitReset.dijitInline.dijitButtonNode {
+	border: 1px solid var(--color-light) !important;
+	color: var(--color-light) !important;;
+}
+.ProjeQtOrNewGui .dijitDisabled .dijitButtonText {
+	/* color: var(--color-light) !important;*/
+}
+.ProjeQtOrNewGui .dijitDialogPaneContent .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dijitTooltipContainer .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .largeTextButton .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .mediumTextButton .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dynamicTextButton .dijitReset.dijitInline.dijitButtonNode {
+  /*padding: 0.2em 1em 0.2em 1em;*/
+  border: 1px solid #c0c0c0;
+}
+.ProjeQtOrNewGui .dijitDialogPaneContent .dijitReset.dijitStretch.dijitButtonContents,
+.ProjeQtOrNewGui .largeTextButton .dijitReset.dijitStretch.dijitButtonContents,
+.ProjeQtOrNewGui .mediumTextButton .dijitReset.dijitStretch.dijitButtonContents,
+.ProjeQtOrNewGui .dynamicTextButton .dijitReset.dijitStretch.dijitButtonContents{
+  padding: 0.2em 1em 0.2em 1em;
+}
+.ProjeQtOrNewGui .dijitDialogPaneContent .resetMargin .dijitReset.dijitStretch.dijitButtonContents{
+  padding: 0;
+}
+.ProjeQtOrNewGui .mediumTextButton, .ProjeQtOrNewGui .largeTextButton,
+.ProjeQtOrNewGui .smallTextButton,  .ProjeQtOrNewGui .dynamicTextButton,
+.ProjeQtOrNewGui .mediumTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .largeTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .smallTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dynamicTextButton:hover .dijitReset.dijitInline.dijitButtonNode{
+  color:var(--color-button-text);
+}
+.ProjeQtOrNewGui .mediumTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .largeTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .smallTextButton:hover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dynamicTextButton:hover .dijitReset.dijitInline.dijitButtonNode {
+  border: 1px solid var(--color-secondary);
+  color:var(--color-secondary) !important;
+}
+.largeTextButton {
+  width:200px; 
+  height: 100%;
+}
+.mediumTextButton {
+  width:100px; 
+  height:100%;
+}
+.smallTextButton {
+  width:50px; 
+  height:100%;
+}
+.dynamicTextButton {
+  height:100%;
+}
+
+.ProjeQtOrNewGui .roundedVisibleButton.roundedButton.generalColClas:hover,
+.ProjeQtOrNewGui .dijitButtonHover, .ProjeQtOrNewGui .dijitButtonHover .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dijitDropDownButtonHover, .dijitButtonHover {
+	color:var(--color-secondary) !important;
+	background-color:#ffffff;
+	opacity:1;
+}
+.ProjeQtOrNewGui .directAttachment, 
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.directAttachment.detailButton.dijitUploader.dijitButton .dijitButtonNode,
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.directAttachment.detailButton.dijitUploader.dijitButton  {
+	cursor:pointer;
+	background-color:transparent;
+	background:transparent;
+}
+.ProjeQtOrNewGui .roundedButton:hover .imageColorNewGui, .ProjeQtOrNewGui .roundedButtonSmall:hover .imageColorNewGui, .ProjeQtOrNewGui .imageColorNewGui:hover,
+.ProjeQtOrNewGui .directAttachment:hover, .ProjeQtOrNewGui .roundedButtonSmall:hover .iconSize16,
+.ProjeQtOrNewGui .menuBarItemSelected .imageColorNewGui, .ProjeQtOrNewGui .menuBarItem:hover .imageColorNewGui,
+.ProjeQtOrNewGui .newGuiIconText:hover .imageColorNewGui {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  color:var(--color-secondary);
+}
+.ProjeQtOrNewGui .roundedButtonNoBorder, .ProjeQtOrNewGui .roundedButtonNoBorder:hover, .ProjeQtOrNewGui .roundedButtonSmall, .ProjeQtOrNewGui .roundedButtonSmall:hover,
+.ProjeQtOrNewGui .imageColorNewGui:hover, .ProjeQtOrNewGui .imageColorNewGui:hover .roundedButtonSmall,
+.ProjeQtOrNewGui .imageColorNewGuiNoSelection:hover, .ProjeQtOrNewGui .imageColorNewGuiNoSelection:hover .roundedButtonSmall,
+.ProjeQtOrNewGui .directAttachment:hover {
+	border: 0px;
+}
+.hideStreamNewGui, .hideStreamNewGuiTopBar {
+	margin-top:4px;
+	margin-right:5px;
+	width:32px;
+	height:32px;
+	line-height: 1;
+	position: relative;
+	
+}
+.iconBreadSrumb{
+	padding-top:2px;
+	padding-bottom:1px;
+	margin-top:20px;
+	margin-left:5px;
+	
+}
+
+.iconBreadSrumbTop{
+	margin-top:6px;
+	margin-left:5px;
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  	background-color: transparent;
+} 
+
+.iconBreadSrumbSelect{
+	border-right: 2px solid var(--color-secondary)!important;
+    padding-right: 3px;
+}
+
+.helpDisplayIcon{
+	height: 33px;
+    bottom: 0px;
+    font-style: italic;
+    width: 216px;
+    position: absolute;
+    text-align: center;
+    font-size:11px;
+    text-color : var(--color-toolbar-text) !important;
+    background:var(--color-menu);
+}
+.hideStreamNewGui:hover, .hideStreamNewGuiTopBar:hover, .iconBreadSrumb:hover, .iconBreadSrumbTop:hover {
+	cursor:pointer;
+}
+
+.helpDisplayIcon:hover {
+	cursor:pointer;
+	background:var(--color-light);
+}
+
+.ProjeQtOrNewGui .iconToolbarView { background-image: url(customIcons/new/iconView.svg); background-repeat: no-repeat; width: 20px; height: 20px; background-position:center center; background-size: 18px 18px}
+.ProjeQtOrNewGui .iconToolbarGoto { background-image: url(customIcons/new/iconGoto.svg); background-repeat: no-repeat; width: 20px; height: 20px; background-position:center center; background-size: 16px 16px}
+.ProjeQtOrNewGui .iconToolbarSearch { background-image: url(customIcons/new/iconSearch.svg); background-repeat: no-repeat; width: 20px; height: 20px; background-position:center center; background-size: 18px 18px}
+.ProjeQtOrNewGui .iconToolbarAdd { background-image: url(customIcons/new/iconAdd.svg); background-repeat: no-repeat; width: 20px; height: 20px; background-position:center center; background-size: 16px 16px}
+
+.fade-in {
+animation: fadeIn ease 0.5s;
+-webkit-animation: fadeIn ease 0.5s;
+-moz-animation: fadeIn ease 0.5s;
+-o-animation: fadeIn ease 0.5s;
+-ms-animation: fadeIn ease 0.5s;
+}
+@keyframes fadeIn {
+0% {opacity:0;}
+100% {opacity:1;}
+}
+
+@-moz-keyframes fadeIn {
+0% {opacity:0;}
+100% {opacity:1;}
+}
+
+@-webkit-keyframes fadeIn {
+0% {opacity:0;}
+100% {opacity:1;}
+}
+
+@-o-keyframes fadeIn {
+0% {opacity:0;}
+100% {opacity:1;}
+}
+
+@-ms-keyframes fadeIn {
+0% {opacity:0;}
+100% {opacity:1;}
+}
+
+.ProjeQtOrNewGui .roundedVisibleButton.roundedButton.generalColClass {
+	background: url() var(--color-button-background);
+	color:var(--color-button-text);
+}
+.ProjeQtOrNewGui .roundedVisibleButton.roundedButton.generalColClass .imageColorNewGui, .ProjeQtOrNewGui .roundedVisibleButton .imageColorNewGui {
+	-webkit-filter : brightness(0) invert(1) !important;
+  filter : brightness(0) invert(1) !important;
+  transition: filter 0.3s;
+}
+.ProjeQtOrNewGui .roundedVisibleButton:hover .imageColorNewGui, .ProjeQtOrNewGui .roundedButton:hover .imageColorNewGui
+.ProjeQtOrNewGui .generalColClass:hover .imageColorNewGui, .ProjeQtOrNewGui .roundedVisibleButton.roundedButton.generalColClass:hover .imageColorNewGui {
+	-webkit-filter : none !important;
+  filter : none !important;
+}
+.ProjeQtOrNewGui .roundedVisibleButton .dijitReset.dijitInline.dijitButtonNode {
+	margin-right: 5px;
+}
+
+.ProjeQtOrNewGui .linkHeader, .ProjeQtOrNewGui .attachmentHeader, .ProjeQtOrNewGui .noteHeader, .ProjeQtOrNewGui .dependencyHeader, .ProjeQtOrNewGui .historyHeader, .ProjeQtOrNewGui .assignHeader, .ProjeQtOrNewGui .workflowHeader, .ProjeQtOrNewGui .filterHeader, .ProjeQtOrNewGui .calendarHeader {
+    color: rgb(101, 101, 101);
+    text-shadow: none;
+    background: url() var(--color-table-header) !important;
+}
+.ProjeQtOrNewGui .sectionBadge {
+	top:18px;
+	background: var(--color-dark);
+}
+
+.ProjeQtOrNewGui .titleFilterCriteria{
+	font-style: italic;
+	color:#696969;
+	font-weight: 600;
+	padding: 5px 0 2px 0;
+}	
+
+.ProjeQtOrNewGui .menuBarItem, .ProjeQtOrNewGui #menuBarShow .dijitIcon, .ProjeQtOrNewGui .hideStreamNewGuiTopBar,
+.ProjeQtOrNewGui #listHeaderDiv div.iconSize32, .ProjeQtOrNewGui #buttonDiv div .iconSize32,
+.ProjeQtOrNewGui #menubarContainer .roundedButtonSmall .iconSize22, .ProjeQtOrNewGui #menubarContainer .roundedButtonSmall .iconSize32,
+.ProjeQtOrNewGui #centerDiv .dijitButtonIcon,  .ProjeQtOrNewGui .roundedButtonSmall .iconSize16,
+.ProjeQtOrNewGui #centerDiv .roundedButtonSmall .iconSize16, .ProjeQtOrNewGui #centerDiv .roundedButtonSmall .iconSize22,
+.ProjeQtOrNewGui .ganttIconBackground div, .ProjeQtOrNewGui .imageColorNewGui, .ProjeQtOrNewGui .directAttachment ,
+.ProjeQtOrNewGui .buttonIconNewGui .dijitIcon,
+.ProjeQtOrNewGui #mainDivMenu .iconSize22, .ProjeQtOrNewGui #centerDiv .notDijitButtonIcon,
+.ProjeQtOrNewGui #menuBarButtonDiv .roundedIconButton.imageColorNewGui:hover,
+.ProjeQtOrNewGui .imageColorNewGuiNoSelection, .ProjeQtOrNewGui .imageColorNewGuiNoSelection:hover, 
+.ProjeQtOrNewGui .comboDetail div .iconSize32, .ProjeQtOrNewGui .comboDetail .dijitIcon, .ProjeQtOrNewGui .allSearchFixLength .dijitIcon,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dialogDetailButton.dijitButton .dijitIcon,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButton.dialogDetailButton .dijitIcon,
+.ProjeQtOrNewGui .ticketKanBanStyle .roundedButton .iconSize16,
+.ProjeQtOrNewGui .ganttExpandOpened, .ProjeQtOrNewGui .ganttExpandClosed, .ProjeQtOrNewGui .ganttExpandNone,
+.ProjeQtOrNewGui .dijitTabStripIcon,
+.ProjeQtOrNewGui #linkNewButton
+ {
+  -webkit-filter : hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness));
+  filter : hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness));
+  background-color: transparent;
+} 
+.ProjeQtOrNewGui #menubarContainer .imageColorNewGuiSelected .roundedButtonSmall .iconSize22,
+.ProjeQtOrNewGui .imageColorNewGuiSelected .roundedButtonSmall .iconSize22,
+.ProjeQtOrNewGui .menu__linkDirect.menu__link--current .iconSize22, .ProjeQtOrNewGui .menu__linkDirect.menu__link--current .iconSize16  {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  background-color: transparent;
+}
+.ProjeQtOrNewGui #centerDiv .dijitButtonHover .dijitButtonIcon, .ProjeQtOrNewGui .buttonIconNewGui .dijitButtonHover .dijitIcon,
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.buttonIconNewGui.dijitButton.dijitButtonHover.dijitHover .dijitIcon,
+.ProjeQtOrNewGui #centerDiv .dijitDropDownButtonHover .dijitButtonIcon, .ProjeQtOrNewGui .buttonIconNewGui .dijitDropDownButtonHover .dijitIcon,
+.ProjeQtOrNewGui #centerDiv .roundedButtonSmall:hover .iconSize16, .ProjeQtOrNewGui #centerDiv .roundedButtonSmall:hover .iconSize22,
+.ProjeQtOrNewGui .allSearchFixLength .dijitButtonHover .dijitIcon, .ProjeQtOrNewGui .allSearchFixLength .dijitDropDownButtonHover .dijitIcon,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dialogDetailButton.dijitButtonHover .dijitIcon,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButtonHover.dialogDetailButton .dijitIcon,
+.ProjeQtOrNewGui .ticketKanBanStyle .roundedButton:hover .iconSize16,
+.ProjeQtOrNewGui #centerDiv .dijitButtonHover .notDijitButtonIcon,
+.ProjeQtOrNewGui .dijitTabStripIcon:hover,
+.ProjeQtOrNewGui #linkNewButton:hover
+{
+  -webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected));
+  color:var(--color-secondary);
+}
+.ProjeQtOrNewGui .dijitReset.dijitInline.dialogDetailButton.dijitButton,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButton.dialogDetailButton,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dialogDetailButton.dijitButton .dijitButtonNode,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButton.dialogDetailButton .dijitButtonNode{
+	border:0;
+	background:transparent;
+}
+
+.ProjeQtOrNewGui #toolBarDiv .dijitIcon, .ProjeQtOrNewGui #toolBarDiv .iconSize22, 
+.ProjeQtOrNewGui .hideStreamNewGui, 
+.ProjeQtOrNewGui .menu__link .iconSize22, .ProjeQtOrNewGui .menu__link .iconSize16,
+.ProjeQtOrNewGui .menu__linkDirect .iconSize22, .ProjeQtOrNewGui .menu__linkDirect .iconSize16,
+.ProjeQtOrNewGui #menuBarAccesLeft .iconSize22, .ProjeQtOrNewGui #menuBarAccesLeft .iconSize16, 
+.ProjeQtOrNewGui .dijitTreeIcon, .ProjeQtOrNewGui .dijitTreeLabel,
+.ProjeQtOrNewGui .imageColorWhite, .ProjeQtOrNewGui .buttonColorWhite .dijitIcon {
+  -webkit-filter : brightness(0) invert(1) !important;
+  filter : brightness(0) invert(1) !important;
+  background-color: transparent;
+  opacity: 1;
+}
+.ProjeQtOrNewGui .imageColorBlack {
+	 -webkit-filter : brightness(0) invert(0);
+  filter : brightness(0) invert(0);
+  background-color: transparent;
+  opacity: 1;
+}
+.ProjeQtOrNewGui .menu__link .iconSize16, .ProjeQtOrNewGui .menu__linkDirect .iconSize16 {
+	top: 3px;
+}
+.ProjeQtOrNewGui .menu__as__Fav, .ProjeQtOrNewGui .menu__add__Fav {
+	position:relative;
+	top:-1px;
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitDisabled {
+  background-color: transparent;
+  opacity : 0;
+}
+.ProjeQtOrNewGui .dijitButtonIcon.iconNewtab  {
+    background-image: url(customIcons/new/iconNewtab.svg);
+    width: 40px;
+    height: 22px;
+}
+.ProjeQtOrNewGui #menuUserParameterTop {
+	font-weight: normal;
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitReset .dijitInline .dijitArrowButtonInner, .ProjeQtOrNewGui #toolBarDiv .dijitTextBox .dijitArrowButtonInner, .ProjeQtOrNewGui .iconBreadSrumb{
+  -webkit-filter : brightness(0) invert(var(--color-toolbar-invert));
+  filter: brightness(0) invert(var(--color-toolbar-invert));
+  border: 0;
+}
+.ProjeQtOrNewGui td.dijitArrowButton.dijitDownArrowButton {
+	border:0;
+	border-left:1px solid #b3b3b3;
+} 
+.ProjeQtOrNewGui #toolBarDiv .pseudoButton, .ProjeQtOrNewGui #toolBarDiv .dijitTextBox {
+	border:none;
+	background : transparent;
+	color: var;
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitButtonNode, .ProjeQtOrNewGui .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui .dijitDisabled .dijitReset.dijitInline.dijitButtonNode {
+	border:none;
+}
+.ProjeQtOrNewGui .listTitle .dijitDisabled .dijitReset.dijitInline.dijitButtonNode {
+	border:none !important;
+}
+.ProjeQtOrNewGui .menuBarItem {
+	padding: 5px 1px 3px 1px !important;
+  top: 0px !important;
+  border-bottom: 0px !important;
+  background-color: transparent !important;
+  background-image: url() !important;
+}
+.ProjeQtOrNewGui .menuBarItem::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-image: url();;
+  background-repeat: no-repeat;
+  background-position: right top;
+  -webkit-filter: hue-rotate(var(--image-hue-rotate-reverse)) saturate(100) brightness(100);
+   filter: hue-rotate(var(--image-hue-rotate-reverse)) saturate(100) brightness(100);
+}
+.ProjeQtOrNewGui #buttonDiv div .iconSize32.cancelColorImage {
+  -webkit-filter: hue-rotate(0);
+   filter: hue-rotate(0);
+}
+
+.ProjeQtOrNewGui .menuBarItem, .ProjeQtOrNewGui .bottomNotification {
+  -webkit-transition: all 0s ease;
+    -moz-transition: all 0s ease;
+    -o-transition: all 0s ease;
+    -ms-transition: all 0s ease;
+    transition: all 0s ease;
+}
+.ProjeQtOrNewGui .menuBarItem:hover {
+  -ms-transform: rotate(0deg) brightness(99%) !important; /* IE 9 */
+  -webkit-transform: rotate(0deg) brightness(99%) !important; /* Chrome, Safari, Opera */
+  transform: rotate(0deg) !important;
+  color:var(--color-medium-secondary) !important;
+  border-bottom: 2px solid var(--color-medium-secondary) !important/*#fff0f0*/;
+  background-color: transparent !important;
+}
+.ProjeQtOrNewGui .menuBarItem:hover td {
+	color:var(--color-medium-secondary) !important;
+}
+.ProjeQtOrNewGui #menuBarButtonDiv .roundedIconButton.imageColorNewGui {
+  -webkit-transition: all 0.5s ease;
+    -moz-transition: all 0.5s ease;
+    -o-transition: all 0.5s ease;
+    -ms-transition: all 0.5s ease;
+    transition: all 0.5s ease;
+}
+.ProjeQtOrNewGui .menuBarItemSelected {
+	 border-bottom: 2px solid var(--color-secondary) !important;
+   	 color:var(--color-secondary) !important;
+	 background-color: transparent !important;
+}
+.ProjeQtOrNewGui .menuBarItemSelected:hover {
+   border-bottom: 2px solid var(--color-secondary) !important;
+   color:var(--color-secondary) !important;
+}
+.ProjeQtOrNewGui .menuBarItemCaption {
+	/*display:none;*/
+}
+.ProjeQtOrNewGui .menuBarCustom {
+  background-image: unset;
+}
+.ProjeQtOrNewGui .menuBarCustom:hover {
+  background-image: unset;
+}
+.ProjeQtOrNewGui .menuBarCustom::before {
+	content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-image: unset;;
+  background-repeat: no-repeat;
+  background-position: right top;
+	-webkit-filter: hue-rotate(var(--image-hue-rotate-reverse)) saturate(100) brightness(100);
+   filter: hue-rotate(var(--image-hue-rotate-reverse)) saturate(100) brightness(100);
+}
+.messageDivNewGui{
+    border-radius: 12px 4px;
+    padding: 3px 5px 3px 5px;
+    background-color: var(--color-background);
+    font-size: 10px;
+    opacity: 1;
+    margin: 6px 4px 4px 4px;
+    overflow-y: auto;
+     position: absolute;
+    top:0;
+    width:92%;
+}
+.kawaDivNewGui{
+    border-radius: 4px 12px;
+    padding: 3px 5px 3px 5px;
+    background-color: var(--color-lighter);
+    font-size: 10px;
+    opacity: 1;
+    margin: 6px 4px 4px 4px;
+    overflow-y: auto;
+    position: absolute;
+    top:0;
+    width:92%;
+}
+
+.newHeaderLink{
+    color: white;
+    font-weight: 600;
+    padding:10px 10px 9px 6px
+}
+
+
+.newDataLink  .hyperlink:hover{
+	color: var(--color-secondary)!important;
+	font-weight:initial !important;
+}
+
+.menuBar_add_Fav::before{
+    float: left;
+    content: '\f27d';
+    font-family: 'Material';
+    font-size: 19px;
+    -webkit-text-stroke-width: 0.5px;
+    text-shadow: 0.5px 0px 1px;
+    -webkit-text-stroke-color: black;
+    position: relative;
+    top: -3px;
+    color: var( --color-light);
+    width: 8%;
+}
+.menuBar_remove_Fav::before{
+    float: left;
+    content: '\f27d';
+    font-family: 'Material';
+	font-size:19px;
+	-webkit-text-stroke-width: 0.5px;
+    text-shadow: 0.5px 0px 1px;
+    -webkit-text-stroke-color: black;
+    position: relative;
+    top: -3px;
+    color: var(--color-secondary);
+    display: block;
+    width: 8%;
+}
+
+.ProjeQtOrNewGui .anotherBar:hover{
+	background-color: var(--color-light-secondary) !important;
+}
+
+.ProjeQtOrNewGui .itemBar.dojoDndItemAnchor{
+	border-left: unset !important;
+}
+
+/* Try to add space to move the tile : no very accurate
+.ProjeQtOrNewGui .itemBar.dojoDndItemAfter{
+	border-right: 2px solid var(--color-secondary) !important;
+}
+.ProjeQtOrNewGui .ticketKanBanStyle.ticketKanBanColor.dojoDndItemOver.dojoDndItemAfter {
+	border-right: 180px solid var(--color-light);
+}
+.ProjeQtOrNewGui .ticketKanBanStyle.ticketKanBanColor.dojoDndItemOver.dojoDndItemBefore {
+	border-left: 180px solid var(--color-light);
+}
+*/
+/*
+.ProjeQtOrNewGui .ticketKanBanStyleFull.ticketKanBanColor.dojoDndItemOver.dojoDndItemAfter {
+	border-right: 0;
+	margin-bottom:50px;
+}
+.ProjeQtOrNewGui .ticketKanBanStyleFull.ticketKanBanColor.dojoDndItemOver.dojoDndItemBefore {
+	border-right: 0;
+  margin-top:50px;
+}
+.ProjeQtOrNewGui .ticketKanBanStyleFull.ticketKanBanColor.dojoDndItemOver.dojoDndItemAfter::after {
+  content : "";
+}
+*/
+.ticketKanBanColor.dojoDndItemAnchor, .simple-grid .dojoDndItemAnchor,
+.ganttTaskrow.dojoDndItemAnchor, .ganttTaskrow.dojoDndItemSelected,
+.ganttTaskmile.dojoDndItemAnchor, .ganttTaskmile.dojoDndItemSelected,
+.ganttTaskgroup.dojoDndItemAnchor, .ganttTaskgroup.dojoDndItemSelected {
+  border-left:0 !important;
+}
+
+.ganttTaskrow.dojoDndItemAnchor .dojoDndHandle.handleCursor td,
+.ganttTaskrow.dojoDndItemSelected .dojoDndHandle.handleCursor td,
+.ganttTaskmile.dojoDndItemAnchor .dojoDndHandle.handleCursor td,
+.ganttTaskmile.dojoDndItemSelected .dojoDndHandle.handleCursor td,
+.ganttTaskgroup.dojoDndItemAnchor .dojoDndHandle.handleCursor td,
+.ganttTaskgroup.dojoDndItemSelected .dojoDndHandle.handleCursor td {
+	background-color: var(--color-secondary);
+}
+*/
+
+.ProjeQtOrNewGui .itemBar.dojoDndItemBefore{
+	border-left: 2px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui .planningHeaderColumn.dojoDndItemAfter{
+	border-right: 2px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui .planningHeaderColumn.dojoDndItemBefore{
+	border-left: 2px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui .dijitTabContainerTop-tabs, .ProjeQtOrNewGui .dijitTabContainerTop-tabs .dijitTabChecked, .ProjeQtOrNewGui .dijitTabContainerTop-tabs .dijitTabHover {
+	background-color: transparent;
+}
+.ProjeQtOrNewGui  div.dijitTab.dijitTabChecked>span.tabLabel, .ProjeQtOrNewGui  div.dijitTab.dijitTabHover>span.tabLabel {
+	color: var(--color-secondary);
+	border:0;
+	border-bottom: 2px solid var(--color-secondary);
+}
+.ProjeQtOrNewGui .dijitTabHover {
+  background: transparent url();
+}
+.ProjeQtOrNewGui .dijitTab .tabLabel {
+	font-size:100%;
+}
+.ProjeQtOrNewGui  .dijitTabContainerTop-tabs, .ProjeQtOrNewGui .dijitTab, .ProjeQtOrNewGui div.dijitTab>span.tabLabel {
+	color: var(--color-detail-header-text);
+	border: 0px;
+	border-bottom: 2px solid transparent;
+	background-color: transparent;
+	font-weight:normal;
+}
+
+.ProjeQtOrNewGui .roundedButton:hover, .ProjeQtOrNewGui .roundedButtonSmall:hover {
+  background: transparent url();
+}
+.ProjeQtOrNewGui .roundedButton:hover, .ProjeQtOrNewGui .roundedButtonNoBorder:hover,
+.ProjeQtOrNewGui .roundedButtonSmall:hover .iconSize22, 
+.ProjeQtOrNewGui .noRotate, .ProjeQtOrNewGui .noRotate:hover {
+  -ms-transform: rotate(0deg) brightness(99%) !important; /* IE 9 */
+  -webkit-transform: rotate(0deg) brightness(99%) !important; /* Chrome, Safari, Opera */
+  transform: rotate(0deg) !important;
+}
+
+.ProjeQtOrNewGui .roundedIconButton:hover, .ProjeQtOrNewGui .roundedButtonSmall:hover .iconSize16,
+.ProjeQtOrNewGui .roundedButton .iconSize16 .imageColorNewGui:hover {
+	-ms-transform: rotate(-22deg) brightness(99%) !important; /* IE 9 */
+  -webkit-transform: rotate(-22deg) brightness(99%) !important; /* Chrome, Safari, Opera */
+	transform: rotate(-22.5deg);
+}
+.ProjeQtOrNewGui .buttonTopBar {
+	padding:5px 0px 0px 5px;
+}
+
+.ProjeQtOrNewGui .dijitSplitter {
+    background: var(--color-medium);
+    border:0px solid var(--color-medium);
+}
+.ProjeQtOrNewGui #centerDiv {
+	/*border-top: 4px solid var(--color-light);*/
+}	
+.ProjeQtOrNewGui .dijitTabPaneWrapper {
+	border:none;
+}
+.ProjeQtOrNewGui .dijitButtonIcon {
+  background-image: url(customIcons/new/editorButtonsEnabled.png);
+}
+.ProjeQtOrNewGui .dijitDisabled .dijitButtonIcon {
+  background-image: url(customIcons/new/editorButtonsDisabled.png);
+}
+
+.ProjeQtOrNewGui .dijitDialogTitleBar {
+  /*background: url() var(--color-lighter) !important;
+  color:var(--color-text);*/
+  background: url() var(--color-darker) !important;
+  color:var(--color-white);
+  text-align:center;
+}
+.ProjeQtOrNewGui .dijitDialog {
+	border-radius:5px;
+	font-size:10pt;
+} 
+.ProjeQtOrNewGui .dijitButton,
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButtonNode {
+	border-radius:5px;
+	background: var(--color-medium);
+  color:var(--color-button-text); 
+}
+.ProjeQtOrNewGui #subscribeButtonDiv .dijitButton,
+.ProjeQtOrNewGui #subscribeButtonDiv .dijitReset.dijitInline.dijitButtonNode,
+.ProjeQtOrNewGui #calendarNode .dijitButton,
+.ProjeQtOrNewGui #calendarNode .dijitReset.dijitInline.dijitButtonNode {
+  color: var(--color-text) !important;
+}
+
+.ProjeQtOrNewGui .dijitButtonNode{
+	padding: 0.1em 0em 0.1em 0em;
+}
+
+.ProjeQtOrNewGui .dijitDialogPaneContent .dijitReset.dijitInline.dijitButton {
+	/*margin: 10px 20px;*/
+}
+
+.ProjeQtOrNewGui .notButton,
+.ProjeQtOrNewGui .notButton .dijitReset.dijitInline.dijitButtonNode{
+  background: url() var(--color-background);
+  backgound-color: var(--color-background);
+  border:1px solid var(--color-background) !important;
+}
+
+.ProjeQtOrNewGui .dijitTooltipContainer .dijitReset.dijitInline.dijitButtonNode {
+	padding: 0.2em 0.2em 0.2em 0.2em;
+}
+.ProjeQtOrNewGui .resetSearchTD {
+	padding-right:5px;
+}
+
+.ProjeQtOrNewGui .dijitDialogTitleBar{
+	padding:10px;
+}
+.ProjeQtOrNewGui .dijitDialogCloseIcon {
+	background: url(customIcons/new/iconClose.svg) no-repeat right top;
+	background-size: 22px 22px;
+	height:22px;
+	width: 22px;
+	top:6px;
+	opacity: 0.8;
+	-webkit-filter : brightness(0) invert(1);
+  filter: brightness(0) invert(1) ; 
+  background-color: transparent;
+    -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+}
+  
+.ProjeQtOrNewGui .dijitDialogCloseIcon:hover {
+  opacity: 1;
+}
+
+.ProjeQtOrNewGui .dijitDropDownButton .dijitReset.dijitInline.dijitButtonNode {
+  background: transparent url();
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitButton,
+.ProjeQtOrNewGui #toolBarDiv .dijitDropDownButton,
+.ProjeQtOrNewGui #toolBarDiv .dijitReset.dijitInline.dijitButtonNode {
+  border:0;
+  background: url() transparent;
+  background-color: transparent;
+  color: var(--color-toolbar-text);
+ 
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitButton,
+.ProjeQtOrNewGui #toolBarDiv .dijitDropDownButton,
+#iconTopMenuUserParameter, .iconTopMenuUserParameter {
+	-webkit-filter : brightness(0) invert(var(--color-toolbar-invert));
+  filter: brightness(0) invert(var(--color-toolbar-invert));
+}
+.ProjeQtOrNewGui #toolBarDiv #menuUserParameterTop .dijitButton,
+.ProjeQtOrNewGui #toolBarDiv #menuUserParameterTop .dijitDropDownButton {
+  -webkit-filter : unset;
+  filter: unset;
+}
+.menuBarSeparatorDiv {
+	height:26px;
+	position:absolute;
+	width:1px;
+	border-left:1px solid var(--color-toolbar-text);
+	top:2px;left:2px
+}
+#countNotifications {
+	font-size:80%;
+	font-weight:normal;
+}
+.ProjeQtOrNewGui #projectSelectorDiv .dijitReset.dijitInputInner {
+	color: var(--color-toolbar-text);
+}
+
+.ProjeQtOrNewGui #toolBarDiv .dijitButtonNode, .ProjeQtOrNewGui #toolBarDiv .dijitReset.dijitInline.dijitButtonNode {
+  transition : unset;
+}
+
+.ProjeQtOrNewGui #toolBarDiv .dijitTreeRow {
+	color: var(--color-toolbar-text);
+	font-weight:normal;
+	font-size:90%
+}
+.ProjeQtOrNewGui #iconMenuUserPhoto, .ProjeQtOrNewGui #iconMenuUserPhoto span,
+.ProjeQtOrNewGui #iconMenuUserPhoto span img {
+	filter: unset;
+	-webkit-filter: unset;
+}
+.ProjeQtOrNewGui #toolBarDiv .dijitTreeRow:hover {
+  color:white;font-weight:normal;font-size:90%;
+  background-color:transparent;
+}
+
+.ProjeQtOrNewGui .dijitReset.dijitInline.dijitButtonNodeHover {
+  border-radius:20px;
+  background: var(--color-background);
+  color:var(--color-text);
+}
+
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.detailButton.dijitButton .dijitButtonNode,
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.detailButton.dijitButton.dijitButtonHover {
+    background: var(--color-background);
+    border: 0px solid var(--color-background) !important; /* DO NOT TOUCH : IMORTANT FOR LIST AND DETAIL BUTTONS */
+}    
+.ProjeQtOrNewGui .detailButton.dijitButton, .ProjeQtOrNewGui .dijitReset.dijitInline.detailButton.dijitButtonNode {
+	  background: var(--color-background);
+    /*border: 1px solid var(--color-background);*/
+    
+}
+
+.ProjeQtOrNewGui .detailButton.dijitButton.dijitButtonHover, .ProjeQtOrNewGui .dijitReset.dijitInline.detailButton.dijitButtonHover .dijitButtonNode {
+  /*border: 1px solid var(--color-medium);*/
+  background: var(--color-button-background);
+}
+.dijit.dijitReset.dijitInline.detailButton.dijitButton.dijitDisabled .dijitButtonNode {
+  /*border:1px solid var(--color-background);*/
+}
+#buttonDiv .dijit.dijitReset.dijitInline.detailButton.dijitButton.dijitDisabled .dijitButtonNode,
+#listHeaderDiv .dijit.dijitReset.dijitInline.detailButton.dijitButton.dijitDisabled .dijitButtonNode {
+	border:0 !important;
+}
+.ProjeQtOrNewGui .dijit.dijitReset.dijitInline.detailButton.dijitButton.dijitDisabled .dijitButtonNode {
+  opacity:50%;
+}
+.ProjeQtOrNewGui #buttonDivObjectId {
+	margin-right:5px;
+	border:0;
+	color: var(--color-detail-header-text);
+}
+.ProjeQtOrNewGui #buttonDivObjectId .roundedButton, .ProjeQtOrNewGui #objectDetailObjectId.roundedButton {
+	border:1px solid var(--color-background);
+}
+.ProjeQtOrNewGui #buttonDivObjectId .roundedButton:hover, .ProjeQtOrNewGui #objectDetailObjectId.roundedButton:hover{
+  border:1px solid var(--color-detail-header-text);
+}
+.ProjeQtOrNewGui #buttonDivObjectId .roundedButton a{
+  color: var(--color-detail-header-text);
+}
+.separatorSection {
+	margin-top:5px;
+	margin-bottom:5px;
+	line-height: 20px;
+	padding:5px;
+	background-color:var(--color-lighter);
+	color:var(--color-dark);
+	
+}
+.separatorSection .assignHeader,
+.ProjeQtOrNewGui .assignHeader,
+.ProjeQtOrNewGui .dependencyHeader,
+.ProjeQtOrNewGui .noteHeader,
+.ProjeQtOrNewGui .linkHeader,
+.ProjeQtOrNewGui .filterHeader,
+.ProjeQtOrNewGui .attachmentHeader {
+	background-color:var(--color-lighter) !important;
+  color:var(--color-medium);
+  border: 0;
+}
+.separatorSection .assignHeader {
+	background-color:var(--color-lighter-secondary) !important;
+	color:var(--color-medium-secondary) !important;
+}
+.ProjeQtOrNewGui .filterData{
+	font-size:100%;
+	padding: 0px 10px;
+	vertical-align: middle;
+	border-radius: 3px;
+	min-height:30px;
+}
+
+.ProjeQtOrNewGui .filterStored{
+	font-size:100%;
+	padding: 0px 10px;
+	height:30px;
+}
+
+.operatorFilter {
+	height: 27px;
+	border: none;
+	margin-top:5px;
+	border-radius: 5px;
+	color:white;
+	font-weight:bold;
+	cursor:pointer;
+}
+
+.operatorFilterAndOr {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    border-radius: 4px;
+    color: white;
+}
+
+.parenthesisFilter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    border-radius: 4px;
+    color: white;
+    background-color:#3399ff;
+}
+
+.titleQuickFilter {
+    position: relative; 
+    background-color: var(--color-darker); 
+    color: var(--color-white);
+    height: 14px;
+    padding-left: 10px;
+    z-index: 1; 
+}
+
+.titleQuickFilter::before {
+    content: "";
+    position: absolute;
+    top: -8px; 
+    left: -9px; 
+    right: -9px;
+    bottom: -8px; 
+    background-color: var(--color-darker); 
+    z-index: -1;
+}
+
+.filterTitleSection  {
+	width:50%;
+	background-color:var(--color-dark);
+	color:var(--color-white);
+	border-radius: 5px;
+	height:32px; 
+	display:flex;
+	align-items:center; 
+	padding-left:8px;
+	margin-bottom:5px;
+}
+
+.ProjeQtOrNewGui .dijitTitlePane .dijitTitlePaneTitle,
+.ProjeQtOrNewGui .section, .ProjeQtOrNewGui .sectionCategorie {
+	text-shadow: none;
+}
+.ProjeQtOrNewGui .section {
+	background-color:var(--color-light) !important;
+	color:var(--color-dark) !important;
+	border:1px solid var(--color-medium);
+	height:26px;
+}
+
+.ProjeQtOrNewGui .sectionCategorie {
+	background-color:var(--color-dark) !important;
+	color:var(--color-white) !important;
+	border:1px solid var(--color-darker);
+	height:26px;
+}
+
+.ProjeQtOrNewGui .sectionCategorie:hover{
+	color:var(--color-dark) !important;
+}
+
+
+.ProjeQtOrNewGui .dijitSplitter {
+ color:var(--color-dark);
+}
+
+/* Scrollbars */
+
+.ProjeQtOrNewGui ::-webkit-scrollbar {
+	height: 8px;
+    width: 8px;
+   	background: var(--color-light);
+  	border-radius: 10px;
+}
+
+.ProjeQtOrNewGui ::-webkit-scrollbar-thumb {
+    background: var(--color-medium);
+    border-radius: 10px;
+}
+
+.ProjeQtOrNewGui .menu__level::-webkit-scrollbar {
+	height: 8px;
+    width: 8px;
+    background: var(--color-light);
+    opacity:0.3;
+  	border-radius: 10px;
+}
+
+.ProjeQtOrNewGui .menu__level::-webkit-scrollbar-thumb {
+    background: var(--color-medium);
+    border-radius: 10px;
+}
+
+ .ProjeQtOrNewGui div{
+  	scrollbar-color: var(--color-reference) var(--color-background);
+  	scrollbar-width: thin;
+  	scrollbar-height: thin;
+}
+
+
+.ProjeQtOrNewGui .iconNotification { background-image: url(customIcons/new/iconNotification.svg);  background-repeat: no-repeat;}
+
+.colorSwitch .mblSwitchBgLeft {
+    background: #51B757;
+}
+.colorSwitch .mblSwitchBgRight {
+    background: #D3D3D3;
+}
+
+.mblSwitch {
+  margin: 0;
+  position: relative;
+  display: inline-block;
+  height: 14px !important;
+  line-height: 29px;
+  width : 32px !important;
+  overflow: hidden;
+  border-radius: 30px !important;
+  cursor:pointer;
+}
+
+.mblSwitchKnob {
+  height: 14px !important;
+  width: 14px !important;
+  border-radius: 9px !important;
+  border : solid 1 px grey;
+}
+
+.ProjeQtOrNewGui .paramMenuBottom{
+	width: 100%;
+    margin: 0;
+    height: 100%;
+    padding:0px;
+}
+
+.ProjeQtOrNewGui .noMenuToDisplay{
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    color: rgb(180, 180, 180);
+    font-size: 11px;
+}
+
+.mblSwitchDisabled .mblSwitchKnob {
+	display:none;
+}
+.mblSwitch .mblSwitchDisabled, .mblSwitch.mblSwDefaultShape.colorSwitch.mblSwitchDisabled  {
+	pointer-events: none;
+	cursor: default;
+}
+
+.ProjeQtOrNewGui .whiteCheck, .ProjeQtOrNewGui .dijitCheckBox {
+    background-image: url(images/checkmarkNoBorderGrey.png) !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d4d4d4;
+    border-radius:5px;
+}
+.ProjeQtOrNewGui .dijitDialogPaneContent .whiteCheck, .ProjeQtOrNewGui .dijitDialogPaneContent .dijitCheckBox {
+	margin-top: 6px;
+	margin-bottom: 3px;
+}
+
+.ProjeQtOrNewGui .colorMediumDiv {
+	background: var(--color-dark) !important;
+	color : var(--color-white) !important;
+}
+
+.ProjeQtOrNewGui .swapView {
+  height:370px !important;
+}
+.ProjeQtOrNewGui .indicatorPage {
+  bottom: 15px !important;
+  left:-1px;
+}
+
+.ProjeQtOrNewGui .mblPageIndicatorDotSelected {
+	background-color : var(--color-dark) !important;
+}
+
+table.dojoDndAvatar {
+	font-size:100%;
+}
+.rounded {
+	border-radius: 5px 5px 5px 5px !important;
+}
+.ProjeQtOrNewGui .dijitTextBox.dijitComboBox.dijitValidationTextBox .dijitArrowButtonInner,
+.ProjeQtOrNewGui .dijitSelect.dijitValidationTextBox .dijitArrowButtonInner {
+	margin-left:6px;
+}
+select option:checked {
+	background-color:var(--color-grid-selected-bg) !important;
+	color:var(--color-grid-selected-text) !important;
+}
+/*========================== CK EDITOR ======================*/
+.ProjeQtOrNewGui .cke_top, .ProjeQtOrNewGui .cke_bottom {
+  background: var(--color-white) !important;
+  background-image: url();
+  border: 0 !important;
+  border-top: 1px solid var(--color-light) !important;
+}
+.ProjeQtOrNewGui .cke_toolgroup {
+  background: var(--color-white) !important;
+  background-image: url();
+  
+}
+
+a.cke_path_item {
+	color : var(--color-medium) !important;
+}
+
+.ProjeQtOrNewGui a.cke_button, .ProjeQtOrNewGui a.cke_combo_button {
+  border-radius: 5px !important;
+  border: 1px solid #dddddd;
+  background: var(--color-lighter) !important;
+  /* margin-left: 1px;*/
+}
+.ProjeQtOrNewGui a.cke_button {
+  padding: 4px 6px;
+  margin-left: 1px;
+}
+.ProjeQtOrNewGui a.cke_button:hover {
+  padding: 4px 6px;
+  margin-left: 1px;
+}
+
+.ProjeQtOrNewGui a.cke_combo_button {
+	padding:0px;
+	margin-top:1px;
+}
+.ProjeQtOrNewGui a.cke_button_on {
+  background: var(--color-light) !important;
+  border: 1px #aaaaaa solid;
+  padding: 4px 6px;
+}
+.ProjeQtOrNewGui a.cke_button:hover, .ProjeQtOrNewGui a.cke_combo_button:hover {
+  background: var(--color-white) !important;
+  background-image: url();
+  border: 1px #aaaaaa solid;
+  /*margin-left: 1px;*/
+}
+.ProjeQtOrNewGui a.cke_button:hover {
+	padding: 4px 6px;
+}
+.ProjeQtOrNewGui a.cke_button_expandable,
+.ProjeQtOrNewGui a.cke_button_expandable:hover{
+	padding:4px 4px !important;
+}
+.ProjeQtOrNewGui .cke_toolbar_separator {
+	background: var(--color-white);
+}
+
+.ProjeQtOrNewGui .checkLabel {
+    font-weight: normal;
+    font-family: Verdana, Arial, Tahoma, sans-serif;
+    font-size: 10pt;
+    text-align: left;
+    vertical-align: top;
+    padding: 0px 0px 0px 0px;
+    float: none;
+    border: 0px;
+    cursor: pointer;
+}
+
+.ProjeQtOrNewGui .dijitDialogPaneContent .notButton .dijitReset.dijitStretch.dijitButtonContents {
+	padding:0;
+}
+
+.ProjeQtOrNewGui .linkData, .ProjeQtOrNewGui .attachmentData, .ProjeQtOrNewGui .noteData, .ProjeQtOrNewGui .dependencyData, 
+.ProjeQtOrNewGui .historyData, .ProjeQtOrNewGui .assignData {
+	color: var(--color-text);
+	padding-top:5px;
+	padding-bottom:5px;
+	border:0;
+}
+.ProjeQtOrNewGui .linkData .roundedButtonSmall, .ProjeQtOrNewGui .attachmentData .roundedButtonSmall, .ProjeQtOrNewGui .noteData .roundedButtonSmall,
+.ProjeQtOrNewGui .dependencyData .roundedButtonSmall, .ProjeQtOrNewGui .historyData .roundedButtonSmall, .ProjeQtOrNewGui .assignData .roundedButtonSmall{
+  margin: 0px 2px;
+  border:0;
+}
+.ProjeQtOrNewGui .colorNameData {
+	padding-top:0;
+	padding-bottom:0;
+}
+
+.ProjeQtOrNewGui .cke_button_on::after, .ProjeQtOrNewGui .cke_button_off::after, 
+.ProjeQtOrNewGui .cke_toolbar::after, .ProjeQtOrNewGui .cke_toolgroup::after {
+  display:none;
+}
+.ProjeQtOrNewGui .cke_toolbar {
+	max-height:34px;
+}
+.ProjeQtOrNewGui .labelPadding {
+	padding-right: 4px;
+}
+.ProjeQtOrNewGui .dijitTextArea {
+	padding: 5px 8px !important;
+	line-height:18px;
+} 
+.ProjeQtOrNewGui #noteNoteStream {
+	padding: 2px 2px 2px 5px !important;
+	margin: 0em 0.1em;
+	line-height:16px;
+}
+
+.ProjeQtOrNewGui #extraButtonsDetailDiv {
+	background: var(--color-background) !important;
+	padding-left:5px;
+	border:1px solid var(--color-light);
+	border-top:0px;
+	top:34px;
+}
+.ProjeQtOrNewGui #extraButtonsListDiv {
+	background: var(--color-background) !important;
+	border:1px solid var(--color-light);
+	position:absolute;
+	width:41px;
+	z-index:900;
+	top:32px;
+	text-align:right;
+	marin-right:6px;
+	padding-bottom:5px;
+}
+
+.ProjeQtOrNewGui .newGuiIconText{
+	color:var(--color-medium-dark) !important;
+}
+.ProjeQtOrNewGui .newGuiIconText:hover {
+  -ms-transform: rotate(0deg) brightness(99%) !important; /* IE 9 */
+  -webkit-transform: rotate(0deg) brightness(99%) !important; /* Chrome, Safari, Opera */
+  transform: rotate(0deg) !important;
+  color:var(--color-medium-secondary) !important;
+}
+
+.ProjeQtOrNewGui .arrow-down{
+	  width: 13px;
+    height: 10px;
+    background-color:var(--color-dark) !important;
+    clip-path: polygon(100% 0, 0 0, 50% 100%);
+}
+
+.ProjeQtOrNewGui .arrow-up{
+  width: 13px;
+  height: 10px;
+  background-color: var(--color-dark) !important;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+
+.ProjeQtOrNewGui .longDescPlugin  {
+	color: var(--color-dark);
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 20px;
+    line-height:1,2em;
+}
+
+.ProjeQtOrNewGui #userMenuInterrogation .input {
+	width:auto;
+	border:none;
+}
+.ProjeQtOrNewGui .colorSelector {
+  background-image: url(images/colorSelectorPalette.png);
+  background-repeat: no-repeat;
+  width: 37px;
+  height: 25px;
+  background-size: 37px 25px;
+  text-align: center;
+}
+.ProjeQtOrNewGui .shortlabel {
+	width:100%;
+	padding-top:0;
+	/*margin-left:20px;*/
+}
+.ProjeQtOrNewGui .internalTable DIV.display {
+	border:0;
+	border-bottom:1px solid #dddddd;
+	text-align: center;
+	height:20px;
+	margin-top:8px;
+}
+.ProjeQtOrNewGui .internalTable .shortlabel  {
+	margin-left:5px;
+}
+
+.loginBackgroundNewGui, .backgroundToday {
+/* 	background-image: url(images/bagroundLogin.svg); */
+	background-image: url(images/Engrenages.svg);
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.loginFrameNewGui {
+    background-color: white;
+    border-radius: 6px;
+    height: 370px;
+    width: 500px;
+    text-align: center;
+    box-shadow: rgb(51, 51, 51) 5px 7px 15px;
+    margin: 0px;
+    padding: 0px;
+    z-index: 999;
+}
+
+
+.loginMessageContainerNew{
+	background-color: rgba(0,0,0,0.4);
+    position: absolute;
+    width: 33%;
+    top: 0px;
+    left: 0px;
+    height: 100%;
+    overflow: hidden auto;
+    z-index: 0;
+    box-shadow: 5px 0px 2px #0000008f;
+}
+
+.inputLoginNewGui{
+	float: left;
+    font-weight: normal;
+    color: rgb(0, 0, 0);
+    padding: 3px 4px 2px;
+    line-height: normal;
+    border-radius: 5px 0px 0px 5px;
+    background-position: 3px 3px;
+    height: 22px;
+    border:unset !important;
+    width:305px !important;
+}
+
+.inputLoginIconNewGui{
+	float: left;
+  font-weight: normal;
+  color: rgb(0, 0, 0);
+  padding: 3px 4px 2px;
+  line-height: normal;
+    background-position: 3px 3px;
+    height: 22px;
+    margin-top:2px;
+}
+
+.iconLoginUserNewGui{
+	background-image: url(customIcons/new/iconLogin.svg);
+    background-repeat: no-repeat;
+    background-size: contain;
+     background-position:center;
+}
+
+.iconLoginPasswordNewGui{
+	background-image: url(customIcons/new/iconPassword.svg);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position:center;
+    width: 22px;
+    height: 22px;
+}
+
+.loginDivContainer {
+    border-radius: 10px;
+    padding: 5px;
+    box-shadow:6px 3px 7px #bfbfbf;
+   
+}
+
+.iconLoginPasswordNewGui .dijitReset .dijitInputInner{
+	mix-blend-mode: hard-light;
+}
+
+.passwordButtonNewGui {
+	cursor:pointer;
+	color:var(--color-medium);
+	float: right;
+    margin-top: 4px;
+    text-align: right;
+}
+
+.passwordButtonNewGui:hover  {
+	color:var(--color-secondary);
+}
+
+.pluginShopButton{
+	height:35px;
+	width:150px;
+	text-align:center;
+	margin-right:15px;
+	float:right;
+}
+
+.iconSelectAll {
+	background-image: url(images/checkmarkNoBorderGrey.png) !important;
+  border: 1px solid var(--color-medium);
+  background-repeat: no-repeat;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  cursor: pointer;
+  background-position: -0px
+}
+.iconUnselectAll {
+  background-image: url(images/checkmarkNoBorderGrey.png) !important;
+  border: 1px solid var(--color-medium);
+  background-repeat: no-repeat;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  cursor: pointer;
+  background-position: -16px; 
+}
+
+
+element.style {
+    text-align: center;
+    left: 0px;
+    top: 0px;
+    position: absolute;
+    width: 238px;
+}
+
+.ProjeQtOrNewGui .activityStreamNote, .ProjeQtOrNewGui .activityStreamMailTitle {
+	border-radius: 5px;
+	/*margin:5px;*/
+	display:block;
+	padding:5px 8px;
+	font-size:90%;
+}
+.ProjeQtOrNewGui .activityStreamNote {
+	background-color:var(--color-lighter-secondary);
+	max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  position:relative;
+  -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+}
+.ProjeQtOrNewGui #objectStreamKanban .activityStreamNote {
+	max-width:97%;
+}
+.ProjeQtOrNewGui .activityStreamMailTitle {
+	background-color:var(--color-lighter);
+}
+
+.switchLogin .mblSwDefaultShape .mblSwitchBg{
+	border-radius: 8px !important;
+}
+
+.ProjeQtOrNewGui #menuBarAccesLeft .imageColorNewGuiSelected{
+  -webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  background-color: transparent !important;
+}
+
+.ProjeQtOrNewGui .loginMessage{
+   background: unset;
+    color: white;
+    border: unset;
+    font-size: 12px;
+    padding: 10px;
+    margin-left: 8%;
+    margin-right: 8%;
+    margin-bottom: 5%;
+    margin-top: unset;
+    width: auto;
+    z-index: 1;
+    position: relative;
+    border-radius: unset;
+    box-shadow: unset;
+    -webkit-box-shadow:unset;
+}
+
+.ProjeQtOrNewGui .loginMessageTitle{
+	position: relative;
+    top: unset;
+    left: unset;
+    border-bottom: unset;
+	  width:100%;
+    text-align: right;
+    white-space: normal;
+    overflow: hidden;
+    font-weight: bold;
+    padding: 2px 0px;
+    font-size: x-large;
+}
+
+.divLoginIconDrawing{
+    margin-left: 165px;
+    width: 135px;
+    height: 135px;
+    top: -64px;
+    border-radius: 100%;
+    opacity: 1;
+    border: 3px solid white;
+}
+
+.divLoginIconBig{
+    background-image: url(customIcons/new/iconLogin.svg);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    width: 115px;
+    margin-top: 28px;
+    height: 115px;
+    filter: brightness(0) invert(1);
+}
+
+.ProjeQtOrNewGui #drawMenuUser .dijitTooltipContainer, .ProjeQtOrNewGui #drawMenuUser .dijitTooltipFocusNode {
+	padding:0;
+}
+
+.ProjeQtOrNewGui #userMenuPopup {
+	margin: 0.45em;
+}
+.ProjeQtOrNewGui #userMenuPopupBottom {
+	background:var(--color-darker);
+}
+.ProjeQtOrNewGui #userMenuPopupBottom .disconnectTextClass {
+  border:0;
+  background:var(--color-darker);
+  width:90%;
+  left:10px;
+  position: relative;
+  padding: 0px 10px;
+  margin:2px;
+  text-shadow:none;
+  color:#ffffff;
+  -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+  border-radius:5px
+}
+.ProjeQtOrNewGui #userMenuPopupBottom .disconnectTextClass:hover {
+	background:var(--color-white);
+	color:var(--color-dark);
+	border-radius:5px;
+}
+.ProjeQtOrNewGui #userMenuPopupBottom .disconnectClass {
+  /*-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  background-color: transparent !important;*/
+  -webkit-filter : saturate(0) invert(1);
+  filter : saturate(0) invert(1);
+  background-color: transparent !important;
+}
+.ProjeQtOrNewGui #userMenuPopupBottom:hover .disconnectClass {
+  /*-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;*/
+  -webkit-filter : hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness)) !important;
+  filter : hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness)) !important;
+  background-color: transparent !important;
+}
+.ProjeQtOrNewGui .listTitle.multipleResultDiv {
+	background-color: var(--color-lighter) !important;
+}
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageOK,
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageNO_CHANGE,
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageINVALID,
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageERROR,
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageWARNING,
+.ProjeQtOrNewGui .listTitle.multipleResultDiv .messageINCOMPLETE
+{
+	border-radius:5px;
+	box-shadow:0 0 0;
+}
+
+.ProjeQtOrNewGui .dijitNumberTextBox.assignmentNumber input.dijitInputInner {
+  padding: 1px 5px 2px 0px !important;
+  font-size:12px;
+}
+.ProjeQtOrNewGui .interventionFTE.dijitTextBox.dijitNumberTextBox input.dijitInputInner {
+	float:none;
+	text-align:center;
+	padding:0 !important;
+}
+.ProjeQtOrNewGui  .interventionFTE {
+  border:1px solid #A0A0A0 !important;
+}
+.ProjeQtOrNewGui .dojoxGridRowSelected .interventionFTE {
+	color:white;
+	border:1px solid white !important;
+}
+.ProjeQtOrNewGui .dojoxGridRowSelected .imageColorNewGui.iconGotoWhite16:hover {
+	filter: brightness(0) invert(1);
+}
+
+.inputLoginIconNewGui:hover{
+    -webkit-filter: hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness)) !important;
+    filter: hue-rotate(var(--image-hue-rotate)) saturate(var(--image-saturate)) brightness(var(--image-brightness)) !important;
+} 
+
+#buttonLoginPwChange, #cancelButton {
+	padding: unset !important;
+}
+
+.imgMessageType{
+	width:32px;
+	width:32px;
+	filter: brightness(0) invert(1);
+}
+
+.ProjeQtOrNewGui .kanbanTextTitle {
+	color:var(--color-dark);
+}
+
+
+.ProjeQtOrNewGui .menuTree:hover {
+  background-color: transparent !important;
+  color:var(--color-secondary);
+}
+
+.ProjeQtOrNewGui .kanbanTitleTicket.kanbanTitleSmallTiles {
+  min-height: 22px;
+  max-height: 40px;
+/*   line-height: 20px; */
+}
+
+.ProjeQtOrNewGui .kanbanTitleTicket:not(.kanbanTitleSmallTiles) {
+  min-height: 25px;
+  max-height: 25px;
+}
+
+.ProjeQtOrNewGui .kanbanTitleTicket:hover {
+  max-height:100%;
+}
+.ProjeQtOrNewGui #dialogKanbanUpdate label {
+	margin-right:5px;
+	margin-top:5px;
+}
+.ProjeQtOrNewGui #dialogKanbanUpdate .dijitCheckBox {
+	margin-top:10px;
+}
+.ProjeQtOrNewGui .kanbanColumn .sectionBadge {
+	top:5px;
+}
+.ProjeQtOrNewGui .kanbanColumn .linkHeader {
+	height:18px;
+}
+.ProjeQtOrNewGui .kanbanColumn {
+  scrollbar-color: var(--color-lighter) var(--color-light);
+  scrollbar-width: thin;
+}
+.ProjeQtOrNewGui .kanbanColumn::-webkit-scrollbar-button {
+  background-color: var(--color-light); 
+  width:0; height:0;
+}
+
+.ProjeQtOrNewGui .diaryItemDiv {
+  scrollbar-color: grey transparent;
+  scrollbar-width: thin;
+}
+.ProjeQtOrNewGui .diaryItemDiv::-webkit-scrollbar-button {
+  background-color: transparent; 
+  width:0; height:0;
+}
+
+.ProjeQtOrNewGui #loginResultDiv, .ProjeQtOrNewGui #passwordResultDiv {
+	top:10% !important;
+}
+
+.ProjeQtOrNewGui #listHeaderDiv.dijitBorderContainerPane, .ProjeQtOrNewGui #gridContainerDiv.dijitBorderContainerPane,
+.ProjeQtOrNewGui #barFilterByStatus.dijitBorderContainerPane {
+	z-index:auto;
+}
+
+.ProjeQtOrNewGui #listHeaderDiv.dijitBorderContainerPane {
+  overflow:visible;	
+}
+.ProjeQtOrNewGui .allSearchFixLength {
+  /* min-width: 36px;*/
+}
+
+.ProjeQtOrNewGui .menuBarItemSelectedModule {
+	color: white !important;
+  background-color:var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui .menuFilterModuleTopIcon {
+  filter : brightness(0) invert(1) !important;
+}
+.ProjeQtOrNewGui .messageOK, .ProjeQtOrNewGui .messageNO_CHANGE, .ProjeQtOrNewGui .messageINVALID, 
+.ProjeQtOrNewGui .messageERROR, .ProjeQtOrNewGui .messageWARNING, .ProjeQtOrNewGui .messageINCOMPLETE {
+	border-radius:5px;
+}
+.ProjeQtOrNewGui .closeBoxIcon {
+	background-image: url(../images/tabClose.svg);
+	background-size:24px;
+	background-repeat: no-repeat;
+	opacity:50%;
+}
+.siteH1 {
+  font-family: Helvetica, Verdana, Arial, Tahoma, sans-serif;
+  font-weight: bold; 
+  font-size: 25pt; 
+  text-decoration: none; 
+  color: var(--color-secondary); 
+  text-shadow: 1px 1px 1px var(--color-medium);
+}
+.siteH2 {
+  font-family: Helvetica, Verdana, Arial, Tahoma, sans-serif;
+  font-weight: normal; 
+  font-size: 14pt; 
+  text-decoration: none; 
+  color: var(--color-dark); 
+}
+
+.messageInitLogin{
+	margin-left: 550px;
+    position: absolute;
+    height: 185px;
+    width: 250px;
+    background-color: white; 
+    border-radius: 6px;
+    box-shadow: rgb(51, 51, 51) 7px 7px 2px;
+}
+
+.titleWelcomeMessage{
+	width: 100%;
+    height: 16px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-dark);
+}
+
+.textWelcomeMessage{
+	width: 100%;
+    font-size: 12px;
+    color: var(--color-dark);
+}
+
+.ProjeQtOrNewGui .imputationTable .ganttName, .ProjeQtOrNewGui .imputationTable .ganttDetail,
+.ProjeQtOrNewGui .imputationTable .ganttLeftTopLine, .ProjeQtOrNewGui .imputationTable .ganttLeftTitle {
+	font-size:10pt;
+}
+.ProjeQtOrNewGui .imputationTable .ganttTaskRow, .ProjeQtOrNewGui .imputationTable .ganttTaskgroup, .ProjeQtOrNewGui .checkboxLabel {
+	height:26px;
+	min-height:26px;
+}
+
+.ProjeQtOrNewGui .imputationTable .dijitTextBox, .ProjeQtOrNewGui .imputationTable .dijitValidationTextBox {
+	margin:1px;
+	padding: 1px 1px 3px 1px;
+}
+.ProjeQtOrNewGui .imputationTable .ganttLeftTopLine .dijitReset.dijitInline.dijitButtonNode {
+	background: var(--color-lighter);
+	color: var(--color-dark);
+	/* background: var(--color-medium); */
+}
+
+.ProjeQtOrNewGui .imputationTable .ganttLeftTopLine .imputationExpand  .dijitReset.dijitInline.dijitButtonNode {
+	background: var(--color-darker);
+}
+.ProjeQtOrNewGui .imputationSubmitted {
+	font-size: 90%;
+	padding:1px 5px;
+	/*background: var(--color-medium);*/
+	border:0;
+	color:var(--color-darker);
+}
+.ProjeQtOrNewGui .imputationValidated {
+	 font-size: 90%;
+  padding:1px 5px;
+  border:0;
+  color:var(--color-darker);
+}
+.ProjeQtOrNewGui .roundedLeft {
+  border-top-left-radius: 5px !important;
+  border-bottom-left-radius: 5px !important;
+}
+
+.ProjeQtOrNewGui .dijitDropDownButtonActive .dijitButtonNode,
+.comboButton .dijitReset.dijitInline.dijitButtonNode:Active {
+  border: none;
+}
+
+.ProjeQtOrNewGui .mblTabBarSegmentedControl {
+	background-image: none !important;
+}
+
+.ProjeQtOrNewGui .mblTabBar {
+  border: none !important;
+}
+
+.ProjeQtOrNewGui .mblTabBarSegmentedControl .mblTabBarButton {
+	background-color: var(--color-lighter) !important;
+	background-image:none !important;
+}
+
+
+.ProjeQtOrNewGui .mblTabBarButtonLabel {
+	font-weight : normal !important;
+}
+ 
+.ProjeQtOrNewGui .mblTabBarSegmentedControl .mblTabBarButtonSelected {
+	background-color:var(--color-dark) !important;
+	color:revert;
+}
+
+.ProjeQtOrNewGui .dojoxGridRowSelected .ganttIconBackground {
+	background-color: transparent;
+}
+.ProjeQtOrNewGui #menuSearchDiv::placeholder {
+	font-style:italic;
+	font-size:90%;
+	color:#c0c0c0;
+	/*padding-left:5px;*/
+}
+.ProjeQtOrNewGui #menuSearchDiv {
+	padding-left:10px !important;
+
+}
+
+.ProjeQtOrNewGui .bmenu{
+    padding: 0px;
+    position: relative;
+    margin-left:20px;
+    margin-right:20px;
+    margin-top:0px;
+    width:100%;
+}
+
+.ProjeQtOrNewGui .bmenu li{
+    display:table-cell;
+    cursor:pointer;
+    display: block;
+    width:250px;
+    float:left;
+    text-transform: unset;
+    text-shadow: unset;
+    text-align:center;
+    margin: 2px;
+    height:42px;
+    padding:0px;
+    background: unset;
+    -webkit-transition: unset;
+    -moz-transition: unset;
+    -o-transition: unset;
+    -ms-transition: unset;
+    transition: unset;
+}
+.ProjeQtOrNewGui .bmenuText {
+  font-size: 11px;
+  vertical-align: middle;
+  font-weight:normal;
+  text-transform: unset;
+  letter-spacing:unset;
+  padding:unset;
+  height: 40px;
+  border-radius:5px;
+}
+.ProjeQtOrNewGui .bmenuCategText {
+  font-size: 12px;
+  vertical-align: middle;
+  text-transform: unset;
+  letter-spacing:unset;
+  padding:unset;
+  font-weight:borld; 
+  height: 40px; 
+}
+
+.ProjeQtOrNewGui .bmenu li:hover{
+  background-color: var(--color-light-secondary) !important;
+  border: 1px solid var(--color-secondary) !important;
+  cursor:pointer;
+}
+
+.ProjeQtOrNewGui .bmenu li .reportSelected, .reportSelected {
+  background-color: var(--color-light-secondary) !important;
+}
+.ProjeQtOrNewGui .reportSelected .bmenuText{
+  background-color: var(--color-light-secondary) !important;
+  font-weight: normal;
+  color: var(--color-secondary);
+}
+
+.ProjeQtOrNewGui .headerReport{
+  color:var(--color-dark) !important;
+  font-size: 22px; 
+  font-family: Verdana,"Arial Black", Arial, sans-serif;
+  font-weight: bold;
+  border:0px;
+  position:absolute;
+  top:-5px;
+  text-align:center;
+  background:transparent;
+  left:40px;
+  width:470px;
+}
+
+.ProjeQtOrNewGui li.section, .ProjeQtOrNewGui li.sectionCategorie {
+  border-radius:5px;
+}
+
+.ProjeQtOrNewGui li.section:hover, .ProjeQtOrNewGui li.sectionCategorie:hover {
+  background-color: var(--color-light-secondary) !important;
+  border: 1px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui li.section.reportSelected {
+  background-color: var(--color-light-secondary) !important;
+  border: 1px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui li.sectionCategorie.reportSelected {
+  background-color: var(--color-light-secondary) !important;
+  border: 1px solid var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui .largeReportHeader2 {
+	-webkit-transition: unset !important;
+  -moz-transition:unset !important;
+  -o-transition: unset !important;
+  -ms-transition: unset !important;
+  transition: unset !important;
+}
+.ProjeQtOrNewGui .iconHelp {
+  width: 22px;
+  height:22px;
+}
+.ProjeQtOrNewGui .dijitFakeInput input {
+	background: #ffffff url();
+	border: 1px solid #d0d0d0;
+	padding:3px 5px;
+	
+}	
+.ProjeQtOrNewGui .dijitFakeInput .dijitInline.dijitFileInputText,
+.ProjeQtOrNewGui .dijitFakeInput .dijitInline.dijitFileInputButton {
+	  background: var(--color-lighter);
+    padding: 2px;
+    position: relative;
+    top: -1px;
+    border:1px solid #c0c0c0;
+    border-radius:5px;
+    color:var(--color-dark);
+}
+.ProjeQtOrNewGui .dijitFakeInput .dijitInline.dijitFileInputButton:hover {
+    background: #ffffff;
+    color:var(--color-secondary);
+    border:1px solid var(--color-secondary);
+}
+
+.ProjeQtOrNewGui .reportTableHeader, .ProjeQtOrNewGui .reportHeader, .ProjeQtOrNewGui .largeReportHeader, .ProjeQtOrNewGui .messageHeader {
+	background: var(--color-medium) !important;
+	color:#ffffff !important;
+}
+.ProjeQtOrNewGui .messageHeader {
+	padding:5px 0px;
+}
+.ProjeQtOrNewGui .reportTableColumnHeader {
+  background: var(--color-mediumlight) !important;
+  color:#ffffff !important;
+}
+ .ProjeQtOrNewGui .reportTableLineHeader {
+  background: var(--color-light) !important;
+  color:#000000 !important;
+}
+.ProjeQtOrNewGui .reportHeaderRounded {
+	border-radius: 5px;
+}
+
+.ProjeQtOrNewGui #detailReportDiv {
+	margin-top:10px;
+}
+.ProjeQtOrNewGui .whiteBackground, .ProjeQtOrNewGui .whiteBackground:hover {
+	border: 0px solid var(--color-background) !important;
+}
+
+.ProjeQtOrNewGui .iconRight { background-image: url(customIcons/new/iconRight.svg);  background-repeat: no-repeat;}
+
+.ProjeQtOrNewGui .ganttLeftTitle input {
+	color:#ffffff;
+}
+.ProjeQtOrNewGui .ganttLeftTitle .imputationPlannedWorkCapacity input,
+.ProjeQtOrNewGui .ganttLeftTitle .imputationValidCapacity input,
+.ProjeQtOrNewGui .ganttLeftTitle .imputationInvalidCapacity input {
+  color:#505050;
+}
+.ProjeQtOrNewGui .ganttLeftTitle .imputation {
+  border: 1px solid var(--color-darker);
+}
+.ProjeQtOrNewGui .ganttDetail .dijitTextBox, .ProjeQtOrNewGui .ganttDetail .dijitValidationTextBox {
+	border: 1px solid var(--color-medium);
+}
+
+.ProjeQtOrNewGui .ganttDetail input.dijitTextBoxReadOnly,
+.ProjeQtOrNewGui .ganttDetail .dijitReadOnly, .ProjeQtOrNewGui .ganttDetail .dijitReadOnly input,
+.ProjeQtOrNewGui .ganttDetail .displayTransparent {
+	border: 1px solid transparent;
+	background:transparent;
+}
+
+.ProjeQtOrNewGui .link:hover {
+  color:var(--color-secondary) !important;
+  background-color:none !important;
+}
+.ProjeQtOrNewGui .transparentBackground, .simple-grid__cell .dijitTabPaneWrapper, .ProjeQtOrNewGui .transparentBackground #objectStream .noteData, .ProjeQtOrNewGui #startGuideTabContainer .dijitTabPaneWrapper {
+	background-color: transparent !important;
+	background: transparent !important;
+}
+.ProjeQtOrNewGui .transparentBackground #objectStream .noteData {
+	border:0 !important;
+}
+
+.ProjeQtOrNewGui #subscribeButtonDiv {
+	background: var(--color-background) !important;
+	width:250px;
+	left:-251px;
+	color: var(--color-text) !important;
+}
+.ProjeQtOrNewGui .dynamicTextButton.pluginFile .dijitButtonNode  {
+	width:150px;
+}
+.ProjeQtOrNewGui .dijitTitlePaneTitle {
+	overflow:hidden;
+}
+
+element.style {
+}
+.ProjeQtOrNewGui #mapDiv, .ProjeQtOrNewGui #listDiv, .ProjeQtOrNewGui #formDiv, .ProjeQtOrNewGui .display, .ProjeQtOrNewGui .background, .ProjeQtOrNewGui .dijitTitlePaneContentInner, .ProjeQtOrNewGui .dijitTabPane, .ProjeQtOrNewGui #mainDiv, .ProjeQtOrNewGui #centerDiv {
+    background-color: var(--color-background);
+}
+.ProjeQtOrNewGui .display {
+    border: 1px solid var(--color-background);
+}
+.ProjeQtOrNewGui .marginLabel {
+	margin-top:5px;
+}
+.ProjeQtOrNewGui a:hover {
+	background:transparent !important;
+}
+.ProjeQtOrNewGui .dropDownNoBorder.dijitDropDownButton .dijitReset.dijitInline.dijitButtonNode {
+	border:0;	
+}
+
+/* SPECIFIC FOR POP-UP CK EDITOR */
+#cke_situationComment .cke_top {
+	display:inline-block;
+} 
+
+/* SPECIFIC FOR GREYED BACKGROUND */
+.ProjeQtOrNewGui .dojoxGridScrollbox, .ProjeQtOrNewGui .iconHighlight {
+	background-color: var(--color-background);
+}
+
+.ProjeQtOrNewGui .dijitTabContainerTop-tabs .dijitTabChecked {
+	border-bottom-color: var(--color-background);
+}
+
+.ProjeQtOrNewGui .absActivityRow {
+	height:30px !important;
+	border:1px solid grey !important;
+}
+
+element.style {
+    border: 1px solid red;
+}
+
+/* SPECIFIC FOR Dijit Calendar : Leave System, Calender */
+.ProjeQtOrNewGui .dojoxCalendar .buttonContainer .dijit.dijitToolbar span.dijit.dijitReset.dijitInline.dijitButton,
+.ProjeQtOrNewGui .dojoxCalendar .buttonContainer .dijit.dijitToolbar span.dijit.dijitReset.dijitInline.dijitButton .dijitReset.dijitInline.dijitButtonNode {
+  background: var(--color-background);
+  border: 0px;
+}
+
+.ProjeQtOrNewGui .dijitTabStripIcon.dijitTabStripSlideLeftIcon {
+	height: 22px;
+  width: 22px;
+  margin-top: 6px;
+  background-position:top;
+  background: url(customIcons/new/iconLeft.svg) no-repeat; background-size:22px 22px;
+}
+.ProjeQtOrNewGui .dijitTabStripIcon.dijitTabStripSlideRightIcon {
+  height: 22px;
+  width: 22px;
+  margin-top: 6px;
+  background-position:top;
+  background: url(customIcons/new/iconRight.svg) no-repeat; background-size:22px 22px;
+}
+.ProjeQtOrNewGui .dijitTabStripIcon.dijitTabStripMenuIcon {
+  height: 22px;
+  width: 22px;
+  margin-top: 6px;
+  background-position:top;
+  background: url(customIcons/new/iconListOfValues.svg) no-repeat; background-size:22px 22px;
+}
+
+.fullScreenCK {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+}
+.ProjeQtOrNewGui .dijitDialog .dijitDialogPaneContent {
+	background: var(--color-background);
+}
+.ProjeQtOrNewGui .dijitTooltipContainer {
+	background: url() var(--color-background);
+}
+#dialogObjectContextMenu, #dialogPlanningContextMenu {
+	opacity:0.0;
+	transition-behavior: allow-discrete;
+	transition:opacity 0.5s;
+}
+#dialogObjectContextMenu:focus, #dialogPlanningContextMenu:focus {
+	opacity:1;
+}
+
+.ProjeQtOrNewGui div.dijitTooltip.dijitTooltipRight div.dijitTooltipContainer, .ProjeQtOrNewGui .dijitTooltipData {
+  background: url() var(--color-white);
+}
+.ProjeQtOrNewGui .pseudoButton {
+	background: url() var(--color-background);
+	border-color: var(--color-background);
+}
+.ProjeQtOrNewGui .pseudoButton:hover {
+  background: url() var(--color-background);
+  border-color: var(--color-background);
+  color:var(--color-secondary);
+}
+.ProjeQtOrNewGui #objectStream .noteData {
+	background-color: var(--color-background);
+	background-clip: padding-box;
+}
+/*.ProjeQtOrNewGui #dialogReminder {
+	font-size: 9pt;
+}*/
+
+.ProjeQtOrNewGui .linkIconHover, .ProjeQtOrNewGui .classLinkName{
+    cursor: pointer;
+}
+
+.ProjeQtOrNewGui .classLinkName:hover{
+	 color:var(--color-secondary) !important;
+}
+.ProjeQtOrNewGui .streamLink.classLinkName:hover {
+	color:#ffffff !important;
+}
+/* NOTIFICATIONS */
+
+
+.ProjeQtOrNewGui .userParamTabar{
+	width:60px !important;
+}
+
+/*  TIME PICKER */
+.ProjeQtOrNewGui .dijitTimePickerMarker {
+  background: var(--color-light) url();
+  color: var(--color-dark);
+  font-weight: bold;
+}
+.ProjeQtOrNewGui .dijitTimePickerItemSelected {
+  background: var(--color-secondary) url();
+  color: var(--color-white);
+  font-weight: bold;
+}
+
+.ProjeQtOrNewGui .dijitTimePickerItemHover {
+  background: var(--color-dark) url();
+  color: var(--color-light);;
+}
+/* DATE PICKET */
+.ProjeQtOrNewGui .dijitCalendarYearContainer {
+    background: var(--color-light);
+    border-top: 1px solid var(--color-light);
+}
+.ProjeQtOrNewGui .dijitCalendarDayLabelTemplate {
+    background: var(--color-light);
+    border-top: 1px solid var(--color-light);
+    color: var(--color-dark);
+    border-right: 5px solid var(--color-light);
+    border-left: 5px solid var(--color-light);
+}
+.ProjeQtOrNewGui .dijitCalendarSelectedDate {
+    background-color: var(--color-secondary) !important;
+    color: var(--color-white) !important;
+}
+.ProjeQtOrNewGui .dijitCalendarCurrentDate {
+    background-color: var(--color-light) !important;
+    color: var(--color-dark);
+    font-weight: bold;
+}
+
+.ProjeQtOrNewGui .externalEditorButtonContainer {
+    border-radius:4px;
+    width:16px;height:17px;
+    padding:3px;
+    border:1px solid #cccccc;
+    cursor:pointer;
+    float:right;
+    margin-right:2px;
+    margin-Left:2px;
+}
+.ProjeQtOrNewGui .resourceSkillTableData{
+  border: 1px solid #AAAAAA;
+  vertical-align: middle;
+  text-align: center;
+  font-weight: normal;
+  padding: 0px 1px 0px 1px;
+}
+
+.resourceSkillFirstRow{
+	border-bottom:unset !important;
+}
+
+.resourceSkillHiddenRow{
+	border-top:unset !important;
+	border-bottom:unset !important;
+}
+
+.resourceSkillLastRow{
+	border-top:unset !important;
+}
+
+.ProjeQtOrNewGui .resourceSkillRow:hover{
+	cursor:pointer;
+	background-color:var(--color-light-secondary) !important;
+}
+
+.ProjeQtOrNewGui .dijitDialogPaneContent table.dijitValidationTextBox .dijitReset.dijitStretch.dijitButtonContents {
+	padding : 0; 
+}
+.ProjeQtOrNewGui .dijitSelect .dijitSelectLabel {
+	margin-left:0;
+}
+
+.ProjeQtOrNewGui .contextMenuRow:hover{
+	cursor:pointer;
+	background-color:var(--color-light-secondary) !important;
+}
+
+.ProjeQtOrNewGui #getLastNews {
+	position:relative;
+}
+
+.ProjeQtOrNewGui .sortable {
+	/* cursor: ns-resize; */
+	cursor: pointer;
+}
+.ProjeQtOrNewGui .sortable:after {
+  /* content: "   \21C5 \296F \2666 \21D5  \1F89B \2B19 \2B6D \1F7A0 \21C5 "; */
+  content: "   \21C5";
+  opacity:0.7;
+  font-size:80%;
+}
+
+.ProjeQtOrNewGui .planningDialogArea { 
+  border:solid 1px lightgray;
+}
+.ProjeQtOrNewGui .planningDialogTitle { 
+  border: 0px;
+  background-color: var(--color-dark) !important;
+  color: #ffffff;
+  border-radius: 5px;
+}
+
+.ProjeQtOrNewGui .simple-grid__container .dijitTitlePane .dijitTitlePaneTitle {
+	border:0;
+  background-color: transparent !important;
+  background: transparent !important;
+  font-size:95%;
+  color:#a0a0a0 !important;
+  /*display:none;*/
+}
+.ProjeQtOrNewGui .simple-grid__container .dijitTitlePane {
+  top:-5px;
+  /*top:5px;*/
+  position:relative;
+  margin-bottom: -25px;
+}
+
+.ProjeQtOrNewGui .startGuideListRow:hover{
+	color: var(--color-secondary) !important;
+	text-decoration: underline var(--color-secondary) !important;
+}
+
+.ProjeQtOrNewGui #startGuideTabContainer div.dijitTab {
+	border-bottom:unset !important;
+	height:40px;
+	min-width:200px;
+	padding: 10px 40px 10px 40px;
+	text-align:center;
+	background-image: url(customIcons/new/iconStep.svg);
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	-webkit-filter : hue-rotate(120deg) saturate(0%) brightness(220%);
+  	filter: hue-rotate(120deg) saturate(0%) brightness(220%);
+  	font-size:125%;
+}
+
+.ProjeQtOrNewGui #startGuideTabContainer div.dijitTab:has(#startGuideTabContainer_tablist_startGuideEnvironmentalTab) {
+	border-bottom:unset !important;
+	height:40px;
+	min-width:200px;
+	padding: 10px 40px 10px 40px;
+	text-align:center;
+	background-image: url(customIcons/new/iconStepDebut.svg);
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	-webkit-filter : hue-rotate(120deg) saturate(0%) brightness(220%);
+  	filter: hue-rotate(120deg) saturate(0%) brightness(220%);
+  	font-size:125%;
+}
+
+.ProjeQtOrNewGui #startGuideTabContainer div.dijitTab.dijitTabChecked, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabHover {
+	-webkit-filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+  	filter : hue-rotate(var(--image-hue-rotate-selected)) saturate(var(--image-saturate-selected)) brightness(var(--image-brightness-selected)) !important;
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabChecked>span.tabLabel, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabHover>span.tabLabel {
+	color: white !important;
+	border:0 !important;
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer .dijitTabContainerTop-tabs, .ProjeQtOrNewGui #startGuideTabContainer .dijitTab, .ProjeQtOrNewGui #startGuideTabContainer div.dijitTab>span.tabLabel {
+	color: white !important;
+	border: 0px !important;
+	background-color: transparent !important;
+	font-weight:normal !important;
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab>span.tabLabel>div.startGuideTabBadge, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabChecked>span.tabLabel>div.startGuideTabBadge {
+	position: absolute;
+	left: 30px;
+	top: 13px;
+	-webkit-filter : hue-rotate(0deg) saturate(200%) brightness(45%);
+	filter: hue-rotate(0deg) saturate(200%) brightness(45%);
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab>span.tabLabel>div.startGuideFirstTabBadge, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabChecked>span.tabLabel>div.startGuideFirstTabBadge {
+	position: absolute;
+	left: 8px;
+	top: 13px;
+	-webkit-filter : hue-rotate(0deg) saturate(200%) brightness(45%);
+	filter: hue-rotate(0deg) saturate(200%) brightness(45%);
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab>span.tabLabel>div.startGuideTabBadge, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabChecked>span.tabLabel>div.startGuideTabBadge {
+	position: absolute;
+	left: 30px;
+	top: 13px;
+	-webkit-filter : hue-rotate(0deg) saturate(200%) brightness(45%);
+	filter: hue-rotate(0deg) saturate(200%) brightness(45%);
+}
+
+.ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab>span.tabLabel>div.startGuideFirstTabBadge, .ProjeQtOrNewGui  #startGuideTabContainer div.dijitTab.dijitTabChecked>span.tabLabel>div.startGuideFirstTabBadge {
+	position: absolute;
+	left: 8px;
+	top: 13px;
+	-webkit-filter : hue-rotate(0deg) saturate(200%) brightness(45%);
+	filter: hue-rotate(0deg) saturate(200%) brightness(45%);
+}
+.iconButtonResetMargin {
+	margin:0 !important;
+	padding:0 !important;
+}
+.ProjeQtOrNewGui .dijitTooltipContainer .iconButtonResetMargin .dijitReset.dijitInline.dijitButtonNode {
+	padding:0 !important;
+	margin:0 !important;
+}
+
+.tdListPrint {
+  border: 1px solid #555555;
+  background-color: #FFFFFF; 
+  margin: 0px; padding: 1px 3px 1px 3px; 
+  white-space: normal;
+}
+
+.ganttEditableFieldHidden {
+	display : none;
+}
+
+#tagListContainer {
+	border:0;
+}
+#tagInput {
+	border-bottom : 1px solid #dddddd !important;
+}
+label.tagsClass, .ProjeQtOrNewGui label.tagsClass {
+	padding-top:1px;
+}
+.ganttEditableField .dijitDisabled{
+	display:none;
+}
+
+.clearDateIcon {
+	display:none;
+}
+.ProjeQtOrNewGui .clearDateIcon {
+	display: block;
+	width:16px;height:16px;
+	position:relative; 
+	top: -27px; left:85px;
+	/* background-image: url(customIcons/new/iconPurge.svg); */  
+	background-image: url(images/tabClose.gif);
+	background-repeat: no-repeat;
+	background-size: 16px 16px;
+}
+
+.whiteIcon {
+	webkit-filter: brightness(0) invert(1) !important;
+	filter: brightness(0) invert(1) !important;
+	background-color: transparent !important;
+	opacity: 1 !important;
+}
+
+.ProjeQtOrNewGui .fullScreenDialog {
+	position: absolute !important;
+	left: 0 !important;
+	top: 0 !important;
+	width: 100% !important;
+	height: 100% !important;
+	max-width: 100% !important;
+	max-height: 100% !important;
+}
+
+.ProjeQtOrNewGui #dialogMail.fullScreenDialog {
+	position: fixed !important;
+	left: 0 !important;
+	top: 0 !important;
+	width: 100vw !important;
+	height: 100vh !important;
+	max-width: 100vw !important;
+	max-height: 100vh !important;
+	box-sizing: border-box !important;
+}
+
+.ProjeQtOrNewGui .fullScreenIcon, .ProjeQtOrNewGui .fullScreenReverseIcon, .ProjeQtOrNewGui .minimizeIcon, .ProjeQtOrNewGui .minimizeMailIcon {
+	position:absolute; right:53px; top: 10px;
+  background-size: 15px 15px;
+  background-repeat: no-repeat;
+  height: 15px;
+  width: 15px;
+  user-select: none;
+  -webkit-filter : brightness(0) invert(1);
+  filter : brightness(0) invert(1);
+  background-color: transparent;
+  opacity: 1;
+  -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+  cursor:pointer;
+}
+
+.ProjeQtOrNewGui .minimizeIcon {
+  right: 100px;
+  background-image: url(customIcons/new/iconReduce.svg);
+}
+
+.ProjeQtOrNewGui .minimizeMailIcon {
+  right:100px;
+  background-image: url(customIcons/new/iconReduce.svg);
+}
+
+.ProjeQtOrNewGui .fullScreenIcon {
+  background-image: url(customIcons/new/iconButtonCollapseOpen.svg);
+}
+.ProjeQtOrNewGui .fullScreenReverseIcon {
+  background-image: url(customIcons/new/iconButtonCollapseHide.svg);
+}
+
+.ProjeQtOrNewGui .fullScreenIcon:hover, .ProjeQtOrNewGui .fullScreenReverseIcon:hover, .ProjeQtOrNewGui .minimizeIcon:hover, .ProjeQtOrNewGui .minimizeMailIcon:hover {
+  opacity: 1;
+}
+
+.noteInfoDiv, .mailInfoDiv{
+	color: var(--color-grid-header-text); 
+	padding:5px; 
+	border-radius:5px; 
+	background-color: var(--color-lighter);
+}
+
+.iconSucessorPredecessor {
+	position:absolute; 
+	top:-11px; 
+	left:17px;
+	user-select: none;
+}
+
+.dependencySequence {
+	position:absolute;
+	top:21px;
+	font-size:12px;
+	font-weight:bold; 
+	color:var(--color-medium);
+	user-select: none;
+}
+
+.predecessorSuccessorReset {
+  display:none;
+  cursor:pointer;
+  position:absolute;
+  top:3px;
+  left:85px;
+  width:16px;height:16px;
+  user-select: none;
+}
+
+#detailBarShow, #listBarShow {
+  background: url() var(--color-light-secondary) !important;
+}
+
+.simpleReportHeader {
+	font-weight:bold;
+	color: var(--color-dark);
+}
+
+#subscriptionTabContainer, #subscriptionDescriptionTab, #subscriptionTabContainer .dijitContentPane, #subscriptionCurrentRevisionTab, 
+.subscriptionBackground, #currentRevisionUpdateTableDiv  {
+  background-color: var(--color-background) !important;
+}
+
+.smoothResize {
+  -webkit-transition: all 0.5s ease;
+  -moz-transition: all 0.5s ease;
+  -o-transition: all 0.5s ease;
+  -ms-transition: all 0.5s ease;
+  transition: all 0.5s ease;
+}
+
+.ProjeQtOrNewGui .localFieldClass.dijitTextBox.dijitNumberTextBox.dijitValidationTextBox, .localFieldClass {
+	color: #9090d9 !important;
+	border: 1px solid #d0d0eb;
+}
+.localDisplayClass, .localdisplayclass {
+	color: #9090d9 !important;
+}
+.localDisplayClassGrid {
+	color: #9090d9;
+}
+.dojoxGridRowSelected .localDisplayClassGrid {
+	color: #ffffff !important;
+}
+.localLabelClass {
+	color: #9090d9 !important;
+}
+.iconHidden {
+	width: 22px; height:22px;
+	background-repeat: no-repeat; background-position:center center; background-size: 16px 16px;
+	background-image: url(images/iconHidden.png);
+	cursor:pointer;
+	margin:auto;
+}
+.iconHiddenNo {
+	width: 22px; height:22px;
+	background-repeat: no-repeat; background-position:center center; background-size: 16px 16px;
+  background-image: url(images/iconHiddenNo.png);
+  cursor:pointer;
+  margin:auto;
+}
+
+input[type="color" i] {
+  background-color: transparent;
+
+}
+
+.parameterSearchSection:hover{
+	text-decoration: underline;
+}
+
+.parameterSearchName:hover{
+	background-color : var(--color-light-secondary);
+}
+
+.parameterFocusLine{
+	background-color: var(--color-medium-secondary) !important;
+}
+
+.ProjeQtOrNewGui .dijitTitlePane .parameterFocusTitlePane {
+	background-color: var(--color-medium-secondary) !important;
+}
+
+.ProjeQtOrNewGui .dijitTitlePane .parameterFocusTitlePane .dijitTitlePaneTextNode{
+	color: white !important;
+    font-weight: bold !important;
+}
+
+.waitDivMessageDisplay{
+    justify-content: center;
+    align-items: end;
+}
+
+.waitMessage{
+	white-space: nowrap;
+    font-size: 20px;
+    height: 10px;
+}
+
+tr .planningTask {
+	border-color:red !important;
+}
+.ganttName, .ganttDetail, .ganttDetailBoderleft {
+	border:none;
+	border-color:transparent;
+}
+.imputationTable td.ganttName, .imputationTable td.ganttDetail {
+	border-top:1px solid transparent;
+}
+.imputationTable td.ganttDetail, .imputationTable td.ganttDetailBoderleft {
+	border-left:1px solid transparent;
+}
+.dayBackground {
+    background-image: url();
+}
+
+.ProjeQtOrNewGui .whiteCheck, .ProjeQtOrNewGui .dijitCheckBox, .iconSelectAll, .iconUnselectAll {
+    background-image: url(images/checkmarkNoBorderColor.png) !important;
+}
+.booleanCheckBox {
+    background-image: url(images/checkmarkNoBorderColor.png);
+}
+.menuPluginToInstall {
+  font-style: italic;
+  color: lightgray;
+}
+
+.menu__link[data-submenu]::after {
+    color: var(--color-lighter-secondary);
+}
+.menu__link:hover, .menu__linkDirect:hover .menu__link:focus, .menu__link[data-submenu]:hover::after, .menu__link[data-submenu]:focus::after {
+    color: var(--color-light-secondary);
+}
+.menu__breadcrumbs a {
+    color: white; /*var(--color-light-secondary);*/
+}
+.ProjeQtOrNewGui #menuBarAccesLeft .imageColorNewGuiSelected,
+.ProjeQtOrNewGui .iconButtonBackBreadScrum .imageColorNewGuiSelected, 
+.iconButtonBackBreadScrum.iconSize16.imageColorNewGuiSelected {
+  -webkit-filter : saturate(0) invert(1) brightness(100) !important;
+  filter : saturate(0) invert(1) brightness(100) !important;
+}
+
+#kanbanListSelect_label {
+	color: var(--color-text) !important;
+}

@@ -4,6 +4,7 @@ plugins (signature, exécution réelle de scripts), boucle de l'agent avec
 un faux central (client HTTP injecté) et une vraie file SQLite."""
 import json
 import os
+import ssl
 import shutil
 import sys
 import tempfile
@@ -47,7 +48,7 @@ class FakeCmd(object):
         if key in self.outputs:
             rc, out = self.outputs[key]
             return host.CmdResult(rc, out, "")
-        if key in ("bash", "python3"):  # plugins : exécution réelle
+        if key in ("bash", "python3") or key == sys.executable:  # plugins : exécution réelle (#690 : interpréteur de l'agent)
             return host.run_cmd(argv, timeout=timeout, env=env)
         return host.CmdResult(-127, "", "binaire introuvable : %s" % key)
 
@@ -315,7 +316,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["capture-relay", "docker-containers", "network-neighbors"])  # #436 : relais d'exploration
+        self.assertEqual(ids, ["app-logwatch", "backuppc", "broadcast-probe", "capture-relay", "collecte-sondes", "copies-inventory", "dns-observe", "docker-containers", "emulation", "front-access", "gpu", "gtb-netwatch", "guest-usage", "hub-watch", "lan-audit", "mail-server", "mailbox", "migration", "nas-qnap", "nas-snmp", "network-neighbors", "node-activity", "ollama", "orchestration", "partages-reseau", "partages-samba", "path-probe", "pbs", "poste-charge", "poste-windows", "proxmox", "pulled-backups", "pve-preflight", "pve-remote", "remote-status", "resource-access", "rf-spectrum", "sms-gateway", "sockets", "softether", "software-inventory", "systemes", "web-audit", "web-trace", "wifi-monitor", "wifi-probe", "windows-probe", "wireguard"])  # #896 poste-windows, poste-charge ; #885 softether ; #884 wireguard ; #840 mailbox ; #832 orchestration ; #831 emulation ; #806 collecte-sondes ; #801 wifi-monitor / rf-spectrum ; #793 hub-watch ; #792 remote-status ; #782 gpu ; #749 node-activity ; #746 ollama ; #739 gtb-netwatch / app-logwatch ; #723 pve-remote ; #716 pbs (pulled-backups #714, oublié ici) ; #692 mail-server ; #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)
@@ -352,6 +353,7 @@ class FakeHttp(object):
         self.tamper = None
         self.last_raw = b""
         self.last_headers = {}
+        self.fast_poll = None          # #709
 
     def _reply(self, status, body):
         raw = protocol.canonical_json(body) if body is not None else b""
@@ -374,7 +376,7 @@ class FakeHttp(object):
             return self._reply(200, self.config)
         if path.endswith("/commands"):
             cmds, self.commands = self.commands, []
-            return self._reply(200, {"commands": cmds})
+            return self._reply(200, dict({"commands": cmds}, **({"fast_poll": self.fast_poll} if self.fast_poll else {})))
         if "/commands/" in path and path.endswith("/ack"):
             self.acks.append((path.split("/")[-2], body))
             return 200, {"status": "ok"}
@@ -400,10 +402,217 @@ class AgentTests(unittest.TestCase):
                                      usage=lambda mp: Usage(100, 60), which=lambda t: "/usr/bin/" + t if t == "python3" else None,
                                      exists=lambda p: False)
 
+    def test_releve_accelere_709(self):
+        n = lambda: sum(1 for m, p in self.http.calls if p.endswith("/commands"))
+        self.agent.poll_commands(force=True); base = n()
+        self.clock[0] += 5; self.agent.poll_commands(); self.assertEqual(n(), base)           # 60 s par défaut
+        self.http.fast_poll = {"seconds": 3, "for": 30}
+        self.clock[0] += 60; self.agent.poll_commands(); self.assertEqual(n(), base + 1)     # relevé normal -> session signalée
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 2)      # toutes les 3 s
+        self.http.fast_poll = None
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 3)      # le central n'annonce plus rien
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 3)      # retour à 60 s
+        self.http.fast_poll = {"seconds": 0.1, "for": 99999}
+        self.clock[0] += 60; self.agent.poll_commands()
+        self.assertEqual(self.agent._fast_poll, (2.0, self.clock[0] + 900.0))                  # bornes : 2 s, 15 min
+
+    def test_stop_plugin_pose_la_sentinelle_913(self):
+        # #913 : stop_plugin pose la sentinelle d'arrêt du test de charge (lue par poste-charge entre les blocs).
+        r = self.agent.execute_command({"id": "cs", "type": "stop_plugin", "params": {"id": "poste-charge"}})
+        self.assertTrue(r["ok"])
+        self.assertTrue(os.path.exists(os.path.join(self.dir, "poste-charge.stop")))        # _charge_dir = parent de plugins_dir
+        self.assertFalse(self.agent.execute_command({"id": "cz", "type": "stop_plugin", "params": {"id": "autre"}})["ok"])
+
+    def test_charge_fond_live_et_fin_916(self):
+        # #916 : poste-charge tourne en TÂCHE DE FOND -> run_plugin répond aussitôt {started:true} ;
+        # charge_tick pousse la courbe EN COURS (fini=False), capte la fin, et libère l'emplacement ;
+        # un 2e lancement est refusé pendant le test. (run_one_plugin est simulé ; l'horloge avance pour
+        # que les deux poussées aient des instants distincts -- la contrainte UNIQUE(agent,task,at) dédoublonne.)
+        import threading, time as _t, json as _json
+        live = os.path.join(self.agent._charge_dir(), "poste-charge.live.ndjson")
+        go = threading.Event()
+
+        def faux_run(manifest, args=None):
+            with open(live, "w", encoding="utf-8") as fh:
+                fh.write(_json.dumps({"phase": "processeur", "elapsed_s": 1}) + "\n")
+            go.wait(5.0)                                  # laisse un tick "en cours" passer
+            with open(live, "a", encoding="utf-8") as fh:
+                fh.write(_json.dumps({"phase": "fini", "verdict": "ok"}) + "\n")
+            self.agent.queue.put({"task": "plugin:poste-charge", "at": "res", "ok": True,
+                                  "agent_id": self.agent.agent_id, "data": {"verdict": "ok"}})
+
+        self.agent.store.install(
+            {"id": "poste-charge", "version": "2", "runner": "python", "entry": "poste_charge.py",
+             "interval_seconds": 315360000, "timeout_seconds": 900, "enabled": False},
+            "import sys\n", source="bundled")
+        self.agent.run_one_plugin = faux_run
+        r = self.agent.execute_command({"id": "cc", "type": "run_plugin",
+                                        "params": {"id": "poste-charge", "args": ["--epreuves", "cpu"]}})
+        self.assertTrue(r["ok"] and r["result"]["started"], "lancement en fond immédiat")
+        self.assertFalse(self.agent.execute_command({"id": "cd", "type": "run_plugin",
+                         "params": {"id": "poste-charge"}})["ok"], "pas de test de charge concurrent")
+        for _ in range(200):                              # attend que le 1er échantillon soit écrit (fichier non vide)
+            if os.path.exists(live) and os.path.getsize(live) > 0:
+                break
+            _t.sleep(0.02)
+        self.agent.charge_tick()                          # poussée EN COURS
+        lv = self.agent.queue.latest(task="plugin:poste-charge-live", limit=1)
+        self.assertTrue(lv and lv[0]["data"]["echantillons"], "courbe poussée pendant le test")
+        self.assertFalse(lv[0]["data"]["fini"], "pas encore fini")
+        go.set()
+        self.agent._charge["thread"].join(5)
+        self.clock[0] += 5                                # instant distinct -> la poussée finale n'est pas dédoublonnée
+        for _ in range(20):                               # ticks jusqu'à la poussée finale + libération
+            self.agent.charge_tick()
+            if self.agent._charge is None:
+                break
+            _t.sleep(0.05)
+        self.assertIsNone(self.agent._charge, "emplacement libéré après la fin")
+        lv2 = self.agent.queue.latest(task="plugin:poste-charge-live", limit=1)
+        self.assertTrue(lv2[0]["data"]["fini"], "marqueur fini capté en direct")
+        res = self.agent.queue.latest(task="plugin:poste-charge", limit=1)
+        self.assertTrue(res and res[0]["data"]["verdict"] == "ok", "résultat final poussé")
+
+    def test_a_la_demande_jamais_ordonnancee_925(self):
+        # #925 : poste-charge (même activée sur l'hôte) et les sondes « à la demande » (intervalle >= 10 ans,
+        # on_demand) ne tournent JAMAIS sans commande -- avant, elles partaient à chaque démarrage de l'agent.
+        corps = "#!/bin/bash\necho '{\"x\": 1}'\n"
+        for pid, extra in (("poste-charge", {"interval_seconds": 60}), ("sockets", {"interval_seconds": 315360000}),
+                           ("ponctuelle", {"interval_seconds": 60, "on_demand": True}), ("normale", {"interval_seconds": 60})):
+            m = {"id": pid, "version": "1", "runner": "shell", "entry": "run.sh", "timeout_seconds": 30, "enabled": True}
+            m.update(extra)
+            self.agent.store.install(m, corps, source="bundled")
+        self.assertEqual([x["task"] for x in self.agent.run_plugins()], ["plugin:normale"])
+        self.clock[0] += 120
+        self.assertEqual([x["task"] for x in self.agent.run_plugins()], ["plugin:normale"])
+        from si_agent import plugins as _p
+        self.assertTrue(_p.a_la_demande({"id": "x", "interval_seconds": "315360000"}))
+        self.assertFalse(_p.a_la_demande({"id": "x", "interval_seconds": "n/a"}))
+        self.assertFalse(_p.a_la_demande({"id": "lan-audit", "interval_seconds": 604800}))
+
+    def test_sonde_longue_en_fond_925(self):
+        # #925 : une sonde longue (délai > 2 min) tourne dans un thread -> run_plugins rend la main aussitôt, la
+        # mesure arrive à la fin ; pas de doublon tant qu'elle tourne ; la commande run_plugin répond « lancée ».
+        import threading
+        go, vus = threading.Event(), []
+
+        def faux_run(manifest, args=None):
+            vus.append((manifest["id"], args))
+            go.wait(5.0)
+            self.agent.queue.put({"task": "plugin:" + manifest["id"], "at": "t%d" % len(vus), "ok": True,
+                                  "agent_id": self.agent.agent_id, "data": {"fini": True}})
+            return {"ok": True}
+
+        corps = "#!/bin/bash\necho '{}'\n"
+        self.agent.store.install({"id": "longue", "version": "1", "runner": "shell", "entry": "run.sh",
+                                  "interval_seconds": 60, "timeout_seconds": 600, "enabled": True}, corps, source="bundled")
+        self.agent._fond_autorise = True
+        self.agent.run_one_plugin = faux_run
+        self.assertEqual(self.agent.run_plugins(), [], "rend la main aussitôt")
+        self.assertEqual(self.agent.sondes_en_fond(), ["longue"])
+        self.clock[0] += 120                              # échéance dépassée, mais toujours en cours -> pas de 2e lancement
+        self.agent.run_plugins()
+        r = self.agent.execute_command({"id": "c1", "type": "run_plugin", "params": {"id": "longue"}})
+        self.assertFalse(r["ok"])
+        self.assertIn("déjà en cours", r["error"])
+        self.assertEqual(len(vus), 1)
+        go.set()
+        self.agent._fond["longue"].join(5)
+        self.assertEqual(self.agent.sondes_en_fond(), [])
+        self.assertTrue(self.agent.queue.latest(task="plugin:longue", limit=1)[0]["data"]["fini"], "mesure poussée à la fin")
+        r = self.agent.execute_command({"id": "c2", "type": "run_plugin", "params": {"id": "longue", "args": ["--jours", "7"]}})
+        self.assertTrue(r["ok"] and r["result"]["started"] and r["result"]["en_fond"])
+        self.agent._fond["longue"].join(5)
+        self.assertEqual(vus[-1], ("longue", ["--jours", "7"]))
+
+    def test_sonde_longue_synchrone_hors_windows_925(self):
+        # Sous Linux (preexec_fn non sûr avec des threads), comportement inchangé : exécution dans la boucle.
+        self.agent._fond_autorise = False
+        self.agent.store.install({"id": "longue", "version": "1", "runner": "shell", "entry": "run.sh",
+                                  "interval_seconds": 60, "timeout_seconds": 600, "enabled": True},
+                                 "#!/bin/bash\necho '{\"y\": 2}'\n", source="bundled")
+        out = self.agent.run_plugins()
+        self.assertEqual([(x["task"], x["data"]["y"]) for x in out], [("plugin:longue", 2)])
+        self.assertEqual(self.agent.sondes_en_fond(), [])
+
+    def test_file_locale_partagee_entre_threads_925(self):
+        import threading
+        q = self.agent.queue
+        avant = q.stats()["total"]
+
+        def ecrire(n):
+            for i in range(150):
+                q.put({"task": "t%d" % n, "at": "a%d" % i, "ok": True, "agent_id": "srv-01", "data": {"i": i}})
+                q.pending(limit=5)
+
+        th = [threading.Thread(target=ecrire, args=(n,)) for n in range(4)]
+        for t in th:
+            t.start()
+        for t in th:
+            t.join(30)
+        self.assertEqual(q.stats()["total"] - avant, 600)
+
+    def test_redemarrage_planifie_et_relance(self):
+        # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console
+        import datetime as dt
+        ev = []
+        self.agent.event = lambda kind, sev, msg, details=None: ev.append((kind, sev, msg))
+        self.assertFalse(self.agent.execute_command({"id": "c1", "type": "power_schedule", "params": {"time": "25:00"}})["ok"])
+        r = self.agent.execute_command({"id": "c2", "type": "power_schedule", "params": {"time": "0:00", "days": "1-7"}})
+        self.assertTrue(r["ok"]); self.assertEqual(r["result"]["config"]["time"], "00:00")
+        self.assertIsNone(self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 6, 23, 50)))      # hors créneau
+        self.cmd.outputs["shutdown"] = (0, "")
+        res = self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 5))
+        self.assertTrue(res["ok"]); self.assertEqual(self.cmd.calls[-1][0][:2], ["shutdown", "-r"])
+        self.assertEqual(ev[-1][0], "host-reboot"); self.assertEqual(self.agent.state["power_schedule_last"], "2026-10-07")
+        self.assertIsNone(self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 10)))       # déjà servi
+        # relance : pas d'utilisateur -> on attend ; puis relance et host-boot
+        self.agent.state["relaunch_pending"] = {"at": self.clock[0], "apps": [{"name": "afficheur.exe", "command": '"C:\\A\\afficheur.exe"'}]}
+        self.clock[0] += 120
+        answers = [(False, "aucun utilisateur connecté sur la console (session 1)"), (True, None)]
+        self.agent._spawn_app = lambda cmd, cwd=None, session="console": answers.pop(0)
+        self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 20))
+        self.assertIn("relaunch_pending", self.agent.state)
+        self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 21))
+        self.assertNotIn("relaunch_pending", self.agent.state)
+        self.assertEqual(ev[-1][:2], ("host-boot", "info")); self.assertIn("1/1", ev[-1][2])
+
+    def test_audit_exterieur(self):
+        # #687 : refusé hors point d'observation ; sinon fil séparé puis mesure ext-audit
+        from si_agent import extaudit
+        ev = []
+        self.agent.event = lambda kind, sev, msg, details=None: ev.append((kind, sev, msg))
+        cmd = {"id": "c9", "type": "ext_audit", "params": {"targets": [{"host": "app.exemple.fr"}]}}
+        self.assertIn("point d'observation", self.agent.execute_command(cmd)["error"])
+        self.agent.cfg["audit_enabled"] = True
+        orig = extaudit.audit_target
+        extaudit.audit_target = lambda t: {"host": t["host"], "findings": [], "score": {"critical": 1, "warning": 0, "info": 2}}
+        try:
+            self.assertTrue(self.agent.execute_command(cmd)["ok"])
+            self.agent._audit_job["thread"].join(5)
+            m = self.agent.follow_audit()
+        finally:
+            extaudit.audit_target = orig
+        self.assertEqual((m["task"], m["data"]["summary"]["critical"]), ("ext-audit", 1))
+        self.assertEqual(ev[-1][:2], ("ext-audit", "warning")); self.assertIsNone(self.agent._audit_job)
+        self.assertIsNone(self.agent.follow_audit())
+
+    def test_commande_differee(self):
+        # #633 : `at` -> acquittée « programmée », exécutée à l'échéance par run_deferred()
+        r = self.agent.execute_command({"id": "c1", "type": "collect_now", "params": {"at": self.clock[0] + 600}})
+        self.assertTrue(r["ok"]); self.assertIn("programmé", r["result"]["message"]); self.assertEqual(len(self.agent.state["deferred"]), 1)
+        self.agent.run_deferred(); self.assertEqual(len(self.agent.state["deferred"]), 1)
+        self.clock[0] += 601
+        self.agent.run_deferred(); self.assertEqual(self.agent.state["deferred"], [])
+        kinds = [m["data"]["kind"] for m in self.agent.queue.pending(limit=50) if m["task"] == "event"]
+        self.assertIn("deferred", kinds); self.assertIn("deferred-run", kinds); self.assertIn("deferred-done", kinds)
+        self.assertIsNotNone(self.agent.execute_command({"id": "c2", "type": "collect_now", "params": {"at": "hier"}})["error"])
+        self.assertFalse(self.agent.execute_command({"id": "c3", "type": "windows_update", "params": {}})["ok"])  # pas Windows ici
+
     def test_passage_complet_et_envoi(self):
         out = self.agent.run_once()
         tasks = [m["task"] for m in out]
-        self.assertEqual(tasks, ["host", "risks", "netview", "inventory"])  # #428 : netview
+        self.assertEqual(tasks, ["host", "risks", "netview", "inventory", "agent-self"])  # #428 : netview ; #616 : agent-self
         self.assertIn("config-applied", [e["data"]["kind"] for e in self.agent.queue.latest(task="event")], "événement journalisé")
         self.assertEqual(self.agent.cfg["host_interval_seconds"], 30, "configuration du central appliquée")
         host_m = out[0]
@@ -414,8 +623,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("disk-high", ids, "seuil abaissé à 50 % par le central : 60 % -> warning")
         self.assertIn("port-exposed", ids, "mariadb exposé")
         self.assertIn("uid0-account", ids)
-        self.assertEqual(self.agent.flush(force=True), 5, "4 mesures (host, risks, netview, inventory) + 1 événement")
-        self.assertEqual([m["task"] for m in self.http.received if m["task"] != "event"], ["host", "risks", "netview", "inventory"])
+        self.assertEqual(self.agent.flush(force=True), 6, "5 mesures (host, risks, netview, inventory, agent-self) + 1 événement")
+        self.assertEqual([m["task"] for m in self.http.received if m["task"] != "event"], ["host", "risks", "netview", "inventory", "agent-self"])
         self.assertEqual(self.agent.queue.stats()["pending"], 0)
         st = self.agent.status()
         self.assertEqual(st["config_version"], "v1")
@@ -746,6 +955,62 @@ class FallbackCentralTests(unittest.TestCase):
         solo._request_one = lambda *a: (0, None)
         self.assertEqual(solo.request("GET", "/x"), (0, None)); self.assertEqual(solo.current_url, "https://lan:6443/api/si-agent")
         self.assertEqual(len(solo._targets()), 1)
+
+
+class PluginPythonTests(unittest.TestCase):
+    """#690 : les sondes Python tournent sous l'interpréteur de l'agent (Python autonome d'un Debian 9)."""
+
+    def test_choix(self):
+        pp = agent_mod.plugin_python
+        uv = "/root/.local/share/uv/python/cpython-3.11/bin/python3.11"
+        self.assertEqual(pp(uv, False, run_as_root=True), uv)                 # sondes en root (Proxmox)
+        self.assertEqual(pp(uv, False, run_as_root=False), "python3")         # nobody ne lit pas /root
+        self.assertEqual(pp("/opt/pyagent/bin/python3", False, run_as_root=False), "/opt/pyagent/bin/python3")
+        self.assertEqual(pp(r"C:\Program Files\si-agent\python\python.exe", True), r"C:\Program Files\si-agent\python\python.exe")
+        self.assertEqual(pp("", False), "python3")
+
+
+class CaRefreshTests(unittest.TestCase):
+    """#682 : faisceau de confiance régénéré sur CERTIFICATE_VERIFY_FAILED."""
+
+    def test_regeneration_limitee(self):
+        import tempfile
+        now, calls = [0.0], []
+        d = tempfile.mkdtemp(); ca = os.path.join(d, "ca.pem")
+
+        src = next((f for f in (ssl.get_default_verify_paths().cafile, "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem")
+                    if f and os.path.exists(f)), None)
+        if not src:
+            self.skipTest("pas de magasin CA système lisible")
+
+        def refresher(central, out):
+            calls.append((central, out))
+            with open(src, "rb") as a, open(out, "wb") as b:
+                b.write(a.read())
+            return True
+        c = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", ca_file=None, clock=lambda: now[0], ca_refresher=refresher)
+        self.assertFalse(c.refresh_ca())                       # sans ca_file : rien
+        c.ca_file = ca
+        old = c.ssl_context
+        self.assertTrue(c.refresh_ca()); self.assertEqual(calls, [("https://hub.exemple.fr/api/si-agent", ca)])
+        self.assertIsNot(c.ssl_context, old)
+        now[0] += 60; self.assertFalse(c.refresh_ca()); self.assertEqual(len(calls), 1)   # pas avant une heure
+        now[0] += c.CA_REFRESH_MIN_S; self.assertTrue(c.refresh_ca()); self.assertEqual(len(calls), 2)
+
+    def test_echec_du_regenerateur(self):
+        c = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", clock=lambda: 0.0,
+                                 ca_refresher=lambda central, out: (_ for _ in ()).throw(OSError("powershell absent")))
+        c.ca_file = "x.pem"; old = c.ssl_context
+        self.assertFalse(c.refresh_ca()); self.assertIs(c.ssl_context, old)
+        c2 = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", clock=lambda: 0.0, ca_refresher=lambda central, out: True)
+        c2.ca_file = "/inexistant/ca.pem"; old = c2.ssl_context
+        self.assertFalse(c2.refresh_ca()); self.assertIs(c2.ssl_context, old)   # faisceau illisible : on garde l'ancien contexte
+
+    def test_commande_powershell(self):
+        seen = []
+        r = agent_mod.windows_ca_refresher(r"C:\si-agent\central-ca.ps1", run=lambda cmd: seen.append(cmd) or True)
+        self.assertTrue(r("https://hub.exemple.fr/api/si-agent", r"C:\data\ca.pem"))
+        self.assertEqual(seen[0][-4:], ["-Central", "https://hub.exemple.fr/api/si-agent", "-Out", r"C:\data\ca.pem"])
 
 
 if __name__ == "__main__":

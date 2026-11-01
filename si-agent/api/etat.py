@@ -1,0 +1,737 @@
+# -*- coding: utf-8 -*-
+"""#857 : ÉTAT DES LIEUX des systèmes (nœuds Proxmox et CT / VM) -- version du système et fin de support, date de la
+dernière mise à jour, mises à jour en attente (dont sécurité), versions clés obsolètes (PHP, PostgreSQL, Proxmox,
+ownCloud / Nextcloud…), services inclus (ports écoutés, services actifs -> rôles en clair), usage (charge, requêtes web,
+clients connectés, comptes), exposition sur Internet, INTERACTIONS et DÉPENDANCES (connexions établies entre systèmes).
+-> niveau par système (urgent / à planifier / à surveiller / ok / inactif), raisons, action proposée, impact.
+Données : relevés pve-preflight (dans chaque invité démarré ; fichiers du disque pour un CT arrêté ; le nœud lui-même).
+Pur, testé dans test_z_etat.py. Les dates de fin de support sont des références modifiables (réglage etat_eol)."""
+import datetime as dt
+import ipaddress
+import re
+import time
+
+# Fin du support de sécurité (support standard + LTS gratuit), AAAA-MM-JJ. Références modifiables dans le hub.
+EOL = {
+    "debian": {"4": "2010-02-15", "5": "2012-02-06", "6": "2016-02-29", "7": "2018-05-31", "8": "2020-06-30", "9": "2022-06-30", "10": "2024-06-30", "11": "2026-08-31",
+               "12": "2028-06-30", "13": "2030-06-30"},
+    "ubuntu": {"14.04": "2019-04-30", "16.04": "2021-04-30", "18.04": "2023-05-31", "20.04": "2025-05-31", "22.04": "2027-06-30", "24.04": "2029-05-31"},
+    "centos": {"6": "2020-11-30", "7": "2024-06-30", "8": "2021-12-31"},
+    "rocky": {"8": "2029-05-31", "9": "2032-05-31"}, "almalinux": {"8": "2029-05-31", "9": "2032-05-31"},
+    "alpine": {"3.18": "2025-05-09", "3.19": "2025-11-01", "3.20": "2026-04-01", "3.21": "2026-11-01", "3.22": "2027-05-01"},
+    "windows": {"10": "2025-10-14", "11": "2027-10-12"},
+    "windows-server": {"2012": "2023-10-10", "2012r2": "2023-10-10", "2016": "2027-01-12", "2019": "2029-01-09", "2022": "2031-10-14", "2025": "2034-10-10"},
+    "proxmox-ve": {"4": "2018-06-30", "5": "2020-07-31", "6": "2022-07-31", "7": "2024-07-31", "8": "2026-08-31", "9": "2028-06-30"},
+    "proxmox-backup": {"1": "2022-07-31", "2": "2024-06-30", "3": "2026-08-31", "4": "2028-06-30"},
+    "php": {"5": "2018-12-31", "7.0": "2019-01-10", "7.1": "2019-12-01", "7.2": "2020-11-30", "7.3": "2021-12-06", "7.4": "2022-11-28",
+            "8.0": "2023-11-26", "8.1": "2025-12-31", "8.2": "2026-12-31", "8.3": "2027-12-31", "8.4": "2028-12-31"},
+    "postgresql": {"9": "2021-11-11", "10": "2022-11-10", "11": "2023-11-09", "12": "2024-11-21", "13": "2025-11-13", "14": "2026-11-12",
+                   "15": "2027-11-11", "16": "2028-11-09", "17": "2029-11-08"},
+    "owncloud": {"8": "2016-12-31", "9": "2017-12-31", "10": "2026-12-31"},
+    # #873 : logiciels reconnus par l'audit réseau (bannières des services)
+    "apache-httpd": {"1.3": "2010-02-03", "2.0": "2013-07-10", "2.2": "2017-07-11"},
+    "mysql": {"4.1": "2009-12-31", "5.0": "2012-01-09", "5.1": "2013-12-31", "5.5": "2018-12-03", "5.6": "2021-02-05", "5.7": "2023-10-25", "8.0": "2026-04-30"},
+    "tomcat": {"5.5": "2012-09-30", "6": "2016-12-31", "7": "2021-03-31", "8.0": "2018-06-30", "8.5": "2024-03-31"},
+    "samba": {"3": "2015-03-04"},
+    "nextcloud": {"25": "2023-10-31", "26": "2024-03-31", "27": "2024-06-30", "28": "2025-01-31", "29": "2025-04-30", "30": "2025-09-30",
+                  "31": "2026-02-28", "32": "2026-08-31"},
+}
+ROLES_PORT = {22: "administration à distance", 25: "messagerie (envoi)", 465: "messagerie (envoi)", 587: "messagerie (envoi)",
+              110: "messagerie (lecture)", 143: "messagerie (lecture)", 993: "messagerie (lecture)", 995: "messagerie (lecture)",
+              80: "site ou application web", 443: "site ou application web", 8080: "application web", 8443: "application web",
+              3306: "base de données", 5432: "base de données", 6379: "cache", 53: "annuaire de noms (DNS)", 445: "partage de fichiers",
+              139: "partage de fichiers", 21: "transfert de fichiers", 8006: "hyperviseur Proxmox", 8007: "sauvegardes Proxmox", 3128: "proxy",
+              389: "annuaire", 636: "annuaire", 1194: "accès distant (VPN)", 51820: "accès distant (VPN)", 9090: "supervision", 3000: "application web"}
+ROLES_APP = {"owncloud": "partage de fichiers (ownCloud)", "nextcloud": "partage de fichiers (Nextcloud)", "postfix": "messagerie", "dovecot": "messagerie",
+             "amavisd-new": "filtrage du courrier", "roundcube-core": "messagerie web", "samba": "partage de fichiers", "squid": "proxy",
+             "bind9": "annuaire de noms (DNS)", "pve-manager": "hyperviseur Proxmox", "proxmox-backup-server": "sauvegardes Proxmox"}
+NIVEAUX = ("urgent", "à planifier", "à surveiller", "ok", "inactif")
+
+
+def _date(s):
+    try:
+        return dt.datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def public(ip):
+    try:
+        a = ipaddress.ip_address(ip)
+        return not (a.is_private or a.is_loopback or a.is_link_local or a.is_reserved or a.is_multicast) and not str(ip).startswith(("100.64.",))
+    except ValueError:
+        return False
+
+
+def fin_support(famille, version, eol=None):
+    """-> (date de fin AAAA-MM-JJ, clé trouvée) : version exacte, puis majeure (12.5 -> 12, 8.1.2 -> 8.1 puis 8)."""
+    t = (eol or EOL).get(famille) or {}
+    v = str(version or "")
+    for k in (v, ".".join(v.split(".")[:2]), v.split(".")[0]):
+        if k and k in t:
+            return t[k], k
+    return None, None
+
+
+def statut_fin(date, maintenant):
+    t = _date(date)
+    if t is None:
+        return "inconnu"
+    if t < maintenant:
+        return "obsolète"
+    return "fin proche" if t - maintenant < 180 * 86400 else "supporté"
+
+
+def os_de(systeme, pveversion=None):
+    o = (systeme or {}).get("os") or {}
+    fam, ver = (o.get("id") or "").lower() or None, o.get("version")
+    if fam in ("rhel", "centos"):
+        fam = "centos"
+    return fam, ver, o.get("nom") or (("%s %s" % (fam, ver)) if fam else None)
+
+
+def composants(systeme, os_statut, maintenant, eol=None):
+    """Versions clés -> [{nom, version, fin, statut, note}] ; un paquet de la distribution reste maintenu tant que le système l'est."""
+    out = []
+    pk = (systeme or {}).get("paquets") or {}
+    for nom, ver in sorted(pk.items()):
+        fam = v = None
+        m = re.match(r"^php(\d+\.\d+)-common$", nom)
+        if m:
+            fam, v = "php", m.group(1)
+        elif nom == "php-common":
+            continue
+        elif re.match(r"^postgresql-\d+", nom):
+            fam, v = "postgresql", nom.split("-")[1]
+        elif nom == "pve-manager":
+            fam, v = "proxmox-ve", ver.split(".")[0]
+        elif nom == "proxmox-backup-server":
+            fam, v = "proxmox-backup", ver.split(".")[0]
+        if not fam:
+            continue
+        fin, _k = fin_support(fam, v, eol)
+        st = statut_fin(fin, maintenant)
+        note = None
+        if fam in ("php", "postgresql") and st == "obsolète" and os_statut in ("supporté", "fin proche"):
+            st, note = "maintenu par la distribution", "fin amont %s" % fin
+        out.append({"nom": fam, "version": v, "paquet": ver, "fin": fin, "statut": st, "note": note})
+    for a in (systeme or {}).get("apps") or []:
+        fin, _k = fin_support(a["nom"], a["version"], eol)
+        out.append({"nom": a["nom"], "version": a["version"], "paquet": a["version"], "fin": fin, "statut": statut_fin(fin, maintenant) if fin else "à vérifier", "note": None})
+    return out
+
+
+PROCS_TECHNIQUES = {"spiceproxy", "pvedaemon", "rpcbind", "systemd-resolve", "chronyd", "master"}   # services internes d'un nœud Proxmox
+EXIGE_PORT = {"postfix": (25, 465, 587), "dovecot": (110, 143, 993, 995), "samba": (139, 445), "squid": (3128,), "bind9": (53,)}
+
+
+def roles(systeme):
+    """Rôles en clair : ports écoutés hors boucle locale (sauf services internes de Proxmox), puis applications ; un
+    paquet de messagerie, de partage ou de proxy ne compte que si son port est réellement ouvert (postfix d'un nœud
+    Proxmox = notifications locales, pas un serveur de messagerie)."""
+    r = []
+    ext = [e for e in (systeme or {}).get("ecoute") or [] if not e["hote"].startswith(("127.", "[::1]", "::1"))]
+    ports = {e["port"] for e in ext}
+    for e in ext:
+        if e.get("proc") in PROCS_TECHNIQUES:
+            continue
+        x = ROLES_PORT.get(e["port"])
+        if x and x not in r:
+            r.append(x)
+    for n in list(((systeme or {}).get("paquets") or {}).keys()) + [a["nom"] for a in (systeme or {}).get("apps") or []]:
+        base = n if n in ROLES_APP else n.split("-")[0]
+        x = ROLES_APP.get(base)
+        if x and base in EXIGE_PORT and not ports & set(EXIGE_PORT[base]):
+            continue
+        if x and x not in r:
+            r.append(x)
+    return r
+
+
+def usage(status, charge, systeme):
+    if status not in ("running", None, "actif"):
+        return "nul", {}
+    c = charge or {}
+    s = systeme or {}
+    clients = sum((x.get("clients") or 0) for x in s.get("cnx_in") or [] if x.get("port") != 22)
+    req = s.get("requetes") or 0
+    cpu = c.get("cpu_avg_pct") or 0
+    d = {"clients": clients, "requetes": req, "cpu_moy_pct": c.get("cpu_avg_pct"), "cpu_max_pct": c.get("cpu_max_pct"), "mem_max_pct": c.get("mem_max_pct"),
+         "comptes": s.get("comptes")}
+    if clients >= 20 or req >= 10000 or cpu >= 30:
+        return "fort", d
+    if clients >= 3 or req >= 500 or cpu >= 5:
+        return "moyen", d
+    return "faible", d
+
+
+def declaration(manuel):
+    """Fiche déclarée à la main (système illisible : VM sans agent invité, Windows, appliance, VM arrêtée) ->
+    morceau de « systeme » compatible avec le relevé."""
+    if not manuel:
+        return None
+    try:
+        maj = int(_date(manuel.get("maj")) or 0) or None
+    except (TypeError, ValueError):
+        maj = None
+    return {"os": {"id": manuel.get("famille"), "version": manuel.get("version"), "nom": manuel.get("nom") or "%s %s" % (manuel.get("famille"), manuel.get("version"))},
+            "maj_at": maj, "attente": None, "attente_secu": None, "paquets": {}, "apps": [], "ecoute": [], "cnx_in": [], "cnx_out": [], "services": [],
+            "ips": [], "declare": True, "note": manuel.get("note")}
+
+
+def hors_ligne(reports):
+    """#859 : relevés guest-usage [(agent, hôte, at, data)] -> {nœud/vmid: inventaire} (invités démarrés, CT montés, VM
+    arrêtées lues hors ligne) ; le plus frais l'emporte."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for n in (d or {}).get("nodes") or []:
+            for g in n.get("guests") or []:
+                if g.get("systeme"):
+                    out["%s/%s" % (n.get("name"), g.get("vmid"))] = g["systeme"]
+    return out
+
+
+def autres_systemes(reports):
+    """#861 : relevés de la sonde systemes [(agent, hôte, at, data)] -> [{name, role, ok, error, systeme}] (le plus frais par nom)."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for x in (d or {}).get("systemes") or []:
+            if x.get("name"):
+                out[x["name"]] = x
+    return [out[k] for k in sorted(out)]
+
+
+# -- #873 : audit réseau (sonde lan-audit) ---------------------------------------------------------------------------
+DEBIAN_CODE = {"etch": "4", "lenny": "5", "squeeze": "6", "wheezy": "7", "jessie": "8", "stretch": "9", "buster": "10", "bullseye": "11",
+               "bookworm": "12", "trixie": "13"}
+PRODUITS = (("apache httpd", "apache-httpd"), ("mysql", "mysql"), ("mariadb", "mariadb"), ("openssh", "openssh"), ("nginx", "nginx"),
+            ("microsoft iis", "microsoft-iis"), ("samba", "samba"), ("tomcat", "tomcat"), ("proftpd", "proftpd"), ("vsftpd", "vsftpd"),
+            ("postfix", "postfix"), ("exim", "exim"), ("dovecot", "dovecot"), ("lighttpd", "lighttpd"), ("postgresql", "postgresql"),
+            ("php", "php"))
+
+
+def _ver(v, n=2):
+    m = re.match(r"^(\d+(?:\.\d+){0,%d})" % (n - 1), str(v or ""))
+    return m.group(1) if m else None
+
+
+def systeme_audit(h):
+    """Hôte vu par l'audit réseau -> relevé « système » déduit (os, écoute, applications), marqué source « audit réseau ».
+    Système : bannières Debian (« OpenSSH 4.3p2 Debian 9etch3 » -> Debian 4, « deb12u » -> 12), sinon empreinte nmap."""
+    os_ = {"id": None, "version": None, "nom": None}
+    apps, ecoute = [], []
+    for p in h.get("ports") or []:
+        prod = (p.get("product") or "").lower()
+        txt = " ".join(str(p.get(k) or "") for k in ("product", "version", "extrainfo")).lower()
+        ecoute.append({"port": p["port"], "hote": h["ip"], "proc": p.get("product") or p.get("service") or "?"})
+        if "debian" in txt and not os_["id"]:
+            m = re.search(r"deb(\d+)u", txt)
+            code = next((v for k, v in DEBIAN_CODE.items() if k in txt), None)
+            ver = m.group(1) if m else code
+            if ver:
+                os_ = {"id": "debian", "version": ver, "nom": "Debian %s (déduit des services)" % ver}
+        for motif, nom in PRODUITS:
+            if motif in prod and p.get("version"):
+                v = _ver(p["version"], 1 if nom == "samba" else 2)
+                if v and not any(a["nom"] == nom for a in apps):
+                    apps.append({"nom": nom, "version": v})
+        m = re.search(r"php/(\d+\.\d+)", txt)
+        if m and not any(a["nom"] == "php" for a in apps):
+            apps.append({"nom": "php", "version": m.group(1)})
+    o = h.get("os") or {}
+    if not os_["id"] and o.get("family") == "Windows" and (o.get("accuracy") or 0) >= 90:
+        name = o.get("name") or ""
+        m = re.search(r"Server (\d{4})( R2)?", name)
+        if m:
+            os_ = {"id": "windows-server", "version": m.group(1) + ("r2" if m.group(2) else ""), "nom": name + " (empreinte réseau)"}
+        else:
+            m = re.search(r"Windows (7|8\.1|8|10|11|XP|Vista)\b", name)
+            if m:
+                os_ = {"id": "windows", "version": m.group(1).lower(), "nom": name + " (empreinte réseau)"}
+    if not os_["id"] and o.get("name"):
+        os_["nom"] = "%s (empreinte réseau, %s %%)" % (o["name"], o.get("accuracy"))
+    return {"os": os_ if (os_["id"] or os_["nom"]) else {}, "noyau": None, "maj_at": None, "attente": None, "attente_secu": None, "paquets": {},
+            "apps": apps, "ecoute": ecoute, "cnx_in": [], "cnx_out": [], "services": [], "ips": [h["ip"]],
+            "note": " · ".join(x for x in (h.get("vendor"), h.get("mac"), h.get("hostname")) if x) or None}
+
+
+def hotes_audit(reports):
+    """Relevés lan-audit [(agent, hôte, at, data)] -> {ip: hôte} (le plus récent l'emporte ; un hôte absent du dernier
+    passage d'un agent reste connu par ses passages précédents tant qu'il figure dans la dernière mesure gardée)."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for h in (d or {}).get("hosts") or []:
+            if h.get("ip"):
+                out[h["ip"]] = dict(h, vu_le=at)
+    return out
+
+
+def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None, autres=None, scan=None):
+    """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées ;
+    lus = inventaires de la sonde guest-usage (dont VM arrêtées lues hors ligne), utilisés quand pve-preflight n'a rien."""
+    now = maintenant or time.time()
+    eol = dict(EOL, **(eol or {}))
+    libelles = libelles or {}
+    manuels = manuels or {}
+    lus = lus or {}
+    sys_ = []
+    for n, node in sorted((nodes or {}).items()):
+        if not node.get("ok", True):
+            continue
+        sn = node.get("systeme")
+        pv = node.get("pveversion") or ""
+        sys_.append({"key": "node:%s" % n, "type": "nœud", "node": n, "vmid": None, "name": n, "status": "running", "systeme": sn, "charge": None,
+                     "ips": (sn or {}).get("ips") or [], "pveversion": pv})
+        for g in node.get("guests") or []:
+            if g.get("template"):
+                continue
+            s = g.get("systeme")
+            ips = list(dict.fromkeys(((g.get("conf") or {}).get("ips") or []) + ((s or {}).get("ips") or [])
+                                     + ((lus.get("%s/%s" % (n, g["vmid"])) or {}).get("ips") or [])))
+            sys_.append({"key": "%s/%s" % (n, g["vmid"]), "type": "CT" if g.get("type") == "lxc" else "VM", "node": n, "vmid": g["vmid"],
+                         "name": g.get("name") or "", "status": g.get("status"), "systeme": s, "charge": g.get("charge"), "ips": ips})
+    # #861 : systèmes hors Proxmox (serveurs, NAS, postes) ; un hôte qui est en fait un invité déjà suivi (adresse commune)
+    # n'est pas dupliqué : son relevé complète l'invité s'il n'en avait pas
+    ip_invite = {ip: s for s in sys_ for ip in s["ips"]}
+    for x in autres or []:
+        sx = x.get("systeme")
+        ips = (sx or {}).get("ips") or []
+        dbl = next((ip_invite[ip] for ip in ips if ip in ip_invite), None)
+        if dbl:
+            if not dbl["systeme"] and sx:
+                dbl["systeme"] = sx
+            continue
+        sys_.append({"key": "hote:%s" % x["name"], "type": "poste" if x.get("role") == "poste" else "serveur", "node": "hors Proxmox", "vmid": None,
+                     "name": x["name"], "status": "running" if x.get("ok") else "injoignable", "systeme": sx, "charge": None, "ips": ips,
+                     "erreur": x.get("error")})
+    # #873 : audit réseau -- complète les systèmes connus (services vus du réseau ; système déduit s'il n'était pas relevé)
+    # et ajoute les hôtes découverts que rien d'autre ne suit
+    connus = {ip: s for s in sys_ for ip in s["ips"]}
+    for ip, h in sorted((scan or {}).items()):
+        sa = systeme_audit(h)
+        s = connus.get(ip)
+        if s:
+            s["reseau"] = h.get("ports") or []
+            if not s["systeme"] or not ((s["systeme"] or {}).get("os") or {}).get("id"):
+                if (sa.get("os") or {}).get("id") or sa["apps"]:
+                    s["systeme_audit"] = sa
+            continue
+        sys_.append({"key": "ip:%s" % ip, "type": "découvert", "node": "réseau", "vmid": None, "name": h.get("hostname") or ip, "status": "running",
+                     "systeme": None, "systeme_audit": sa, "charge": None, "ips": [ip], "reseau": h.get("ports") or [], "vu_le": h.get("vu_le")})
+    par_ip = {}
+    for s in sys_:
+        for ip in s["ips"]:
+            par_ip.setdefault(ip, s["key"])
+    deps = []
+    for s in sys_:
+        for c in (s["systeme"] or {}).get("cnx_out") or []:
+            cible = par_ip.get(c["hote"])
+            if cible and cible != s["key"]:
+                d = {"de": s["key"], "vers": cible, "port": c["port"], "n": c["n"], "nature": ROLES_PORT.get(c["port"], "port %s" % c["port"])}
+                if not any(x["de"] == d["de"] and x["vers"] == d["vers"] and x["port"] == d["port"] for x in deps):
+                    deps.append(d)
+    ext = {}
+    for s in sys_:
+        for c in (s["systeme"] or {}).get("cnx_out") or []:
+            if c["hote"] in par_ip or not c.get("hote"):
+                continue
+            e = ext.setdefault(c["hote"], {"ip": c["hote"], "ports": set(), "clients": set(), "postes": set(), "connexions": 0})
+            e["ports"].add(c["port"])
+            e["clients"].add(s["key"])
+            if s["type"] == "poste":
+                e["postes"].add(s["key"])
+            e["connexions"] += c.get("n") or 0
+    non_suivis = sorted(({"ip": e["ip"], "ports": sorted(p for p in e["ports"] if p is not None), "natures": sorted({ROLES_PORT.get(p, "port %s" % p) for p in e["ports"]}),
+                          "clients": len(e["clients"]), "postes": len(e["postes"]), "connexions": e["connexions"], "interne": not public(e["ip"]),
+                          "utilise_par": sorted(e["clients"])[:12]} for e in ext.values()), key=lambda x: (not x["interne"], -x["clients"], x["ip"]))
+    lignes = []
+    for s in sys_:
+        sy = s["systeme"]
+        source = "relevé"
+        if (not sy or not (sy.get("os") or {}).get("id")) and (lus.get(s["key"]) or {}).get("os"):
+            sy, source = lus[s["key"]], ("lu hors ligne" if s["status"] != "running" else "relevé (activité)")
+        elif (not sy or not (sy.get("os") or {}).get("id")) and manuels.get(s["key"]):
+            sy, source = declaration(manuels[s["key"]]), "déclaré"
+        elif (not sy or not (sy.get("os") or {}).get("id")) and s.get("systeme_audit"):
+            sy, source = s["systeme_audit"], "audit réseau"   # #873
+        elif not sy or not (sy.get("os") or {}).get("id"):
+            source = "aucune"
+        fam, ver, nom_os = os_de(sy)
+        fin, _k = fin_support(fam, ver, eol) if fam else (None, None)
+        st_os = statut_fin(fin, now) if fin else ("inconnu" if sy else "non relevé")
+        comp = composants(sy, st_os, now, eol)
+        maj = (sy or {}).get("maj_at")
+        maj_j = int((now - maj) // 86400) if maj else None
+        att, secu = (sy or {}).get("attente"), (sy or {}).get("attente_secu")
+        ext = [e for e in (sy or {}).get("ecoute") or [] if not e["hote"].startswith(("127.", "[::1]", "::1"))]
+        expose = any(public(ip) for ip in s["ips"]) and bool(ext)
+        u, ud = usage(s["status"], s["charge"], sy)
+        dependants = sorted({d["de"] for d in deps if d["vers"] == s["key"]})
+        utilise = sorted({d["vers"] for d in deps if d["de"] == s["key"]})
+        score, raisons, actions = 0, [], []
+        if st_os == "obsolète":
+            score += 3
+            raisons.append("système plus maintenu depuis le %s (%s)" % (fin, nom_os))
+            actions.append("mettre à niveau le système (%s → version maintenue)" % nom_os)
+        elif st_os == "fin proche":
+            score += 1
+            raisons.append("fin de support du système le %s" % fin)
+            actions.append("planifier la mise à niveau du système avant le %s" % fin)
+        elif st_os in ("inconnu", "non relevé"):
+            if s["status"] == "running":
+                score += 1
+            if s["type"] == "découvert":   # #873
+                raisons.append("hôte vu sur le réseau, suivi par aucun outil et système non identifié")
+                actions.append("identifier l'hôte (propriétaire, rôle) puis installer l'agent ou le déclarer")
+            else:
+                raisons.append("système non identifié (%s)" % ("agent invité QEMU absent ou Windows" if s["type"] == "VM" else "relevé impossible"))
+                actions.append("installer l'agent invité QEMU (VM Linux) ou déclarer le système à la main" if s["type"] == "VM" else "déclarer le système à la main")
+        if secu:
+            score += 2
+            raisons.append("%d mise(s) à jour de sécurité en attente" % secu)
+            actions.append("appliquer les mises à jour de sécurité")
+        elif att and att > 50:
+            score += 1
+            raisons.append("%d mises à jour en attente" % att)
+        if maj_j is not None and maj_j > 365:
+            score += 2
+            raisons.append("aucune mise à jour depuis %d jours" % maj_j)
+            if "appliquer les mises à jour de sécurité" not in actions:
+                actions.append("mettre à jour les paquets")
+        elif maj_j is not None and maj_j > 90:
+            score += 1
+            raisons.append("dernière mise à jour il y a %d jours" % maj_j)
+        proche = [c for c in comp if c["statut"] == "fin proche"]
+        if proche:
+            score += 1
+            raisons.append("fin de support proche : %s" % ", ".join("%s %s (%s)" % (c["nom"], c["version"], c["fin"]) for c in proche))
+            actions.extend("planifier le remplacement de %s %s avant le %s" % (c["nom"], c["version"], c["fin"]) for c in proche)
+        obs = [c for c in comp if c["statut"] == "obsolète"]
+        if obs:
+            score += min(3, 2 * len(obs))
+            raisons.append("version(s) obsolète(s) : %s" % ", ".join("%s %s" % (c["nom"], c["version"]) for c in obs))
+            actions.extend("remplacer %s %s par une version maintenue" % (c["nom"], c["version"]) for c in obs)
+        if expose and (st_os == "obsolète" or obs or secu):
+            score += 2
+            raisons.append("exposé sur Internet (%s)" % ", ".join(sorted({str(e["port"]) for e in ext})[:8]))
+            actions.append("limiter l'accès depuis Internet en attendant la mise à niveau")
+        impact = len(dependants) + (2 if u == "fort" else 1 if u == "moyen" else 0)
+        if s["status"] == "injoignable":
+            niveau = "à surveiller"
+            raisons.insert(0, "relevé impossible : %s" % (s.get("erreur") or "hôte injoignable"))
+            actions.insert(0, "rétablir l'accès de la sonde (clé ssh, réseau)")
+        elif s["status"] != "running":
+            niveau = "inactif"
+            if st_os == "obsolète":
+                actions = ["archiver puis supprimer s'il n'est plus utile"]
+        else:
+            niveau = "urgent" if score >= 5 else "à planifier" if score >= 3 else "à surveiller" if score >= 1 else "ok"
+            if niveau == "à planifier" and impact >= 3:
+                niveau = "urgent"
+                raisons.append("très utilisé ou dont dépendent d'autres systèmes")
+        lignes.append({"key": s["key"], "type": s["type"], "node": s["node"], "vmid": s["vmid"], "name": s["name"], "libelle": libelles.get(s["key"]),
+                       "status": s["status"], "os": {"famille": fam, "version": ver, "nom": nom_os, "fin": fin, "statut": st_os},
+                       "noyau": (sy or {}).get("noyau"), "maj_at": maj, "maj_jours": maj_j, "attente": att, "attente_secu": secu,
+                       "composants": comp, "roles": roles(sy), "services": (sy or {}).get("services") or [],
+                       "ecoute": [{"port": e["port"], "proc": e["proc"]} for e in ext], "expose": expose, "ips": s["ips"],
+                       "usage": u, "usage_detail": ud, "dependants": dependants, "utilise": utilise, "impact": impact,
+                       "score": score, "niveau": niveau, "raisons": raisons, "actions": list(dict.fromkeys(actions)), "releve": bool(sy),
+                       "source": source, "note": (sy or {}).get("note"),
+                       "reseau": [{"port": p["port"], "service": p.get("service"), "logiciel": " ".join(x for x in (p.get("product"), p.get("version")) if x) or None}
+                                  for p in s.get("reseau") or []], "vu_le": s.get("vu_le")})
+    ordre = {n: i for i, n in enumerate(NIVEAUX)}
+    lignes.sort(key=lambda l: (ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
+    return {"at": now, "systemes": lignes, "dependances": deps, "resume": resume(lignes), "eol": eol, "non_suivis": non_suivis}
+
+
+def resume(lignes):
+    """Compteurs de l'état des lieux (calculés aussi après regroupement des copies, #879)."""
+    res = {n: sum(1 for l in lignes if l["niveau"] == n) for n in NIVEAUX}
+    res["obsoletes"] = sum(1 for l in lignes if l["os"]["statut"] == "obsolète" and l["status"] == "running")
+    res["secu"] = sum(1 for l in lignes if (l["attente_secu"] or 0) > 0)
+    res["exposes"] = sum(1 for l in lignes if l["expose"])
+    res["inconnus"] = sum(1 for l in lignes if l["source"] == "aucune")
+    res["decouverts"] = sum(1 for l in lignes if l["type"] == "découvert")     # #873 : vus sur le réseau, suivis par rien d'autre
+    res["audit_reseau"] = sum(1 for l in lignes if l["reseau"])
+    res["variantes"] = sum(len(l.get("variantes") or []) for l in lignes)   # #879 : copies, clones, préparations rattachées
+    return res
+
+
+def instantane(etat):
+    """Ce qu'on garde chaque jour pour le suivi à long terme."""
+    return {"resume": etat["resume"], "systemes": {l["key"]: {"niveau": l["niveau"], "os": l["os"]["nom"], "secu": l["attente_secu"], "score": l["score"]}
+                                                   for l in etat["systemes"]}}
+
+
+def tendance(historique):
+    """[(jour, instantané)] -> [{jour, urgent, à planifier, …}] dans l'ordre des jours."""
+    return [dict({"jour": j}, **{k: (d.get("resume") or {}).get(k, 0) for k in NIVEAUX + ("obsoletes", "secu", "exposes")}) for j, d in sorted(historique or [])]
+
+
+# -- #862 : chantiers et décisions à prendre (complément pour les décideurs) ------------------------------------------
+DONE_MIG = ("fait", "manuel_fait", "saute")
+
+
+def chantiers(entries, migration=None, decisions=None, maintenant=None, jours=45):
+    """Journal des chantiers (#795), plan de migration (#774) et décisions saisies -> bloc pour l'Excel et l'audit :
+    par chantier, ce qui est fait sur la période, en cours, planifié, à faire ; avancement de la migration par phase."""
+    now = maintenant or time.time()
+    debut = dt.datetime.fromtimestamp(now - jours * 86400, dt.timezone.utc).strftime("%Y-%m-%d")
+    par = {}
+    for e in entries or []:
+        c = par.setdefault(e.get("chantier") or "Divers", {"chantier": e.get("chantier") or "Divers", "faits": [], "en_cours": [], "planifies": [], "a_faire": []})
+        st = e.get("statut") or "Fait"
+        if st == "Fait":
+            if (e.get("day") or "") >= debut:
+                c["faits"].append(e)
+        else:
+            c[{"En cours": "en_cours", "Planifié": "planifies", "À faire": "a_faire"}.get(st, "a_faire")].append(e)
+    out = []
+    for c in sorted(par.values(), key=lambda x: x["chantier"]):
+        for k in ("faits", "en_cours", "planifies", "a_faire"):
+            c[k] = [{"day": e.get("day"), "acte": e.get("acte"), "description": e.get("description"), "resultat": e.get("resultat")}
+                    for e in sorted(c[k], key=lambda e: e.get("day") or "", reverse=(k == "faits"))]
+        if any(c[k] for k in ("faits", "en_cours", "planifies", "a_faire")):
+            out.append(c)
+    mig = None
+    if migration and migration.get("plan"):
+        ph = []
+        for p in migration["plan"].get("phases") or []:
+            st = p.get("steps") or []
+            ph.append({"nom": p.get("name") or p.get("title") or p.get("id"), "faites": sum(1 for s in st if s.get("status") in DONE_MIG), "total": len(st)})
+        mig = {"nom": migration["plan"].get("name"), "faites": migration.get("done") or 0, "total": migration.get("total") or 0, "phases": ph,
+               "marche": (migration.get("run") or {}).get("state")}
+    dec = [d for d in (decisions or []) if d.get("titre")]
+    return {"periode_jours": jours, "depuis": debut, "chantiers": out, "migration": mig, "decisions": dec}
+
+
+# -- #863 : où, quand, combien -- organisation du chantier et infrastructure concernée (pour les décideurs) -----------
+CHAMPS_PHASE = ("quand", "ou", "volume_go", "debit_mo_s", "coupure", "contraintes")
+
+
+def _nb(v):
+    try:
+        return float(str(v).replace(",", ".")) if v not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def duree_texte(volume_go, debit_mo_s):
+    """1950 Go à 40 Mo/s -> « ≈ 14 h » ; None si inconnu."""
+    v, d = _nb(volume_go), _nb(debit_mo_s)
+    if not v or not d:
+        return None
+    h = v * 1024 / d / 3600
+    if h < 1:
+        return "≈ %d min" % max(1, round(h * 60))
+    if h < 48:
+        return "≈ %d h" % round(h)
+    return "≈ %d jours" % round(h / 24)
+
+
+def organisation(migration, fiches=None):
+    """Plan de migration (#774) + fiches saisies par phase -> lignes « où, quand, combien » pour les décideurs ;
+    débit par défaut : le plafond des copies de la phase (bwlimit_mb) s'il existe."""
+    if not migration or not migration.get("plan"):
+        return []
+    fiches = fiches or {}
+    out = []
+    for p in migration["plan"].get("phases") or []:
+        st = p.get("steps") or []
+        f = fiches.get(p.get("id")) or {}
+        bw = [x for x in ((s.get("params") or {}).get("bwlimit_mb") if isinstance(s.get("params"), dict) else None for s in st) if x]
+        debit = f.get("debit_mo_s") or (max(bw) if bw else None)
+        faites = sum(1 for s in st if s.get("status") in DONE_MIG)
+        out.append({"id": p.get("id"), "titre": p.get("title") or p.get("name") or p.get("id"), "onglet": p.get("onglet") or "", "faites": faites, "total": len(st),
+                    "etat": "terminée" if st and faites == len(st) else "en cours" if faites else "à venir",
+                    "quand": f.get("quand") or "", "ou": f.get("ou") or "", "volume_go": f.get("volume_go") or "", "debit_mo_s": debit or "",
+                    "duree": duree_texte(f.get("volume_go"), debit), "coupure": f.get("coupure") or "", "contraintes": f.get("contraintes") or ""})
+    return out
+
+
+def infrastructure(hotes_copies, systemes):
+    """Hôtes de l'inventaire des copies (#856) + systèmes de l'état des lieux -> serveurs concernés, en clair :
+    site, machines hébergées, espace occupé, secours (redondance des disques), état."""
+    nb = {}
+    for l in systemes or []:
+        if l["type"] in ("CT", "VM"):
+            nb[l["node"]] = nb.get(l["node"], 0) + 1
+    out = []
+    for h in hotes_copies or []:
+        pools = h.get("pools") or []
+        taille = sum(p.get("size") or 0 for p in pools)
+        occ = sum(p.get("alloc") or 0 for p in pools)
+        sans = [p["name"] for p in pools if p.get("redondance") == "non"]
+        malades = [p["name"] for p in pools if p.get("health") and p["health"] != "ONLINE"]
+        out.append({"nom": h["name"], "site": h.get("site") or "", "dans": h.get("dans"), "machines": nb.get(h["name"], 0),
+                    "espace_to": round(taille / 1024 ** 4, 1) if taille else None, "occupe_pct": round(100.0 * occ / taille) if taille else None,
+                    "secours": "non" if sans else ("oui" if pools else "inconnu"),
+                    "etat": "dégradé" if malades else ("injoignable" if not h.get("ok") else "normal")})
+    return out
+
+
+def hotes_relayes(rows):
+    """#876 : relevés `systemes` [(agent, hôte, at, data)] -> hôtes relevés à distance par chaque agent relais (hors l'hôte
+    du relais lui-même), pour la Flotte : [{relay, name, role, ok, error, at, os, noyau, ips, ports}] triés."""
+    out = []
+    for agent_id, _h, at, d in rows or []:
+        for x in (d or {}).get("systemes") or []:
+            if x.get("zone") == "local" or not x.get("name"):
+                continue
+            sy = x.get("systeme") or {}
+            out.append({"relay": agent_id, "name": x["name"], "role": x.get("role"), "ok": bool(x.get("ok")), "error": x.get("error"), "at": at,
+                        "os": (sy.get("os") or {}).get("nom"), "noyau": sy.get("noyau"), "ips": sy.get("ips") or [],
+                        "ports": sorted({e.get("port") for e in sy.get("ecoute") or [] if not str(e.get("hote", "")).startswith("127.")} - {None})})
+    out.sort(key=lambda h: (h["relay"], h["name"]))
+    return out
+
+
+def hotes_relayes_nas(rows_ssh, rows_snmp=None):
+    """#945 : NAS relevés par SSH (nas-qnap) et/ou SNMP (nas-snmp) -> lignes « relevé par » pour la Flotte, même forme que
+    hotes_relayes, avec role « nas » et un lien vers la tuile. Un NAS vu des deux façons donne UNE ligne (nom ou adresse)."""
+    out, idx = [], {}
+    for agent_id, _h, at, d in rows_ssh or []:
+        for n in (d or {}).get("nas") or []:
+            sy = n.get("systeme") or {}
+            e = {"relay": agent_id, "name": n.get("name") or n.get("host"), "role": "nas", "ok": bool(n.get("ok", True)), "error": n.get("error"), "at": at,
+                 "os": ("QTS %s" % sy["version"]) if sy.get("version") else "QNAP QTS", "noyau": sy.get("modele"), "ips": [n.get("host")] if n.get("host") else [],
+                 "ports": [], "vue": "sauvegardes", "onglet": "nas", "via": "SSH"}
+            idx[str(e["name"]).lower()] = e
+            if n.get("host"):
+                idx[str(n["host"]).lower()] = e
+            out.append(e)
+    for agent_id, _h, at, d in rows_snmp or []:
+        for n in (d or {}).get("nas") or []:
+            key = str(n.get("name") or "").lower()
+            e = idx.get(key) or idx.get(str(n.get("host") or "").lower())
+            if e:
+                e["via"] = e["via"] + " + SNMP"
+                if not e.get("noyau") and (n.get("systeme") or {}).get("modele"):
+                    e["noyau"] = n["systeme"]["modele"]
+                continue
+            sy = n.get("systeme") or {}
+            e = {"relay": agent_id, "name": n.get("name") or n.get("host"), "role": "nas", "ok": bool(n.get("ok", True)), "error": n.get("error"), "at": at,
+                 "os": ("QTS %s" % sy["micrologiciel"]) if sy.get("micrologiciel") else "NAS", "noyau": sy.get("modele"), "ips": [n.get("host")] if n.get("host") else [],
+                 "ports": [], "vue": "nas", "onglet": None, "via": "SNMP"}
+            idx[key] = e
+            out.append(e)
+    out.sort(key=lambda h: (h["relay"], str(h["name"])))
+    return out
+
+
+def hotes_relayes_backuppc(rows):
+    """#945 : serveur BackupPC relevé par SSH (sonde backuppc en mode relais) -> ligne « relevé par »."""
+    out = []
+    for agent_id, _h, at, d in rows or []:
+        srv = (d or {}).get("serveur") or {}
+        if not srv.get("relais"):
+            continue
+        s = (d or {}).get("summary") or {}
+        out.append({"relay": agent_id, "name": srv.get("nom") or "BackupPC", "role": "backuppc", "ok": not srv.get("erreur"), "error": srv.get("erreur"), "at": at,
+                    "os": "BackupPC %s" % (srv.get("version") or "?"), "noyau": "%d hôte(s), %d échec(s)" % (s.get("hotes", 0), s.get("echecs", 0)), "ips": [], "ports": [],
+                    "vue": "sauvegardes", "onglet": "backuppc", "via": "SSH"})
+    return out
+
+
+# -- #879 : regroupement des copies, clones, préparations de migration et VM de test ------------------------------------
+# Une VM de test, un clone préparatoire (« serv3-clone », « pre-optick3 », « pre-r2d2 ») ou plusieurs copies d'un même
+# système (« md10 » répliqué, archivé) faisaient du bruit : chacun comptait comme un système à traiter. Ils sont
+# rattachés à leur système de référence (même nom une fois retirés pré-/clone/copie/test…, ou règle manuelle) : ils ne
+# comptent plus dans les niveaux ni dans le planning, et apparaissent dans la fiche de la référence.
+MARQUE_PREFIXE = re.compile(r"^(pre|pré|clone|copie|copy|test|tmp|old)[-_.]", re.I)
+MARQUE_SUFFIXE = re.compile(r"[-_.](clone|copie|copy|old|bak|backup|test|tmp|temp|new|pre|pré)\d*$", re.I)
+ROLE_MARQUE = {"pre": "préparation de migration", "pré": "préparation de migration", "clone": "clone", "copie": "copie", "copy": "copie",
+               "test": "test", "tmp": "test", "temp": "test", "old": "ancienne version", "bak": "copie", "backup": "copie", "new": "préparation de migration"}
+ROLES_VARIANTE = ("clone", "préparation de migration", "copie", "test", "ancienne version")
+
+
+def nom_de_base(nom):
+    """« pre-r2d2 » -> ("r2d2", "préparation de migration") ; « serv3-clone » -> ("serv3", "clone") ; « md10 » -> ("md10", None)."""
+    n = (nom or "").strip().lower()
+    role = None
+    for _ in range(3):
+        m = MARQUE_PREFIXE.match(n) or MARQUE_SUFFIXE.search(n)
+        if not m:
+            break
+        role = role or ROLE_MARQUE.get(m.group(1).lower(), "copie")
+        n = (n[m.end():] if m.start() == 0 and MARQUE_PREFIXE.match(n) else n[:m.start()]).strip("-_.")
+    return (n or (nom or "").lower()), role
+
+
+def regrouper(etat, regles=None):
+    """Rattache les variantes (copies, clones, préparations, VM de test) à leur référence, d'après :
+    - le nom : « pre-r2d2 », « serv3-clone », « test-xxx », « md10 » en plusieurs exemplaires ;
+    - le numéro de VM / CT : 9106 (ou 1106, 2106…) clone de 106 quand 106 existe ; même numéro sur deux nœuds = copie ;
+    - les règles manuelles : {clé: {"de": nom de base, "role": …, "note": …}} ou {"seul": true} (garder à part).
+    Les variantes restent LISTÉES, en fin de tableau, marquées « variante de … » ; elles ne comptent ni dans les niveaux
+    ni dans le planning. Référence d'un groupe : un système qui n'est pas une variante, en service de préférence ; à
+    défaut (machine physique non suivie, ex. serv3), une variante le représente et le dit."""
+    regles = regles or {}
+    rang_t = {"nœud": 0, "serveur": 1, "VM": 2, "CT": 3, "poste": 4, "découvert": 5}
+    lignes = etat["systemes"]
+    par_vmid = {}
+    for l in lignes:
+        if l.get("vmid") is not None and l["type"] in ("VM", "CT"):
+            par_vmid.setdefault(int(l["vmid"]), []).append(l)
+    groupes = {}
+    for l in lignes:
+        r = regles.get(l["key"]) or {}
+        if r.get("seul"):
+            base, role = "#" + l["key"], None
+        elif r.get("de"):
+            base, role = r["de"].strip().lower(), r.get("role") or "copie"
+        else:
+            base, role = nom_de_base(l.get("name") or l["key"])
+            v = l.get("vmid")
+            memes = par_vmid.get(int(v), []) if v is not None and l["type"] in ("VM", "CT") else []
+            if not role and len({x["node"] for x in memes}) > 1:   # même numéro sur plusieurs nœuds : copies (réplication, archive)
+                tete = sorted(memes, key=lambda x: (x["status"] != "running", x["key"]))[0]
+                base = nom_de_base(tete.get("name") or tete["key"])[0]
+            if not role and v is not None and l["type"] in ("VM", "CT") and int(v) >= 1000 and (int(v) % 1000) in par_vmid:
+                orig = par_vmid[int(v) % 1000][0]           # 9106 -> 106 : clone (numérotation des copies de travail)
+                base, role = nom_de_base(orig.get("name") or orig["key"])[0], "clone"
+        l["_base"], l["_role"], l["_note"] = base, role, r.get("note")
+        groupes.setdefault(base, []).append(l)
+    vers = {}
+    for base, ls in groupes.items():
+        if len(ls) == 1 and not ls[0]["_role"]:
+            continue
+        refs = [l for l in ls if not l["_role"]]
+        if not refs and all(l["_role"] == "test" for l in ls):   # VM de test sans référence : listées en fin, pour la forme
+            for l in ls:
+                l["variante_de"] = {"key": None, "name": base, "role": "test", "note": l["_note"]}
+            continue
+        cle = lambda l: (l["status"] != "running", rang_t.get(l["type"], 9), -(l.get("maj_at") or 0), l["key"])
+        if refs:
+            ref = sorted(refs, key=cle)[0]
+        else:
+            ref = sorted(ls, key=cle)[0]
+            ref["representant"] = {"de": base, "role": ref["_role"],
+                                   "note": "« %s » n'est pas suivi : ce %s le représente (machine d'origine à rechercher)" % (base, ref["_role"])}
+        ref["variantes"] = []
+        for l in ls:
+            if l is ref:
+                continue
+            role = l["_role"] or "copie"            # même nom qu'une référence (md10 répliqué, archivé) = copie
+            ref["variantes"].append({"key": l["key"], "name": l["name"], "type": l["type"], "node": l["node"], "vmid": l.get("vmid"),
+                                     "status": l["status"], "role": role, "note": l["_note"], "os": l["os"].get("nom"), "niveau": l["niveau"]})
+            l["variante_de"] = {"key": ref["key"], "name": ref.get("libelle") or ref["name"], "role": role, "note": l["_note"]}
+            vers[l["key"]] = ref["key"]
+    for l in lignes:
+        for k in ("_base", "_role", "_note"):
+            l.pop(k, None)
+        if not l.get("variante_de"):
+            l["dependants"] = sorted({vers.get(k, k) for k in l.get("dependants") or []} - {l["key"]})
+            l["utilise"] = sorted({vers.get(k, k) for k in l.get("utilise") or []} - {l["key"]})
+    deps, vus = [], set()
+    for d in etat.get("dependances") or []:
+        d = dict(d, de=vers.get(d["de"], d["de"]), vers=vers.get(d["vers"], d["vers"]))
+        if d["de"] != d["vers"] and (d["de"], d["vers"], d.get("port")) not in vus:
+            vus.add((d["de"], d["vers"], d.get("port")))
+            deps.append(d)
+    ordre = {n: i for i, n in enumerate(NIVEAUX)}
+    lignes.sort(key=lambda l: (bool(l.get("variante_de")), ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
+    etat["dependances"] = deps
+    etat["resume"] = resume([l for l in lignes if not l.get("variante_de")])
+    etat["resume"]["variantes"] = sum(1 for l in lignes if l.get("variante_de"))   # copies, clones, préparations, tests (en fin de liste)
+    return etat

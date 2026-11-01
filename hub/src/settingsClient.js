@@ -457,6 +457,31 @@ export async function fetchHubLayout(prefsApiBase, login) {
   }
 }
 
+/** #516 : arbre de disposition personnel (clé hubTree du blob /preferences). */
+export async function fetchHubTree(prefsApiBase, login) {
+  try {
+    const res = await fetch(`${prefsApiBase}/preferences?user=${encodeURIComponent(login)}`);
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.hubTree;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function saveHubTree(prefsApiBase, login, hubTree) {
+  try {
+    const res = await fetch(`${prefsApiBase}/preferences?user=${encodeURIComponent(login)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hubTree }),
+    });
+    return { ok: res.ok, error: res.ok ? null : `HTTP ${res.status}` };
+  } catch {
+    return { ok: false, error: "réseau indisponible" };
+  }
+}
+
 /** Sauvegarde le hubLayout personnel -- fusion superficielle déjà
  * gérée côté serveur (voir prefs-api/app.py, put_preferences), jamais
  * besoin de relire/renvoyer les autres préférences (theme, etc.) au
@@ -496,6 +521,18 @@ export async function fetchInfraStatus(prefsApiBase) {
  * blanche stricte côté serveur, cette fonction se contente d'appeler
  * l'API, aucune logique de sécurité à dupliquer ici). Échec réseau --
  * tableau vide, jamais une exception qui viderait l'écran d'aide. */
+/** #523 : synthèse SI générée (prefs-api /synthese) ; {error} si absente. */
+export async function fetchSynthese(apiBase) {
+  try {
+    const res = await fetch(`${apiBase}/synthese`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { error: (data && data.error) || `HTTP ${res.status}` };
+    return data;
+  } catch (err) {
+    return { error: `Requête échouée : ${err.message}` };
+  }
+}
+
 export async function fetchDocsList(apiBase) {
   try {
     const res = await fetch(`${apiBase}/docs`);

@@ -1,0 +1,159 @@
+.. raw:: latex
+
+    \newpage
+    
+.. include:: ImageReplacement.txt
+
+.. title:: Financial monitoring
+
+.. index:: Financial monitoring
+
+
+
+.. _financial-situation:
+
+###################
+Financial situation
+###################
+
+The financial situation screens allow you to follow precisely with your own steps all the financial elements of a project. 
+
+.. figure:: /images/GUI/FINANCIAL_SCR_ProjectFinancialSituation.png
+   :alt: Project financial situation screen
+   
+   Project financial situation screen
+
+Find the financial situation in its entirety on the respective screens of the elements.
+
+Financial status screens will only display the most recent transaction.
+
+
+Project financial situations
+############################
+
+
+On this screen you view all the financial documents related to your projects.
+To display a situation, you must create them directly on the screen of the document concerned.
+It is possible to predefine financial situations.
+
+The list box displays the last processed financial document.
+The detail area displays all the expense and income financial documents in their current state.
+
+You can display only the expenses financial situation or the income financial situation on their respective screen. 
+
+Expenses financial situation
+****************************
+
+   The following operations will then be displayed for the expenses.
+   
+   - Call for tender.
+   - Provider tenders
+   - Orders to provider
+   - Provider bills
+
+
+Incomes financial situation
+***************************
+
+   The following operations will then displayed for the incomes.
+   
+   - Client quatations
+   - Client orders
+   - Clients bills
+   - Client paiements
+
+
+Predefined situation
+********************
+
+You create several defined situation than you will can used to defined situations on the financial elements.
+
+Click on |Add| to add a new predefined situation
+
+
+.. figure:: /images/GUI/FINANCIAL_ZONE_PredefinedSituation.png
+   :alt: Predefined situation
+   
+   Predefined situation
+   
+You can limited the predefined situation on an element or a type of element.
+
+
+Financial situation
+*******************
+
+Click on |New| to create a financial statement on an eligible financial document.
+
+   
+.. figure:: /images/GUI/FINANCIAL_ZONE_FinancialSituation.png
+   :alt: Financial situation section
+   
+   Financial situation section
+
+
+If you have created predefined situations, you can choose them from the corresponding drop-down list.
+
+If you do not have predefined situations, then fill in the situation directly manually, respecting the mandatory fields.
+
+   
+.. figure:: /images/GUI/FINANCIAL_BOX_FinancialSituation.png
+   :alt: Financial situation pop-up
+   
+   Financial situation pop-up
+    
+
+.. _multicurrency:
+
+##############
+Multi currency
+##############
+
+It is possible to define a local currency for each project. 
+
+The project carries the conversion rate between global currency and local currency.
+
+.. figure:: /images/GUI/FINANCIAL_ZONE_MultiCurrency.png
+   :alt: multi currency in project
+   
+   multi currency in project
+
+You must enable the setting to be able to use the feature. 
+
+.. seealso::
+
+   :ref:`multi-currency<gp-multicurrency-section>` in global parameters.
+   
+
+* Existing fields are considered in the global currency.
+
+* An amount entered in local currency is automatically converted and stored in global currency.
+
+* The sub-projects of a project always have the same currency and the same conversion rate as the parent.
+
+* The monetary data of the sub-projects is always consolidated in the global currency.
+
+If a project has a local currency, the monetary data of its sub-projects is consolidated without worrying about the conversion rate, because the sub-projects necessarily have the same currency and the same conversion rate.
+
+If a project does not have a local currency, we do not try to consolidate the monetary data of its sub-projects in local currency.
+
+An element that carries monetary data cannot change projects if the source and destination projects do not have the same currency and the same conversion rate.
+
+.. important:: 
+
+   Existing reports will all be produced in the global currency.
+
+   
+   
+.. _factur-x:
+
+########
+Factur-x
+########
+
+
+Factur-X is a hybrid electronic invoicing format that combines a human-readable PDF file with a structured XML file that can be processed automatically by information systems.
+
+In ProjeQtOr, invoices can be imported and exported in Factur-X format. This allows you to keep a standard visual version of the invoice while enabling seamless integration with other systems (accounting software, ERP, electronic archiving) without manual data entry. 
+
+This feature enhances data reliability, improves traceability, and helps ensure compliance with electronic invoicing regulations.
+

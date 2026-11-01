@@ -1,0 +1,756 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Human Resources &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gestion des plug-ins" href="Plugin.html" />
+    <link rel="prev" title="Organisations" href="Organization.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Plugin.html" title="Gestion des plug-ins"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Organization.html" title="Organisations"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Human Resources</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <span class="target" id="index-0"></span><section id="humans-resources">
+<span id="human-resources"></span><span id="index-1"></span><h1>Ressources Humaines<a class="headerlink" href="#humans-resources" title="Lien permanent vers cette rubrique">¶</a></h1>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Documentation</strong></p>
+<p>Le module de ressources humaines a été développé par un contributeur externe SALTO CONSULTING. Les explications ci-dessous ont été tirées des instructions, fournies en français uniquement, avec le module. * La <a class="reference external" href="https://www.projeqtor.org/files/ProjeQtOr%20-%20Documentation%20-%20Absences%20r%C3%A9glement%C3%A9es.pdf">documentation française</a> sur la mise en œuvre des absences réglementées est disponible sur la <a class="reference external" href="https://www.projeqtor.org/fr/product-fr/downloads-fr/">page de téléchargement</a>.</p>
+<p>Le module RH a été créé pour être facilement adapté à la loi française, mais il peut être entièrement paramétré selon les droits de n’importe quel pays.</p>
+</div>
+<p>Cette section permet de gérer les Ressources Humaines de la société.</p>
+<p>Ce système vient en complément des standards de la gestion des absences.</p>
+<p>Utilisé pour gérer les absences qui doivent être validées, contrôlées et avoir des valeurs à réglementer selon la loi française.</p>
+<p><strong>Commencez par définir les :</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#employee-manager"><span class="std std-ref">L’employé et le manager</span></a></p></li>
+<li><p><a class="reference internal" href="#leaves-types"><span class="std std-ref">Types de congés</span></a></p></li>
+<li><p><a class="reference internal" href="#employment-contract-type"><span class="std std-ref">Type de contrat de travail</span></a></p></li>
+</ul>
+<p>Vous pouvez choisir le standard de droit aux congés pour chaque type de contrat. L’employé peut réserver des périodes d’absence selon ses droits.</p>
+<p><strong>vous pourrez gérer :</strong></p>
+<ul class="simple">
+<li><p>Les quantités acquises sur une période de temps.</p></li>
+<li><p>La période de validité d’une quantité d’absence.</p></li>
+<li><p>La possibilité de prendre des absences par anticipation sur la période en cours d’acquisition.</p></li>
+<li><p>Le nombre de jours avant et après lequel la demande d’absence peut être faite.</p></li>
+<li><p>Définir des règles d’acquisition spécifiques.</p></li>
+<li><p>valider ou rejeter une demande d’absence.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Un projet dédié à ces absences réglementées est créé et permet de stocker les jours d’absence demandés comme temps planifié et les jours d’absence validés comme temps de travail, permettant ainsi d’intégrer ces absences dans la planification.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Le calcul du nombre de jours représentés par une absence est effectué sur la base des jours ouvrés.</p>
+<p>Les jours ouvrés sont définis dans <a class="reference internal" href="GlobalParameters.html#global-parameters"><span class="std std-ref">Paramètres globaux</span></a> et <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">calendrier</span></a> associé à l’employé : jours fériés, jours non ouvrés.</p>
+</div>
+<span class="target" id="index-2"></span><section id="environmental-parameters">
+<span id="employee-manager"></span><span id="index-3"></span><h2>Paramètres environnementaux<a class="headerlink" href="#environmental-parameters" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les propriétés ci-dessous ne sont visibles que lorsque le <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">module RH</span></a> est activé.</p>
+<p class="rubric">Employé</p>
+<p>Un employé est une <span class="xref std std-ref">ressource</span> dont la propriété <strong>« est un employé »</strong> est cochée dans l’écran des ressources.</p>
+<p>Une fois les ressources enregistrées comme employés, vous les affectez à un gestionnaire des absences.</p>
+<p>Ce même manager pourra gérer ses employés depuis l’écran des employés.</p>
+<p>L’employé peut voir la personne qui gère ses périodes de congé.</p>
+<p>Chaque fois qu’un employé est défini, un contrat par défaut est automatiquement créé à la date d’entrée de la ressource si elle est renseignée.</p>
+<p>Si la date n’est pas spécifiée, la date actuelle lors de la création est récupérée.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Une erreur de calcul peut se produire si la date d’entrée n’est pas saisie. Dans ce cas, sur l’écran des ressources :</p>
+<ol class="arabic simple">
+<li><p>décochez la case <strong>est un employé</strong>,</p></li>
+<li><p>renseignez la date d’entrée,</p></li>
+<li><p>enregistrez,</p></li>
+<li><p>cochez à nouveau <strong>est un employé</strong>.</p></li>
+</ol>
+<p><strong>Le calcul des droits sera alors réinitialisé avec la nouvelle date.</strong></p>
+</div>
+<p class="rubric">Gestionnaire des employés</p>
+<p>Un manager est une ressource dont les propriétés <strong>« est un employé »</strong> et <strong>« est gestionnaire des absences »</strong> sont cochées.</p>
+<p>La gestion d’un employé est datée, ce qui permet de changer de manager ou de déléguer temporairement la gestion à un autre manager (absences).</p>
+<figure class="align-center" id="id8">
+<a class="reference internal image-reference" href="_images/RH_ZONE_DescriptionManager.png"><img alt="Le manager est une ressource et le gestionnaire des congés" src="_images/RH_ZONE_DescriptionManager.png" style="width: 443.79999999999995px; height: 461.99999999999994px;" /></a>
+<figcaption>
+<p><span class="caption-text">La case <strong>« est un employé »</strong> et <strong>« est gestionnaire des congés »</strong> est cochée</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Un manager doit être un employé.</p>
+<p>Un gestionnaire d’employés peut faire des demandes d’absence à la place des employés.</p>
+<p>Il peut valider ou rejeter les demandes d’absence des employés qu’il gère.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Le gestionnaire des absences gère les absences des employés qui lui sont rattachés. Il n’a pas accès aux paramètres du module. Il n’a pas de rôle d’administrateur.</p>
+</div>
+<figure class="align-default" id="id9">
+<img alt="Écran du manager" src="_images/RH_SCR_Manager.png" />
+<figcaption>
+<p><span class="caption-text">Écran du manager</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Administrateur du système de congés</p>
+<p>Il est l’administrateur du système de congés. Il définira les types de congés, les types de contrats, …</p>
+<p>Pour pouvoir gérer et configurer le module des ressources humaines après son installation, vous devez accéder aux <a class="reference internal" href="GlobalParameters.html#leaves-system"><span class="std std-ref">paramètres globaux</span></a>.</p>
+<p>Une section RH supplémentaire spéciale vous permet de définir l’administrateur des absences et des droits réglementés.</p>
+<p>Si un employé n’a pas de manager, l’administrateur du module d’absences réglementées agit en tant que manager.</p>
+<p>L’administrateur est obligatoirement un gestionnaire de congés</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Lorsqu’une ressource n’est plus <strong>« utilisée »</strong>, tous les éléments du module d’absences réglementées sont supprimés par le module :</p>
+<ul class="simple">
+<li><p>Affectations aux activités associées au type d’absence</p></li>
+<li><p>Temps passé généré suite aux demandes d’absence validées</p></li>
+<li><p>Temps planifiés générés en raison des demandes d’absence non encore validées</p></li>
+<li><p>Demandes d’absence</p></li>
+<li><p>Droits acquis</p></li>
+<li><p>Contrats</p></li>
+<li><p>Liens avec ses managers</p></li>
+</ul>
+</div>
+<section id="leaves-dashboard">
+<span id="index-4"></span><span id="id1"></span><h3>Tableau de bord des congés<a class="headerlink" href="#leaves-dashboard" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Un tableau de bord est disponible pour les gestionnaires des absences</p>
+<figure class="align-default" id="id10">
+<img alt="Tableau de bord des congés" src="_images/RH_SCR_LeavesDashboard.png" />
+<figcaption>
+<p><span class="caption-text">Tableau de bord des congés</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La barre de filtres vous permet de filtrer les informations présentées dans le tableau de bord</p>
+<figure class="align-default" id="id11">
+<img alt="Filtres" src="_images/RH_ZONE_FilterBar.png" />
+<figcaption>
+<p><span class="caption-text">Barre de filtres</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le calendrier des congés affiche les informations en fonction des filtres appliqués par l’employé géré</p>
+<p>Le <img alt="S'abonner" src="_images/iconDelay.png" /> vous indique que la demande a été faite en retard</p>
+<p>Vous pouvez exporter le calendrier au format Excel</p>
+<p class="rubric">Synthèse</p>
+<p>La synthèse est également affichée selon les filtres sélectionnés au préalable,</p>
+<p>et donne le nombre de jours restant à prendre par type de congé et employés gérés</p>
+<p class="rubric">Période de congé à traiter</p>
+<p>Dans cette section, apparaît la liste des absences à traiter, c’est-à-dire sous le statut « enregistré »</p>
+<section id="leaves-types">
+<span id="id2"></span><h4>Types de congés<a class="headerlink" href="#leaves-types" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cette partie vous permet de créer les types d’absences réglementées.</p>
+<p>Une activité correspondante (= nom du type d’absence) est créée sur le projet dédié à la gestion des absences.</p>
+<p>Tous les employés (ressource enregistrée comme employé) sont affectés à cette activité</p>
+<figure class="align-center" id="id12">
+<img alt="création des types d'absences" src="_images/RH_SCR_LeavesTypes.png" />
+<figcaption>
+<p><span class="caption-text">Écran des types de congés</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Vous pouvez choisir le workflow qui sera attaché aux ressources humaines</p></li>
+<li><p>vous pouvez définir qui reçoit une alerte interne ou un e-mail lors de la création, la mise à jour, la suppression et/ou le traitement des congés</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Plus de détails sur les <strong>Valeurs contractuelles</strong>, voir <a class="reference internal" href="#leaves-rights-earned"><span class="std std-ref">Droits acquis</span></a></p>
+</div>
+</section>
+</section>
+</section>
+<section id="employment-contract-type">
+<span id="id3"></span><h2>Type de contrat de travail<a class="headerlink" href="#employment-contract-type" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cette section vous permet de créer les différents contrats en vigueur dans votre entreprise</p>
+<p>Les types de contrats permettent d’avoir des règles d’acquisition de différentes absences réglementées selon le contrat de travail d’un employé</p>
+<p>Vous ne pouvez avoir qu’un seul type de contrat par défaut</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>exemple en France</strong></p>
+<ul class="simple">
+<li><p>Contrat cadre = Aucune règle d’acquisition</p></li>
+<li><p>Contrat cadre à temps plein = RTT</p></li>
+<li><p>Contrat cadre à temps partiel = Pas de RTT</p></li>
+<li><p>etc.</p></li>
+</ul>
+</div>
+<figure class="align-center" id="id13">
+<img alt="Type de contrat de travail" src="_images/RH_SCR_TypesContrats.png" />
+<figcaption>
+<p><span class="caption-text">Écran du type de contrat de travail</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Plus de détails sur les <strong>valeurs contractuelles</strong>, voir <a class="reference internal" href="#leaves-rights-earned"><span class="std std-ref">Droits acquis</span></a></p>
+</div>
+<p class="rubric">Paramètres pour les droits aux congés acquis</p>
+<ul class="simple">
+<li><p>Dans cette section, vous pouvez définir quels types d’absences réglementées seront attachés à ce type de contrat.</p></li>
+<li><p>Si vous avez créé plusieurs types d’absences réglementées et les avez attachés à tous vos contrats (case à cocher <strong>sur défaut</strong> ou <strong>sur tout</strong>), ces types seront visibles dans cette section.</p></li>
+</ul>
+<p>S’il vous manque des types d’absences, vous pouvez les créer depuis cet écran :</p>
+<ul class="simple">
+<li><p>Cliquez sur le bouton <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a></p></li>
+<li><p>Une fenêtre contextuelle s’ouvre et propose de renseigner les mêmes champs que sur l’écran des types d’absences réglementées</p></li>
+</ul>
+<figure class="align-center" id="id14">
+<img alt="Droits de congés spéciaux" src="_images/RH_ZONE_LeavesRights.png" />
+<figcaption>
+<p><span class="caption-text">Droits de congés spéciaux</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Plus de détails sur les <strong>Valeurs spécifiques</strong>, voir <a class="reference internal" href="#leaves-rights-earned"><span class="std std-ref">Droits acquis</span></a></p>
+</div>
+<p class="rubric">Configuration des droits de congés spéciaux</p>
+<p>Les règles d’acquisition spéciales sont des règles qui ne peuvent pas être exprimées avec les valeurs des règles d’acquisition standard</p>
+<figure class="align-center" id="id15">
+<img alt="Droits de congés spéciaux" src="_images/RH_BOX_AddSpecialLeaves.png" />
+<figcaption>
+<p><span class="caption-text">Droits de congés spéciaux</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric"><strong>règles d’acquisition personnalisées :</strong></p>
+<p>Définissez la règle d’acquisition spéciale basée sur les valeurs d’attributs d’une entité ProjeQtOr.</p>
+<p>Cette règle suit le vocabulaire du langage SQL</p>
+<p class="rubric"><strong>clause where</strong></p>
+<p>Condition d’application du droit spécial</p>
+<p>cette clause suit le vocabulaire du langage SQL</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>pour obtenir de l’aide sur les fonctions SQL que vous pouvez utiliser, cliquez sur la barre de section <strong>aide sur la saisie de clause</strong></p>
+<p>Une nouvelle partie apparaît et propose des menus déroulants avec des requêtes SQL pré-enregistrées</p>
+</div>
+<p class="rubric"><strong>Quantité</strong></p>
+<p>Nombre de jours supplémentaires acquis calculés suite à l’application de la règle d’acquisition spéciale</p>
+<p>Cette règle suit le vocabulaire du langage SQL</p>
+<p class="rubric"><strong>Type de congé</strong></p>
+<p>Le type d’absence réglementée auquel sera attachée la règle d’absence spéciale.</p>
+</section>
+<section id="employment-contract-end-reason">
+<span id="employmentendraison"></span><h2>Motif de fin de contrat de travail<a class="headerlink" href="#employment-contract-end-reason" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous permet d’enregistrer les différents types de fin de contrat.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Pourquoi mettre fin à un contrat ?</strong></p>
+<ul class="simple">
+<li><p>Démission</p></li>
+<li><p>Changement de statut (non-cadre -&gt; cadre)</p></li>
+<li><p>Changement de la quotité (100 % -&gt; 80 %)</p></li>
+<li><p>Partir à la retraite…</p></li>
+</ul>
+</div>
+<p>Ces différentes raisons peuvent entraîner des modifications dans les règles régissant l’acquisition des droits d’absence.</p>
+</section>
+<section id="leave-rights-earned">
+<span id="leaves-rights-earned"></span><span id="index-5"></span><h2>Droits aux congés acquis<a class="headerlink" href="#leave-rights-earned" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Sur cet écran, vous pouvez voir vos droits aux congés acquis depuis le début de votre contrat.</p>
+<figure class="align-center" id="id16">
+<img alt="Droits aux congés acquis" src="_images/RH_SCR_LeavesRightsearned.png" />
+<figcaption>
+<p><span class="caption-text">Droits aux congés acquis</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les dates de début et de fin correspondent à la période sur laquelle les jours de congé sont calculés</p>
+<p>Le nombre de jours acquis et restants pour chaque type</p>
+<p>Si vos congés dépassent la période de référence et selon le type de congé, la case à cocher « clos » est validée.</p>
+<p>Vous n’avez plus ce type de congé disponible et ne pouvez plus en demander</p>
+</section>
+<section id="employment-contract">
+<span id="index-6"></span><span id="id4"></span><h2>Contrat de travail<a class="headerlink" href="#employment-contract" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez voir les détails des contrats et quel employé leur est rattaché.</p>
+<figure class="align-center" id="id17">
+<img alt="Droits aux congés acquis" src="_images/RH_SCR_EmploymentContract.png" />
+<figcaption>
+<p><span class="caption-text">Droits aux congés acquis</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric" id="leaves-parameters">Paramètres des congés réglementés</p>
+<p>La réglementation des absences est basée sur les droits à prendre des absences acquis sur une période donnée.</p>
+<p>Elle est donc basée sur des valeurs à donner aux attributs de réglementation selon le type d’absence (ex : Congés payés, RTT, congés maladie, congés légaux, etc.), et le type de contrat associé à l’employé (Ex : Temps plein, Temps partiel).</p>
+<p class="rubric">Acquisition générale des droits</p>
+<p>Lorsque vous créez un <a class="reference internal" href="#employment-contract-type"><span class="std std-ref">Type de contrat de travail</span></a>, vous avez plusieurs valeurs contractuelles à renseigner.</p>
+<figure class="align-default" id="id18">
+<img alt="Valeurs contractuelles pour le type de congé" src="_images/RH_ZONE_LeavesRights.png" />
+<figcaption>
+<p><span class="caption-text">Valeurs contractuelles pour le type de congé</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Case à cocher <strong>« Sur défaut »</strong> et <strong>« sur tout »</strong></p>
+<ul class="simple">
+<li><p>Si vous cochez sur <strong>« défaut »</strong>, les valeurs saisies se refléteront uniquement sur le type de contrat par défaut.</p></li>
+<li><p>Si vous cochez sur <strong>« tout »</strong>, les valeurs saisies seront sur tous les types de contrats.</p></li>
+<li><p>Ces valeurs ne peuvent pas être modifiées après leur enregistrement.</p></li>
+</ul>
+<p>Pour tout changement, la création d’un nouveau type d’absence est nécessaire.</p>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>mois de début de période</p></td>
+<td><p>mois démarrant la période de référence des congés payés dans votre pays.</p></td>
+</tr>
+<tr class="row-odd"><td><p>jour de début de période</p></td>
+<td><p>jour démarrant la période de référence des congés payés dans votre pays.</p></td>
+</tr>
+<tr class="row-even"><td><p>durée de la période</p></td>
+<td><p>La durée de la période donne le nombre de mois sur lesquels votre période de référence s’étendra.</p></td>
+</tr>
+<tr class="row-odd"><td><p>quantité</p></td>
+<td><p>le nombre de jours de congé qui seront payés pendant la période de référence.</p></td>
+</tr>
+<tr class="row-even"><td><p>période des droits aux congés acquis</p></td>
+<td><p>le nombre de mois avant de pouvoir utiliser vos jours acquis.</p></td>
+</tr>
+<tr class="row-odd"><td><p>entier <a class="reference internal" href="Glossary.html#term-Quotity"><span class="xref std std-term">quotité</span></a></p></td>
+<td><p>Possibilité d’arrondir les congés acquis.</p></td>
+</tr>
+<tr class="row-even"><td><p>durée de validité</p></td>
+<td><p>période pendant laquelle les jours de congé acquis seront conservés. Au-delà de cette période, les congés acquis sont perdus.</p></td>
+</tr>
+<tr class="row-odd"><td><p>est justifiable</p></td>
+<td><p>définit si l’absence doit faire l’objet d’une demande de justificatif</p></td>
+</tr>
+<tr class="row-even"><td><p>peut être anticipé</p></td>
+<td><p>Si le congé peut être pris avant la période d’acquisition</p></td>
+</tr>
+<tr class="row-odd"><td><p>délai maximum pour absence rétroactive (jours)</p></td>
+<td><p>permet, ou non, d’enregistrer des absences en congés payés après avoir été effectivement absent.</p></td>
+</tr>
+<tr class="row-even"><td><p>délai maximum pour absence anticipée (jours)</p></td>
+<td><p>Nombre de jours avant lequel une demande peut être faite</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>En France, un employé a droit à 2,5 jours de congé par mois de travail effectif chez le même employeur, soit 5 semaines par année complète de travail (du 1er juin au 31 mai)</p>
+</div>
+<p class="rubric">Acquisition spécifique des droits</p>
+<p>Pour intégrer des droits d’absence spécifiques, le concept de droits spéciaux a été mis en place.</p>
+<p>Les entités utilisables sont :</p>
+<ul class="simple">
+<li><p>Absences</p></li>
+<li><p>Employés</p></li>
+<li><p>Contrats</p></li>
+<li><p>Droits acquis</p></li>
+</ul>
+<figure class="align-default" id="id19">
+<img alt="Valeurs contractuelles pour le type de congé" src="_images/RH_BOX_AddSpecialLeaves.png" />
+<figcaption>
+<p><span class="caption-text">Valeurs contractuelles pour le type de congé</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Nom</p></td>
+<td><p>Le nom à donner au droit spécial</p></td>
+</tr>
+<tr class="row-odd"><td><p>règle d’acquisition personnalisée</p></td>
+<td><p>La règle permettant le calcul d’un nombre de fois pour appliquer la quantité de droit à l’absence</p></td>
+</tr>
+<tr class="row-even"><td><p>clause where</p></td>
+<td><p>Condition d’application du droit spécial</p></td>
+</tr>
+<tr class="row-odd"><td><p>Quantité</p></td>
+<td><p>La quantité élémentaire du droit spécial</p></td>
+</tr>
+<tr class="row-even"><td><p>Type de congé</p></td>
+<td><p>Le type d’absence auquel s’applique le droit spécial</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="absence-recording">
+<span id="index-7"></span><span id="id5"></span><h2>Enregistrement des absences<a class="headerlink" href="#absence-recording" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="leaves-calendar">
+<span id="index-8"></span><span id="id6"></span><h3>Calendrier des congés<a class="headerlink" href="#leaves-calendar" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les absences réglementées sont effectuées soit par les employés, soit par leur manager</p>
+<p>Les absences peuvent être enregistrées depuis le calendrier des congés</p>
+<figure class="align-center" id="id20">
+<img alt="Calendrier des congés" src="_images/RH_SCR_LeavesCalendar.png" />
+<figcaption>
+<p><span class="caption-text">Calendrier des congés</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Pour enregistrer ou modifier vos absences, double-cliquez sur une date ou une absence existante</p>
+<p>Une fenêtre contextuelle s’ouvre pour afficher les propriétés d’une absence (date et type d’absence…)</p>
+<p>Le type d’absences visible dans la liste déroulante dépend de ceux enregistrés dans le contrat de l’employé.</p>
+<figure class="align-center" id="id21">
+<img alt="Attributs des congés" src="_images/RH_BOX_LeavesAttributs.png" />
+<figcaption>
+<p><span class="caption-text">Attributs des congés</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Après validation, le congé apparaît dans le calendrier.</p>
+<p>Le manager (et/ou l’administrateur) peut valider ou non, le congé des employés.</p>
+<p>Lorsque la période de congé est rejetée, il est impossible d’ajouter un nouveau congé sur ces mêmes dates</p>
+<p>La couleur des congés changera selon la validation.</p>
+</section>
+<section id="leaves-periods">
+<span id="leaves-period"></span><span id="index-9"></span><h3>Périodes de congés<a class="headerlink" href="#leaves-periods" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les absences réglementées sont effectuées soit par les employés, soit par le gestionnaire des congés.</p>
+<p>Les absences peuvent être enregistrées depuis l’écran des Périodes de congés.</p>
+<figure class="align-center" id="id22">
+<img alt="Périodes de congés" src="_images/RH_SCR_LeavesPeriods.png" />
+<figcaption>
+<p><span class="caption-text">Périodes de congés</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Sur cet écran, vous pouvez enregistrer, modifier, supprimer une demande de congé, comme dans le calendrier des congés.</p>
+<p>L’employé peut enregistrer et soumettre ses congés.</p>
+<p>Seuls le <strong>Gestionnaire des congés</strong> et l”<strong>Administrateur du système de congés</strong> peuvent modifier le statut d’une demande d’absence soumise à acceptée ou rejetée.</p>
+</section>
+</section>
+<section id="leaves-system">
+<h2>Système de congés<a class="headerlink" href="#leaves-system" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="habilitation">
+<span id="leavessystemhabilitation"></span><h3>habilitation<a class="headerlink" href="#habilitation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous permet de restreindre la vue des écrans du module Ressources Humaines aux types de profils d’employés.</p>
+<p>Ils peuvent avoir un accès visualiser - lire - créer - mettre à jour et/ou supprimer</p>
+</section>
+<section id="workflows-and-values">
+<span id="workflowhr"></span><h3>Workflows et valeurs<a class="headerlink" href="#workflows-and-values" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Lorsque vous installez le module d’absences réglementées, un workflow pour les absences est créé.</p></li>
+<li><p>Vous pouvez le modifier et le supprimer comme tout autre workflow.</p></li>
+<li><p>Une nouvelle section est disponible dans la liste des valeurs pour les rapports.</p></li>
+<li><p>La section congés réglementés vous permet de déterminer le comportement des états du workflow des absences.</p></li>
+<li><p>Cela peut également déclencher une alerte et/ou envoyer un mail</p></li>
+</ul>
+</section>
+<section id="leaves-status">
+<h3>Statut des congés<a class="headerlink" href="#leaves-status" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Avec l’activation du module RH, un workflow d’absence est ajouté avec 3 états, accessibles et personnalisables dans les <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">systèmes d’automatisation</span></a>.</p>
+<p class="rubric">Enregistré</p>
+<p>Statut de création. Dans cet état, toutes les données de l’absence peuvent être modifiées.</p>
+<p class="rubric">Soumis</p>
+<p>Ce statut signifie que l’employé a envoyé sa demande de congé à sa hiérarchie pour validation.</p>
+<p class="rubric">Validé</p>
+<p>État que seuls le manager et l’administrateur du module peuvent activer.</p>
+<p>Lorsque la demande de congé est validée ou refusée, le statut de la demande ne peut plus être modifié</p>
+<p class="rubric">Annulé</p>
+<p>État que seuls le manager et l’administrateur du module peuvent activer.</p>
+<p>Le nombre de jours que représente l’absence n’est pas pris.</p>
+<p>Lorsque la demande de congé est validée ou refusée, le statut de la demande ne peut plus être modifié</p>
+<span class="target" id="index-10"></span></section>
+</section>
+<section id="skill-management">
+<span id="index-11"></span><span id="id7"></span><h2>Gestion des compétences<a class="headerlink" href="#skill-management" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>La gestion des compétences permettra de renseigner les compétences de chaque ressource avec un niveau de compétence très précis.</p>
+<p>Vous pouvez ensuite rechercher les ressources appropriées pour une activité à un moment donné pour la compétence de votre choix.</p>
+<section id="skills">
+<h3>Compétences<a class="headerlink" href="#skills" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Enregistrez les différentes compétences que vous trouvez dans votre domaine d’activité.</p>
+<figure class="align-default" id="id23">
+<img alt="Écran de gestion des compétences" src="_images/HUMANR_SCR_Skillscreen.png" />
+<figcaption>
+<p><span class="caption-text">Écran de gestion des compétences</span><a class="headerlink" href="#id23" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les compétences peuvent être divisées en sous-compétences sans limitation de niveau.</p>
+<p>Le bouton « afficher la structure » vous permet d’afficher la SBS (Structure de Décomposition des Compétences) de la compétence sélectionnée avec une indentation des sous-compétences pour une meilleure visibilité.</p>
+<figure class="align-default" id="id24">
+<img alt="SBS - Structure de décomposition des compétences" src="_images/HUMANR_ZONE_DisplayStructureSkill.png" />
+<figcaption>
+<p><span class="caption-text">SBS - Structure de décomposition des compétences</span><a class="headerlink" href="#id24" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="skills-level">
+<h3>Niveaux de compétences<a class="headerlink" href="#skills-level" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’écran des Niveaux de compétences vous permet d’enregistrer des niveaux pour chaque compétence.</p>
+<p>Par exemple débutant, moyen, bon, expert…</p>
+<figure class="align-default" id="id25">
+<img alt="Écran des niveaux de compétences" src="_images/HUMANR_SCR_SkillLevelScreen.png" />
+<figcaption>
+<p><span class="caption-text">Écran des niveaux de compétences</span><a class="headerlink" href="#id25" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous définissez ensuite pour chacune des ressources les compétences et le niveau qui leur est associé.</p>
+<p>Vous pouvez sélectionner plusieurs compétences différentes dans la liste déroulante en utilisant les touches Contrôle ou Maj.</p>
+<p>Une icône peut être associée au niveau de compétence. ProjeQtOr a fourni des icônes pour un maximum de 4 niveaux.</p>
+<p>Vous pouvez créer vos propres icônes et les placer dans www\projeqtorVX.xx\view\icons.</p>
+<p class="rubric">Compétences des ressources</p>
+<p>Lorsque les compétences et les niveaux de compétences sont définis, vous pouvez les associer à vos ressources.</p>
+<figure class="align-default" id="id26">
+<img alt="Écran des ressources avec plusieurs compétences et niveaux de compétences" src="_images/HUMANR_ZONE_ResourceSkills.png" />
+<figcaption>
+<p><span class="caption-text">Écran des ressources avec plusieurs compétences et niveaux de compétences</span><a class="headerlink" href="#id26" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les ressources avec des compétences apparaîtront sur l’écran de recherche par compétences.</p>
+</section>
+<section id="hierarchical-skill">
+<h3>Compétence hiérarchique<a class="headerlink" href="#hierarchical-skill" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Sur cet écran, vous voyez toutes les compétences et leur hiérarchie. C’est la structure complète pour toutes les compétences combinées.</p>
+<p>Vous pouvez les déplacer et les réorganiser en utilisant les poignées devant les noms.</p>
+<p>Les indices de décomposition de la SBS (structure de décomposition des compétences) sont dynamiques et seront modifiés selon l’ordre croissant qu’ils occupent.</p>
+<figure class="align-default" id="id27">
+<img alt="Écran des compétences hiérarchiques" src="_images/HUMANR_SCR_HierarchicalSkill.png" />
+<figcaption>
+<p><span class="caption-text">Écran des compétences hiérarchiques</span><a class="headerlink" href="#id27" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="search-by-skill-and-availability">
+<h3>Recherche par compétence et disponibilité<a class="headerlink" href="#search-by-skill-and-availability" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Lorsque vous avez besoin d’une compétence particulière sur une période de temps, l’écran de recherche par compétences affiche toutes les ressources.</p>
+<p>De nombreux filtres vous permettront de trouver la ressource idéale en fonction des besoins des tâches à réaliser.</p>
+<section id="filters">
+<h4>Filtres<a class="headerlink" href="#filters" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p class="rubric">Compétence et niveau</p>
+<figure class="align-default" id="id28">
+<img alt="Filtres sur l'écran de recherche par compétences" src="_images/HUMANR_ZONE_FilterSkills.png" />
+<figcaption>
+<p><span class="caption-text">Filtres sur l’écran de recherche par compétences</span><a class="headerlink" href="#id28" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Sélectionnez la compétence dont vous avez besoin. Le niveau de compétence n’est pas obligatoire mais utile pour plus de précision.</p>
+<p>Une sélection initiale vous est proposée en fournissant uniquement la compétence.</p>
+<p>Vous pouvez classer les résultats obtenus en fonction de la pertinence et de la disponibilité ou globalement en tenant compte de ces deux critères.</p>
+<p>Le tri sera effectué pour chaque ligne de compétence.</p>
+<figure class="align-default" id="id29">
+<img alt="Différentes options de tri sont disponibles" src="_images/HUMANR_ZONE_SorOrderSkill.png" />
+<figcaption>
+<p><span class="caption-text">Triez selon vos besoins</span><a class="headerlink" href="#id29" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La sélection d’un niveau de compétence permet de réduire la liste à des résultats plus pertinents.</p>
+<p>Cependant, même si vous choisissez un niveau spécifique, des ressources ayant la même compétence mais un niveau différent peuvent encore apparaître.</p>
+<p>Cela vous donne des alternatives au cas où la ressource idéale ne serait pas disponible pendant la période de temps requise.</p>
+<p>Si vous souhaitez ne voir que les ressources ayant exactement la compétence et le niveau que vous avez sélectionnés, cochez la case « Limiter strictement au niveau spécifié ».</p>
+<p class="rubric">Dates et périodes</p>
+<p>Les dates de début et de fin sont pré-remplies et correspondent à la date actuelle pour une période d’un mois.</p>
+<p>Si vous choisissez un projet particulier, les dates validées du projet sont récupérées.</p>
+<p>Les ressources correspondantes sont affichées et indiquent leur disponibilité sur les périodes saisies.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour affecter une ressource au projet de votre choix.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier l’affectation de la ressource sur le projet.</p>
+<figure class="align-default" id="id30">
+<img alt="Écran de recherche par compétences" src="_images/HUMANR_SCR_SeachSkill.png" />
+<figcaption>
+<p><span class="caption-text">Écran de recherche par compétences</span><a class="headerlink" href="#id30" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Le calcul du taux de pertinence tient compte des paramètres de la ressource (ETP, planification, multi-projet, etc.) et du niveau de compétence demandé.</p>
+<p>Le taux de pertinence est défini par un calcul simple. Taux de disponibilité x taux de compétence / 100.</p>
+</div>
+</section>
+<section id="availability">
+<h4>Disponibilité<a class="headerlink" href="#availability" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Vous pouvez consulter la disponibilité des ressources pour une compétence donnée de différentes manières.</p>
+<p>Globalement sur la période demandée :</p>
+<figure class="align-center" id="id31">
+<img alt="Disponibilité globale des compétences" src="_images/HUMANR_ZONE_SkillAvailabilityGlobal.png" />
+<figcaption>
+<p><span class="caption-text">Disponibilité globale des compétences</span><a class="headerlink" href="#id31" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Par semaine sur la période demandée :</p>
+<figure class="align-center" id="id32">
+<img alt="Disponibilité hebdomadaire des compétences" src="_images/HUMANR_ZONE_SkillAvailabilityWeekly.png" />
+<figcaption>
+<p><span class="caption-text">Disponibilité hebdomadaire des compétences</span><a class="headerlink" href="#id32" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Mensuellement sur la période demandée :</p>
+<figure class="align-center" id="id33">
+<img alt="Disponibilité mensuelle des compétences" src="_images/HUMANR_ZONE_SkillAvailabilityMonthly.png" />
+<figcaption>
+<p><span class="caption-text">Disponibilité mensuelle des compétences</span><a class="headerlink" href="#id33" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="search-by-skill">
+<h3>Recherche par compétences<a class="headerlink" href="#search-by-skill" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>ProjeQtOr propose un écran très simplifié pour la recherche de compétences.</p>
+<figure class="align-default" id="id34">
+<img alt="écran de recherche de compétences simplifié" src="_images/HUMANR_SCR_SearchSkillSimple.png" />
+<figcaption>
+<p><span class="caption-text">écran de recherche de compétences simplifié</span><a class="headerlink" href="#id34" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les informations de disponibilité, les dates et les périodes, ainsi que tout ce qui est lié au projet, ne sont pas disponibles sur cet écran.</p>
+</section>
+<section id="search-on-activity">
+<h3>Recherche sur activité<a class="headerlink" href="#search-on-activity" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez avoir une aide à la décision directement sur les activités.</p>
+<p>Vous sélectionnez les compétences nécessaires sur l’activité. Enregistrez-les dans l’onglet Détails &gt; Section « compétences pour l’activité ».</p>
+<p>Les compétences sont des éléments qui peuvent être copiés dans les options de copie d’une activité.</p>
+<figure class="align-default" id="id35">
+<img alt="Compétences pour l'activité" src="_images/HUMANR_ZONE_ActivitySkill.png" />
+<figcaption>
+<p><span class="caption-text">Compétences pour l’activité</span><a class="headerlink" href="#id35" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une fois les compétences liées à l’activité, dans le tableau des affectations, cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ressource dans le tableau des affectations.</p>
+<p>Cliquez sur la loupe dans la fenêtre contextuelle pour accéder au tableau des compétences.</p>
+<figure class="align-default" id="id36">
+<img alt="Compétences pour l'activité" src="_images/HUMANR_BOX_AssignmentGlasses.png" />
+<figcaption>
+<p><span class="caption-text">Compétence pour l’activité</span><a class="headerlink" href="#id36" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une fenêtre s’ouvre pour lister les ressources susceptibles de répondre à vos besoins.</p>
+<p>Vous trouverez la même liste que pour une recherche de compétences sur l’écran dédié.</p>
+<figure class="align-default" id="id37">
+<img alt="Recherche de ressources par compétences" src="_images/HUMANR_BOX_RessourceSearchSkill.png" />
+<figcaption>
+<p><span class="caption-text">Recherche de ressources par compétences</span><a class="headerlink" href="#id37" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez sur la ressource que vous souhaitez affecter à l’activité.</p>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Ressources Humaines</a><ul>
+<li><a class="reference internal" href="#environmental-parameters">Paramètres environnementaux</a><ul>
+<li><a class="reference internal" href="#leaves-dashboard">Tableau de bord des congés</a><ul>
+<li><a class="reference internal" href="#leaves-types">Types de congés</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#employment-contract-type">Type de contrat de travail</a></li>
+<li><a class="reference internal" href="#employment-contract-end-reason">Motif de fin de contrat de travail</a></li>
+<li><a class="reference internal" href="#leave-rights-earned">Droits aux congés acquis</a></li>
+<li><a class="reference internal" href="#employment-contract">Contrat de travail</a></li>
+<li><a class="reference internal" href="#absence-recording">Enregistrement des absences</a><ul>
+<li><a class="reference internal" href="#leaves-calendar">Calendrier des congés</a></li>
+<li><a class="reference internal" href="#leaves-periods">Périodes de congés</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#leaves-system">Système de congés</a><ul>
+<li><a class="reference internal" href="#habilitation">habilitation</a></li>
+<li><a class="reference internal" href="#workflows-and-values">Workflows et valeurs</a></li>
+<li><a class="reference internal" href="#leaves-status">Statut des congés</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#skill-management">Gestion des compétences</a><ul>
+<li><a class="reference internal" href="#skills">Compétences</a></li>
+<li><a class="reference internal" href="#skills-level">Niveaux de compétences</a></li>
+<li><a class="reference internal" href="#hierarchical-skill">Compétence hiérarchique</a></li>
+<li><a class="reference internal" href="#search-by-skill-and-availability">Recherche par compétence et disponibilité</a><ul>
+<li><a class="reference internal" href="#filters">Filtres</a></li>
+<li><a class="reference internal" href="#availability">Disponibilité</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#search-by-skill">Recherche par compétences</a></li>
+<li><a class="reference internal" href="#search-on-activity">Recherche sur activité</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Organization.html"
+                          title="Chapitre précédent">Organisations</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Plugin.html"
+                          title="Chapitre suivant">Gestion des plug-ins</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Plugin.html" title="Gestion des plug-ins"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Organization.html" title="Organisations"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Human Resources</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

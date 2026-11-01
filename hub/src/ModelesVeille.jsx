@@ -1,0 +1,363 @@
+import { useCallback, useEffect, useState } from "react";
+import { dateCourte } from "./veilleLib.js";
+import { viewParams } from "./hubLinks.js";
+import GenealogieModeles from "./GenealogieModeles.jsx";   // #854
+
+// #821 Parc IA, onglet « Veille des modèles » (même module que la tuile Modèles IA du hub maison) : veille des sorties (Hugging Face, éditeurs suivis) avec historique et alertes (nouveau modèle
+// utilisable et pertinent, passage ouvert <-> fermé), usages des modèles des hôtes (cases à cocher, types d'usage), bancs.
+const fr = (n) => (n == null || n === "" ? "—" : String(n).replace(".", ","));
+const md = (b) => (b == null || b === "" ? "—" : `${fr(b)} Md`);   // milliards de paramètres (francisé : « B » anglais -> « Md »)
+const go = (g) => (g == null || g === "" ? "—" : `${fr(g)} Go`);
+const fmtTaille = (o) => (o == null ? "—" : o < 1048576 ? `${Math.round(o / 1024)} ko` : o < 1073741824 ? `${(o / 1048576).toFixed(0)} Mo` : `${(o / 1073741824).toFixed(1).replace(".", ",")} Go`);
+let BASE = "";
+async function api(path, { methode = "GET", corps } = {}) {
+  const r = await fetch(`${BASE}${path}`, { method: methode, credentials: "include", headers: corps ? { "Content-Type": "application/json" } : undefined, body: corps ? JSON.stringify(corps) : undefined });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(j?.error || j?.erreur || (r.status === 404 ? "HTTP 404 : si-agent-api sans la veille des modèles (#821) -- reconstruire si-agent-api" : `HTTP ${r.status}`));
+  return j;
+}
+const ONGLETS = [["revue", "Revue du jour"], ["repartition", "Répartition GPU"], ["auto", "Téléchargement auto"], ["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
+// #908 : urgence de téléchargement (avant disparition / passage payant) et dédicace apprentissage.
+const RISQUE = { 2: ["🔻 à télécharger", "bad", "accès restreint (gated) — peut être révoqué, fermé ou passer payant"], 1: ["⏳ à surveiller", "warn", "poids sous conditions — licence révocable"] };
+const APP = { 1: ["enrichissable", "poids ouverts : adaptable par fine-tuning"], 2: ["⚙ outillé", "adaptation légère déjà outillée (LoRA / PEFT / TRL)"], 3: ["★ apprend & désapprend", "édition de connaissances / désapprentissage dynamique — l'idéal recherché"] };
+const EVT = { nouveau: "nouveau", ouverture: "↗ ouverture (licence plus libre)", fermeture: "↘ fermeture (licence plus restrictive)", licence: "licence changée",
+  acces_restreint: "accès restreint (gated)", acces_libre: "accès libéré", disparu: "disparu / rendu privé", reapparu: "réapparu" };
+const OUV = { 2: ["libre", "good"], 1: ["sous conditions", "warn"], 0: ["fermé / inconnu", "bad"] };
+const hf = (id) => `https://huggingface.co/${id}`;
+
+function Evenements({ liste, alertes, marquerVu }) {
+  if (!liste.length) return <p className="infra-muted">{alertes ? "Aucune alerte : rien de nouveau d'utilisable, aucun passage ouvert / fermé." : "Rien sur la période."}</p>;
+  return (
+    <table className="infra-table">
+      <thead><tr><th>Détecté</th><th>Modèle</th><th>Événement</th><th>Avant → après</th><th>Taille</th>{alertes && <th></th>}</tr></thead>
+      <tbody>{liste.map((e) => (
+        <tr key={e.id} className={e.alerte && !e.vu ? "veille-non-lu" : "veille-lu"}>
+          <td><span className="infra-muted">{dateCourte(e.at)}</span>{e.cree ? <div><span className="infra-muted">publié {dateCourte(e.cree)}</span></div> : null}</td>
+          <td><a href={hf(e.modele)} target="_blank" rel="noreferrer">{e.modele}</a> <span className="infra-muted">{e.pipeline || ""}</span></td>
+          <td className={/fermeture|restreint|disparu/.test(e.evenement) ? "infra-status critical" : /ouverture|libre/.test(e.evenement) ? "infra-status good" : ""}>{EVT[e.evenement] || e.evenement}</td>
+          <td><span className="infra-muted">{e.avant || "—"} → {e.apres || "—"}</span></td>
+          <td><span className="infra-muted">{md(e.params_b)}</span></td>
+          {alertes && <td>{!e.vu && <button className="secondary" type="button" onClick={() => marquerVu([e.id])}>vu</button>}</td>}
+        </tr>))}</tbody>
+    </table>
+  );
+}
+
+function Veille({ etat, setErr }) {
+  const [f, setF] = useState({ jours: 90, utilisables: true, pertinents: true, variantes: false, ecartes: false, auteur: "", ouverture: "" });
+  const [d, setD] = useState({ modeles: [], total: 0 });
+  const charger = useCallback(() => {
+    const p = new URLSearchParams({ jours: f.jours });
+    for (const k of ["utilisables", "pertinents", "variantes", "ecartes"]) if (f[k]) p.set(k, "1");
+    if (f.auteur) p.set("auteur", f.auteur);
+    if (f.ouverture !== "") p.set("ouverture", f.ouverture);
+    api(`/modeles/catalogue?${p}`).then(setD).catch((x) => setErr(x.message));
+  }, [f, setErr]);
+  useEffect(() => { charger(); }, [charger]);
+  async function marquer(m, k) { try { await api("/modeles/marquer", { methode: "POST", corps: { id: m.id, [k]: !m[k] } }); charger(); } catch (x) { setErr(x.message); } }
+  const case_ = (k, l) => <label key={k}><input type="checkbox" checked={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.checked })} /> {l}</label>;
+  return (
+    <div className="veille-bloc">
+      <div className="veille-ligne">
+        <select  value={f.jours} onChange={(e) => setF({ ...f, jours: Number(e.target.value) })}>{[[7, "7 jours"], [30, "30 jours"], [90, "90 jours"], [365, "1 an"], [3650, "tout"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+        <select  value={f.auteur} onChange={(e) => setF({ ...f, auteur: e.target.value })}><option value="">tous les éditeurs</option>{(etat?.auteurs || []).map((a) => <option key={a}>{a}</option>)}</select>
+        <select  value={f.ouverture} onChange={(e) => setF({ ...f, ouverture: e.target.value })}><option value="">toute licence</option><option value="2">libre</option><option value="1">sous conditions</option><option value="0">fermé / inconnu</option></select>
+        {case_("utilisables", "utilisables sur nos machines")}{case_("pertinents", "pertinents")}{case_("variantes", "variantes quantifiées")}{case_("ecartes", "écartés seulement")}
+        <span style={{ flex: 1 }} /><span className="infra-muted">{d.total} modèle(s)</span>
+      </div>
+      <table className="infra-table">
+        <thead><tr><th>Publié</th><th>Modèle</th><th>Type</th><th>Taille</th><th>VRAM Q4</th><th>Machines</th><th>Licence</th><th>Téléch.</th><th></th></tr></thead>
+        <tbody>{d.modeles.map((m) => (
+          <tr key={m.id} className={m.disparu ? "veille-lu" : ""}>
+            <td><span className="infra-muted">{dateCourte(m.cree || m.premier_vu)}</span></td>
+            <td><a href={hf(m.id)} target="_blank" rel="noreferrer">{m.id}</a>{m.disparu ? <span className="infra-muted"> · disparu</span> : null}{m.gated ? <span className="infra-muted"> · accès restreint</span> : null}</td>
+            <td><span className="infra-muted">{m.pipeline || "—"}</span></td>
+            <td><span className="infra-muted">{md(m.params_b)}</span></td>
+            <td><span className="infra-muted">{go(m.vram_q4)}</span></td>
+            <td><span className="infra-muted">{m.machines.join(", ") || "—"}</span></td>
+            <td><span className={`np-tone ${OUV[m.ouverture || 0][1]}`} title={m.licence || "licence non déclarée"}>{OUV[m.ouverture || 0][0]}</span> <span className="infra-muted">{m.licence || ""}</span></td>
+            <td><span className="infra-muted">{m.telechargements}</span></td>
+            <td><div className="veille-actions">
+              <button type="button" className="secondary" title="suivre (licence, accès, disparition vérifiés à chaque passage)" onClick={() => marquer(m, "suivi")}>{m.suivi ? "★" : "☆"}</button>
+              <button className="secondary" type="button" title={m.ecarte ? "repêcher" : "ne plus présenter"} onClick={() => marquer(m, "ecarte")}>{m.ecarte ? "↺" : "✕"}</button>
+            </div></td>
+          </tr>))}
+          {!d.modeles.length && <tr><td colSpan={9} className="infra-muted">Rien pour ces critères (relève toutes les 6 h par le service « cyber », ou « Relever maintenant » dans Réglages).</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Mes({ setErr }) {
+  const [d, setD] = useState(null);
+  const charger = useCallback(() => { api("/modeles/mes").then(setD).catch((x) => setErr(x.message)); }, [setErr]);
+  useEffect(() => { charger(); }, [charger]);
+  async function regler(m, maj) {
+    const x = { ...m, ...maj };
+    try { await api("/modeles/mes", { methode: "POST", corps: { nom: x.nom, actif: x.actif, usages: x.usages, note: x.note } }); charger(); } catch (e) { setErr(e.message); }
+  }
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const U = Object.entries(d.usages || {});
+  return (
+    <div className="veille-bloc">
+      
+      <p className="infra-muted">Modèles relevés par la sonde ollama de chaque hôte (« hôte/modèle ») : cochez ceux qui sont actifs et leurs usages. Les priorités de la page d'accueil prennent les modèles déclarés pour l'hôte qui sert leur LLM (réglage PRIORITES_LLM_HOTE du .env, pas de lien : opération manuelle) ; sans déclaration, le .env s'applique. Chaque alerte de la veille est aussi un événement du hub (notifications).</p>
+      <table className="infra-table">
+        <thead><tr><th>Actif</th><th>Modèle</th><th>Taille</th><th>Quantif.</th>{U.map(([k, l]) => <th key={k} title={l}><span className="infra-muted">{l.split(" (")[0]}</span></th>)}<th>Note</th></tr></thead>
+        <tbody>{d.modeles.map((m) => (
+          <tr key={m.nom} className={m.installe ? "" : "veille-lu"}>
+            <td><input type="checkbox" checked={m.actif} onChange={(e) => regler(m, { actif: e.target.checked })} /></td>
+            <td>{m.nom}{!m.installe && <span className="infra-muted"> · désinstallé</span>}</td>
+            <td><span className="infra-muted">{m.taille ? fmtTaille(m.taille) : "—"}{m.parametres ? ` · ${m.parametres}` : ""}</span></td>
+            <td><span className="infra-muted">{m.quantification || "—"}</span></td>
+            {U.map(([k]) => <td key={k}><input type="checkbox" checked={m.usages.includes(k)} disabled={!m.actif}
+              onChange={(e) => regler(m, { usages: e.target.checked ? [...m.usages, k] : m.usages.filter((u) => u !== k) })} /></td>)}
+            <td><input defaultValue={m.note} placeholder="—" onBlur={(e) => e.target.value !== m.note && regler(m, { note: e.target.value })} /></td>
+          </tr>))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function Bancs({ setErr }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { api("/modeles/bancs").then(setD).catch((x) => setErr(x.message)); }, [setErr]);
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  return (
+    <div className="veille-bloc">
+      <p className="infra-muted">Résultats des bancs comparatifs déposés dans le dossier de données de si-agent-api (banc-*.json) ; les évaluations
+        de l'assistant sont dans l'onglet « Tests (évaluations) ».</p>
+      {!d.bancs.length && <p className="infra-muted">Aucun banc lancé pour l'instant.</p>}
+      {d.bancs.map((b) => (
+        <details key={b.fichier} open={b === d.bancs[0]}>
+          <summary>{dateCourte(b.at)} — {b.articles} articles, référence {b.reference} <span className="infra-muted">({b.fichier})</span></summary>
+          <table className="infra-table">
+            <thead><tr><th>Modèle</th><th>Valides</th><th>Urgents</th><th>Accord urgent</th><th>Accord suite</th><th>Suivis gardés</th><th>Rejetés écartés</th><th>Stabilité</th><th>s / article</th></tr></thead>
+            <tbody>{Object.entries(b.synthese).map(([m, s]) => (
+              <tr key={m}><td>{m}{m === b.reference ? " (réf.)" : ""}</td><td>{s.valides}/{s.n}</td><td>{s.urgents}</td>
+                {["accord_urgent", "accord_suite", "suivis_gardes", "rejetes_ecartes", "stabilite"].map((k) => <td key={k}>{s[k] == null ? "—" : `${Math.round(100 * s[k])} %`}</td>)}
+                <td>{s.par_article}</td></tr>))}</tbody>
+          </table>
+        </details>))}
+    </div>
+  );
+}
+
+function Reglages({ etat, recharger, setErr }) {
+  const [auteurs, setAuteurs] = useState("");
+  const [attente, setAttente] = useState(false);
+  useEffect(() => { setAuteurs((etat?.auteurs || []).join("\n")); }, [etat]);
+  async function enregistrer() {
+    try { await api("/modeles/auteurs", { methode: "PUT", corps: { auteurs: auteurs.split(/[\s,]+/).filter(Boolean) } }); recharger(); } catch (x) { setErr(x.message); }
+  }
+  async function relever() {
+    setAttente(true);
+    try { const r = await api("/modeles/relever", { methode: "POST", corps: {} }); if (Object.keys(r.erreurs || {}).length) setErr(`relève : ${Object.entries(r.erreurs).map(([k, v]) => `${k} : ${v}`).join(" ; ")}`); recharger(); } catch (x) { setErr(x.message); }
+    setAttente(false);
+  }
+  const r = etat?.releve;
+  return (
+    <div className="veille-bloc">
+      <div className="veille-ligne"><b>Relève</b><span className="infra-muted">{r ? `dernière ${dateCourte(r.at)} · ${r.evenements} événement(s)${Object.keys(r.erreurs || {}).length ? ` · ${Object.keys(r.erreurs).length} erreur(s)` : ""}` : "jamais"}</span>
+        <button type="button" disabled={attente} onClick={relever}>{attente ? "relève…" : "Relever maintenant"}</button></div>
+      {r && Object.keys(r.erreurs || {}).length > 0 && <ul>{Object.entries(r.erreurs).map(([k, v]) => <li key={k}><span className="infra-muted">{k} : {v}</span></li>)}</ul>}
+      <div className="veille-ligne"><b>Machines</b><span className="infra-muted">{(etat?.machines || []).map((m) => `${m.nom} ${m.vram} Go`).join(" · ")} — réglage MODELES_MACHINES du .env (pas de lien : opération manuelle, éditer le .env puis <code>./scripts/run.sh up -d si-agent-api</code>)</span></div>
+      <p><b>Éditeurs suivis</b> <span className="infra-muted">(identifiants Hugging Face, un par ligne)</span></p>
+      <textarea rows={8} value={auteurs} onChange={(e) => setAuteurs(e.target.value)} />
+      <div className="veille-ligne"><button type="button" onClick={enregistrer}>Enregistrer</button></div>
+    </div>
+  );
+}
+
+function LigneRevue({ m, i }) {
+  const fit = (m.machines || []).length > 0;
+  const app = APP[m.apprend || 0];
+  const risque = RISQUE[m.risque || 0];
+  return (
+    <tr style={{ opacity: fit ? 1 : 0.55, background: (m.apprend || 0) >= 3 ? "rgba(106,214,122,.09)" : undefined }}>
+      <td className="infra-muted">{i + 1}</td>
+      <td><a href={hf(m.id)} target="_blank" rel="noreferrer">{m.id}</a></td>
+      <td><span className="infra-muted">{md(m.params_b)}</span></td>
+      <td>{m.vram_q4 ? <b className={fit ? "" : "infra-muted"}>{go(m.vram_q4)}</b> : <span className="infra-muted">—</span>}</td>
+      <td>{fit ? <span className="np-tone good" title="tient en Q4 dans la VRAM de ces machines">✓ {m.machines.join(", ")}</span> : <span className="infra-muted">trop lourd</span>}</td>
+      <td>{risque ? <span className={`np-tone ${risque[1]}`} title={risque[2]}>{risque[0]}</span> : <span className="infra-muted">libre</span>}</td>
+      <td>{app ? <span className={(m.apprend || 0) >= 3 ? "np-tone good" : (m.apprend || 0) >= 2 ? "np-tone warn" : "infra-muted"} title={app[1]}>{app[0]}</span> : <span className="infra-muted">—</span>}</td>
+    </tr>
+  );
+}
+
+function Revue({ setErr }) {
+  const [d, setD] = useState(null);
+  const [jours, setJours] = useState(7);
+  const [neufs, setNeufs] = useState(false);
+  const charger = useCallback(() => { api(`/modeles/revue?jours=${jours}`).then(setD).catch((x) => setErr(x.message)); }, [jours, setErr]);
+  useEffect(() => { charger(); }, [charger]);
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const neufsIds = new Set((d.nouveaux || []).map((m) => m.id));
+  const liste = (neufs ? (d.nouveaux || []) : (d.classement || []));
+  const chip = (m) => <a key={m.id} href={hf(m.id)} target="_blank" rel="noreferrer" className="np-tone warn" style={{ textDecoration: "none", marginRight: 6, display: "inline-block", marginBottom: 4 }} title={`${md(m.params_b)} · ${go(m.vram_q4)} · tient sur ${m.machines.join(", ") || "—"}`}>{m.id.split("/").pop()} <span className="infra-muted">{m.vram_q4 ? go(m.vram_q4) : ""}</span></a>;
+  return (
+    <div className="veille-bloc">
+      <div className="veille-ligne">
+        <b>Revue du {dateCourte(d.at)}</b>
+        <span className="infra-muted">{d.total} suivis · {(d.a_telecharger || []).length} à télécharger vite · {(d.legers || []).length} légers · {(d.apprentissage || []).length} apprennent (dont {(d.ideal || []).length} idéal)</span>
+        <span style={{ flex: 1 }} />
+        <label className="infra-muted">nouveautés
+          <select value={jours} onChange={(e) => setJours(Number(e.target.value))} style={{ marginLeft: 4 }}><option value={2}>2 j</option><option value={7}>7 j</option><option value={30}>30 j</option><option value={90}>90 j</option></select>
+        </label>
+        <label className="infra-muted" style={{ marginLeft: 8 }}><input type="checkbox" checked={neufs} onChange={(e) => setNeufs(e.target.checked)} /> nouveautés seulement</label>
+      </div>
+      <p className="infra-muted" style={{ margin: "2px 0 10px" }}>Classement du jour : priorité aux modèles <b>légers qui tiennent sur nos machines</b>, repère de <b>téléchargement avant disparition / passage payant</b>, et dédicace aux modèles <b>enrichissables par apprentissage</b> (★ apprennent et désapprennent dynamiquement). Machines : réglage MODELES_MACHINES.</p>
+
+      {(d.a_telecharger || []).length > 0 && !neufs && (
+        <div className="lede" style={{ borderLeftColor: "var(--danger)" }}>
+          <b className="np-tone bad">🔻 À télécharger sans tarder</b> <span className="infra-muted">— accès restreint et utilisables chez nous, susceptibles de fermer :</span>
+          <div style={{ marginTop: 6 }}>{d.a_telecharger.map(chip)}</div>
+        </div>
+      )}
+      {(d.ideal || []).length > 0 && (
+        <div className="lede" style={{ borderLeftColor: "var(--ok)" }}>
+          <b className="np-tone good">★ Apprend &amp; désapprend</b> <span className="infra-muted">— l'idéal recherché (édition de connaissances, désapprentissage) :</span>
+          <div style={{ marginTop: 6 }}>{d.ideal.map((m) => <a key={m.id} href={hf(m.id)} target="_blank" rel="noreferrer" className="np-tone good" style={{ textDecoration: "none", marginRight: 6, display: "inline-block", marginBottom: 4 }}>{m.id}</a>)}</div>
+        </div>
+      )}
+
+      <table className="infra-table">
+        <thead><tr><th>#</th><th>Modèle</th><th>Taille</th><th>VRAM Q4</th><th>Nos machines</th><th>Dispo.</th><th>Apprentissage</th></tr></thead>
+        <tbody>
+          {liste.map((m, i) => <LigneRevue key={m.id} m={m} i={i} />)}
+          {!liste.length && <tr><td colSpan={7} className="infra-muted">Rien {neufs ? "de nouveau sur la fenêtre" : "en veille"} (relève toutes les 6 h par le service « cyber », ou « Relever maintenant » dans Réglages).{neufsIds.size ? "" : ""}</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Repartition({ etat, setErr }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { api("/modeles/repartition", { methode: "POST", corps: {} }).then(setD).catch((x) => setErr(x.message)); }, [setErr]);
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const parGpu = {};
+  (d.gpus || []).forEach((g) => { parGpu[`${g.machine}/${g.gpu}`] = { ...g, aff: [] }; });
+  (d.affectations || []).forEach((a) => { const k = `${a.machine}/${a.gpu}`; (parGpu[k] = parGpu[k] || { machine: a.machine, gpu: a.gpu, aff: [] }).aff.push(a); });
+  return (
+    <div className="veille-bloc">
+      <p className="infra-muted">Plan de répartition des usages déclarés (onglet « Usages », modèles actifs) sur les GPU : un usage par GPU de préférence (on dédie un GPU à un mode, jamais le même usage sur deux GPU), tenue en VRAM Q4, charge étalée. Machines et GPU : réglage <code>MODELES_MACHINES</code> (plusieurs GPU avec « + », ex. <code>pcia:b60=24+k2200=4</code>).</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        {Object.entries(parGpu).map(([k, g]) => (
+          <div key={k} className="card" style={{ minWidth: 220, flex: "1 1 220px" }}>
+            <div><b>{g.machine}</b> <span className="infra-muted">· {g.gpu}</span></div>
+            <div className="infra-muted" style={{ fontSize: ".82rem" }}>{go(g.vram)}{g.libre != null ? ` · ${fr(g.libre)} Go libre` : ""}</div>
+            {g.aff.length ? g.aff.map((a) => (
+              <div key={a.usage} className="np-tone good" style={{ display: "block", marginTop: 6, padding: "3px 8px" }}>
+                {a.usage} <span className="infra-muted">— {a.modele || "?"} · {go(a.vram)}</span>
+              </div>
+            )) : <div className="infra-muted" style={{ marginTop: 6 }}>libre</div>}
+          </div>
+        ))}
+      </div>
+      {(d.non_places || []).length > 0 && (
+        <div className="lede" style={{ borderLeftColor: "var(--danger)", marginTop: 12 }}>
+          <b className="np-tone bad">Ne tiennent sur aucun GPU</b>
+          <div style={{ marginTop: 6 }}>{d.non_places.map((n) => <span key={n.usage} className="np-tone bad" style={{ marginRight: 6, display: "inline-block", marginBottom: 4 }}>{n.usage} <span className="infra-muted">{n.modele || ""} · {go(n.vram)}</span></span>)}</div>
+        </div>
+      )}
+      {!(d.affectations || []).length && !(d.non_places || []).length && <p className="infra-muted">Aucun usage déclaré (onglet « Usages »). Déclarez des modèles actifs et leurs usages pour voir le plan.</p>}
+    </div>
+  );
+}
+
+// #910 : téléchargement automatique des modèles utilisables sur l'hôte Ollama (tiennent en VRAM, pertinents, GGUF, non
+// installés), classés par une note /10 par contexte (dev, réseau/système, 3D modé, 3D impression, NéoPays). Sur un hôte de
+// PRODUCTION l'automatisme est désactivé par défaut et n'agit que sur Ollama (pull hf.co) -- aucune modification système.
+const CTX_COURT = { dev: "dev", reseau_systeme: "rés/sys", modelisation_3d: "3D modé", impression_3d: "3D impr", neopays: "NéoPays" };
+function AutoTelechargement({ setErr }) {
+  const [d, setD] = useState(null);
+  const [occ, setOcc] = useState("");
+  const charger = useCallback(() => api("/modeles/auto").then(setD).catch((x) => setErr(x.message)), [setErr]);
+  useEffect(() => { charger(); const i = setInterval(charger, 10000); return () => clearInterval(i); }, [charger]);
+  async function majConfig(k, v) {
+    const config = { ...(d.config || {}), [k]: v };
+    setD((x) => ({ ...x, config }));
+    try { await api("/modeles/auto", { methode: "POST", corps: { config } }); } catch (x) { setErr(x.message); }
+  }
+  async function tirer(refs) {
+    setOcc(refs ? refs[0] : "tout");
+    try { await api("/modeles/auto", { methode: "POST", corps: { lancer: true, ...(refs ? { refs } : {}) } }); setErr(""); charger(); }
+    catch (x) { setErr(x.message); }
+    setOcc("");
+  }
+  if (!d) return <p className="infra-muted">chargement…</p>;
+  const c = d.config || {};
+  const ctxs = Object.keys(d.contextes || CTX_COURT);
+  return (
+    <div className="veille-bloc">
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <p className="infra-muted" style={{ flex: 1, margin: 0 }}>Télécharge les modèles <b>utilisables sur l'hôte</b> (tiennent en VRAM), pertinents et disponibles en GGUF, non déjà installés, bornés pour ne pas saturer le disque. Les modèles tirés apparaissent dans le parc Ollama. <b>Hôte de production :</b> automatisme désactivé par défaut ; n'agit que sur Ollama (pull <code>hf.co</code>), aucune modification système.</p>
+        <label className="np-tone good" style={{ padding: "3px 8px", whiteSpace: "nowrap" }}><input type="checkbox" checked={!!c.actif} onChange={(e) => majConfig("actif", e.target.checked)} /> automatisme actif</label>
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", fontSize: ".86rem", margin: "8px 0" }}>
+        <label>taille max <input type="number" style={{ width: 70 }} value={c.max_go ?? 20} onChange={(e) => majConfig("max_go", Number(e.target.value))} /> Go</label>
+        <label>par passe <input type="number" style={{ width: 55 }} value={c.max_par_passe ?? 1} onChange={(e) => majConfig("max_par_passe", Number(e.target.value))} /></label>
+        <label>intervalle <input type="number" style={{ width: 55 }} value={c.intervalle_h ?? 24} onChange={(e) => majConfig("intervalle_h", Number(e.target.value))} /> h</label>
+        <label>note min <input type="number" style={{ width: 55 }} value={c.note_min ?? 6} onChange={(e) => majConfig("note_min", Number(e.target.value))} /> /10</label>
+        <span style={{ flex: 1 }} />
+        {d.derniere?.at && <small className="infra-muted">dernière passe {dateCourte ? dateCourte(d.derniere.at) : new Date(d.derniere.at * 1000).toLocaleString("fr-FR")} · {d.derniere.n} modèle(s)</small>}
+        <button type="button" className="primary" disabled={!d.candidats?.length || !!occ} onClick={() => tirer(null)}>{occ === "tout" ? "lancement…" : "Télécharger la sélection"}</button>
+      </div>
+      <table className="infra-table">
+        <thead><tr><th>Modèle</th><th>Taille</th><th>Machines</th>{ctxs.map((k) => <th key={k} title={d.contextes?.[k]}>{CTX_COURT[k] || k}</th>)}<th></th></tr></thead>
+        <tbody>
+          {!d.candidats?.length && <tr><td colSpan={ctxs.length + 4} className="infra-muted">Aucun candidat (relancer la veille, baisser la note min, ou tout est déjà installé).</td></tr>}
+          {(d.candidats || []).map((m) => (
+            <tr key={m.id}>
+              <td><a href={`https://huggingface.co/${m.id}`} target="_blank" rel="noreferrer">{m.id}</a></td>
+              <td><small>{md(m.params_b)}{m.go ? ` · ${go(m.go)}` : ""}</small></td>
+              <td><small>{(m.machines || []).join(", ") || "—"}</small></td>
+              {ctxs.map((k) => { const n = m.notes?.[k] ?? 0; return <td key={k} style={{ textAlign: "center", fontWeight: n >= 7 ? 600 : 400, color: n >= 7 ? "var(--ok)" : n >= 4 ? "var(--warning)" : "var(--muted)" }}>{n}</td>; })}
+              <td><button type="button" className="secondary" disabled={!!occ} onClick={() => tirer([m.ref])}>{occ === m.ref ? "…" : "Télécharger"}</button></td>
+            </tr>))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function ModelesVeille({ base }) {
+  BASE = base || "";
+  const [onglet, setOnglet] = useState(() => { const v = viewParams().onglet; if (v && ONGLETS.some(([k]) => k === v)) return v; try { return localStorage.getItem("iapark.modeles.onglet") || "revue"; } catch { return "revue"; } });
+  const [etat, setEtat] = useState(null);
+  const [err, setErr] = useState("");
+  const [evts, setEvts] = useState([]);
+  const charger = useCallback(() => { api("/modeles/etat").then(setEtat).catch((x) => setErr(x.message)); }, []);
+  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => { try { localStorage.setItem("iapark.modeles.onglet", onglet); } catch { /* navigation privée */ } }, [onglet]);
+  const chargerEvts = useCallback(() => {
+    if (onglet !== "alertes" && onglet !== "historique") return;
+    api(`/modeles/historique?jours=${onglet === "alertes" ? 90 : 3650}${onglet === "alertes" ? "&alertes=1" : ""}`).then((d) => setEvts(d.evenements)).catch((x) => setErr(x.message));
+  }, [onglet]);
+  useEffect(() => { chargerEvts(); }, [chargerEvts]);
+  async function marquerVu(ids) {
+    try { await api("/modeles/alertes/vu", { methode: "POST", corps: ids ? { ids } : { tout: true } }); chargerEvts(); charger(); } catch (x) { setErr(x.message); }
+  }
+  return (
+    <div className="veille">
+      <h3>Veille des modèles <span className="infra-muted">{etat ? `${etat.nb} modèle(s) en veille · ${etat.alertes} alerte(s) non vue(s)` : ""}</span></h3>
+      {err && <p className="infra-error" onClick={() => setErr("")}>{err}</p>}
+      <div className="infra-tabs">{ONGLETS.map(([id, t]) => <button key={id} type="button" className={onglet === id ? "active" : ""} onClick={() => setOnglet(id)}>{t}{id === "alertes" && etat?.alertes ? ` (${etat.alertes})` : ""}</button>)}</div>
+      {onglet === "revue" && <Revue setErr={setErr} />}
+      {onglet === "repartition" && <Repartition etat={etat} setErr={setErr} />}
+      {onglet === "auto" && <AutoTelechargement setErr={setErr} />}
+      {onglet === "alertes" && <div className="veille-bloc"><div className="veille-ligne"><span className="infra-muted">Nouveaux modèles utilisables et pertinents, passages ouvert ↔ fermé, accès restreints, disparitions.</span><span style={{ flex: 1 }} />
+        <button className="secondary" type="button" disabled={!evts.some((e) => !e.vu)} onClick={() => marquerVu(null)}>Tout marquer vu</button></div>
+        <Evenements liste={evts} alertes marquerVu={marquerVu} /></div>}
+      {onglet === "historique" && <div className="veille-bloc"><Evenements liste={evts} /></div>}
+      {onglet === "genealogie" && <GenealogieModeles api={api} prefixe="/modeles" />}
+      {onglet === "veille" && <Veille etat={etat} setErr={setErr} />}
+      {onglet === "mes" && <Mes setErr={setErr} />}
+      {onglet === "bancs" && <Bancs setErr={setErr} />}
+      {onglet === "reglages" && <Reglages etat={etat} recharger={charger} setErr={setErr} />}
+    </div>
+  );
+}

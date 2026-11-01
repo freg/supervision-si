@@ -34,6 +34,7 @@ import {
 import { addTarget as npAddTarget, scanTarget as npScanTarget } from "./netprobeClient.js";
 import { setSuggestionStatus as orchSetSuggestionStatus } from "./netmapOrchestratorClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
 
 // Tuile hub "Réseau" -- cycle agile réseau en 5 étapes :
@@ -719,7 +720,7 @@ export default function NetworkCycleView({
               Lancer automatiquement les préconisations exécutables
             </label>
             <div className="hub-table-scroll">
-              <table className="nc-suggestions">
+              <AutoColumns id="NetworkCycleView.1"><table className="nc-suggestions">
                 <thead><tr><th>Sév.</th><th>Message</th><th>Action suggérée</th><th>Détectée</th></tr></thead>
                 <tbody>
                   {suggestions.slice(0, 10).map((s) => {
@@ -771,7 +772,7 @@ export default function NetworkCycleView({
                     );
                   })}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           </>
         )}
@@ -809,7 +810,7 @@ export default function NetworkCycleView({
           <p className="muted">Aucun site découvert pour l'instant.</p>
         ) : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetworkCycleView.2"><table>
               <thead><tr><th>Site</th><th>Segments</th><th>Appareils</th></tr></thead>
               <tbody>
                 {sites.map((site) => (
@@ -820,7 +821,7 @@ export default function NetworkCycleView({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         {onNavigate && networkAgentApiBase && (
@@ -854,7 +855,7 @@ export default function NetworkCycleView({
           <>
             <h3 style={{ marginBottom: 4 }}>Tunnels</h3>
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="NetworkCycleView.3"><table>
                 <thead><tr><th>Nom</th><th>Via</th><th>Local → Distant</th><th>Statut</th></tr></thead>
                 <tbody>
                   {tunnels.map((t) => (
@@ -866,7 +867,7 @@ export default function NetworkCycleView({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           </>
         )}
@@ -874,7 +875,7 @@ export default function NetworkCycleView({
           <>
             <h3 style={{ marginBottom: 4, marginTop: 12 }}>Cibles SNMP</h3>
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="NetworkCycleView.4"><table>
                 <thead><tr><th>Nom</th><th>Hôte</th><th>Port</th></tr></thead>
                 <tbody>
                   {snmpTargets.map((t) => (
@@ -885,7 +886,7 @@ export default function NetworkCycleView({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           </>
         )}
@@ -925,7 +926,7 @@ export default function NetworkCycleView({
         </div>
         {latestSamples.length > 0 && (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetworkCycleView.5"><table>
               <thead><tr><th>Cible</th><th>État</th><th>Latence</th><th>Perte</th><th>Quand</th></tr></thead>
               <tbody>
                 {latestSamples.map((s) => (
@@ -938,7 +939,7 @@ export default function NetworkCycleView({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         {onNavigate && netprobeApiBase && (
@@ -971,7 +972,7 @@ export default function NetworkCycleView({
         </div>
         {vigilanceSummary.length > 0 && (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetworkCycleView.6"><table>
               <thead><tr><th>Signal</th><th>Sévérité</th><th>Occurrences</th><th>Appareils</th></tr></thead>
               <tbody>
                 {vigilanceSummary.map((s, idx) => (
@@ -983,7 +984,7 @@ export default function NetworkCycleView({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>

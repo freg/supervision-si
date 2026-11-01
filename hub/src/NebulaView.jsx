@@ -5,7 +5,19 @@ import {
   fetchImportBatches, deleteImportBatches,
   importNebulaDevicesToGlpi,
 } from "./nebulaClient.js";
+import NebulaHealth from "./NebulaHealth.jsx";
+import NebulaVeille from "./NebulaVeille.jsx";
+import NebulaCharge from "./NebulaCharge.jsx";
+import NebulaClientHistory from "./NebulaClientHistory.jsx";   // #872
+import NebulaPilotage from "./NebulaPilotage.jsx";  // #855
+import NebulaRecherche from "./NebulaRecherche.jsx";
+import NebulaVlan from "./NebulaVlan.jsx";
+import NebulaPlan from "./NebulaPlan.jsx";
+import NebulaReports from "./NebulaReports.jsx";  // #703
+import CampusView from "./CampusView.jsx";
 
+import { etatMemorise, memoriserEtat } from "./navContext.js";   // #874
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
 // (#196-200) et le pont vers GLPI (#208), jusqu'ici accessibles
 // seulement via curl.
@@ -24,6 +36,14 @@ import {
 // bouton qui échouerait systématiquement sans ces prérequis.
 
 const TABS = [
+  { key: "veille", label: "Veille", columns: [] },   // #847 : santé du réseau du campus, Nebula + agents internes
+  { key: "health", label: "Santé du réseau", columns: [] },
+  { key: "charge", label: "Charge", columns: [] },   // #851
+  { key: "historique", label: "Historique des clients", columns: [] },   // #872 : relève horaire (Nebula ne garde que 24 h)   // #851 : clients et débits moyens par borne, SSID, VLAN, commutateur
+  { key: "pilotage", label: "Pilotage", columns: [] },   // #855 : mesures / outils d'action, boucles, scénarios, bancs de test
+  { key: "vlan", label: "Carte des VLAN", columns: [] },
+  { key: "plan", label: "Plan du site", columns: [] },
+  { key: "reports", label: "Rapports & alertes", columns: [] },   // #703
   { key: "sites", label: "Sites", columns: ["name", "status", "devices_count", "clients_count", "usage", "offline_devices", "percent_offline"] },
   { key: "devices", label: "Appareils", columns: ["name", "device_type", "model", "site", "mac_address", "status", "clients_count"] },
   { key: "clients", label: "Clients", columns: ["name", "mac_address", "ipv4_address", "connected_to", "manufacturer", "signal_strength", "last_seen"] },
@@ -32,8 +52,18 @@ const TABS = [
 const IMPORT_FN = { sites: importSitesCsv, devices: importDevicesCsv, clients: importClientsCsv };
 const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, clients: fetchImportedClients };
 
-export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
-  const [tab, setTab] = useState("sites");
+const TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";  // #566 : « Nebula@<site> », réglé dans .env
+
+export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", groups = [], login = "" }) {
+  // #847 : onglet de l'adresse (?tab=health…), sinon la Veille
+  const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get("tab") || etatMemorise("NebulaView", "tab"); return TABS.some((x) => x.key === t) ? t : "veille"; } catch { return "veille"; } });
+  useEffect(() => { memoriserEtat("NebulaView", "tab", tab); }, [tab]);   // #874
+  const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
+  const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
+  const [siteId, setSiteId] = useState("");
+  useEffect(() => {
+    fetch(`${nebulaApiBase}/health-board?hours=1`, { credentials: "include" }).then((r) => r.json()).then((d) => { if (d?.sites?.[0]) setSiteId(d.sites[0].site_id); }).catch(() => {});
+  }, [nebulaApiBase]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -45,6 +75,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
 
   useEffect(() => {
+    if (tab === "veille" || tab === "charge" || tab === "historique" || tab === "pilotage" || tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
     load(tab);
     setSelectedBatchIds([]);
     if (showHistory) loadBatches();
@@ -144,15 +175,25 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
     <div className="hub-settings hub-settings-wide">
       <div className="hub-settings-topbar">
         <button className="secondary" onClick={onBack}>◀ Retour</button>
-        <h1>🌐 Nebula</h1>
+        <h1>🌐 {TILE_TITLE}</h1>
+        <div className="tabs" style={{ marginLeft: 16 }}>
+          <button className={pane === "nebula" ? "active" : ""} onClick={() => setPane("nebula")}>Nebula</button>
+          <button className={pane === "campus" ? "active" : ""} onClick={() => setPane("campus")}>Campus</button>
+        </div>
       </div>
 
       <div className="hub-card">
         <p className="muted" style={{ margin: 0 }}>
-          Voie CSV (export direct depuis le portail Nebula) -- la voie API directe nécessite le
-          Pro Pack Nebula et une clé support Zyxel, non disponibles dans cet environnement.
+          Santé du réseau : relevé à la minute par l'API Nebula (Pro Pack, clé générée dans NCC → My devices &amp; services → NCC OpenAPI Key, #546).
+          Les onglets Sites / Appareils / Clients restent alimentés par la voie CSV.
         </p>
       </div>
+
+      <NebulaRecherche nebulaApiBase={nebulaApiBase} siteId={siteId} onOuvrir={(l) => {
+        if (l.pane === "campus") { setPane("campus"); return; }
+        setPane("nebula"); setTab(l.tab || "vlan");
+        if (l.mac || l.name) setFocus({ mac: l.mac, name: l.name });
+      }} />
 
       {error && (
         <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
@@ -160,6 +201,13 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
         </div>
       )}
 
+      {pane === "campus" ? (
+        <div className="hub-card hub-settings-section">
+          <CampusView nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} agentSite={agentSite} assistantUrl={assistantUrl} siteId={siteId} login={login}
+            onShowInTopology={(f) => { setFocus(f); setPane("nebula"); setTab("vlan"); }}
+            onShowHealth={() => { setPane("nebula"); setTab("health"); }} />
+        </div>
+      ) : (
       <div className="hub-card hub-settings-section">
         <div className="tabs" style={{ marginBottom: 16 }}>
           {TABS.map((t) => (
@@ -169,6 +217,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
           ))}
         </div>
 
+        {tab === "charge" ? <NebulaCharge nebulaApiBase={nebulaApiBase} siteId={siteId} /> : tab === "historique" ? <NebulaClientHistory nebulaApiBase={nebulaApiBase} siteId={siteId} /> : tab === "pilotage" ? <NebulaPilotage nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : tab === "veille" ? <NebulaVeille nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} groups={groups} login={login} /> : tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>
@@ -206,7 +255,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
               <p className="muted">Aucun import enregistré pour ce type.</p>
             ) : (
               <>
-                <table>
+                <AutoColumns id="NebulaView.1"><table>
                   <thead>
                     <tr><th></th><th>Fichier</th><th>Date</th><th>Lignes</th><th>Archive GED</th></tr>
                   </thead>
@@ -227,7 +276,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
                 <button
                   disabled={busy || selectedBatchIds.length === 0}
                   onClick={handleDeleteSelectedBatches}
@@ -249,7 +298,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
         ) : rows.length === 0 ? (
           <p className="muted">Aucune donnée importée pour l'instant -- utilisez "Importer un CSV des {activeTab.label}" ci-dessus.</p>
         ) : (
-          <table>
+          <AutoColumns id="NebulaView.2"><table>
             <thead>
               <tr>{activeTab.columns.map((c) => <th key={c}>{c}</th>)}</tr>
             </thead>
@@ -260,10 +309,13 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         )}
+        </>)}
       </div>
+      )}
 
+      {pane === "nebula" && (
       <div className="hub-card hub-settings-section">
         <h2>Import vers GLPI (livraison #208)</h2>
         <p className="muted">
@@ -301,6 +353,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

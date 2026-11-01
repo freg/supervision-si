@@ -87,6 +87,9 @@ class MapTests(unittest.TestCase):
         self.assertEqual(d["accounts"]["sudoers"], ["PC-COMPTA\\Administrateur", "PC-COMPTA\\freg"])
         self.assertEqual(d["services"]["failed"], ["gupdate", "SysMain"])
         self.assertEqual(d["windows"]["defender"]["realtime"], False)
+        # #520 : sans liste du Centre de sécurité, Defender seul forme la section antivirus
+        self.assertEqual(d["antivirus"]["primary"], "Microsoft Defender")
+        self.assertEqual(d["antivirus"]["status"], "outdated")
         # risques : disque plein, redémarrage, services, RDP exposé, Defender, pare-feu
         d["activity"] = winhost.map_activity(ACTIVITY_RAW)
         found = risks.evaluate(d)
@@ -191,3 +194,16 @@ class RealScriptsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Mojibake943(unittest.TestCase):
+    def test_reparer(self):
+        from si_agent.winhost import reparer_mojibake as rep
+        src = "L’horloge matérielle en temps réel n’a pas été définie. État : 0xC00000BB."
+        une = src.encode("utf-8").decode("cp1252")                 # une couche : « L’horloge » -> « Lâ€™horloge »
+        deux = une.encode("utf-8").decode("cp1252")                # deux couches : « LÃ¢â‚¬â„¢horloge »
+        self.assertEqual(rep(une), src)
+        self.assertEqual(rep(deux), src)
+        self.assertEqual(rep("Failed to GetUserSid. hr: 0x8001012d"), "Failed to GetUserSid. hr: 0x8001012d")
+        self.assertEqual(rep("Déjà correct : été"), "Déjà correct : été")
+        self.assertEqual(rep(""), "")

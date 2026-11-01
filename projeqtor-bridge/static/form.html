@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!-- Formulaire PUBLIC de dépôt de demande (livraison #484) — LAN,
+sans authentification (confirmé explicitement par la personne), sur
+l'URI dédiée /demande/. Aucune dépendance externe. Depuis #543 : charte
+« Simple » (simple.css, docs/ergonomie-redesign.md) -- papier, encre,
+étiquettes en capitales, aucune icône ; numéro de suivi après l'envoi. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Déposer une demande — Support informatique</title>
+<link rel="stylesheet" href="simple.css">
+<style>
+  /* #543 : charte Simple (simple.css) ; ce qui reste ici est propre au formulaire. */
+  form { display: grid; gap: 14px; }
+  textarea { min-height: 90px; resize: vertical; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  .actions { border-top: 3px double var(--rule); padding-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker"><a href="accueil">Support informatique</a></p>
+  <h1>Déposer une demande</h1>
+  <p class="lead">Votre demande est enregistrée immédiatement et prise en charge par le service. Les champs marqués d'un astérisque sont obligatoires.</p>
+
+  <form id="f">
+    <div class="field">
+      <label for="demandeur">Votre nom (demandeur) *</label>
+      <input id="demandeur" name="demandeur" list="demandeurs" required autocomplete="name">
+      <datalist id="demandeurs"></datalist>
+    </div>
+    <div class="field">
+      <label for="sujet">Sujet *</label>
+      <input id="sujet" name="sujet" required placeholder="Ex. : renouvellement du compte Office">
+    </div>
+    <div class="cols">
+      <div class="field">
+        <label for="priorite">Niveau de priorité</label>
+        <select id="priorite" name="priorite"></select>
+      </div>
+      <div class="field">
+        <label for="categorie">Catégorie</label>
+        <select id="categorie" name="categorie"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="duree_j">Durée estimée (jours, optionnel)</label>
+      <input id="duree_j" name="duree_j" type="number" min="0" step="0.5" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label for="commentaire">Commentaire</label>
+      <textarea id="commentaire" name="commentaire" placeholder="Détaillez la demande, le poste concerné, l'urgence réelle…"></textarea>
+    </div>
+    <div class="actions"><button type="submit" id="send">Envoyer la demande</button></div>
+    <div id="msg" role="status"></div>
+  </form>
+  <footer>Plus court : <a href="rapide">saisie rapide</a> · plusieurs demandes : <a href="tableau">tableau</a> · <a href="suivi">où en est ma demande ?</a></footer>
+</main>
+
+<script>
+const api = location.pathname.replace(/\/$/, "");  // préfixe /demande conservé par tls-proxy
+
+// Listes déroulantes alimentées par ProjeQtOr (source de vérité) —
+// si l'API est momentanément injoignable, le formulaire reste
+// utilisable (listes vides, saisie libre conservée).
+fetch(api + "/referentiels").then(r => r.ok ? r.json() : null).then(ref => {
+  if (!ref) return;
+  const fill = (id, values) => {
+    const el = document.getElementById(id);
+    for (const v of values) {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      el.appendChild(o);
+    }
+  };
+  fill("priorite", ref.priorites || []);
+  fill("categorie", ref.categories || []);
+  const dl = document.getElementById("demandeurs");
+  for (const v of (ref.demandeurs || [])) {
+    const o = document.createElement("option");
+    o.value = v;
+    dl.appendChild(o);
+  }
+}).catch(() => {});
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  const btn = document.getElementById("send");
+  msg.className = ""; msg.style.display = "none";
+  btn.disabled = true;
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  try {
+    const r = await fetch(api + "/demandes", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || ("erreur " + r.status));
+    msg.className = "ok";
+    msg.textContent = body.message || "Demande enregistrée.";
+    if (body.reference) { // #543 : numéro de suivi, à noter
+      msg.innerHTML += " Votre numéro de suivi : <strong>" + body.reference + "</strong> — notez-le, il permet de <a href=\"suivi?ref=" + encodeURIComponent(body.reference) + "\">suivre votre demande</a>.";
+    }
+    e.target.reset();
+  } catch (err) {
+    msg.className = "err";
+    msg.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

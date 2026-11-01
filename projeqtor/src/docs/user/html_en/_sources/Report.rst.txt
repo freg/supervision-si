@@ -1,0 +1,600 @@
+.. include:: ImageReplacement.txt
+
+.. raw:: latex
+
+    \newpage
+
+
+.. index:: Report
+
+.. _report:
+
+#######
+Reports
+#######
+
+A list of reports is available in different categories. They themselves contain several sub-categories.
+
+You will find the reports home page in the menu but also all the categories.
+
+These, directly accessible, allow you to find the report of your choice from the main menu.
+
+
+.. figure:: /images/GUI/REPORT_ZONE_Menu.png
+   :alt: Reports screen
+   :align: center
+
+
+
+Reports View
+############
+
+
+.. figure:: /images/GUI/REPORT_ZONE_MenuDeploy.png
+   :alt: Reports screen
+   :align: center
+   
+   
+#. Select a category to view subcategories and select a report.
+
+#. Parameters specific to this report are displayed. Update the settings to get the information you need.
+
+#. Click on |View| to generate the report. The selected report will appear under the splitter.
+
+#. Several tools are available to export and send your reports. See :ref:`buttons<buttonsReport>`.
+
+#. You can access the scheduled reports screen from the reports screen.
+
+#. Click on the arrow to return to the list of categories.
+
+.. note:: 
+
+   Horizontal slider position is saved when changed manually. 
+
+
+.. _buttonsReport:
+   
+* Click on |View| to View the report.
+* Click on |Print| to get a printable version of the report.
+* Click on |Pdf| to export the report as PDF format.
+* Click on |Today| to View this report on the Today screen.
+* Click on |ReportFavorite| to define this report as favorite. 
+* Click on |Email| to schedule sending the selected report
+* Click on |ReportScheduled| to go to scheduled report screen
+
+
+
+.. index:: Report (Today)
+
+.. _today_report:
+
+Today Screen Report
+*******************
+
+You can add reports to your home screen today.
+
+* Select the report you want to see quickly on this screen.
+
+* Click on the button |Today|
+
+* On the Today screen, the report is Viewed at the bottom of the page
+
+* Click on the setting icon on the screen today to change the location of the report
+
+.. note:: 
+   
+   The Viewed report is updated automatically. Any modification made to the content of the latter is reflected on the screen today.
+   
+   The reports displayed on the today screen automatically adapt to your screen size as much as they can.
+   If the display can no longer adapt, a horizontal scroll will allow you to read the entire report
+   
+   
+   
+.. figure:: /images/GUI/REPORT_SCR_ViewToday.png
+   :alt: View a report on the today screen
+   
+   View a report on the today screen
+  
+
+* Click the parameter button to define the location of the report (s) on the Today screen.
+
+* Click on the handles to move the item in the list.
+
+
+
+.. index:: Report (Favorite)
+
+.. _favorite_report:
+
+Favorite reports
+****************
+
+Move your cursor over the reports menu icon (in the top bar) to show the popup menu that contains your favorite reports.
+
+
+.. figure:: /images/GUI/REPORT_ZONE_FavoriteReport.png
+   :alt: Pop-up list - Favorite reports
+   :align: center
+
+You can add a "blank" report type to the favorites or to a specific project and resources.
+In this case, next to the report name, linked items will be Viewed.
+
+.. rubric:: **Popup menu management**
+
+* Allows to reorder reports Viewed with drag & drop feature. Using the selector area button icon drag |Drag|. 
+* Click on |Delete| to remove the report from the list.
+
+
+
+
+
+
+
+
+.. index:: Report (filter)
+
+.. _filter_report:  
+   
+Filter Reports
+**************
+For tickets and only tickets, you can apply an existing or create filter
+
+.. figure:: /images/GUI/REPORT_ZONE_FiltersTickets.png
+   :alt: filters on ticket's report
+   :align: center
+   
+   
+As with the advanced list box filters, you can choose from many criteria to create your filter;
+
+.. seealso:: 
+
+   :ref:`advanced filters<filters>`
+
+
+
+.. index:: Report (Favorite)
+
+.. _sending-report:
+   
+Report Sending programmation
+****************************
+
+.. sidebar:: Other sections
+
+   * :ref:`scheduled-report`
+   
+Ability to schedule the sending of reports as emails
+
+For example, you can send a report every day, every Monday or every first day of the month
+
+.. figure:: /images/GUI/REPORT_BOX_SendingMailReport.png
+   :alt: Sending a report to email
+   
+   Sending a report to email 
+   
+To view all scheduled reports for sending, go to Scheduled Report in the Tools menu
+
+
+
+.. index:: Report list
+
+.. _report-from-list:
+
+Reports from lists
+##################
+
+
+When you are on a list of items, such as activities, tickets, actions or any other items... you can create reports from your list layout
+
+
+.. rubric:: On the list
+
+The |Report| "save object list as report" function is available in the list box tools.
+   
+.. figure:: /images/GUI/REPORT_ZONE_ListAsReport.png
+   :alt: List as report
+      
+   List as report
+   
+You can edit the columns and place them in the order you want, you can apply simple or advanced filters. 
+   
+When you click on |Report| a pop-up is open.
+   
+.. figure:: /images/GUI/REPORT_BOX_SaveAsReport.png
+   :alt: Save the list as report
+      
+   Windows to save the list as report
+   
+   
+Name your list layout and save it by clicking |Save|.
+   
+The list will be stored as you prepared it and you will find it in the reports.
+
+
+.. rubric:: On the reports
+
+In the reports, you will find a new category where the different list reports that you have copied so far will be copied. 
+   
+They are sorted by items, knowing that you can create several different reports for the same item.
+   
+.. figure:: /images/GUI/REPORT_ZONE_Categorylist.png
+   :alt: Save the list as report
+      
+   Windows to save the list as report
+      
+      
+You will then obtain the report as you programmed it from the element list.
+   
+Each of these reports can be added to the today screen, can be sent at a given frequency.
+   
+They can be printed and exported to PDF, CSV and Excel.
+
+.. figure:: /images/GUI/REPORT_ZONE_ReportCategoryList.png
+   :alt: Save the list as report
+      
+   Windows to save the list as report
+
+
+
+
+
+
+.. index:: List of report
+
+.. _list-of-report:
+   
+Complete list of reports
+########################
+
+.. topic:: **Legend:**
+
+   Almost all reports can be exported in PDF or printable format.
+   
+   * |CSV| Export to CSV
+   * |Excel| Export to Excel
+   * |NoExport| No export
+   * |Print| Print only
+   * |interactive| Interactivity
+
+
+
+
+.. _report-realwork:
+
+Real Work
+*********
+
+Allows you to view the actual expenses consumed by your resources on one or all projects over a given period.
+
+Most reports allow you to refine the display by organization, by team and by resource or even by type of activity.
+
+reports that can be exported in excel format are indicated by the icon |Excel|
+
+.. rubric:: WORK
+
+#. Work - Weekly |Excel|
+#. Work - Monthkly |Excel| 
+#. Work - Yearly |Excel|
+#. Work - Between two dates |Excel|
+#. Work for a resource - Weekly
+#. Work for a resource - Monthkly
+#. Work for a resource - Yearly
+#. Work for a resource - Between two dates
+#. Monthly wor for resource 
+#. Work monthly detailed by resource
+#. Work yearly per month |Excel|
+
+
+.. rubric:: WORK DETAILED PER ACTIVITY
+
+12. Detailed work per activity - Weekly |Excel|
+#. Detailed work per activity - Monthkly |Excel|
+#. Detailed work per activity - Yearly |Excel|
+#. Detailed work per activity - Between two dates |Excel|
+
+.. rubric:: WORK DETAILED PER RESOURCE 
+
+16. Detailed work per resource - Weekly |Excel|
+#. Detailed work per resource - Monthkly |Excel|
+#. Detailed work per resource - Yearly |Excel|
+#. Detailed work per resource - Between two dates |Excel|
+
+.. rubric:: WORK SYNTHESIS PER ACTIVITY
+
+20. Work synthesis per activity
+#. Work synthesis per activity between two dates |Excel|
+
+
+.. rubric:: INDIVIDUAL CHARGES BY TYPE OF ACTIVITY
+
+22. Work for a resource per type of activity - monthly
+#. Work for a resource per type of activity - Yearly
+#. Work for a resource per type of activity - Between two dates
+
+.. rubric:: OTHERS
+
+25. Left work |Excel|
+#. List of work for an activity
+
+
+Planning
+********
+
+The reports in the planning category allow you to track the use of your resources through your project schedules.
+
+Diagram, synthesis, colored report, loads plan between planned and real work...
+
+
+
+
+.. rubric:: WORK SYNTHESIS
+
+27. Work synthesis per activity |Excel|
+#. Work synthesis per activity - between two dates |Excel|
+#. Work synthesis per ticket
+#. Synthesis of technical progress |CSV|
+#. Work synthesis per resource |Excel|
+
+
+.. rubric:: MONTHLY PLANNING
+
+32. Monthly planning resource/project
+#. Monthly planning project/resource
+#. Monthly planning project/activity/resource
+#. Monthly planning resource/project/activity
+#. Monthly planning for a resource
+#. Monthly planning for a resource (per project)
+
+
+.. rubric:: YEARLY PLANNING
+
+38. Yearly planning resource/project
+#. Yearly planning project/resource
+#. Global planning project/resource per month
+#. Yearly planning project/activity/resource |Excel|
+
+
+.. rubric:: WORK PLAN
+
+42. Work plan per week
+#. Work plan per month
+#. Work plan per resource and per week
+#. Work plan per resource and per month
+#. Workload plan on given period
+
+
+.. rubric:: AVAILABILITY
+
+47. Monthly availability of resources
+#. Availability synthesis
+
+
+.. rubric:: Colored monthly resource planning
+
+49. Colored monthly planning |interactive|
+#. Colored monthly planning fixed scale |interactive|
+
+
+.. rubric:: OTHERS
+
+51. Planned interventions 
+
+
+
+
+
+
+Steering charts
+***************
+
+The management diagrams are very precise reports to follow, compare and inform on the costs, deadlines and progress of your projects.
+
+52. Burndown chart
+#. S curve chart
+#. 45° chart
+#. Performance indicator 
+#. Proposales |Print|
+#. RIDA (Statement of Information Decisions Actions) |Excel|
+#. Report project analysis |Excel|
+
+
+KPIs
+****
+
+Track your KPI indicators with precision.
+
+.. rubric:: KPI DURATION
+
+59. KPI Duration for project
+#. KPI Duration consolidated
+
+.. rubric:: KPI WORKLOAD
+
+61. KPI Workload for project
+#. KPI Workload consolidated
+
+.. rubric:: KPI INCOMING/DELIVERABLE
+
+63. KPI Deliverable for project
+#. KPI Deliverable consolidated
+#. KPI Incoming for project
+#. KPI Incoming consolidated
+
+.. rubric:: OTHERS
+
+67. Client invoicing terms
+#. Work Units synthesis |Excel|
+#. Workload history
+
+
+
+Tickets
+*******
+
+Find here all the reports concerning the follow-up of your tickets on one or more projects and this, over a given period. 
+
+You can restrict and filter your display by resource, by customer, by requestor, issuer or manager. But also by priority or qualification.
+
+
+.. rubric:: TICKET COUNT
+
+70. Yearly report for tickets
+#. Yearly report for tickets by type
+#. Report for tickets cumulated - number of days
+#. Yearly report for tickets by product
+
+
+.. rubric:: REPORT FOR TICKETS BY QUALIFYING
+
+74. Report for tickets by qualifying - weekly
+#. Report for tickets by qualifying - monthly
+#. Report for tickets by qualifying - yearly
+#. Report for tickets by qualifying - global
+
+.. rubric:: REPORT REPARTITION
+
+78. Report for opened tickets - weekly
+#. Report for opened tickets - monthly
+#. Report for opened tickets - yearly  
+#. Report for opened tickets - global
+
+.. rubric:: TICKET SYNTHESIS BY STATUS
+   
+82. Handled ticket synthesis - monthly |Excel|
+#. Done ticket synthesis - monthly |Excel|
+
+.. rubric:: OTHERS
+
+84. Curve of tickets BurnDown
+#. Clients impacted by tickets |CSV|
+
+
+
+Agile
+*****
+86. User stories BurnDown chart 
+
+
+Current status
+**************
+
+The current status category allows you to follow the status of elements relating to the project: Activities, activity tasks, risks, Document approval ...
+
+.. rubric:: RISK AND ACTIONS
+   
+87. Risk management plan |Excel|  
+#. Actions table |Excel|
+
+.. rubric:: OTHERS
+    
+89. Status of ongoing work
+#. Status of all work
+#. Opportunity plan
+#. Version detail
+#. Jobs summary for activities |CSV|
+#. Approval of documents
+
+
+Costs
+*****
+
+You will be able to follow all your costs related to the project, the activity or your resources.
+
+
+.. rubric:: EXPENSES
+
+95. Project expense per month
+#. Individual expense per month
+#. Total expense per month
+
+.. rubric:: OTHERS
+
+98. Cost synthesis per activity
+#. Resources costs per month    
+#. Detailed resource costs per activity per month
+#. Total expense and cost per month
+
+
+Financials
+**********
+
+In the same way, you will be able to follow the receipts related to the project and their consolidation.
+
+.. rubric:: CLIENT INVOICING TERM
+
+102. Monthly terms
+#. Weekly terms
+
+.. rubric:: OTHERS
+   
+104. Invoices
+#. Financial expenses board
+#. Financial expenses synthesis
+#. Monthly consolidation |Excel|
+#. Summary of orders / client invoicing |Excel|
+#. Summary of work command / acceptance 
+
+
+
+Requirements & Tests
+********************
+
+You will be able to trace the status of cases played out for requirements and / or products, monitor requirements coverage, review annotations, comments and obtain various summaries.
+
+.. rubric:: TEST COVERAGE
+   
+109. requirements test coverage
+#. products test coverage
+#. test cases detail 
+#. test session summary
+
+.. rubric:: REQUIREMENT FLOW
+
+113. Requirements flow annual
+#. Requirements cumulated on number of days
+#. Requirement yearly by type
+
+.. rubric:: REQUIREMENT OPENED
+
+116. Requirement weekly opened
+#. Requirement monthly opened
+#. Requirement yearly opened
+#. Requirement global opened
+
+.. rubric:: OTHERS
+
+120. Curve of requirement Burn-Down
+#. Requirements with open questions   
+   
+   
+   
+   
+Miscellaneous
+*************
+
+A set of additional but very comprehensive reports on your projects and some of its elements.
+
+.. rubric:: HISTORY
+
+122. Detail of history for one item
+#. Deleted items
+
+.. rubric:: OTHERS
+   
+124. Connections audit
+#. Project dashboard
+#. Followed items
+#. List of attachments per user
+
+
+Human Resources
+***************
+
+A set of additional but very comprehensive reports on your projects and some of its elements.
+
+128. Resources inputs - outputs
+#. Resources workforce
+#. Resources seniority
+
+
+

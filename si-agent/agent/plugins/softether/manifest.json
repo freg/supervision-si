@@ -1,0 +1,13 @@
+{
+  "id": "softether",
+  "version": "1",
+  "runner": "python",
+  "entry": "softether.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 240,
+  "args": [],
+  "enabled": false,
+  "description": "VPN SoftEther en lecture seule de ses journaux de sécurité (#885), sans mot de passe d'administration : sessions par hub (utilisateur, adresse et nom d'origine, protocole L2TP / SSTP / OpenVPN / SoftEther, poste client, adresse VPN attribuée, début, fin, volumes, en cours) ; constat : échecs d'authentification répétés depuis une même adresse. Lecture incrémentale, historique conservé sur l'hôte (--keep-days 400) et renvoyé sur --emit-days (90). Arguments : [--dir /usr/local/vpnserver] [--fail-threshold 5]. Privilégié (journaux lisibles par root).",
+  "source": "bundled",
+  "privileged": true
+}

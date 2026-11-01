@@ -1,0 +1,299 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { fetchProxmox, vmAction, fetchCommand, fetchPraPlans, createPraPlan, updatePraPlan, deletePraPlan, runPraPlan, fetchPraRun, fetchPraRuns, fetchPraRoles, createPraRole, updatePraRole, deletePraRole, switchPraRole, checkPraRole, fetchFleet, previewMigration, resumePraRun, abortPraRun, rollbackPraRun, fetchInfraOverview } from "./siAgentClient.js";
+import { OPS, VM_OPS, FIELD_LABELS, flattenProxmox, otherNodes, makeStep, runSummary, stepText, replSummary, MIGRATION_DEFAULTS, migrationBody, migrationMissing, runActions, waitingStep } from "./pveOpsLib.js";
+import HubIcon from "./HubIcon.jsx";
+
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
+// Tuile « Contrôle PVE » (hub), livraison #653 -- supervision/contrôle de
+// tous les Proxmox via l'agent de chaque hyperviseur : opérations
+// immédiates (migration d'une VM vers un nœud, sauvegarde vzdump,
+// déplacement de disque entre stockages, clonage, réplication pvesr) et
+// PLANS (PRA, maintenance, bascule) = suites ordonnées d'opérations,
+// simulées puis exécutées pas à pas par le central avec acquittement.
+// Complète la tuile Proxmox (#488, lecture et actions unitaires).
+// #658 (item 112) : migration d'un serveur / service vers la virtualisation
+// -- plan généré (image brute à chaud ou reconstruction par rôle) avec
+// étapes de transition (le plan attend « Reprendre ») et retour en arrière.
+// Non vérifié en navigateur ; logique pure testée sous Node.
+
+function OpForm({ host, hosts, vm, action, onSubmit, onAddStep, busy }) {
+  const [p, setP] = useState({ online: true, mode: "snapshot", schedule: "*/15" });
+  const fields = OPS[action]?.fields || [];
+  const set = (k, v) => setP((x) => ({ ...x, [k]: v }));
+  return (
+    <div className="pv-op">
+      <div className="pv-grid">
+        {fields.map((f) => (
+          <div key={f} className="hub-settings-row"><label>{FIELD_LABELS[f] || f}</label>
+            {f === "target" ? <select value={p.target || ""} onChange={(e) => set("target", e.target.value)}><option value="">—</option>{otherNodes(hosts, host.agent_id).map((n) => <option key={n} value={n}>{n}</option>)}</select>
+              : f === "storage" ? <input type="text" list={`st-${host.agent_id}`} value={p.storage || ""} onChange={(e) => set("storage", e.target.value)} />
+              : f === "mode" ? <select value={p.mode} onChange={(e) => set("mode", e.target.value)}><option value="snapshot">snapshot</option><option value="suspend">suspend</option><option value="stop">stop</option></select>
+              : ["online", "with_local_disks"].includes(f) ? <label className="pv-check"><input type="checkbox" checked={!!p[f]} onChange={(e) => set(f, e.target.checked)} /> oui</label>
+              : <input type="text" value={p[f] || ""} onChange={(e) => set(f, e.target.value)} />}
+          </div>))}
+        <datalist id={`st-${host.agent_id}`}>{host.storages.map((s) => <option key={s} value={s} />)}</datalist>
+      </div>
+      <div className="pv-inline">
+        <button className="primary" disabled={busy} onClick={() => onSubmit(makeStep(host, vm, action, p))}>Exécuter maintenant</button>
+        <button className="secondary" onClick={() => onAddStep(makeStep(host, vm, action, p))}>+ Ajouter au plan en cours</button>
+      </div>
+    </div>
+  );
+}
+
+export default function PveOpsView({ onBack, siAgentApiBase, login }) {
+  const [hosts, setHosts] = useState([]);
+  const [fleet, setFleet] = useState([]);           // #658 : tous les agents (serveurs sources d'une migration)
+  const [mig, setMig] = useState(null);             // #658 : formulaire de migration
+  const [distant, setDistant] = useState({ nodes: [], vms: [] });   // #750 : nœuds distants (OVH) et leurs CT / VM, depuis /infra/overview
+  const [migPreview, setMigPreview] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [roles, setRoles] = useState([]);          // #654 : rôles « celui qui répond »
+  const [roleForm, setRoleForm] = useState(null);
+  const [mikrotik, setMikrotik] = useState(false);
+  const [sel, setSel] = useState(null);          // {host, vm, action}
+  const [cmd, setCmd] = useState(null);          // dernière commande immédiate suivie
+  const [plan, setPlan] = useState(null);        // plan en édition {id?, name, kind, notes, steps, continue_on_error}
+  const [run, setRun] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+
+  const load = useCallback(async () => {
+    const [p, pl, rl, fl] = await Promise.all([fetchProxmox(siAgentApiBase), fetchPraPlans(siAgentApiBase), fetchPraRoles(siAgentApiBase), fetchFleet(siAgentApiBase).catch(() => [])]);
+    setHosts(flattenProxmox(p)); if (!pl.error) setPlans(pl.plans || []); if (!rl.error) { setRoles(rl.roles || []); setMikrotik(!!rl.mikrotik); } setFleet(Array.isArray(fl) ? fl : []);
+  }, [siAgentApiBase]);
+  useEffect(() => { load(); }, [load]);
+
+  // suivi d'une commande immédiate puis d'une exécution de plan
+  useEffect(() => {
+    if (!cmd || !["pending"].includes(cmd.status)) return undefined;
+    const id = setInterval(async () => { const c = await fetchCommand(siAgentApiBase, cmd.id); if (c && c.status !== "pending") { setCmd(c); load(); } }, 3000);
+    return () => clearInterval(id);
+  }, [cmd, siAgentApiBase, load]);
+  useEffect(() => {
+    if (!run || !["running", "paused"].includes(run.status)) return undefined;
+    const id = setInterval(async () => { const r = await fetchPraRun(siAgentApiBase, run.id); if (!r.error) { setRun(r.run); if (!["running", "paused"].includes(r.run.status)) { load(); if (plan?.id) fetchPraRuns(siAgentApiBase, plan.id).then((x) => !x.error && setRuns(x.runs)); } } }, run.status === "paused" ? 10000 : 3000);
+    return () => clearInterval(id);
+  }, [run, siAgentApiBase, load, plan]);
+
+  async function execNow(step) {
+    if (!window.confirm(`${stepText(step)} — exécuter maintenant sur ${step.agent_id} ?`)) return;
+    setBusy("now"); setError(null); const r = await vmAction(siAgentApiBase, step.agent_id, { ...step.params, vmid: step.vmid, action: step.action, kind: step.kind }); setBusy("");
+    if (r?.error) { setError(r.error); return; }
+    setCmd(r?.command || r); setNotice(`Commande envoyée à ${step.agent_id} : ${stepText(step)}`);
+  }
+  function addStep(step) { setPlan((p) => ({ ...(p || { name: "Nouveau plan", kind: "pra", notes: "", steps: [], continue_on_error: false }), steps: [...(p?.steps || []), step] })); setNotice("Étape ajoutée au plan en cours (à enregistrer)"); }
+  async function savePlan() {
+    setBusy("plan"); setError(null);
+    const r = plan.id ? await updatePraPlan(siAgentApiBase, plan.id, plan) : await createPraPlan(siAgentApiBase, plan); setBusy("");
+    if (r.error) { setError(r.error); return; }
+    setPlan(r.plan); setNotice("Plan enregistré"); load();
+  }
+  async function openPlan(p) { setPlan(p); setRun(null); const x = await fetchPraRuns(siAgentApiBase, p.id); if (!x.error) { setRuns(x.runs); if (x.runs[0]) setRun(x.runs[0]); } }
+  async function removePlan(p) { if (!window.confirm(`Supprimer le plan « ${p.name} » et son historique ?`)) return; const r = await deletePraPlan(siAgentApiBase, p.id); if (r.error) setError(r.error); else { setPlan(null); setRun(null); load(); } }
+  async function launch(mode) {
+    if (mode === "execute" && !window.confirm(`Exécuter réellement le plan « ${plan.name} » (${plan.steps.length} étape(s)) ? Les opérations seront envoyées une à une aux hyperviseurs.`)) return;
+    setBusy(mode); setError(null); const r = await runPraPlan(siAgentApiBase, plan.id, mode, login); setBusy("");
+    if (r.error) { setError(r.error); return; }
+    const x = await fetchPraRun(siAgentApiBase, r.run_id); if (!x.error) setRun(x.run);
+  }
+  async function saveRole() {
+    setBusy("role"); setError(null); const r = roleForm.id ? await updatePraRole(siAgentApiBase, roleForm.id, roleForm) : await createPraRole(siAgentApiBase, roleForm); setBusy("");
+    if (r.error) { setError(r.error); return; } setRoleForm(null); load(); setNotice("Rôle enregistré");
+  }
+  async function doSwitch(role, to) {
+    const c = role.candidates[to]; if (!window.confirm(`Basculer le rôle « ${role.name} » vers ${c.label} (${c.address}) ?${role.mechanism.kind === "mikrotik_nat" ? " La règle NAT du routeur sera modifiée." : " Mécanisme manuel : la redirection reste à faire."}`)) return;
+    setBusy("switch"); setError(null); const r = await switchPraRole(siAgentApiBase, role.id, to, login); setBusy("");
+    if (r.error && !r.role) { setError(r.error); return; }
+    setNotice(r.ok ? `Rôle « ${r.role} » basculé vers ${r.to.label}${r.check?.checked ? ` — service vérifié (HTTP ${r.check.status}, ${r.check.ms} ms)` : ""}` : `Bascule appliquée mais ${r.error}`); load();
+  }
+  async function doCheck(role) { const r = await checkPraRole(siAgentApiBase, role.id); if (r.error) setError(r.error); else { setNotice(r.check.checked ? (r.check.ok ? `« ${role.name} » répond (HTTP ${r.check.status}, ${r.check.ms} ms)` : `« ${role.name} » ne répond pas : ${r.check.error || "HTTP " + r.check.status}`) : "Pas d'URL de service à vérifier"); load(); } }
+  function addRoleStep(role, to) { addStep({ agent_id: "central", vmid: 0, kind: "qemu", action: "role_switch", role_id: role.id, to, params: { role_id: role.id, to }, label: `bascule ${role.name} → ${role.candidates[to].label}` }); }
+  // #658 : transitions et retour en arrière
+  async function resumeRun() { setBusy("resume"); const r = await resumePraRun(siAgentApiBase, run.id); setBusy(""); if (r.error) setError(r.error); else { setNotice("Transition reprise"); const x = await fetchPraRun(siAgentApiBase, run.id); if (!x.error) setRun(x.run); } }
+  async function abortRun() {
+    const withRb = (plan?.rollback_steps || []).length > 0 && window.confirm("Lancer le RETOUR EN ARRIÈRE après l'abandon (rôle rendu, VM coupée du réseau puis arrêtée) ? Annuler = abandon simple.");
+    if (!withRb && !window.confirm(`Abandonner l'exécution n°${run.id} sans retour en arrière ?`)) return;
+    setBusy("abort"); const r = await abortPraRun(siAgentApiBase, run.id, withRb, login); setBusy(""); if (r.error) { setError(r.error); return; }
+    setNotice(withRb ? `Abandon : retour en arrière lancé (exécution n°${r.rollback_run_id})` : "Exécution abandonnée");
+    const x = await fetchPraRun(siAgentApiBase, r.rollback_run_id || run.id); if (!x.error) setRun(x.run); if (plan?.id) fetchPraRuns(siAgentApiBase, plan.id).then((y) => !y.error && setRuns(y.runs));
+  }
+  async function rollbackRun() {
+    if (!window.confirm(`Retour en arrière après l'exécution n°${run.id} : ${(plan.rollback_steps || []).length} étape(s) de retour seront jouées. Continuer ?`)) return;
+    setBusy("rollback"); const r = await rollbackPraRun(siAgentApiBase, run.id, login); setBusy(""); if (r.error) { setError(r.error); return; }
+    const x = await fetchPraRun(siAgentApiBase, r.run_id); if (!x.error) setRun(x.run); if (plan?.id) fetchPraRuns(siAgentApiBase, plan.id).then((y) => !y.error && setRuns(y.runs));
+  }
+  async function previewMig(save) {
+    const miss = migrationMissing(mig); if (miss) { setError("Migration : " + miss); return; }
+    setBusy("mig"); setError(null); const r = await previewMigration(siAgentApiBase, { ...migrationBody(mig), save: !!save }); setBusy("");
+    if (r.error) { setError(r.error); return; }
+    if (save) { setMigPreview(null); setMig(null); setNotice(`Plan de migration enregistré (n°${r.plan.id}) : simulez-le, puis exécutez-le ; chaque transition attend « Reprendre »`); load(); openPlan(r.plan); } else setMigPreview(r.plan);
+  }
+  const moveStep = (i, d) => setPlan((p) => { const st = [...p.steps]; const j = i + d; if (j < 0 || j >= st.length) return p; [st[i], st[j]] = [st[j], st[i]]; return { ...p, steps: st }; });
+
+  return (
+    <div className="hub-settings hub-settings-wide pv-view">
+      <div className="hub-settings-topbar"><button className="secondary" onClick={onBack}>◀ Retour</button><h1><HubIcon icon="server" size={22} /> Contrôle PVE — opérations et plans de reprise</h1></div>
+      {error && <div className="hub-card pv-error">⚠️ {error}</div>}
+      {notice && <div className="hub-card pv-notice">{notice}</div>}
+      <div className="pv-columns">
+        <div className="pv-col">
+          <div className="hub-card hub-settings-section">
+            <h2>Hyperviseurs et VM <span className="muted">({hosts.length} nœud(s) remonté(s) par leur agent)</span></h2>
+            {hosts.length === 0 && <p className="muted">Aucun hyperviseur : installez l'agent avec le plugin proxmox sur chaque nœud (tuile Agents hôtes).</p>}
+            {hosts.map((h) => (
+              <details key={h.agent_id} className="pv-details" open>
+                <summary><b>{h.node}</b> <span className="muted">{h.agent_id} · {h.vms.length} VM/CT · stockages : {h.storages.join(", ") || "—"}</span></summary>
+                <AutoColumns id="PveOpsView.1"><table className="pv-table"><thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>État</th><th>Réplication</th><th>Dernière sauvegarde</th><th>Opération</th></tr></thead>
+                  <tbody>{h.vms.map((vm) => (
+                    <React.Fragment key={vm.vmid}>
+                      <tr className={sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id ? "pv-selected" : ""}><td>{vm.vmid}</td><td>{vm.name}</td><td>{vm.type}</td><td>{vm.status}</td>
+                        <td className={vm.replication.some((r) => !r.ok) ? "pv-ko" : ""}>{replSummary(vm.replication) || <span className="muted">—</span>}</td>
+                        <td className={vm.last_backup && vm.last_backup.ok === false ? "pv-ko" : "muted"}>{vm.last_backup ? `${vm.last_backup.ok === false ? "✘" : "✔"} ${vm.last_backup.age_s !== undefined && vm.last_backup.age_s !== null ? "il y a " + Math.round(vm.last_backup.age_s / 3600) + " h" : ""}` : "—"}</td>
+                        <td><select value={sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id ? sel.action : ""} onChange={(e) => setSel(e.target.value ? { host: h, vm, action: e.target.value } : null)}>
+                          <option value="">—</option>{Object.entries(VM_OPS).map(([k, o]) => <option key={k} value={k}>{o.label}</option>)}</select></td></tr>
+                      {sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id && <tr><td colSpan={7}><OpForm key={sel.action} host={h} hosts={hosts} vm={vm} action={sel.action} onSubmit={execNow} onAddStep={addStep} busy={busy === "now"} /></td></tr>}
+                    </React.Fragment>))}</tbody></table></AutoColumns>
+              </details>))}
+            {cmd && <div className={`pv-cmd ${cmd.status === "done" ? "pv-ok" : cmd.status === "failed" ? "pv-ko" : ""}`}>Commande {cmd.id} : {cmd.status === "pending" ? "en attente d'acquittement de l'agent…" : cmd.status === "done" ? "terminée" : `échec — ${cmd.result?.error || ""}`}{cmd.result?.result?.stdout ? <pre className="pv-log">{cmd.result.result.stdout}</pre> : null}</div>}
+          </div>
+        </div>
+        <div className="pv-col">
+          <div className="hub-card hub-settings-section">
+            <div className="pv-row-between"><h2 style={{ margin: 0 }}>Plans ({plans.length})</h2><button className="primary" onClick={() => { setPlan({ name: "Nouveau plan", kind: "pra", notes: "", steps: [], continue_on_error: false }); setRun(null); setRuns([]); }}>+ Plan</button></div>
+            <AutoColumns id="PveOpsView.2"><table className="pv-table"><thead><tr><th>Plan</th><th>Nature</th><th>Étapes</th><th>Dernière exécution</th><th></th></tr></thead>
+              <tbody>{plans.map((p) => <tr key={p.id} className={plan && plan.id === p.id ? "pv-selected" : ""}><td><a href="#" onClick={(e) => { e.preventDefault(); openPlan(p); }}><b>{p.name}</b></a></td><td>{p.kind}</td><td>{p.steps.length}</td>
+                <td className="muted">{p.last_run ? `${p.last_run.mode} · ${p.last_run.status} · ${(p.last_run.started_at || "").replace("T", " ").slice(0, 16)}` : "—"}</td><td><button className="secondary pv-mini pv-danger" onClick={() => removePlan(p)}>✕</button></td></tr>)}
+                {plans.length === 0 && <tr><td colSpan={5} className="muted">Aucun plan : choisissez une opération sur une VM puis « Ajouter au plan en cours », ou « + Plan ».</td></tr>}</tbody></table></AutoColumns>
+          </div>
+          <div className="hub-card hub-settings-section">
+            <div className="pv-row-between"><h2 style={{ margin: 0 }}>Migration serveur → virtualisation</h2><div className="pv-inline"><button className="secondary" onClick={() => { setMig({ ...MIGRATION_DEFAULTS, method: "repatriate", pve_agent_id: hosts[0]?.agent_id || "", storage: hosts[0]?.storages?.[0] || "", bwlimit_mbps: 0 }); setMigPreview(null);
+              fetchInfraOverview(siAgentApiBase).then((d) => setDistant({ nodes: (d?.nodes || []).filter((n) => n.zone === "distant").map((n) => n.name), vms: (d?.vms || []).filter((v) => v.zone === "distant") })).catch(() => {}); }}>+ Rapatriement distant → local</button>
+            <button className="primary" onClick={() => { setMig({ ...MIGRATION_DEFAULTS, pve_agent_id: hosts[0]?.agent_id || "", storage: hosts[0]?.storages?.[0] || "" }); setMigPreview(null); }}>+ Migration</button></div></div>
+            <p className="muted">Deux méthodes : <b>image brute à chaud</b> (Disk2vhd sous Windows, dd + zstd sous Linux, transférée au central puis importée dans une VM créée réseau coupé) ou <b>reconstruction par rôle</b> (conteneur depuis un modèle, application réinstallée, données synchronisées par datasync). Le plan généré s'arrête à chaque <b>transition</b> (vérifications, bascule, observation) et attend « Reprendre » ; « Abandonner » peut jouer le <b>retour en arrière</b> (rôle rendu, VM coupée du réseau et arrêtée, serveur physique intact).</p>
+            {mig && (
+              <div className="pv-grid pv-form">
+                <div className="hub-settings-row"><label>Méthode</label><select value={mig.method} onChange={(e) => setMig({ ...mig, method: e.target.value })}><option value="lan">directe sur le LAN : le poste pousse son image à l'agent du nœud (le hub orchestre seulement)</option><option value="direct">directe : image relayée du poste vers le nœud, pilotée par les deux agents</option><option value="image">image brute à chaud, déposée sur le central</option><option value="rebuild">reconstruction par rôle (conteneur + données)</option><option value="repatriate">rapatriement d'un CT / d'une VM d'un nœud distant (OVH) vers un nœud local</option></select></div>
+                {mig.method === "repatriate" && <>
+                  <div className="hub-settings-row"><label>Nœud local (agent)</label><select value={mig.pve_agent_id} onChange={(e) => { const h = hosts.find((x) => x.agent_id === e.target.value); setMig({ ...mig, pve_agent_id: e.target.value, storage: h?.storages?.[0] || mig.storage }); }}><option value="">—</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.node} ({h.agent_id})</option>)}</select></div>
+                  <div className="hub-settings-row"><label>Nœud distant</label><input type="text" list="pv-distant" value={mig.remote} onChange={(e) => setMig({ ...mig, remote: e.target.value })} placeholder="nom déclaré dans /etc/si-agent/pve-remote.json du nœud local" /><datalist id="pv-distant">{distant.nodes.map((n) => <option key={n} value={n} />)}</datalist></div>
+                  <div className="hub-settings-row"><label>CT / VM distant</label><div className="pv-inline">
+                    <select value={mig.vmid} onChange={(e) => { const v = distant.vms.find((x) => x.node === mig.remote && String(x.vmid) === e.target.value); const id = Number(e.target.value); setMig({ ...mig, vmid: e.target.value, kind: v?.type === "qemu" ? "qemu" : "lxc", newid: id && id < 1000 ? 9000 + id : id || "", plan_name: `Rapatriement ${mig.remote} ${e.target.value}${v?.name ? " " + v.name : ""}` }); }}>
+                      <option value="">—</option>{distant.vms.filter((v) => v.node === mig.remote).map((v) => <option key={v.vmid} value={v.vmid}>{v.vmid} {v.name} ({v.type === "qemu" ? "VM" : "CT"}, {v.status})</option>)}</select>
+                    <input type="number" value={mig.vmid} onChange={(e) => setMig({ ...mig, vmid: e.target.value })} style={{ width: 80 }} placeholder="vmid" title="identifiant sur le nœud distant" />
+                    <select value={mig.kind} onChange={(e) => setMig({ ...mig, kind: e.target.value })}><option value="lxc">CT</option><option value="qemu">VM</option></select></div></div>
+                  <div className="hub-settings-row"><label>Nouvel identifiant / stockage local</label><div className="pv-inline"><input type="number" value={mig.newid} onChange={(e) => setMig({ ...mig, newid: e.target.value })} style={{ width: 90 }} placeholder="9102" />
+                    <select value={mig.storage} onChange={(e) => setMig({ ...mig, storage: e.target.value })}><option value="">stockage…</option>{(hosts.find((h) => h.agent_id === mig.pve_agent_id)?.storages || []).map((st) => <option key={st} value={st}>{st}</option>)}</select></div></div>
+                  <div className="hub-settings-row"><label>Mode d'export / débit max (Mbit/s, 0 = libre)</label><div className="pv-inline"><select value={mig.mode} onChange={(e) => setMig({ ...mig, mode: e.target.value })}><option value="stop">stop (cohérent, arrêt pendant l'export)</option><option value="snapshot">snapshot (à chaud)</option><option value="suspend">suspend</option></select>
+                    <input type="number" min={0} value={mig.bwlimit_mbps} onChange={(e) => setMig({ ...mig, bwlimit_mbps: e.target.value })} style={{ width: 90 }} /></div></div>
+                  <div className="hub-settings-row"><label>Destruction de l'original : plage / tranches (Go)</label><div className="pv-inline"><input type="text" value={mig.window} onChange={(e) => setMig({ ...mig, window: e.target.value })} style={{ width: 120 }} placeholder="20:00-07:00" /><input type="number" min={1} value={mig.slice_gb} onChange={(e) => setMig({ ...mig, slice_gb: e.target.value })} style={{ width: 60 }} /></div></div>
+                  <label className="pv-check"><input type="checkbox" checked={!!mig.keep_archive} onChange={(e) => setMig({ ...mig, keep_archive: e.target.checked })} /> garder l'archive vzdump dans le dossier de dump local</label>
+                  <p className="muted" style={{ fontSize: 12 }}>L'agent du nœud local exporte par ssh (vzdump --stdout, débit borné) et restaure sous le nouvel identifiant, compare fichier à fichier l'original et la copie, puis attend votre validation (transition 2). La destruction de l'original n'a lieu que dans la plage choisie, images réduites par tranches pour ne pas geler les disques du nœud distant, et l'agent la refuse sans vérification réussie.</p>
+                </>}
+                {mig.method !== "repatriate" && <>
+                <div className="hub-settings-row"><label>Serveur source (agent)</label><select value={mig.source_agent_id} onChange={(e) => { const a = fleet.find((x) => x.agent_id === e.target.value); setMig({ ...mig, source_agent_id: e.target.value, os: a && /win/i.test(a.os || a.platform || "") ? "windows" : mig.os, plan_name: mig.plan_name || (a ? `Migration ${a.hostname || a.agent_id}` : "") }); }}><option value="">—</option>{fleet.map((a) => <option key={a.agent_id} value={a.agent_id}>{a.hostname || a.label || a.agent_id} ({a.agent_id}{a.os ? ", " + a.os : ""})</option>)}</select></div>
+                <div className="hub-settings-row"><label>Système source</label><select value={mig.os} onChange={(e) => setMig({ ...mig, os: e.target.value })}><option value="linux">Linux</option><option value="windows">Windows (OVMF + TPM, disque en SATA puis VirtIO)</option></select></div>
+                <div className="hub-settings-row"><label>Nœud Proxmox cible</label><select value={mig.pve_agent_id} onChange={(e) => { const h = hosts.find((x) => x.agent_id === e.target.value); setMig({ ...mig, pve_agent_id: e.target.value, storage: h?.storages?.[0] || mig.storage }); }}><option value="">—</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.node} ({h.agent_id})</option>)}</select></div>
+                <div className="hub-settings-row"><label>vmid (libre) / stockage / pont</label><div className="pv-inline"><input type="number" value={mig.vmid} onChange={(e) => setMig({ ...mig, vmid: e.target.value })} style={{ width: 90 }} placeholder="200" />
+                  <select value={mig.storage} onChange={(e) => setMig({ ...mig, storage: e.target.value })}><option value="">stockage…</option>{(hosts.find((h) => h.agent_id === mig.pve_agent_id)?.storages || []).map((st) => <option key={st} value={st}>{st}</option>)}{mig.storage && !(hosts.find((h) => h.agent_id === mig.pve_agent_id)?.storages || []).includes(mig.storage) && <option value={mig.storage}>{mig.storage}</option>}</select>
+                  <input type="text" value={mig.bridge} onChange={(e) => setMig({ ...mig, bridge: e.target.value })} style={{ width: 80 }} /></div></div>
+                <div className="hub-settings-row"><label>Mémoire (Mo) / cœurs</label><div className="pv-inline"><input type="number" value={mig.memory} onChange={(e) => setMig({ ...mig, memory: e.target.value })} style={{ width: 90 }} /><input type="number" value={mig.cores} onChange={(e) => setMig({ ...mig, cores: e.target.value })} style={{ width: 60 }} /></div></div>
+                {mig.method === "lan" && <><div className="hub-settings-row"><label>Emplacement temporaire sur le poste</label><input type="text" value={mig.image_target} onChange={(e) => setMig({ ...mig, image_target: e.target.value })} placeholder="vide = choisi par l'agent (lecteur ou montage assez grand)" /></div>
+                  <div className="hub-settings-row"><label>Débit max (Mbit/s, 0 = libre)</label><input type="number" min={0} value={mig.bwlimit_mbps} onChange={(e) => setMig({ ...mig, bwlimit_mbps: e.target.value })} style={{ width: 90 }} /></div>
+                  <div className="hub-settings-row"><label>IP LAN du nœud / IP du poste / port</label><div className="pv-inline"><input type="text" value={mig.lan_ip} onChange={(e) => setMig({ ...mig, lan_ip: e.target.value })} style={{ width: 130 }} placeholder="vide = détectée" /><input type="text" value={mig.source_ip} onChange={(e) => setMig({ ...mig, source_ip: e.target.value })} style={{ width: 130 }} placeholder="vide = toute source" /><input type="number" value={mig.port} onChange={(e) => setMig({ ...mig, port: e.target.value })} style={{ width: 80 }} /></div></div>
+                  <p className="muted" style={{ fontSize: 12 }}>Les deux agents préparent leur espace (volume temporaire LVM-thin sur le nœud, jamais son disque système) ; le nœud crée la VM réceptacle et ouvre un récepteur temporaire sur son IP LAN, protégé par un jeton à usage unique ; le poste y pousse son image (connexion sortante, débit borné, reprise à l'octet près, SHA-256 vérifié). L'image ne passe pas par le hub.</p></>}
+                {mig.method === "direct" && <><div className="hub-settings-row"><label>Emplacement temporaire sur le poste</label><input type="text" value={mig.image_target} onChange={(e) => setMig({ ...mig, image_target: e.target.value })} placeholder="vide = choisi par l'agent (lecteur ou montage assez grand)" /></div>
+                  <div className="hub-settings-row"><label>Débit max (Mbit/s, 0 = libre) / fenêtre du relais (Go)</label><div className="pv-inline"><input type="number" min={0} value={mig.bwlimit_mbps} onChange={(e) => setMig({ ...mig, bwlimit_mbps: e.target.value })} style={{ width: 90 }} /><input type="number" min={1} max={64} value={mig.window_gb} onChange={(e) => setMig({ ...mig, window_gb: e.target.value })} style={{ width: 60 }} /></div></div>
+                  <p className="muted" style={{ fontSize: 12 }}>Le poste vérifie sa place et choisit l'emplacement de l'image ; le nœud crée un volume temporaire dans le pool LVM-thin (jamais sur son disque système) et la VM réceptacle ; il lit l'image au fil de l'eau par le hub, qui n'en garde que la fenêtre ; import, puis suppression du volume temporaire et de l'image du poste.</p></>}
+                {mig.method === "image" && <div className="hub-settings-row"><label>Cible de l'image sur le serveur source</label><input type="text" value={mig.image_target} onChange={(e) => setMig({ ...mig, image_target: e.target.value })} placeholder={mig.os === "windows" ? "\\\\serveur\\partage\\images ou D:\\images" : "/mnt/images (stockage séparé du disque imagé)"} /></div>}
+                {mig.method === "rebuild" && <><div className="hub-settings-row"><label>Modèle de conteneur</label><input type="text" value={mig.template} onChange={(e) => setMig({ ...mig, template: e.target.value })} placeholder="local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst" /></div>
+                  <div className="hub-settings-row"><label>IP du conteneur</label><input type="text" value={mig.ip} onChange={(e) => setMig({ ...mig, ip: e.target.value })} placeholder="dhcp ou 192.0.2.10/24" /></div></>}
+                <div className="hub-settings-row"><label>Rôle à basculer (optionnel)</label><div className="pv-inline"><select value={mig.role_id} onChange={(e) => setMig({ ...mig, role_id: e.target.value })}><option value="">aucun (bascule à la main à la transition 3)</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+                  {mig.role_id && <><span className="muted">de</span><select value={mig.role_from} onChange={(e) => setMig({ ...mig, role_from: e.target.value })}>{(roles.find((r) => String(r.id) === String(mig.role_id))?.candidates || []).map((c, i) => <option key={i} value={i}>{c.label}</option>)}</select><span className="muted">vers</span><select value={mig.role_to} onChange={(e) => setMig({ ...mig, role_to: e.target.value })}>{(roles.find((r) => String(r.id) === String(mig.role_id))?.candidates || []).map((c, i) => <option key={i} value={i}>{c.label}</option>)}</select></>}</div></div>
+                <label className="pv-check"><input type="checkbox" checked={!!mig.auto_rollback} onChange={(e) => setMig({ ...mig, auto_rollback: e.target.checked })} /> retour en arrière automatique si une étape échoue</label>
+                <label className="pv-check"><input type="checkbox" checked={!!mig.purge_on_rollback} onChange={(e) => setMig({ ...mig, purge_on_rollback: e.target.checked })} /> détruire la VM lors d'un retour en arrière (sinon elle reste arrêtée)</label></>}
+                <div className="hub-settings-row"><label>Nom du plan</label><input type="text" value={mig.plan_name} onChange={(e) => setMig({ ...mig, plan_name: e.target.value })} /></div>
+                <div className="pv-inline"><button className="secondary" onClick={() => previewMig(false)} disabled={busy === "mig"}>Aperçu du plan</button>{migPreview && <button className="primary" onClick={() => previewMig(true)} disabled={busy === "mig"}>Enregistrer le plan</button>}<button className="secondary" onClick={() => { setMig(null); setMigPreview(null); }}>Annuler</button></div>
+                {migPreview && (<div className="pv-run"><p className="muted">{migPreview.notes}</p>
+                  <AutoColumns id="PveOpsView.3"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th></tr></thead><tbody>{migPreview.steps.map((s, i) => <tr key={i} className={s.action === "checkpoint" ? "pv-selected" : ""}><td>{i + 1}</td><td>{s.action === "checkpoint" ? stepText(s) : <>{stepText(s)}<div className="muted">{s.label}</div></>}</td></tr>)}</tbody></table></AutoColumns>
+                  <h3>Retour en arrière ({migPreview.rollback_steps.length} étape(s))</h3>
+                  <table className="pv-table"><tbody>{migPreview.rollback_steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}<div className="muted">{s.label}</div></td></tr>)}</tbody></table></div>)}
+              </div>
+            )}
+          </div>
+          <div className="hub-card hub-settings-section">
+            <div className="pv-row-between"><h2 style={{ margin: 0 }}>Rôles — « celui qui répond » ({roles.length})</h2><button className="primary" onClick={() => setRoleForm({ name: "", service_url: "", notes: "", candidates: [{ label: "", address: "" }, { label: "", address: "" }], mechanism: { kind: mikrotik ? "mikrotik_nat" : "manual", router: "", rule_id: "" } })}>+ Rôle</button></div>
+            <p className="muted">Un rôle = un service et ses candidats ordonnés ; la bascule change qui répond (règle NAT MikroTik modifiée, ou enregistrement manuel), puis vérifie l'URL du service. Une bascule peut être une étape de plan.</p>
+            {roleForm && (
+              <div className="pv-grid pv-form">
+                <div className="hub-settings-row"><label>Nom</label><input type="text" value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} /></div>
+                <div className="hub-settings-row"><label>URL du service (vérification)</label><input type="text" value={roleForm.service_url} onChange={(e) => setRoleForm({ ...roleForm, service_url: e.target.value })} placeholder="https://…" /></div>
+                <div className="hub-settings-row"><label>Mécanisme</label><select value={roleForm.mechanism.kind} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, kind: e.target.value } })}><option value="manual">manuel (enregistrement seul)</option><option value="mikrotik_nat" disabled={!mikrotik}>règle NAT MikroTik{mikrotik ? "" : " (MIKROTIK_API_URL absente)"}</option><option value="dns">enregistrement DNS (dns-api, intranet en fallback)</option><option value="keepalived">keepalived / VRRP (priorité sur les candidats)</option></select></div>
+                {roleForm.mechanism.kind === "dns" && <><div className="hub-settings-row"><label>Zone</label><input type="text" value={roleForm.mechanism.zone || ""} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, zone: e.target.value } })} placeholder="exemple.fr" /></div>
+                  <div className="hub-settings-row"><label>Enregistrement (nom relatif) / TTL</label><div className="pv-inline"><input type="text" value={roleForm.mechanism.record || ""} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, record: e.target.value } })} placeholder="www" /><input type="number" value={roleForm.mechanism.ttl || 60} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, ttl: Number(e.target.value) } })} style={{ width: 80 }} /></div></div></>}
+                {roleForm.mechanism.kind === "keepalived" && <div className="hub-settings-row"><label>Instance VRRP (chaque candidat doit porter l'agent_id de son hôte)</label><input type="text" value={roleForm.mechanism.instance || ""} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, instance: e.target.value } })} placeholder="VI_WEB" /></div>}
+                {roleForm.mechanism.kind === "mikrotik_nat" && <><div className="hub-settings-row"><label>Routeur (nom du registre)</label><input type="text" value={roleForm.mechanism.router} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, router: e.target.value } })} /></div>
+                  <div className="hub-settings-row"><label>Règle NAT (identifiant, ex. *1A)</label><input type="text" value={roleForm.mechanism.rule_id} onChange={(e) => setRoleForm({ ...roleForm, mechanism: { ...roleForm.mechanism, rule_id: e.target.value } })} /></div></>}
+                <div className="pv-candidates">{roleForm.candidates.map((c, i) => <div key={i} className="pv-inline"><span className="muted">{i + 1}.</span><input type="text" placeholder="libellé" value={c.label} onChange={(e) => setRoleForm({ ...roleForm, candidates: roleForm.candidates.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
+                  <input type="text" placeholder="adresse (IP[:port])" value={c.address} onChange={(e) => setRoleForm({ ...roleForm, candidates: roleForm.candidates.map((x, j) => (j === i ? { ...x, address: e.target.value } : x)) })} />
+                  {roleForm.mechanism.kind === "keepalived" && <select value={c.agent_id || ""} onChange={(e) => setRoleForm({ ...roleForm, candidates: roleForm.candidates.map((x, j) => (j === i ? { ...x, agent_id: e.target.value } : x)) })}><option value="">agent de l'hôte…</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.agent_id}</option>)}</select>}
+                  <button className="secondary pv-mini" onClick={() => setRoleForm({ ...roleForm, candidates: roleForm.candidates.filter((_, j) => j !== i) })}>✕</button></div>)}
+                  <button className="secondary pv-mini" onClick={() => setRoleForm({ ...roleForm, candidates: [...roleForm.candidates, { label: "", address: "" }] })}>+ candidat</button></div>
+                <div className="pv-inline"><button className="primary" onClick={saveRole} disabled={busy === "role"}>Enregistrer</button><button className="secondary" onClick={() => setRoleForm(null)}>Annuler</button></div>
+              </div>
+            )}
+            <AutoColumns id="PveOpsView.4"><table className="pv-table"><thead><tr><th>Rôle</th><th>Répond actuellement</th><th>Mécanisme</th><th>Dernière vérification</th><th>Basculer vers</th><th></th></tr></thead>
+              <tbody>{roles.map((r) => (
+                <tr key={r.id}><td><b>{r.name}</b>{r.service_url && <div className="muted">{r.service_url}</div>}</td><td>{r.candidates[r.active] ? `${r.candidates[r.active].label} (${r.candidates[r.active].address})` : "—"}{r.last_switch_at && <div className="muted">{r.last_switch_at.replace("T", " ").slice(0, 16)}</div>}</td>
+                  <td>{r.mechanism.kind === "mikrotik_nat" ? `NAT ${r.mechanism.router} ${r.mechanism.rule_id}` : r.mechanism.kind === "dns" ? `DNS ${r.mechanism.record}.${r.mechanism.zone}` : r.mechanism.kind === "keepalived" ? `VRRP ${r.mechanism.instance}` : "manuel"}</td>
+                  <td className={r.last_check?.checked ? (r.last_check.ok ? "pv-ok" : "pv-ko") : "muted"}>{r.last_check?.checked ? (r.last_check.ok ? `✔ HTTP ${r.last_check.status}` : `✘ ${r.last_check.error || "HTTP " + r.last_check.status}`) : "—"}</td>
+                  <td>{r.candidates.map((c, i) => i !== r.active && <button key={i} className="secondary pv-mini" disabled={busy === "switch"} onClick={() => doSwitch(r, i)} title={c.address}>{c.label}</button>)}</td>
+                  <td className="pv-actions"><button className="secondary pv-mini" onClick={() => doCheck(r)}>vérifier</button>{r.candidates.map((c, i) => i !== r.active && <button key={i} className="secondary pv-mini" onClick={() => addRoleStep(r, i)} title="ajouter la bascule au plan en cours">+ plan → {c.label}</button>)}
+                    <button className="secondary pv-mini" onClick={() => setRoleForm({ id: r.id, name: r.name, service_url: r.service_url, notes: r.notes, candidates: r.candidates, mechanism: { router: "", rule_id: "", ...r.mechanism } })}>éditer</button>
+                    <button className="secondary pv-mini pv-danger" onClick={async () => { if (window.confirm(`Supprimer le rôle « ${r.name} » ?`)) { const x = await deletePraRole(siAgentApiBase, r.id); if (x.error) setError(x.error); else load(); } }}>✕</button></td></tr>))}
+                {roles.length === 0 && <tr><td colSpan={6} className="muted">Aucun rôle déclaré.</td></tr>}</tbody></table></AutoColumns>
+          </div>
+          {plan && (
+            <div className="hub-card hub-settings-section">
+              <h2>{plan.id ? `Plan n°${plan.id}` : "Nouveau plan"}</h2>
+              <div className="pv-grid">
+                <div className="hub-settings-row"><label>Nom</label><input type="text" value={plan.name} onChange={(e) => setPlan({ ...plan, name: e.target.value })} /></div>
+                <div className="hub-settings-row"><label>Nature</label><select value={plan.kind} onChange={(e) => setPlan({ ...plan, kind: e.target.value })}><option value="pra">PRA (reprise d'activité)</option><option value="maintenance">maintenance</option><option value="bascule">bascule de rôle</option><option value="migration">migration</option></select></div>
+                <div className="hub-settings-row"><label>Notes</label><input type="text" value={plan.notes} onChange={(e) => setPlan({ ...plan, notes: e.target.value })} /></div>
+                <label className="pv-check"><input type="checkbox" checked={!!plan.continue_on_error} onChange={(e) => setPlan({ ...plan, continue_on_error: e.target.checked })} /> continuer malgré une étape en échec</label>
+                {(plan.rollback_steps || []).length > 0 && <label className="pv-check"><input type="checkbox" checked={!!plan.auto_rollback} onChange={(e) => setPlan({ ...plan, auto_rollback: e.target.checked })} /> retour en arrière automatique en cas d'échec ({plan.rollback_steps.length} étape(s) de retour)</label>}
+                <div className="hub-settings-row"><label>Déclencheur : perte de l'agent</label><select value={plan.trigger_agent_id || ""} onChange={(e) => setPlan({ ...plan, trigger_agent_id: e.target.value })}><option value="">aucun</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.node} ({h.agent_id})</option>)}</select></div>
+                {plan.trigger_agent_id && <div className="hub-settings-row"><label>À la perte</label><select value={plan.trigger_mode || "notify"} onChange={(e) => setPlan({ ...plan, trigger_mode: e.target.value })}><option value="notify">proposer le plan (événement notifié)</option><option value="auto">LANCER automatiquement (délai de garde ci-dessous)</option></select></div>}
+                {plan.trigger_agent_id && plan.trigger_mode === "auto" && <div className="hub-settings-row"><label>Délai de garde (s) entre deux lancements</label><input type="number" value={plan.trigger_cooldown_s || 3600} onChange={(e) => setPlan({ ...plan, trigger_cooldown_s: Number(e.target.value) })} /></div>}
+              </div>
+              <AutoColumns id="PveOpsView.5"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>Libellé</th><th></th></tr></thead>
+                <tbody>{plan.steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}</td><td><input type="text" value={s.label || ""} onChange={(e) => setPlan((p) => ({ ...p, steps: p.steps.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) }))} /></td>
+                  <td className="pv-actions"><button className="secondary pv-mini" onClick={() => moveStep(i, -1)}>↑</button><button className="secondary pv-mini" onClick={() => moveStep(i, 1)}>↓</button><button className="secondary pv-mini" onClick={() => setPlan((p) => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }))}>✕</button></td></tr>)}
+                  {plan.steps.length === 0 && <tr><td colSpan={4} className="muted">Aucune étape : choisissez une opération sur une VM à gauche puis « Ajouter au plan en cours ».</td></tr>}</tbody></table></AutoColumns>
+              {(plan.rollback_steps || []).length > 0 && <details className="pv-details"><summary>Retour en arrière : {plan.rollback_steps.length} étape(s)</summary><table className="pv-table"><tbody>{plan.rollback_steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}<div className="muted">{s.label}</div></td></tr>)}</tbody></table></details>}
+              <div className="pv-inline">
+                <button className="primary" onClick={savePlan} disabled={busy === "plan" || plan.steps.length === 0}>Enregistrer</button>
+                {plan.id && <button className="secondary" onClick={() => launch("simulate")} disabled={!!busy}>Simuler</button>}
+                {plan.id && <button className="secondary pv-danger" onClick={() => launch("execute")} disabled={!!busy || (run && run.status === "running")}>▶ Exécuter</button>}
+              </div>
+              {run && (<div className="pv-run"><h3>Exécution n°{run.id} ({run.mode === "rollback" ? `retour en arrière de la n°${run.parent_run_id}` : run.mode}) — <span className={run.status === "done" ? "pv-ok" : run.status === "failed" ? "pv-ko" : run.status === "paused" ? "pv-paused" : ""}>{run.status === "paused" ? "en transition (attente)" : run.status}</span> <span className="muted">{runSummary(run)}</span></h3>
+                {waitingStep(run) && <div className="pv-notice pv-transition">⏸ <b>{waitingStep(run).label}</b></div>}
+                {runActions(run, plan).length > 0 && <div className="pv-inline">
+                  {runActions(run, plan).includes("resume") && <button className="primary" onClick={resumeRun} disabled={!!busy}>▶ Reprendre</button>}
+                  {runActions(run, plan).includes("abort") && <button className="secondary pv-danger" onClick={abortRun} disabled={!!busy}>Abandonner{(plan.rollback_steps || []).length ? " (± retour)" : ""}</button>}
+                  {runActions(run, plan).includes("rollback") && <button className="secondary pv-danger" onClick={rollbackRun} disabled={!!busy}>↶ Retour en arrière</button>}
+                </div>}
+                <AutoColumns id="PveOpsView.6"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>État</th><th>Détail</th></tr></thead>
+                  <tbody>{run.steps.map((s, i) => <tr key={i} className={["failed", "timeout"].includes(s.status) || s.ok === false ? "pv-row-ko" : ""}><td>{s.index}</td><td>{stepText(s, roles)}</td>
+                    <td>{run.mode === "simulate" ? (s.ok ? "✔ prêt" : "✘") : s.status === "waiting" ? "⏸ attente" : s.status}</td><td className="muted">{s.error || s.result?.error || (s.hostname ? `${s.hostname}, vu ${(s.last_seen || "").replace("T", " ").slice(0, 16)}` : "") || s.result?.result?.stdout?.slice(0, 200) || ""}</td></tr>)}</tbody></table></AutoColumns>
+                {runs.length > 1 && <p className="muted">Historique : {runs.map((r) => <button key={r.id} className={`pv-mini ${run.id === r.id ? "pv-selected" : "secondary"}`} onClick={() => setRun(r)}>{r.mode === "simulate" ? "sim" : r.mode === "rollback" ? "retour" : "exéc"} {r.status} {(r.started_at || "").slice(5, 16).replace("T", " ")}</button>)}</p>}
+              </div>)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

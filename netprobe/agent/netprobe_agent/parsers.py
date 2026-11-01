@@ -255,6 +255,13 @@ def parse_iperf3_json(text):
     if data.get("error"):
         return {"ok": False, "error": str(data["error"])[:300]}
     end = data.get("end") or {}
+    udp = end.get("sum") if isinstance(end.get("sum"), dict) and "jitter_ms" in end.get("sum") else None
+    if udp is not None:   # #855 : flux UDP (type cast) -- débit, gigue, pertes
+        if udp.get("bits_per_second") is None:
+            return {"ok": False, "error": "résultat iperf3 UDP incomplet"}
+        return {"ok": True, "sent_mbps": round(udp["bits_per_second"] / 1e6, 2), "received_mbps": None, "retransmits": None,
+                "jitter_ms": round(float(udp.get("jitter_ms") or 0), 3), "loss_pct": round(float(udp.get("lost_percent") or 0), 2),
+                "lost": udp.get("lost_packets"), "packets": udp.get("packets")}
     sent = end.get("sum_sent") or {}
     recv = end.get("sum_received") or {}
     if sent.get("bits_per_second") is None and recv.get("bits_per_second") is None:

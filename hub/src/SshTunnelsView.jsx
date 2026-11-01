@@ -6,6 +6,7 @@ import {
   fetchMounts, createMount, deleteMount, mountAction, unmountAction, fetchMountStats,
 } from "./sshTunnelsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet ssh-tunnels (hub), livraison #175 -- interface pour
 // ssh-tunnels-api (#159, jusqu'ici accessible seulement via curl).
 // Quatre sections dans l'ordre logique d'usage : Clés (déjà en
@@ -310,7 +311,7 @@ export default function SshTunnelsView({ onBack, sshTunnelsApiBase, login }) {
                   ) : usageHistory[c.id].length === 0 ? (
                     <p className="muted">Aucun usage enregistré pour cette connexion.</p>
                   ) : (
-                    <table style={{ fontSize: 13 }}>
+                    <AutoColumns id="SshTunnelsView.1"><table style={{ fontSize: 13 }}>
                       <thead>
                         <tr><th>Date</th><th>Action</th><th>Auth.</th><th>Résultat</th><th>Durée</th></tr>
                       </thead>
@@ -329,7 +330,7 @@ export default function SshTunnelsView({ onBack, sshTunnelsApiBase, login }) {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></AutoColumns>
                   )}
                 </div>
               )}

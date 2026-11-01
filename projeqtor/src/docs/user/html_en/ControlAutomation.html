@@ -1,0 +1,818 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Controls &amp; Automation &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tools" href="Tools.html" />
+    <link rel="prev" title="List of Values" href="ListsOfValues.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Tools.html" title="Tools"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="List of Values"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Controls &amp; Automation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="automation">
+<span id="control-automation"></span><span id="index-0"></span><h1>Automation<a class="headerlink" href="#automation" title="Permalink to this heading">¶</a></h1>
+<p>The menu “controls and automatisms” allows to manage and parameterize efficiently and finely the triggering events as well as all that ensues from it… automatically.</p>
+<p>Sending mails, changes of status, status, loading of notes …</p>
+<section id="workflow">
+<span id="index-1"></span><span id="id1"></span><h2>Workflow<a class="headerlink" href="#workflow" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#profiles-definition"><span class="std std-ref">Profiles definition</span></a></p></li>
+</ul>
+</aside>
+<p>A workflow defines the possibility to go from one status to another one, and who (depending on profile) can do this operation for each status.</p>
+<p>Once defined, a workflow can be linked to any type of any item.</p>
+<p>It is possible to define some mandatory fields on some status change (in the definition of type of item or through the Screen Customization plugin).</p>
+<p>If a field is required for the transition from one status to another then you will be automatically redirected to the required field.</p>
+<p>Regardless of the layout and presentation of your screens.</p>
+<figure class="align-default" id="id8">
+<img alt="Workflow screen" src="_images/CONTROLAUTO_SCR_Workflow.png" />
+<figcaption>
+<p><span class="caption-text">Workflow screen</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Select status</p>
+<p>Click on <a class="reference internal" href="_images/iconParameter.png"><img alt="Parameter" src="_images/iconParameter.png" style="width: 19.05px; height: 19.2px;" /></a> to display the status list.</p>
+<figure class="align-center" id="id9">
+<img alt="Dialog box - Select status to show or hide" src="_images/CONTROLAUTO_BOX_SelectStatus.png" />
+<figcaption>
+<p><span class="caption-text">Select or hide status</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Choose the statuses to keep or hide by clicking on the checkboxes</p>
+<p class="rubric">Section List of types using this workflow</p>
+<p>List of all elements and objects related to this workflow</p>
+<figure class="align-default" id="id10">
+<img alt="List of types using this workflow" src="_images/CONTROLAUTO_ZONE_ListOfType.png" />
+<figcaption>
+<p><span class="caption-text">List of types using this workflow</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section Workflow Diagram</p>
+<p>The workflow diagram presents a visual representation of the workflow displaying all possible transitions (independently to profile rights).</p>
+<figure class="align-default" id="id11">
+<img alt="Workflow Diagram" src="_images/CONTROLAUTO_ZONE_WorkflowDiagram.png" />
+<figcaption>
+<p><span class="caption-text">Workflow Diagram</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section Habilitation to change from a status to another</p>
+<p>The habilitation table helps defining who can move from one status to another one.</p>
+<p>Each line corresponds to the status from which you want to be able to move.</p>
+<p>Each column corresponds to the status to which you want to be able to go.</p>
+<p>It is not possible to go from one status to itself (these cells are blank).</p>
+<p>Just check the profile (or “all”) who is allowed to pass from one status to the other.</p>
+<figure class="align-default" id="id12">
+<img alt="Habilitation table" src="_images/CONTROLAUTO_ZONE_WorkflowList.png" />
+<figcaption>
+<p><span class="caption-text">Habilitation table</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Make sure that it is still possible to transfer an item from one status to another. Because it is possible to get stuck on a status.</p>
+<p>Check the links so that there is still an outlet.</p>
+</section>
+<section id="email-templates">
+<span id="email-template"></span><span id="index-2"></span><h2>Email Templates<a class="headerlink" href="#email-templates" title="Permalink to this heading">¶</a></h2>
+<p>The user is able to format mails that are sent automaticaly on events.</p>
+<p>When using template, the standard email formating is replaced with selected one.</p>
+<p>Just define your templates, and select it on the “Mail on Events”</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#notif-on-event"><span class="std std-ref">Notifications on event</span></a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Field element updated and type</p>
+<p>If not set, the template is valid for every type of the element</p>
+<p>If element is set, only these elements will be able to select the template</p>
+<p>If <strong>element</strong> and <strong>type</strong> are defined, only elements of the corresponding type will be able to select the model of mail</p>
+</div>
+<p class="rubric">Specifics Tags on email template</p>
+<p>In the model, the user can use any property of the subject and display it in the mail using specific tags.</p>
+<figure class="align-default" id="id13">
+<img alt="specifics tags" src="_images/CONTROLAUTO_ZONE_SpecificTags.png" />
+<figcaption>
+<p><span class="caption-text">Specific tags</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You just need to use the tag <strong>${projectName}</strong> for the name of the project to appear and <strong>${idproject}</strong> to display the identification number of this one.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For properties referencing an external element, such as idXxxxx, use ${nameXxxxx}</p>
+</div>
+<p>Other tags are available as parameters for email titles</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="GlobalParameters.html#mail"><span class="std std-ref">Global Parameters</span></a></p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Some specific tags can also be used</strong></p>
+<ul class="simple">
+<li><p>${item} : class of the item</p></li>
+<li><p>${dbName} : display name of current instance</p></li>
+<li><p>${responsible} : synonym for ${nameResource}</p></li>
+<li><p>${sender} : name of user sending the email</p></li>
+<li><p>${project} : synonym for ${nameProject}</p></li>
+<li><p>${url} : url to get the direct link to the item</p></li>
+<li><p>${goto} : display Class and Id of item, clickable to have direct link to the item</p></li>
+</ul>
+<p><strong>Attached files</strong></p>
+<ul class="simple">
+<li><p>${allAttachments} : allow to add to your template all the attached files of the element</p></li>
+<li><p>${lastAttachment} : allow to add the last attached files to the element</p></li>
+</ul>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When sending all the files, the software retrieves the files one by one and this, in the order of insertion, from the most recent to the oldest attached file.</p>
+<p>If the maximum size allowed does not allow all files to be sent, then the software will stop until the maximum size is reached.</p>
+<p>If the last attached file saved in the software alone exceeds the maximum authorized size, then no file is sent.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This tags are available except in the mail title because they display a table</p>
+<ul class="simple">
+<li><p>${HISTORY} : displays the last change of an object.</p></li>
+<li><p>${HISTORYFULL} : display all the modifications</p></li>
+<li><p>${LINK} : list linked elements to the item</p></li>
+<li><p>${NOTE} : lists the element’s notes in tabular form</p></li>
+<li><p>${NOTESTD} : list notes in default format</p></li>
+</ul>
+</div>
+<p class="rubric">the Tags selector</p>
+<p>A tag selector is available under the text fields.</p>
+<figure class="align-default" id="id14">
+<img alt="Insert specific tags" src="_images/CONTROLAUTO_ZONE_InsertTAG.png" />
+<figcaption>
+<p><span class="caption-text">Insert specific tags</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Choose the tag you want to insert.</p></li>
+<li><p>Click on <kbd class="kbd docutils literal notranslate">insert</kbd></p></li>
+<li><p>The tag appears in the body of the text</p></li>
+</ul>
+</section>
+<section id="delays-for-tickets">
+<span id="delay-for-ticket"></span><span id="index-3"></span><h2>Delays for tickets<a class="headerlink" href="#delays-for-tickets" title="Permalink to this heading">¶</a></h2>
+<figure class="align-default" id="id15">
+<img alt="Delays for tickets screen" src="_images/CONTROLAUTO_SCR_DelayForTickets.png" />
+<figcaption>
+<p><span class="caption-text">Delays for tickets screen</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>It is possible to define a default delay for tickets, for each ticket type, each ticket urgency and for each status.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On creation, the due date will automatically be calculated as creation date + delay.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You determine what the status of the ticket will be for the timeframe you create.</p>
+<p>For the same ticket, you can have 2 days to take charge of it, 1 day to process it and 1 day to close it.</p>
+</div>
+<span class="target" id="index-4"></span><span class="target" id="index-5"></span><span class="target" id="index-6"></span></section>
+<section id="unit-indicators">
+<span id="indicator"></span><span id="index-7"></span><h2>Unit indicators<a class="headerlink" href="#unit-indicators" title="Permalink to this heading">¶</a></h2>
+<figure class="align-default" id="id16">
+<img alt="Indicators" src="_images/CONTROLAUTO_ZONE_Indicators.png" />
+<figcaption>
+<p><span class="caption-text">Indicators</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>It is possible to define indicators on most elements.
+You can set the indicators on:</p>
+<ul class="simple">
+<li><p>actions</p></li>
+<li><p>activities</p></li>
+<li><p>customer invoices</p></li>
+<li><p>customer invoice exchanges</p></li>
+<li><p>customer orders</p></li>
+<li><p>customer quotes</p></li>
+<li><p>individual expenses</p></li>
+<li><p>issues</p></li>
+<li><p>meetings</p></li>
+<li><p>milestones</p></li>
+<li><p>supplier orders</p></li>
+<li><p>projects</p></li>
+<li><p>project expenses</p></li>
+<li><p>supplier invoices</p></li>
+<li><p>supplier offers</p></li>
+<li><p>questions</p></li>
+<li><p>requirements</p></li>
+<li><p>risks</p></li>
+<li><p>payment deadlines to suppliers</p></li>
+<li><p>test sessions</p></li>
+<li><p>and finally the tickets</p></li>
+</ul>
+<p>Depending on type of elements the type of indicators that can be selected in list differs.</p>
+<p>Some indicators are based on delay (due date), some on work, others on cost.</p>
+<p>For each indicator, a warning value and an alert value can be defined in days or hours (working or not).</p>
+<p class="rubric">Indicator display</p>
+<p>On the Today screen, on the item summary lists, a color code is applied to the line if the item is subject to an indicator and is concerned by the alert values entered.</p>
+<figure class="align-default" id="id17">
+<img alt="Color code applied to lines whose elements are subject to indicators" src="_images/CONTROLAUTO_ZONE_IndicatorsToday.png" />
+<figcaption>
+<p><span class="caption-text">Color code applied to lines whose elements are subject to indicators</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>On the screen of an element subject to the indicators and whose values enter the alert zone, an icon is displayed in front of the description of the element.</p>
+<figure class="align-default" id="id18">
+<img alt="display of the indicator and the values applied to the element" src="_images/CONTROLAUTO_ZONE_IndicatorsElements.png" />
+<figcaption>
+<p><span class="caption-text">display of the indicator and the values applied to the element</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When you hover over the icon, the raised indicator on that item is displayed along with reminder and alerts values.</p>
+<p class="rubric">Mail receivers</p>
+<p>List of addresses of the mails.</p>
+<p>The list is not nominative, but defined as roles on the element.</p>
+<p>Each addressee will receive mail only once, even if a person has several “checked” roles on the element.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#receivers-list"><span class="std std-ref">Receivers list</span></a> for receivers detail.</p>
+</div>
+<p class="rubric">Internal alert and warning receivers</p>
+<p>List of addresses of the internal alert.</p>
+<p>The list is not nominative, but defined as roles on the element.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#receivers-list"><span class="std std-ref">Receivers list</span></a> for receivers detail.</p>
+</div>
+<span class="target" id="index-8"></span></section>
+<section id="predefined-notes">
+<span id="index-9"></span><span id="id2"></span><h2>Predefined notes<a class="headerlink" href="#predefined-notes" title="Permalink to this heading">¶</a></h2>
+<p>The predefined note set the possibility to define some predefined texts for notes.</p>
+<figure class="align-default" id="id19">
+<img alt="Predefined notes" src="_images/CONTROLAUTO_SCR_PredefinedNotes.png" />
+<figcaption>
+<p><span class="caption-text">Predefined notes</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When some predefined notes are defined for an element and / or type a list will appear on note creation.</p>
+<figure class="align-default" id="id20">
+<img alt="Predefined notes for ticket" src="_images/CONTROLAUTO_SCR_PredefinedNotes-Ticket.png" />
+<figcaption>
+<p><span class="caption-text">Predefined notes for ticket</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Selecting an item in the list will automatically fill in the note text field.</p>
+</section>
+<section id="checklists">
+<span id="checklist-definition"></span><span id="index-10"></span><h2>Checklists<a class="headerlink" href="#checklists" title="Permalink to this heading">¶</a></h2>
+<p>It is possible to define checklist forms for each element or each type of element.</p>
+<p>When a checklist form exists for a given element, the checklist is available only for the element.</p>
+<figure class="align-default" id="id21">
+<img alt="Checklist screen" src="_images/CONTROLAUTO_SCR_Checklist.png" />
+<figcaption>
+<p><span class="caption-text">Checklist screen</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A checklist is built from checklist lines.</p>
+<p>Each line has a name, an order and up to 5 check choices.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a>  to create a new checklist line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to update an existing checklist line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the corresponding checklist line.</p></li>
+</ul>
+<figure class="align-default" id="id22">
+<img alt="Dialog box - Choices for the checklist lines" src="_images/CONTROLAUTO_BOX_ChoicesForChecklistLines.png" />
+<figcaption>
+<p><span class="caption-text">Choices for the checklist lines</span><a class="headerlink" href="#id22" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A line with no check choice will be displayed as a <strong>section title</strong>.</p>
+<p>Name and Choices have 2 fields :</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Displayed caption.</p></li>
+<li><p>Help text that will be displayed as tooltip.</p></li>
+</ol>
+</div></blockquote>
+<p>Checks can be exclusive (select one will unselect others) or not (multi selection is then possible).</p>
+</section>
+<section id="kpi-definitions">
+<span id="index-11"></span><span id="id3"></span><h2>KPI definitions<a class="headerlink" href="#kpi-definitions" title="Permalink to this heading">¶</a></h2>
+<p>A performance indicator or key performance indicator (KPI) is a type of performance measurement.</p>
+<p>It is possible to define Kpi on incomings and deliverables items.</p>
+<figure class="align-default" id="id23">
+<img alt="KPI Definition screen" src="_images/CONTROLAUTO_SCR_KPIDefinition.png" />
+<figcaption>
+<p><span class="caption-text">KPI Definition screen</span><a class="headerlink" href="#id23" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Description integrates the formula used to calculate the KPI.</p>
+</div>
+<p class="rubric">Section Tresholds</p>
+<p>It is possible to attributes tresholds lines to KPI.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a>  to create a new JobList line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to update an existing JobList line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the corresponding JobList line.</p></li>
+</ul>
+<figure class="align-default">
+<img alt="_images/CONTROLAUTO_KpiTresholds.png" src="_images/CONTROLAUTO_KpiTresholds.png" />
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Keep in mind KPI is an indicator of performance at project level (opposite to indicator which is calculated at item level).</p>
+<p>To display the indicator, use Kpi report. See: <a class="reference internal" href="Report.html#report"><span class="std std-ref">Reports</span></a></p>
+</div>
+<figure class="align-default" id="id24">
+<img alt="List of KPI Reports" src="_images/CONTROLAUTO_ZONE_KpiReport.png" />
+<figcaption>
+<p><span class="caption-text">List of KPI Reports</span><a class="headerlink" href="#id24" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="joblist">
+<span id="index-12"></span><span id="id4"></span><h2>JobList<a class="headerlink" href="#joblist" title="Permalink to this heading">¶</a></h2>
+<p>The JobList can be used for each item or item type</p>
+<p>It is generally used to detail an activity or a ticket.</p>
+<figure class="align-default" id="id25">
+<img alt="creation of a job list" src="_images/CONTROLAUTO_ZONE_JoblistCreation.png" />
+<figcaption>
+<p><span class="caption-text">Creation of a job list</span><a class="headerlink" href="#id25" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>It also acts as an indicator to monitor compliance with date values thanks to the lead time of tasks.</p>
+<p class="rubric">Section JobList lines</p>
+<p>A JobList is built from JobList lines.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a>  to create a new JobList line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to update an existing JobList line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the corresponding JobList line.</p></li>
+</ul>
+<p class="rubric">Task anticipation delay .</p>
+<p>This deadline is fixed for each step created in the joblist. It works with planned dates. It is not compulsory</p>
+<p>These lead times are calculated in calendar days from the last day of the planned item.</p>
+<figure class="align-default" id="id26">
+<img alt="Joblist anticipation delay" src="_images/CONTROLAUTO_ZONE_Joblist.png" />
+<figcaption>
+<p><span class="caption-text">Joblist colors anticipation delay</span><a class="headerlink" href="#id26" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A color code allows you to anticipate these dates</p>
+<ul class="simple">
+<li><p><strong>White:</strong> Without anticipation delay</p></li>
+<li><p><strong>Green:</strong> Check the box to indicate that this step has been completed. The dot turns green.</p></li>
+<li><p><strong>Orange:</strong> You enter the anticipation period</p></li>
+<li><p><strong>Red:</strong> you have exceeded this deadline</p></li>
+</ul>
+<p>When the list is created and displayed on the item screen, you can change the planned end dates to validated end dates.</p>
+<p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit the responsible and the validated end date.</p>
+</section>
+<section id="input-mailbox-for-import">
+<span id="import-mailbox"></span><span id="index-13"></span><h2>Input mailbox for import<a class="headerlink" href="#input-mailbox-for-import" title="Permalink to this heading">¶</a></h2>
+<p>With automatic import mailboxes, you transfer a file to be imported via email.</p>
+<ul class="simple">
+<li><p>Configure an import mailbox that will not insert an item but read the attached file (CSV or XLSX)</p></li>
+<li><p>import it as if it had been placed in the automatic import directory.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The attached file will be in the format “Class_XXXXXXXX.xlsx” or “Class_XXXXXXXX.csv”.</p>
+<p>Class is the class of the items to be imported.</p>
+<p>XXXXXXXX is a timestamp used to distinguish the files (typically YYYYMMDD).</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Unlike automatic import, which is based on a directory, the timestamp will not be used to order the files to be imported; the order in which the emails are received will determine this order.</p>
+</div>
+<p>The sending email must be known and correspond to a user who has the right to create items of the class to be imported.</p>
+<p>The import must be performed with the rights of this user.</p>
+<p>This means that a project manager who imports activities will only be able to create activities on their own projects.</p>
+<p>The results of the import will be returned by email to the sender’s address. The format will be identical to the manual import format.</p>
+</section>
+<section id="notifications">
+<span id="index-14"></span><span id="id5"></span><h2>Notifications<a class="headerlink" href="#notifications" title="Permalink to this heading">¶</a></h2>
+<p>You must activate the notifications module to display the corresponding screens</p>
+<p>ProjeQtOr offers 2 systems to generate alerts or reminders: definition of notifications and manual notifications from the tools menu</p>
+<p>Notification definition in control and automation menu allows you to create notifications about events</p>
+<section id="event-notifications">
+<span id="notif-on-event"></span><span id="index-15"></span><h3>Event Notifications<a class="headerlink" href="#event-notifications" title="Permalink to this heading">¶</a></h3>
+<p>The app is able to automatically send internal emails or notifications when an item is updated.</p>
+<p>Events are defined on an element and/or an element type.</p>
+<p>If the type field is not defined, the event is valid for each type of the element.</p>
+<p class="rubric">For emails</p>
+<p>The email message is formatted to show information about the item.</p>
+<p>Selecting a template, will use the formatting from the template instead of the default standard formatting.</p>
+<p>Email titles are defined in <a class="reference internal" href="GlobalParameters.html#mail-titles"><span class="std std-ref">Global parameters</span></a>.</p>
+<p class="rubric">For notifications</p>
+<p>You can use the notifications generated by your browser or the internal notifications of ProjeQtOr.</p>
+<p>When opening the application in your browser, you will be offered an authorization message for the display of ProjeQtOr notifications.</p>
+<p>After acceptance, notifications from your browser will replace internal notifications.</p>
+<p>You will see notifications from your desktop even if you are not directly on the app.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You must allow notifications from your browser in your operating system settings.</p>
+<p>The ProjeQtOr application must be running in the background to continue receiving notifications.</p>
+</div>
+<figure class="align-default" id="id27">
+<img alt="browser message to allow notifications" src="_images/CONTROLAUTO_ZONE_ShowNotification.png" />
+<figcaption>
+<p><span class="caption-text">browser message to allow notifications</span><a class="headerlink" href="#id27" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Description section</p>
+<p>In the description section you will detail what will be the levers to trigger the sending of an email.</p>
+<p>Status is one of these levers. Positioning items in the chosen status will generate an email.</p>
+<p>Or choose any other event in the drop-down list.</p>
+<figure class="align-default" id="id28">
+<img alt="Events list" src="_images/CONTROLAUTO_ZONE_ListEvent.png" />
+<figcaption>
+<p><span class="caption-text">Events list</span><a class="headerlink" href="#id28" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Receivers Section</p>
+<p>List of addresses of the mails.</p>
+<p>The list is not nominative, but defined as roles on the element.</p>
+<p>Each addressee will receive mail only once, even if a person has several “checked” roles on the element.</p>
+<figure class="align-default" id="id29">
+<img alt="Receivers section" src="_images/CONTROLAUTO_ZONE_ReceiversSection.png" />
+<figcaption>
+<p><span class="caption-text">Receivers section</span><a class="headerlink" href="#id29" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#receivers-list"><span class="std std-ref">Receivers list</span></a> for receivers detail.</p>
+</div>
+</section>
+<section id="manual-notification">
+<span id="index-16"></span><span id="id6"></span><h3>Notifications<a class="headerlink" href="#manual-notification" title="Permalink to this heading">¶</a></h3>
+<p>You can defined manually notifications in this screen.</p>
+<figure class="align-default" id="id30">
+<img alt="Notifications" src="_images/TOOLS_SCR_Notifications.png" />
+<figcaption>
+<p><span class="caption-text">Notifications</span><a class="headerlink" href="#id30" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You receive notifications as soon as you authenticate on the login screen</p>
+<figure class="align-default">
+<img alt="Connection screen with notification" src="_images/TOOLS_ZONE_ConnectionNotif.png" />
+</figure>
+<p>When you are logged in, you have a reminder at the top of the screen.</p>
+<p>You have the number of unread notifications</p>
+<p>Hover over it for the list of notifications to appear</p>
+<p>A slight color line in front of the name indicates the type of notification</p>
+<ul class="simple">
+<li><p>Red = alert</p></li>
+<li><p>Blue = information</p></li>
+<li><p>Yellow = warning</p></li>
+</ul>
+<p>you can create as many types as you want and customize the colors to your liking.</p>
+<p>Click on the title of the notification to display its detail screen.</p>
+<p>Click on the <a class="reference internal" href="_images/iconNotification.png"><img alt="Notification" src="_images/iconNotification.png" style="width: 19.2px; height: 19.2px;" /></a> to make the notification disappear and set it to “read” status.</p>
+<figure class="align-default" id="id31">
+<img alt="list of notifications on the information bar" src="_images/TOOLS_ZONE_NotificationList.png" />
+<figcaption>
+<p><span class="caption-text">List of notifications on the information bar</span><a class="headerlink" href="#id31" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can also display the notification in the part below the menu.</p>
+<figure class="align-default" id="id32">
+<img alt="Notification area" src="_images/CONTROLAUTO_ZONE_NotifRecap.png" />
+<figcaption>
+<p><span class="caption-text">Notifications</span><a class="headerlink" href="#id32" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#secondarymenu-notifications"><span class="std std-ref">Secondary menu - Notifications section</span></a></p>
+</div>
+<p>Click on an unread notification for discover the details.</p>
+<ul>
+<li><p>The first icon indicates the type of notification.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="_images/iconInfo.png"><img alt="infos" src="_images/iconInfo.png" style="width: 19.2px; height: 19.2px;" /></a> type information</p></li>
+<li><p><a class="reference internal" href="_images/iconWarning.png"><img alt="Warning" src="_images/iconWarning.png" style="width: 19.2px; height: 19.2px;" /></a> type Warning</p></li>
+<li><p><a class="reference internal" href="_images/iconAlert.png"><img alt="Alert" src="_images/iconAlert.png" style="width: 19.2px; height: 19.2px;" /></a> type alert</p></li>
+<li><p><a class="reference internal" href="_images/iconSum.png"><img alt="Sum" src="_images/iconSum.png" style="width: 19.2px; height: 19.2px;" /></a> sum - Records all the type</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>The second icon indicates how the notification was created</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>System Notification <a class="reference internal" href="_images/iconNotificationSystem.png"><img alt="Notification" src="_images/iconNotificationSystem.png" style="width: 19.2px; height: 19.2px;" /></a></p></li>
+<li><p>Manual Notification <a class="reference internal" href="_images/iconNotificationManual.png"><img alt="Notification manual" src="_images/iconNotificationManual.png" style="width: 19.2px; height: 19.2px;" /></a></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>The third icon indicates if the notification has a definition.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Notification definition <a class="reference internal" href="_images/iconNotificationDefinition.png"><img alt="Notification" src="_images/iconNotificationDefinition.png" style="width: 19.2px; height: 19.2px;" /></a></p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#notification-system"><span class="std std-ref">Notification definition</span></a></p>
+</div>
+<ul class="simple">
+<li><p>Click on the fourth icon for display the detail of the notification</p></li>
+</ul>
+</section>
+<section id="notification-definition">
+<span id="notification-system"></span><h3>Notification definition<a class="headerlink" href="#notification-definition" title="Permalink to this heading">¶</a></h3>
+<p>This system allows you to generate notifications or according to very “powerful” rules (defined as “where” clauses).</p>
+<p>If it is generated by the notification system, it is linked to an element of the system (Action, Invoice, …).</p>
+<figure class="align-default" id="id33">
+<img alt="Notifications system screen" src="_images/CONTROLAUTO_SCR_NotificationsSystem.png" />
+<figcaption>
+<p><span class="caption-text">Notifications system screen</span><a class="headerlink" href="#id33" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Creation</p>
+<p><strong>The definition of notification generation is based on the following:</strong></p>
+<ul class="simple">
+<li><p>The title that can contain the field values of the notifiable element or its sub-elements</p></li>
+<li><p>The element of the system that determines the notification, called “Notifiable Element” (notifiable)</p></li>
+<li><p>The type of notification (Alert, Warning, Information)</p></li>
+<li><p>The notification rule notifying the elements related to the generation of a notification</p></li>
+<li><p>The content may also contain the field values of the notifiable element or its sub-elements.</p></li>
+<li><p>The date (referred to as the reference date) at which the notification must be generated. This is one of the dates of the notifiable item that is not the creation date.</p></li>
+<li><p>The generated notification receivers. Fields of the notifiable element or its sub-elements that refer to users.</p></li>
+<li><p>The choice to send, or not, to all the sending of emails at the same time as the notifications.</p></li>
+</ul>
+<p class="rubric">Notification title</p>
+<p>This section allows you to give a title to your notification.</p>
+<p>This title will be the object of the programmed mail if you tick the box <strong>send an email</strong> in the receivers section</p>
+<p>You can add dynamic fields with <strong>help to insert a dynamic field in the title</strong></p>
+<p>The title of the notification can therefore contain fields of the “notifiable” object and its linked elements via an idXXX.</p>
+<p>Where XXX is the name of the linked item.</p>
+<p>Select an object and / or a field and click the Insert button so that the dynamic field with the correct syntax fits directly in the title, where the cursor is.</p>
+<p>In this case, the syntax must be: <cite>#{the name of the field}</cite> …</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>#{billId} - Invoice not paid - Sent on #{sendDate}
+If the rule (see below) of the instruction on the invoice of ‘billId’ 2019-12-30-0001 whose sending date is 30-12-2019
+then the title of the notification will be:</p>
+<p><strong>2019-12-30-0001 - Invoice not paid - Submitted on 12-30-2019</strong></p>
+</div>
+<p class="rubric">Rule to apply</p>
+<figure class="align-default" id="id34">
+<img alt="Notifications rules" src="_images/CONTROLAUTO_ZONE_NotificationsRules.png" />
+<figcaption>
+<p><span class="caption-text">Notifications rules</span><a class="headerlink" href="#id34" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>This rule determines which instance of the item will generate a notification.</p>
+<p>The syntax is the one we take for a WHERE clause in an SQL statement.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Scheduling a notification for all invoices where the amount has been paid = total amount AND project name ‘ACME’</p>
+<p>#{paymentAmount} &lt; #{fullAmount}
+AND
+#{idProject.name} = ‘ACME’
+AND
+isnull (#{paymentDate)</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The rule to apply is not mandatory. If the rule is empty, then only the reference date is used to determine whether or not a notification is generated.</p>
+<p>In addition to choosing a dynamic field, you can choose to use an operator or function with the following elements:</p>
+</div>
+<p class="rubric">Notification content</p>
+<p>This section is mandatory.</p>
+<p>You can also add dynamic fields with <strong>help to insert a dynamic field in content</strong> in the same way as in the description section.</p>
+<p class="rubric">Section Start at</p>
+<figure class="align-default" id="id35">
+<img alt="Start as section" src="_images/CONTROLAUTO_ZONE_StartAS.png" />
+<figcaption>
+<p><span class="caption-text">Start as section</span><a class="headerlink" href="#id35" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>this section allows you to program the frequency of the notification display</p>
+<p><strong>The reference date</strong></p>
+<ul class="simple">
+<li><p>Date on witch will be generate the notification (minus the number of days or minutes programmed before)</p></li>
+<li><p>Notify before: This is a number of days before the notification date for which the notification is to be generated</p></li>
+<li><p>This field is mandatory</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Example “delivery expected date” is selected.</p>
+<p>For all deliverables that do not follow the previous rule, a notification will be generated if the delivery date is not respected.</p>
+</div>
+<p><strong>Every year</strong></p>
+<ul class="simple">
+<li><p>If the year is checked, the generator is a notification every year to the month and the day of the reference date</p></li>
+<li><p>If the year is checked, the month and day filled, then it is a birthday. The reference date will not be used.</p></li>
+</ul>
+<p><strong>Every month / Week / Open day</strong></p>
+<ul class="simple">
+<li><p>Is selected, responsive notifications will be generate monthly / weekly or each open day</p></li>
+</ul>
+<p class="rubric">Receivers</p>
+<p>In this field, enter the recipients who will receive the generated notification. The list of recipients must be separated by a semicolon. (Ex: idUser; idContact)</p>
+<p>You can also directly choose some of the participants of your elements in the proposed lists. Choose the proposed element in the list of objects, the following list adapts according to the latter, select the right contact. The information of the latter will be retrieved on the right project and element when generating the notification.</p>
+<p>If <strong>Email sent</strong> is checked, an email will be generated even if the notification for each type of person has been defined.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><strong>Global Parameters</strong> <a class="reference internal" href="GlobalParameters.html#automated-service"><span class="std std-ref">Management of automated service (CRON)</span></a></p>
+<p>Gives in seconds, the time interval between two generations of notification (and the Cron system is active)</p>
+<p>and between two the refresh of notifications on the HMI.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>The authorizations</strong></p>
+<p>The access rights for the ‘notification’ menu were given to the ‘standard’ projeqtor profiles (idProfile = 1 to 7) with the CRUD rights reader only</p>
+<p>The access rights for the ‘notification definition’ menu have been given for the administrator profile (idProfile = 1)with the CRUD rights modifiers</p>
+</div>
+</section>
+<section id="notification-and-the-ihm">
+<h3>Notification and the IHM<a class="headerlink" href="#notification-and-the-ihm" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id36">
+<img alt="notification on the login screen" src="_images/CONTROLAUTO_BOX_IHMNotif.png" />
+<figcaption>
+<p><span class="caption-text">Notification on the login screen</span><a class="headerlink" href="#id36" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>After logging in, a message generated after “Login accepted” that tells you that you have unread notifications:</p>
+<p class="rubric">Display of unread notifications</p>
+<p>It is done at 2 levels on the main screen:</p>
+<p>A notification icon appears as soon as a notification is not intended for the user.</p>
+<p>Clicking on the icon gives direct access to the notifications screen.</p>
+<figure class="align-default" id="id37">
+<img alt="notification area" src="_images/CONTROLAUTO_ZONE_IconNotif.png" />
+<figcaption>
+<p><span class="caption-text">Notifications</span><a class="headerlink" href="#id37" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>And in the secondary menu.</p>
+<figure class="align-default" id="id38">
+<img alt="notification area" src="_images/CONTROLAUTO_ZONE_NotifRecap.png" />
+<figcaption>
+<p><span class="caption-text">Notifications</span><a class="headerlink" href="#id38" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A tree whose title indicates the number of unread notifications intended for the user.</p>
+<p><strong>This tree has the following levels:</strong></p>
+<ul class="simple">
+<li><p><strong>Level 1:</strong> The types of notifications</p></li>
+<li><p><strong>Level 2:</strong> The trigger for notifications</p></li>
+<li><p><strong>Level 3:</strong> The Notification Definition to Product Notifications</p></li>
+<li><p><strong>Level 4:</strong> The id of the element that generated the notification. Allows direct access to the item.</p></li>
+</ul>
+<p>The icon <a class="reference internal" href="_images/iconRefresh.png"><img alt="Refresh" src="_images/iconRefresh.png" style="width: 19.2px; height: 19.2px;" /></a> allows you to refresh notifications without waiting for the scheduled update.</p>
+<p>The icon <a class="reference internal" href="_images/iconNotification.png"><img alt="Notification" src="_images/iconNotification.png" style="width: 19.2px; height: 19.2px;" /></a> provides direct access to the notifications screen.</p>
+<p>Numbers indicate the number of unread notifications</p>
+<span class="target" id="index-17"></span></section>
+<section id="receivers-list">
+<span id="index-18"></span><span id="id7"></span><h3>Receivers list<a class="headerlink" href="#receivers-list" title="Permalink to this heading">¶</a></h3>
+<p>Receivers can receive email and alert.</p>
+<p>A description of receivers below.</p>
+<p class="rubric">Requestor</p>
+<p>The contact defined as <a class="reference internal" href="Glossary.html#term-Requestor"><span class="xref std std-term">requestor</span></a> on current item; sometimes appears as “contact” (on quotation and order, for instance) and sometimes have no meaning (for instance for milestone).</p>
+<p class="rubric">Issuer</p>
+<p>The user defined as <a class="reference internal" href="Glossary.html#term-Issuer"><span class="xref std std-term">Issuer</span></a>.</p>
+<p class="rubric">Responsible</p>
+<p>The resource defined as <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">responsible</span></a>.</p>
+<p class="rubric">Project team</p>
+<p>All resources allocated to the project.</p>
+<p class="rubric">Global project team</p>
+<p>All the resources allocated to the project and those of the parent projects.</p>
+<p class="rubric">Project leader</p>
+<p>The resource(s) allocated to the project with a “Project Leader” profile.</p>
+<p class="rubric">Project manager</p>
+<p>The resource defined as the manager on a project.</p>
+<p class="rubric">Assigned resource</p>
+<p>All resources assigned.</p>
+<p class="rubric">Other</p>
+<p>Provides an extra field to manually enter email addresses.</p>
+<p>If “other” is checked, an input box is displayed to enter a static mail address list.</p>
+<p>Several addresses can be entered, separated by semicolon.</p>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Automation</a><ul>
+<li><a class="reference internal" href="#workflow">Workflow</a></li>
+<li><a class="reference internal" href="#email-templates">Email Templates</a></li>
+<li><a class="reference internal" href="#delays-for-tickets">Delays for tickets</a></li>
+<li><a class="reference internal" href="#unit-indicators">Unit indicators</a></li>
+<li><a class="reference internal" href="#predefined-notes">Predefined notes</a></li>
+<li><a class="reference internal" href="#checklists">Checklists</a></li>
+<li><a class="reference internal" href="#kpi-definitions">KPI definitions</a></li>
+<li><a class="reference internal" href="#joblist">JobList</a></li>
+<li><a class="reference internal" href="#input-mailbox-for-import">Input mailbox for import</a></li>
+<li><a class="reference internal" href="#notifications">Notifications</a><ul>
+<li><a class="reference internal" href="#event-notifications">Event Notifications</a></li>
+<li><a class="reference internal" href="#manual-notification">Notifications</a></li>
+<li><a class="reference internal" href="#notification-definition">Notification definition</a></li>
+<li><a class="reference internal" href="#notification-and-the-ihm">Notification and the IHM</a></li>
+<li><a class="reference internal" href="#receivers-list">Receivers list</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="ListsOfValues.html"
+                          title="previous chapter">List of Values</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Tools.html"
+                          title="next chapter">Tools</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Tools.html" title="Tools"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="List of Values"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Controls &amp; Automation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

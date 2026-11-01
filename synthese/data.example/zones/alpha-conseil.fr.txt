@@ -1,0 +1,5 @@
+$ORIGIN alpha-conseil.fr.
+@ 3600 IN SOA ns0.online.net. hostmaster.alpha-conseil.fr. 2026091108 10800 3600 604800 3600
+@ 3600 IN NS ns0.online.net.
+urvp 14400 IN A 198.51.100.20 OK
+u2rv 14400 IN A 198.51.100.21 OK

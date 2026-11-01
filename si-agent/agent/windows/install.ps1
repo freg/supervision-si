@@ -1,4 +1,4 @@
-<#
+﻿<#
 si-agent -- installation sous Windows 10 / 11 (livraison #440).
 Usage (PowerShell en administrateur, depuis le dossier de l'archive) :
   .\windows\install.ps1 -Agent ID -Secret SECRET -Central https://VM:6443/api/si-agent -Site siege `
@@ -18,27 +18,38 @@ Rien d'autre n'est modifié sur le poste. Désinstallation : .\windows\uninstall
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$Agent,
-  [Parameter(Mandatory = $true)][string]$Secret,
-  [Parameter(Mandatory = $true)][string]$Central,
+  [string]$Agent,
+  [string]$Secret,
+  [string]$Central,
+  [switch]$Upgrade,   # #522 : code et tâche planifiée seulement, agent.json conservé
   [string]$Site = "default",
   [string]$Ca,
   [string]$CaFingerprint,
   [switch]$Insecure,
+  [string]$EnrollToken,   # #616 : enrôlement par jeton de site (agent nommé d'après la machine, secret délivré ici)
+  [switch]$SystemCa,      # #616 : central au certificat public (frontal Let's Encrypt) : magasin Windows, pas de CA épinglée
+  [string]$Fallback,      # #904 : central de SECOURS pour l'itinérance (ex. nom public joignable d'Internet quand le LAN/VPN est absent)
+  [string]$FallbackCa,    # #904 : confiance TLS du secours (défaut : magasin système si le secours est public, CA interne si interne)
   [string[]]$EnablePlugin = @(),
   [string]$LogLevel = "INFO",
   [string]$InstallDir = (Join-Path $env:ProgramFiles "si-agent"),
   [string]$DataDir = (Join-Path $env:ProgramData "si-agent"),
   [string]$PythonUrl = "https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip",
   [switch]$NoDownload,
-  [string]$TaskName = "si-agent"
+  [string]$TaskName = "si-agent",
+  [switch]$Relance        # #918 : instance relancée hors de la tâche de l'agent (usage interne)
 )
 $ErrorActionPreference = "Stop"
-$Central = $Central.TrimEnd("/")
+if (-not $Upgrade -and -not $EnrollToken -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -EnrollToken + -Central, ou -Upgrade pour une mise à jour)" }
+if ($EnrollToken -and -not $Central) { throw "-EnrollToken exige -Central <URL du central>" }
+if ($Central) { $Central = $Central.TrimEnd("/") }
+# #824 : « a,b » en une seule chaîne (MSI, -File) -> liste
+$EnablePlugin = @($EnablePlugin | ForEach-Object { "$_" -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "à lancer dans une console PowerShell « Exécuter en tant qu'administrateur »" }
-if (-not $Ca -and -not $CaFingerprint -and -not $Insecure) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt> ou -Insecure (dépannage seulement)" }
+# #824 : -Upgrade (mise à jour automatique #522, MSI) garde la CA déjà installée -- ce contrôle la refusait toujours
+if (-not $Upgrade -and -not $Ca -and -not $CaFingerprint -and -not $Insecure -and -not $SystemCa) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt>, -SystemCa (certificat public) ou -Insecure (dépannage seulement)" }
 # Racine de l'archive (si_agent\, plugins\, windows\) : à côté de windows\ en principe ;
 # sinon (#449, premier essai réel) on cherche autour -- dossier du script, dossier courant,
 # et deux niveaux de sous-dossiers (archive décompressée dans un dossier du même nom,
@@ -98,6 +109,42 @@ if (-not $PythonExe) {
   Write-Host "Python embarqué installé : $PythonExe"
 }
 
+# --- 1a. mise à jour lancée PAR L'AGENT : se relancer hors de sa tâche (#918) ---------------
+# L'agent (tâche « si-agent », compte SYSTEM) lance l'installeur dans le « job » Windows de sa tâche : l'arrêt de la
+# tâche (#914, plus bas) tuait l'installeur avec l'agent -> « installeur lancé, sans effet » (pc-paul, 0.6.17 -> 0.6.21).
+# Sous SYSTEM, on se relance donc dans une tâche ponctuelle indépendante « <TaskName>-update » et on rend la main.
+# Lancé à la main par un administrateur, l'installeur n'est dans aucun job : il continue directement.
+if ($Upgrade -and -not $Relance -and [Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) {
+  $relLog = Join-Path $DataDir "update-relance.log"
+  $relArgs = "-NoProfile -ExecutionPolicy Bypass -Command `"& '$PSCommandPath' -Upgrade -Relance *> '$relLog'`""
+  $relAct = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $relArgs
+  $relPri = New-ScheduledTaskPrincipal -UserId "S-1-5-18" -LogonType ServiceAccount -RunLevel Highest
+  $relSet = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+  Register-ScheduledTask -TaskName "$TaskName-update" -Action $relAct -Principal $relPri -Settings $relSet -Force | Out-Null
+  Start-ScheduledTask -TaskName "$TaskName-update"
+  Write-Host "mise a jour relancee hors de la tache $TaskName (tache ponctuelle $TaskName-update, journal $relLog)"
+  exit 0
+}
+
+# --- 1b. mise à jour : ARRÊTER l'agent AVANT de copier ses fichiers (#914) --------------
+# L'agent tourne encore et python.exe verrouille ses .py sous $InstallDir : sans cet arrêt la copie ci-dessous
+# échoue en silence (journal vide, version inchangée) et le central replanifie la MAJ toutes les 6 h -- boucle
+# constatée sur pc-paul, résolue en arrêtant l'agent avant la copie (0.6.15 -> 0.6.17). Lancé par l'agent, l'installeur
+# s'est d'abord relancé hors de la tâche (1a, #918) : cet arrêt ne le tue donc pas. Filet : toute erreur terminante pendant un -Upgrade relance l'agent (la tâche
+# existe toujours) pour ne jamais laisser le poste sans agent.
+trap {
+  if ($Upgrade) {
+    Write-Host "ERREUR pendant la mise a jour : $($_.Exception.Message) -- relance de l'agent"
+    try { Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue } catch { }
+  }
+  break
+}
+if ($Upgrade) {
+  Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+}
+
 # --- 2. fichiers -----------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $InstallDir, $DataDir, (Join-Path $DataDir "plugins") | Out-Null
 foreach ($d in @("si_agent", "plugins")) {
@@ -106,6 +153,27 @@ foreach ($d in @("si_agent", "plugins")) {
   Copy-Item -LiteralPath (Join-Path $Src $d) $dst -Recurse -Force
 }
 Get-ChildItem $InstallDir -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+# #852 : sondes livrées -> dossier des sondes de l'agent (plugins_dir = <DataDir>\plugins), comme install.sh ; jusqu'ici
+# elles restaient dans <InstallDir>\plugins, invisibles de l'agent (aucune sonde proposée sur un poste Windows).
+# Sonde déjà présente : code remis à jour, état local conservé (enabled, blocked, args) ; sonde du central : intouchée.
+$plugSrc = Join-Path $Src "plugins"
+if (Test-Path $plugSrc) {
+  foreach ($pd in Get-ChildItem $plugSrc -Directory) {
+    $dst = Join-Path (Join-Path $DataDir "plugins") $pd.Name
+    $mf = Join-Path $dst "manifest.json"
+    $old = $null
+    if (Test-Path $mf) { try { $old = Get-Content $mf -Raw | ConvertFrom-Json } catch { $old = $null } }
+    if ($old -and $old.source -and $old.source -ne "bundled") { continue }
+    if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+    Copy-Item -LiteralPath $pd.FullName $dst -Recurse -Force
+    if ($old) {
+      $new = Get-Content $mf -Raw | ConvertFrom-Json
+      foreach ($k in @("enabled", "blocked", "args")) { if ($old.PSObject.Properties.Name -contains $k) { $new | Add-Member -Force NoteProperty $k $old.$k } }
+      [IO.File]::WriteAllText($mf, ($new | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+    }
+  }
+  Write-Host "sondes livrées : $((Get-ChildItem $plugSrc -Directory).Count) dans $(Join-Path $DataDir 'plugins') (désactivées tant qu'elles ne sont pas activées)"
+}
 Copy-Item $PSScriptRoot\uninstall.ps1 (Join-Path $InstallDir "uninstall.ps1") -Force
 
 # --- 3. CA du central ----------------------------------------------------------------
@@ -144,9 +212,39 @@ public static class SiAgentTrustAll {
   Write-Host "CA du central vérifiée ($($got.Substring(0,16))) et installée"
 } elseif ($Ca) {
   Copy-Item $Ca $caFile -Force
+} elseif ($SystemCa) {
+  # #682 : certificat public -- le Python de l'agent ne voit pas les racines téléchargées à la demande par Windows
+  # (AuthRoot, ex. ISRG Root X2) : faisceau PEM chaîne du central + magasins de la machine, régénéré par l'agent au besoin
+  & (Join-Path $PSScriptRoot "central-ca.ps1") -Central $Central -Out $caFile
+}
+Copy-Item (Join-Path $PSScriptRoot "central-ca.ps1") (Join-Path $InstallDir "central-ca.ps1") -Force
+
+# --- 3 bis. enrôlement par jeton (#616) : le central nomme l'agent d'après la machine et délivre le secret ---
+if ($EnrollToken -and -not $Upgrade) {
+  $payload = @{ token = $EnrollToken; hostname = $env:COMPUTERNAME; platform = "windows" } | ConvertTo-Json -Compress
+  $enrollUrl = "$Central/api/v1/enroll"
+  $resp = $null
+  if ((Test-Path $caFile) -and $PSVersionTable.PSVersion.Major -lt 7) {
+    # CA interne tout juste épinglée mais pas dans le magasin Windows : même délégué que l'amorçage
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $old = [Net.ServicePointManager]::ServerCertificateValidationCallback
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = [SiAgentTrustAll]::Callback()
+    try { $wc = New-Object System.Net.WebClient; $wc.Headers["Content-Type"] = "application/json"; $resp = $wc.UploadString($enrollUrl, "POST", $payload) | ConvertFrom-Json }
+    finally { [Net.ServicePointManager]::ServerCertificateValidationCallback = $old }
+  } else {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $resp = Invoke-RestMethod -Method Post -Uri $enrollUrl -ContentType "application/json" -Body $payload -UseBasicParsing
+  }
+  if (-not $resp.agent_id -or -not $resp.secret) { throw "enrôlement refusé par le central : $($resp | ConvertTo-Json -Compress)" }
+  $Agent = $resp.agent_id; $Secret = $resp.secret
+  if ($resp.site) { $Site = $resp.site }
+  if ($resp.plugins) { $EnablePlugin = @($EnablePlugin) + @($resp.plugins) }
+  Write-Host "enrôlé comme « $Agent » (site $Site)"
 }
 
-# --- 4. configuration ---------------------------------------------------------------------
+# --- 4. configuration (conservée telle quelle en -Upgrade : #528, elle était réécrite à vide) ---
+$cfgPath = Join-Path $DataDir "agent.json"
+if (-not $Upgrade) {
 $plugins = @{}
 foreach ($p in $EnablePlugin) { if ($p) { $plugins[$p] = @{ enabled = $true } } }
 $cfg = [ordered]@{
@@ -156,9 +254,25 @@ $cfg = [ordered]@{
   queue_path = (Join-Path $DataDir "queue.db"); plugins_dir = (Join-Path $DataDir "plugins")
   state_path = (Join-Path $DataDir "state.json"); block_file = (Join-Path $DataDir "BLOCKED")
 }
-if (Test-Path $caFile) { $cfg.ca_file = $caFile }
-$cfgPath = Join-Path $DataDir "agent.json"
+if (Test-Path $caFile) { $cfg.ca_file = $caFile }   # #915 : -SystemCa -> ca_file = faisceau #682 (central-ca.ps1) ; indispensable (Python ne voit pas la racine LE à la demande, et refresh_ca exige ca_file). Sinon ca_file = CA interne (-Ca/-CaFingerprint).
+if ($SystemCa) { $cfg.ca_system_bundle = $true; $cfg.ca_refresh_script = (Join-Path $InstallDir "central-ca.ps1") }   # #682 : l'agent régénère le faisceau si la vérification échoue
+if ($Fallback) {   # #904 : itinérance -- l'agent bascule seul vers le secours quand le principal est injoignable, et revient au principal dès qu'il répond
+  $fb = $Fallback.TrimEnd("/"); $cfg.central_fallback_url = $fb
+  $fbHost = ([regex]::Replace($fb, "^https?://", "")).Split("/")[0].Split(":")[0].Trim("[]")
+  $fbInterne = ($fbHost -match "^\d{1,3}(\.\d{1,3}){3}$") -or (-not $fbHost.Contains(".")) -or ($fbHost -match "\.(local|lan|home|internal)$")
+  if ($FallbackCa) { $cfg.fallback_ca_file = $FallbackCa }
+  elseif ($fbInterne -and (Test-Path $caFile)) { $cfg.fallback_ca_file = $caFile }
+  # secours public : fallback_ca_file absent = magasin système (Let's Encrypt)
+}
 [IO.File]::WriteAllText($cfgPath, ($cfg | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+} elseif ($SystemCa -and (Test-Path $cfgPath) -and (Test-Path $caFile)) {
+  # #682 : mise à jour d'un agent installé en -SystemCa avant le faisceau : on ajoute ca_file / ca_system_bundle
+  $old = Get-Content $cfgPath -Raw | ConvertFrom-Json
+  $old | Add-Member -Force NoteProperty ca_file $caFile
+  $old | Add-Member -Force NoteProperty ca_system_bundle $true
+  $old | Add-Member -Force NoteProperty ca_refresh_script (Join-Path $InstallDir "central-ca.ps1")
+  [IO.File]::WriteAllText($cfgPath, ($old | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+}
 # lecture réservée à SYSTEM et aux administrateurs (le secret est dedans)
 & icacls $DataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
 
@@ -169,7 +283,11 @@ $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId "S-1-5-18" -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
 $settings.ExecutionTimeLimit = "PT0S"   # sans limite (la valeur zéro par le paramètre du cmdlet est ignorée sur certaines versions)
+Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+# #629 : une ancienne instance qui survit à l'arrêt de la tâche garderait un secret périmé (401 en boucle)
+Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "supervision-si : agent hôte si-agent ($Agent)" | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 Start-Sleep -Seconds 3

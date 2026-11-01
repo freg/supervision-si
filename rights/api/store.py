@@ -61,9 +61,36 @@ CREATE TABLE IF NOT EXISTS permissions (
     UNIQUE(resource_type, resource_id, group_name, action)
 );
 CREATE INDEX IF NOT EXISTS idx_permissions_lookup ON permissions(resource_type, group_name, action);
+
+-- #559 : sujets à accès RESTREINT. Par défaut le hub est ouvert : toute
+-- personne connectée voit toutes les tuiles disponibles (comportement
+-- historique). Un sujet inscrit ici (group:<nom> ou user:<login>) ne voit
+-- que ce que la matrice lui accorde. Une personne est restreinte si son
+-- login l'est, ou si TOUS ses groupes le sont (un groupe ouvert suffit à
+-- ouvrir). admin_hub et administrateurs ne sont jamais restreints.
+CREATE TABLE IF NOT EXISTS restricted_subjects (
+    subject TEXT PRIMARY KEY, set_by TEXT, set_at TEXT NOT NULL
+);
+
+-- #559 : catalogue des ressources du hub (tuiles, actions) publié par le
+-- hub lui-même ; `actions` = liste JSON, `theme` = thématique d'affichage.
+CREATE TABLE IF NOT EXISTS catalog (
+    resource_type TEXT NOT NULL, identifier TEXT NOT NULL, label TEXT, theme TEXT, actions TEXT, position INTEGER,
+    PRIMARY KEY (resource_type, identifier)
+);
 """
 
 ADMIN_GROUP = "admin_hub"
+OPEN_GROUPS = ("admin_hub", "administrateurs")  # jamais restreints
+
+
+def subjects_of(groups, user=None):
+    """Sujets porteurs de droits : les groupes tels quels (compatibilité)
+    et le login sous la forme user:<login> (#559)."""
+    out = [g for g in (groups or []) if g]
+    if user:
+        out.append("user:%s" % user)
+    return out
 
 
 def now_iso():
@@ -85,7 +112,7 @@ def ensure_schema(db_path):
         conn.close()
 
 
-def has_permission(db_path, groups, resource_type, resource_id, action):
+def has_permission(db_path, groups, resource_type, resource_id, action, user=None):
     """LE cœur du service -- vérifie si l'un des groupes fournis a le
     droit `action` sur la ressource (resource_type, resource_id).
 
@@ -106,6 +133,7 @@ def has_permission(db_path, groups, resource_type, resource_id, action):
     défaut, jamais l'inverse)."""
     if ADMIN_GROUP in groups:
         return True
+    groups = subjects_of(groups, user)
     if not groups:
         return False
 
@@ -126,7 +154,7 @@ def has_permission(db_path, groups, resource_type, resource_id, action):
         conn.close()
 
 
-def filter_visible(db_path, groups, resource_type, items, action="view", id_key="identifier"):
+def filter_visible(db_path, groups, resource_type, items, action="view", id_key="identifier", user=None):
     """Filtre une liste d'items selon la visibilité -- livraison
     #283, "une gestion de droit incluant la visibilité en listing" :
     ne garde que ceux pour lesquels l'appelant a le droit `action`.
@@ -136,6 +164,7 @@ def filter_visible(db_path, groups, resource_type, items, action="view", id_key=
     de fichiers, jamais du N+1 ici)."""
     if ADMIN_GROUP in groups:
         return list(items)
+    groups = subjects_of(groups, user)
     if not groups:
         return []
 
@@ -221,5 +250,95 @@ def upsert_resource(db_path, resource_type, identifier, label=None):
             [resource_type, identifier, label, now_iso()],
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ------------------------------------------------------------------ #559
+def restricted_subjects(db_path):
+    conn = get_connection(db_path)
+    try:
+        return [r["subject"] for r in conn.execute("SELECT subject FROM restricted_subjects ORDER BY subject")]
+    finally:
+        conn.close()
+
+
+def set_restricted(db_path, subject, restricted, set_by=None):
+    subject = (subject or "").strip()
+    if not subject or subject in OPEN_GROUPS or subject in ("group:admin_hub", "group:administrateurs"):
+        return False
+    conn = get_connection(db_path)
+    try:
+        if restricted:
+            conn.execute("INSERT OR REPLACE INTO restricted_subjects (subject, set_by, set_at) VALUES (?, ?, ?)", [subject, set_by, now_iso()])
+        else:
+            conn.execute("DELETE FROM restricted_subjects WHERE subject = ?", [subject])
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def is_restricted(db_path, groups, user=None):
+    """Restreint si le login l'est, ou si la personne a des groupes et que
+    TOUS sont restreints. Jamais pour admin_hub / administrateurs."""
+    groups = [g for g in (groups or []) if g]
+    if any(g in OPEN_GROUPS for g in groups):
+        return False
+    restricted = set(restricted_subjects(db_path))
+    if user and ("user:%s" % user) in restricted:
+        return True
+    return bool(groups) and all(("group:%s" % g) in restricted or g in restricted for g in groups)
+
+
+def visible_ids(db_path, groups, resource_type, ids, user=None, action="view"):
+    """Identifiants visibles : tout si la personne n'est pas restreinte,
+    sinon ceux accordés (par groupe ou par login) -- fondement de
+    l'application réelle des droits sur les tuiles du hub."""
+    if not is_restricted(db_path, groups, user):
+        return list(ids)
+    items = [{"identifier": i} for i in ids]
+    return [i["identifier"] for i in filter_visible(db_path, groups, resource_type, items, action=action, user=user)]
+
+
+def set_catalog(db_path, resource_type, items):
+    """Remplace le catalogue d'un type : [{identifier, label, theme, actions[]}]."""
+    import json
+    conn = get_connection(db_path)
+    try:
+        conn.execute("DELETE FROM catalog WHERE resource_type = ?", [resource_type])
+        for i, it in enumerate(items or []):
+            if not it.get("identifier"):
+                continue
+            conn.execute("INSERT INTO catalog (resource_type, identifier, label, theme, actions, position) VALUES (?, ?, ?, ?, ?, ?)",
+                         [resource_type, it["identifier"], it.get("label"), it.get("theme"), json.dumps(it.get("actions") or ["view"]), i])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_catalog(db_path, resource_type):
+    import json
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM catalog WHERE resource_type = ? ORDER BY position", [resource_type]).fetchall()
+        return [{"identifier": r["identifier"], "label": r["label"], "theme": r["theme"], "actions": json.loads(r["actions"] or '["view"]')} for r in rows]
+    finally:
+        conn.close()
+
+
+def set_grant(db_path, resource_type, resource_id, subject, action, allowed, granted_by=None):
+    """Octroi idempotent (allowed=True) ou révocation (False) d'une case de la matrice."""
+    if allowed:
+        grant_permission(db_path, resource_type, resource_id, subject, action, granted_by)
+        return True
+    conn = get_connection(db_path)
+    try:
+        if resource_id is None:
+            conn.execute("DELETE FROM permissions WHERE resource_type = ? AND resource_id IS NULL AND group_name = ? AND action = ?", [resource_type, subject, action])
+        else:
+            conn.execute("DELETE FROM permissions WHERE resource_type = ? AND resource_id = ? AND group_name = ? AND action = ?", [resource_type, resource_id, subject, action])
+        conn.commit()
+        return True
     finally:
         conn.close()

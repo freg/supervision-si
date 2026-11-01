@@ -15,6 +15,12 @@
 #                  absent = SSLProxyCheckPeerName off (chiffré mais non vérifié -- LAN seulement)
 #   HTTP_PORT      port en clair pour le défi ACME et la redirection           (défaut 80)
 #   STAGING=1      certificat de test Let's Encrypt (sans quota) pour valider la chaîne d'abord
+#   API_AUTH=0     (A0, #615) désactive la vérification du jeton Keycloak sur /api/ ; par
+#                  défaut (1) mod_auth_openidc exige un jeton d'accès RS256 valide du realm
+#                  (JWKS lu sur le hub) pour tout /api/, sauf les faces machine des agents
+#                  (si-agent/api/v1, si-agent/package, netprobe/api/v1, netprobe/fleet,
+#                  netprobe/agents/measurements/bulk : signature HMAC propre).
+#   KC_REALM       realm Keycloak (défaut supervision-si) -- pour l'URL JWKS
 #   INTERNAL_ORIGIN  origine INTERNE du hub telle que construite (https://<HOST_IP>:<GATEWAY_PORT>,
 #                  ex. https://192.0.2.10:6443) : le frontal RÉÉCRIT alors cette origine en
 #                  https://PUBLIC_HOST dans les réponses (HTML, JS, CSS, JSON, en-têtes Location)
@@ -40,6 +46,8 @@ HUB_UPSTREAM="${HUB_UPSTREAM:-https://super:443}"
 HUB_CA="${HUB_CA:-}"
 HTTP_PORT="${HTTP_PORT:-80}"
 INTERNAL_ORIGIN="${INTERNAL_ORIGIN:-}"; INTERNAL_ORIGIN="${INTERNAL_ORIGIN%/}"
+API_AUTH="${API_AUTH:-1}"
+KC_REALM="${KC_REALM:-supervision-si}"
 INTERNAL_HOSTPORT="${INTERNAL_ORIGIN#https://}"; INTERNAL_HOSTPORT="${INTERNAL_HOSTPORT#http://}"
 SITE="hub-${PUBLIC_HOST}"
 CONF="/etc/apache2/sites-available/${SITE}.conf"
@@ -95,9 +103,12 @@ cat <<EOF
     # gros envois (sauvegardes, GED) : pas de plafond côté frontal
     LimitRequestBody 0
 ${SUBST_LINES}
+${API_AUTH_LINES}
 
     ErrorLog \${APACHE_LOG_DIR}/${SITE}-error.log
-    CustomLog \${APACHE_LOG_DIR}/${SITE}-access.log combined
+    # #622 : format combined + durée de la requête en µs (%D), lu par la sonde front-access
+    LogFormat "%h %l %u %t \\"%r\\" %>s %O \\"%{Referer}i\\" \\"%{User-Agent}i\\" %D" hub_timed
+    CustomLog \${APACHE_LOG_DIR}/${SITE}-access.log hub_timed
 </VirtualHost>
 EOF
 }
@@ -106,12 +117,50 @@ echo "== 1/5 paquets"
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y -q apache2 certbot >/dev/null
 a2enmod -q ssl proxy proxy_http proxy_wstunnel headers rewrite >/dev/null
+API_AUTH_LINES=""
+if [ "$API_AUTH" = "1" ]; then
+  apt-get install -y -q libapache2-mod-auth-openidc >/dev/null
+  a2enmod -q auth_openidc >/dev/null
+  # A0 (#615) : depuis Internet, tout /api/ exige un jeton d'accès Keycloak valide
+  # (signature RS256 vérifiée contre le JWKS du realm, lu à travers ce même
+  # frontal), sauf les faces machine des agents qui portent leur propre HMAC.
+  # OPTIONS (préversions CORS) laissées passer. Le hub ajoute le jeton à tous
+  # ses appels (hub/src/apiAuth.js) ; une page tierce sans jeton reçoit 401.
+  # directives de portée serveur (hors VirtualHost) : passphrase et cache
+  if [ ! -s /etc/apache2/oidc-passphrase ]; then
+    head -c 32 /dev/urandom | base64 > /etc/apache2/oidc-passphrase; chmod 640 /etc/apache2/oidc-passphrase; chown root:www-data /etc/apache2/oidc-passphrase
+  fi
+  cat > /etc/apache2/conf-available/hub-oidc-global.conf <<EOC
+# A0 (#615) : réglages globaux de mod_auth_openidc (le vhost hub-${PUBLIC_HOST} porte les règles /api/)
+OIDCCryptoPassphrase "exec:/bin/cat /etc/apache2/oidc-passphrase"
+OIDCCacheType shm
+EOC
+  a2enconf -q hub-oidc-global >/dev/null
+  API_AUTH_LINES="    OIDCOAuthVerifyJwksUri https://${PUBLIC_HOST}/auth/realms/${KC_REALM}/protocol/openid-connect/certs
+    OIDCOAuthRemoteUserClaim preferred_username
+    OIDCOAuthAcceptTokenAs header
+    <LocationMatch \"^/api/(?!si-agent/api/v1/|si-agent/package|si-agent/deploy/|netprobe/api/v1/|netprobe/fleet|netprobe/agents/measurements/bulk)\">
+        <LimitExcept OPTIONS>
+            AuthType oauth20
+            Require valid-user
+        </LimitExcept>
+    </LocationMatch>"
+  echo "   vérification du jeton Keycloak sur /api/ activée (realm ${KC_REALM})"
+else
+  echo "   AVERTISSEMENT : API_AUTH=0 -> /api/ accessible sans jeton depuis Internet"
+fi
 
 echo "== 2/5 CA du hub"
 if [ -n "$HUB_CA" ] && [ -f "$HUB_CA" ]; then
   install -m 644 "$HUB_CA" /etc/ssl/certs/supervision-si-ca.crt
-  CA_LINES="SSLProxyCACertificateFile /etc/ssl/certs/supervision-si-ca.crt"
-  echo "   certificat du hub vérifié avec $HUB_CA"
+  # chaîne vérifiée par le CA de la PKI interne ; le NOM n'est pas contrôlé :
+  # avec ProxyPreserveHost, Apache présente PUBLIC_HOST en SNI au hub, dont le
+  # certificat ne porte que HOST_IP/localhost (#610 : AH00898 sinon)
+  CA_LINES="SSLProxyCACertificateFile /etc/ssl/certs/supervision-si-ca.crt
+    SSLProxyVerify require
+    SSLProxyCheckPeerName off
+    SSLProxyCheckPeerCN off"
+  echo "   certificat du hub vérifié avec $HUB_CA (chaîne seulement, nom non contrôlé)"
 else
   CA_LINES="SSLProxyCheckPeerName off
     SSLProxyCheckPeerCN off"
@@ -144,6 +193,12 @@ apache2ctl configtest >/dev/null && systemctl reload apache2
 
 echo "== 4/5 certificat Let's Encrypt"
 STAGE=""; [ "${STAGING:-0}" = "1" ] && STAGE="--staging"
+# passage staging -> réel (#610) : un certificat de test encore valide serait
+# conservé par --keep-until-expiring ; on le supprime d'abord
+if [ -z "$STAGE" ] && [ -f "$CERT_DIR/cert.pem" ] && openssl x509 -in "$CERT_DIR/cert.pem" -noout -issuer 2>/dev/null | grep -qi staging; then
+  echo "   certificat de test présent -> remplacé par un certificat réel"
+  certbot delete --cert-name "$PUBLIC_HOST" --non-interactive >/dev/null 2>&1 || true
+fi
 certbot certonly --webroot -w /var/www/acme -d "$PUBLIC_HOST" -m "$LE_EMAIL" --agree-tos --non-interactive --keep-until-expiring $STAGE
 [ -f "$CERT_DIR/fullchain.pem" ] || { echo "certificat absent : $CERT_DIR" >&2; exit 1; }
 # renouvellement : certbot.timer (paquet, 2 essais/jour) + rechargement d'Apache après un renouvellement

@@ -40,6 +40,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     environment:
+      # #681 : prod = compilé au démarrage puis servi statiquement (index.html sans cache) ; dev = serveur Vite
+      - HUB_MODE=${HUB_MODE:-prod}
       # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
       - HOST_IP=${HOST_IP:-localhost}
       - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
@@ -94,6 +96,11 @@ services:
       context: .
       dockerfile: pixel-grid/api/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
       # shared/log_buffer.py) -- ce service tourne avec 2 workers
       # Gunicorn, mémoire NON partagée entre eux.
@@ -552,6 +559,13 @@ services:
       # dans ce projet.
       - RSYSLOG_LISTEN_PORT=5514
       - RSYSLOG_SOURCE_NAME=${RSYSLOG_SOURCE_NAME:-rsyslog}
+      # #894 : conservation sur disque (un fichier par émetteur et par jour, hors dépôt) et émetteurs autorisés
+      # (adresses ou réseaux séparés par des virgules ; vide = tous, déconseillé : le port est ouvert sur l'hôte).
+      - RSYSLOG_DATA_DIR=/data
+      - RSYSLOG_RETENTION_DAYS=${RSYSLOG_RETENTION_DAYS:-90}
+      - RSYSLOG_ALLOWED=${RSYSLOG_ALLOWED:-}
+    volumes:
+      - ./rsyslog-listener/data:/data
     ports:
       # RSYSLOG_LISTENER_PORT (.env, optionnel) : port UDP PUBLIÉ sur
       # l'hôte -- une machine distante pousse ses logs syslog
@@ -619,6 +633,11 @@ services:
       context: .
       dockerfile: glpi/api/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - MEMCACHED_HOST=memcached
       # Branchement rights-api (livraison #294) -- OPT-IN, même motif
       # que les services précédents. Jamais actif par défaut.
@@ -664,6 +683,16 @@ services:
       - MEMCACHED_HOST=memcached
       - NEBULA_API_KEY=${NEBULA_API_KEY:-}
       - NEBULA_BASE_URL=${NEBULA_BASE_URL:-}
+      # Santé du réseau (#546) : relevé `online-status` par site toutes les
+      # NEBULA_POLL_SECONDS (0 = désactivé), inventaire toutes les
+      # NEBULA_INVENTORY_SECONDS ; transitions seules en base.
+      - NEBULA_POLL_SECONDS=${NEBULA_POLL_SECONDS:-60}
+      - NEBULA_INVENTORY_SECONDS=${NEBULA_INVENTORY_SECONDS:-3600}
+      # #556 : règles lisibles (rules/) et verrou d'ÉCRITURE sur Nebula --
+      # 0 par défaut : « Valider » ne fait qu'enregistrer ; 1 = la correction
+      # d'un VLAN manquant est appliquée par POST port-settings après confirmation.
+      - RULES_DIR=/rules
+      - NEBULA_ALLOW_WRITE=${NEBULA_ALLOW_WRITE:-0}
       # Archivage des CSV importés dans la GED (livraison #237) --
       # même motif que NEBULA_API_INTERNAL_URL/SNMP_API_INTERNAL_URL
       # déjà utilisés ailleurs dans ce projet.
@@ -672,11 +701,22 @@ services:
       # Gardé sur les 3 routes d'import CSV et les 2 routes de
       # suppression (lots importés) -- jamais la consultation.
       - RIGHTS_API_URL=${NEBULA_RIGHTS_API_URL:-}
+      # #703 : rapports et alertes des anomalies par courriel (notify-api)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=nebula
+      # #847 : veille du réseau du campus -- relevés des agents internes, jeton du texte d'état pour si-veille
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - NEBULA_VEILLE_TOKEN=${NEBULA_VEILLE_TOKEN:-}
+      # #855 : pilotage -- sondes netprobe (bancs de test, mesures du tableau de bord)
+      - NETPROBE_API_URL=http://netprobe-api:5000
+      - TZ=${TZ:-Europe/Paris}
     volumes:
       # NEBULA_DATA_DIR (.env, optionnel) : même logique que
       # PREFS_DATA_DIR/IMAP_CLIENT_DATA_DIR -- vide = valeur par
       # défaut ci-dessous, jamais un chemin absolu codé en dur.
       - ${NEBULA_DATA_DIR:-./nebula/data}:/data
+      - ./rules:/rules:ro
     depends_on:
       - memcached
       - ged-api
@@ -781,6 +821,182 @@ services:
       - ${NETWORK_AGENT_DATA_DIR:-./network-agent/data}:/data
     depends_on:
       - memcached
+
+  portage-api:
+    # Livraison #650 -- tuile « Portage PHP → Python » : projets de
+    # portage (fiche, import du code et du dump, exécution de l'IA de
+    # portage). L'IA de portage (portage-kit) est un PROJET INDÉPENDANT,
+    # jamais copié dans ce dépôt : volume PORTAGE_KIT_DIR, installé par
+    # l'entrypoint au démarrage -- voir portage/README.md.
+    build:
+      context: .
+      dockerfile: portage/api/Dockerfile
+    environment:
+      - PORTAGE_DB_HOST=portage-db
+      - PORTAGE_DB_USER=root
+      - PORTAGE_DB_PASSWORD=${PORTAGE_DB_ROOT_PASSWORD:-portage}
+      - PORTAGE_MAX_UPLOAD_MB=${PORTAGE_MAX_UPLOAD_MB:-512}
+    volumes:
+      # projets (code importé, dumps, ports générés, rapports) -- vide = ./portage/data
+      - ${PORTAGE_DATA_DIR:-./portage/data}:/data
+      # checkout de portage-kit (lecture seule) -- vide = ./portage/kit (dossier ignoré par git)
+      - ${PORTAGE_KIT_DIR:-./portage/kit}:/opt/portage-kit:ro
+    depends_on:
+      - portage-db
+
+  portage-db:
+    # Base MariaDB DÉDIÉE aux dumps des applications à porter (une base
+    # port_<projet> par projet). AUCUN port publié : joignable uniquement
+    # depuis portage-api sur le réseau Docker.
+    image: mariadb:11.4
+    command: --character-set-server=latin1 --sql-mode=
+    environment:
+      - MARIADB_ROOT_PASSWORD=${PORTAGE_DB_ROOT_PASSWORD:-portage}
+    volumes:
+      - portage_db_data:/var/lib/mysql
+
+  dns-api:
+    # Livraison #656 -- DNS éditable de la tour de contrôle : OVH et
+    # Online/Scaleway (API, cache local) + DNS intranet BIND (nsupdate TSIG)
+    # en FALLBACK ; journal réversible. Secrets dans le coffre des accès.
+    build:
+      context: .
+      dockerfile: dns/api/Dockerfile
+    environment:
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+    volumes:
+      # zones, cache des enregistrements, journal -- vide = ./dns/data
+      - ${DNS_DATA_DIR:-./dns/data}:/data
+    depends_on:
+      - credentials-api
+
+  groupware-api:
+    # Livraison #664 (item 115) -- noyau groupware « façon eGroupware » :
+    # partages (grants) par application, catégories, liens universels,
+    # préférences à quatre niveaux ; génère le fichier de droits de
+    # radicale (volume partagé /dav-config) depuis les partages agenda /
+    # carnet. Groupes développés en membres via LDAP (LDAP_* du .env).
+    build:
+      context: .
+      dockerfile: groupware/api/Dockerfile
+    environment:
+      - DAV_PUBLIC_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/dav
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-}
+      # #665 : compte de service CardDAV/CalDAV (carnet et agenda dans le hub) -- compte LDAP dédié, ou htpasswd sans LDAP
+      - DAV_INTERNAL_URL=http://radicale:5232
+      - GROUPWARE_DAV_SERVICE_USER=${GROUPWARE_DAV_SERVICE_USER:-}
+      - GROUPWARE_DAV_SERVICE_PASSWORD=${GROUPWARE_DAV_SERVICE_PASSWORD:-}
+      # #666 : de préférence, le compte de service vient du coffre des accès (entrée « groupware-dav »)
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - GROUPWARE_DAV_CREDENTIAL=${GROUPWARE_DAV_CREDENTIAL:-groupware-dav}
+      # #666 : fuseau des dates sans fuseau, principal Radicale des ressources (salles, matériel)
+      - TZ=${TZ:-Europe/Paris}
+      - GROUPWARE_RESOURCE_OWNER=${GROUPWARE_RESOURCE_OWNER:-ressources}
+      - GROUPWARE_MAIL_DOMAIN=${GROUPWARE_MAIL_DOMAIN:-groupware.local}
+    volumes:
+      - ${GROUPWARE_DATA_DIR:-./groupware/data}:/data
+      - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/dav-config
+
+  radicale:
+    # Livraison #664 -- serveur CalDAV / CardDAV (Radicale, Python) du
+    # groupware : comptes LDAP (mêmes identifiants que le hub), droits
+    # depuis le fichier généré par groupware-api, collections dans
+    # GROUPWARE_DAV_DATA_DIR. Servi sous /dav/ par tls-proxy ; clients :
+    # Thunderbird, DAVx5, iOS/macOS (voir tuile Groupware).
+    build:
+      context: .
+      dockerfile: groupware/radicale/Dockerfile
+    environment:
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - RADICALE_LDAP_FILTER=${RADICALE_LDAP_FILTER:-}
+      - GROUPWARE_DAV_SERVICE_USER=${GROUPWARE_DAV_SERVICE_USER:-}
+      - GROUPWARE_DAV_SERVICE_PASSWORD=${GROUPWARE_DAV_SERVICE_PASSWORD:-}
+      - RADICALE_LOG_LEVEL=${RADICALE_LOG_LEVEL:-info}
+    volumes:
+      - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/config
+      - ${GROUPWARE_DAV_DATA_DIR:-./groupware/dav-data}:/data
+
+  datasync-api:
+    # Livraison #652 -- SGBD central de synchronisation unidirectionnelle
+    # (SQLite + FTS5 dans /data) : API source centrale (jeton par source),
+    # supervision des remontées, analyse des correspondances, recherche
+    # plein texte et relationnelle. Les connecteurs (datasync/connector/)
+    # tournent près des sources et poussent via tls-proxy.
+    build:
+      context: .
+      dockerfile: datasync/api/Dockerfile
+    environment:
+      - DATASYNC_PRESENCE_S=${DATASYNC_PRESENCE_S:-600}
+      - DATASYNC_MAX_BATCH_MB=${DATASYNC_MAX_BATCH_MB:-64}
+    volumes:
+      # base centrale (lignes, index, liens) -- vide = ./datasync/data
+      - ${DATASYNC_DATA_DIR:-./datasync/data}:/data
+
+  vuln-api:
+    # Livraison #688 -- vulnérabilités du SI : SBOM CycloneDX (syft) →
+    # osv-scanner → priorisation EPSS + KEV × exposition → dépôt dans
+    # Dependency-Track si DT_URL/DT_API_KEY. Flux rechargés chaque jour.
+    build:
+      context: .
+      dockerfile: vuln/Dockerfile
+    environment:
+      - VULN_FEEDS_HOURS=${VULN_FEEDS_HOURS:-24}
+      - EPSS_URL=${EPSS_URL:-https://epss.empiricalsecurity.com/epss_scores-current.csv.gz}
+      - DT_URL=${DT_URL:-}
+      - DT_API_KEY=${DT_API_KEY:-}
+      # #693 : exclusions de « Analyser le dépôt » ; options osv-scanner (mode hors ligne)
+      - VULN_SELF_SCAN_EXCLUDES=${VULN_SELF_SCAN_EXCLUDES:-}
+      - OSV_SCANNER_ARGS=${OSV_SCANNER_ARGS:-}
+      # #814 : veille cyber (tuile « Veille cyber ») -- diffusion par notify-api, IA locale compatible OpenAI
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=veille
+      - VEILLE_SYNTHESE_HEURE=${VEILLE_SYNTHESE_HEURE:-7}
+      - VEILLE_CONSERVATION_JOURS=${VEILLE_CONSERVATION_JOURS:-365}
+      - VEILLE_LLM_BASE_URL=${VEILLE_LLM_BASE_URL:-${LLM_BASE_URL:-http://ollama:11434/v1}}
+      - VEILLE_LLM_MODEL=${VEILLE_LLM_MODEL:-${LLM_MODEL:-qwen3:8b}}
+    volumes:
+      # SBOM reçus, constats, flux EPSS/KEV -- vide = ./vuln/data
+      - ${VULN_DATA_DIR:-./vuln/data}:/data
+      # le dépôt lui-même, en lecture seule, pour « Analyser le dépôt » (syft)
+      - ./:/src:ro
+
+  dependency-track:
+    # Livraison #688 (option) -- dépôt de référence des SBOM (historique,
+    # politiques, licences, VEX). LOURD (~4 Go de RAM) : profil `vuln-dt`,
+    # à poser de préférence sur un autre nœud ; vuln-api y dépose chaque SBOM.
+    image: dependencytrack/bundled:latest
+    profiles: ["vuln-dt"]
+    ports:
+      - "${DT_PORT:-6490}:8080"
+    volumes:
+      - dependency_track_data:/data
+
+  qa-api:
+    # Livraison #651 -- tuile « Tests QA en ligne » : scénarios joués dans
+    # Chromium (image Playwright officielle, ~1,5 Go) contre un site
+    # déployé, porté ou non ; ticket incident/évolution créé via tickets-api
+    # (réseau Docker interne) ; le scénario devient test de non-régression.
+    build:
+      context: .
+      dockerfile: qa/api/Dockerfile
+    environment:
+      - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
+      - QA_STEP_TIMEOUT_MS=${QA_STEP_TIMEOUT_MS:-15000}
+    volumes:
+      # scénarios, exécutions et captures -- vide = ./qa/data
+      - ${QA_DATA_DIR:-./qa/data}:/data
+    # Les sites testés sont joints par leur URL publique (ou LAN) : aucune
+    # dépendance sur les autres services, sauf tickets-api pour les tickets.
 
   retro-api:
     # Livraison #243, backlog item 30 -- tuile "Rétro-ingénierie",
@@ -1005,6 +1221,26 @@ services:
     environment:
       - RIGHTS_PROJECT_ROOT=/project
 
+  accounts-api:
+    # Livraison #557 -- comptes et groupes du hub en pilotant Keycloak
+    # (API Admin REST) : tuile « Comptes et groupes ». Même compte de
+    # service de bootstrap que tickets-api / keycloak-backup (jamais une
+    # nouvelle variable). Aucun volume : Keycloak est la seule source.
+    build:
+      context: .
+      dockerfile: accounts/api/Dockerfile
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      - KEYCLOAK_SERVICE_CLIENT_ID=${KEYCLOAK_SERVICE_CLIENT_ID:-supervision-si-service}
+      - KEYCLOAK_SERVICE_CLIENT_SECRET=${KEYCLOAK_SERVICE_CLIENT_SECRET:-change-me}
+      - LDAP_EDIT_MODE=${LDAP_EDIT_MODE:-READ_ONLY}
+      - ACCOUNTS_ADMIN_GROUPS=${ACCOUNTS_ADMIN_GROUPS:-administrateurs,admin_hub}
+      - ACCOUNTS_DEMO_PROFILES=${ACCOUNTS_DEMO_PROFILES:-}   # #608 : profils de démonstration (JSON), vide = demo-admin / demo-technicien / demo-lecture
+      - HUB_INTERNAL_ORIGIN=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}   # #614 : origine de référence des clients OIDC (ajout d'une origine publique depuis le hub)
+      - MEMCACHED_HOST=memcached
+    # pas de depends_on keycloak : il vit dans gateway/docker-compose.yml (voir #135)
+
   netprobe-api:
     # Livraison #295 -- fondation du sondage réseau actif (collecteur
     # d'IP + système de contrôle), demandé explicitement. Module
@@ -1030,6 +1266,11 @@ services:
       - NET_RAW
       - NET_ADMIN
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
 
   netmap-orchestrator-api:
@@ -1103,6 +1344,37 @@ services:
     ports:
       - "${UPS_MONITOR_API_PORT:-6128}:5000"
 
+  network-equipment-api:
+    # Livraison #506 -- facette « équipements réseau » de l'exploration :
+    # identification constructeur / modèle / génération (OUI, SNMP via
+    # snmp-api, import Zenoss zendmd ou CSV, choix manuels), voisins
+    # LLDP/CDP et tables MAC, profils de supervision SNMP génériques par
+    # constructeur. Servi sous /api/network-equipment/ (tls-proxy), entrée
+    # « Équipements réseau » de la thématique Réseau. Voir
+    # network-equipment/README.md. Aucune communauté SNMP stockée ici :
+    # coffre des accès (genre snmp), cible snmp-api, ou saisie ponctuelle.
+    build:
+      context: .
+      dockerfile: network-equipment/api/Dockerfile
+    environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      - SNMP_API_INTERNAL_URL=http://snmp-api:5000
+      # network-agent tourne en network_mode: host -- même construction que le hub.
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - NETWORK_EQUIPMENT_SNMP_TIMEOUT=${NETWORK_EQUIPMENT_SNMP_TIMEOUT:-5}
+    volumes:
+      # Base SQLite + registre OUI IEEE chargé par la tuile : À SAUVEGARDER.
+      - ${NETWORK_EQUIPMENT_DATA_DIR:-./network-equipment/data}:/data
+    depends_on:
+      - snmp-api
+      - credentials-api
+
   si-agent-api:
     # Livraison #421 (backlog 63) -- central des agents hôtes Linux
     # (si-agent) : flotte et enrôlement (secret HMAC par agent), mesures
@@ -1121,10 +1393,49 @@ services:
       # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
       - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
     environment:
+      # #654 : bascule de rôle par règle NAT MikroTik (mécanisme mikrotik_nat des rôles PRA) -- adresse INTERNE, réseau Docker
+      - MIKROTIK_API_URL=http://mikrotik-api:5000
+      # #656 : bascule de rôle par enregistrement DNS (dns-api, intranet en fallback)
+      - DNS_API_URL=http://dns-api:5000
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      # #699 : inventaires logiciels des agents transmis à vuln-api (autre nœud : son URL interne)
+      - VULN_API_URL=${VULN_API_URL:-http://vuln-api:5000}
+      - ASSISTANT_API_URL=${ASSISTANT_API_URL:-http://assistant-api:5000/assistant}   # #756 : tuile Parc IA (relais en lecture)
+      # #818 : priorités de la page d'accueil -- modèle de langage local (préparation, explication) et décideur (urgent / non urgent)
+      - LLM_BASE_URL=${PRIORITES_LLM_BASE_URL:-${LLM_BASE_URL:-http://ollama:11434/v1}}
+      - LLM_MODEL=${PRIORITES_LLM_MODEL:-${LLM_MODEL:-qwen3:8b}}
+      - DECIDEUR=${DECIDEUR:-llm}
+      - DECIDEUR_URL=${DECIDEUR_URL:-}
+      - DECIDEUR_MODELE=${DECIDEUR_MODELE:-}
+      - DECIDEUR_LLM_MODELE=${DECIDEUR_LLM_MODELE:-}
+      - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
+      # #821 : Parc IA, veille des modèles -- machines et mémoire GPU (Go) pour juger un modèle « utilisable » (Q4 estimée)
+      - MODELES_MACHINES=${MODELES_MACHINES:-ia-prod:20,ia-preprod:16}
+      - MODELES_THREAD=${MODELES_THREAD:-1}
+      # #823 : agent de l'hôte qui sert LLM_BASE_URL -- les priorités prennent les modèles déclarés pour cet hôte (Usages)
+      - PRIORITES_LLM_HOTE=${PRIORITES_LLM_HOTE:-}
+      # #799 : parcours appris -- identifiant et mot de passe pris dans le coffre au moment du jeu (jeton interne)
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      # #800 : relais si-htop (tuile htop ; constats lus toutes les 30 s -> journal et notifications)
+      - HTOP_RELAIS_URL=http://htop-relais:8400
+      - HTOP_JETON_INTERNE=${HTOP_JETON_INTERNE:-}
+      - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle
       # TLS) -- affichée dans la commande d'installation.
       - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      # #905 : adresse LAN du central -> secours d'itinérance écrit dans agent.json (l'agent bascule nom public <-> LAN tout seul)
+      - SI_AGENT_INTERNAL_URL=${SI_AGENT_INTERNAL_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      # #648 : Python embarqué servi par le hub (/deploy/python) pour les postes
+      # sans accès à python.org -- récupéré une fois par le serveur, mis en cache
+      # sur le volume /data (persistant entre redémarrages).
+      - SI_AGENT_PYTHON_EMBED_URL=${SI_AGENT_PYTHON_EMBED_URL:-https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip}
+      - SI_AGENT_PYTHON_EMBED_CACHE=${SI_AGENT_PYTHON_EMBED_CACHE:-/data/python-embed.zip}
       - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
       - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
       # #422 : sécurité, traces, notifications (SMS/courriel via les
@@ -1133,11 +1444,18 @@ services:
       # #436 : relais d'exploration -- les captures du plugin capture-relay
       # sont versées dans network-agent-api (network_mode: host, donc HOST_IP).
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      # #547 : tableau de santé Nebula publié par les agents (publish).
+      - NEBULA_API_URL=http://nebula-api:5000
       - SI_AGENT_LOG_LEVEL=${SI_AGENT_LOG_LEVEL:-INFO}
       - SI_AGENT_EVENTS_RETENTION_DAYS=${SI_AGENT_EVENTS_RETENTION_DAYS:-365}
       - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}
       - SI_AGENT_NOTIFY_COOLDOWN_SECONDS=${SI_AGENT_NOTIFY_COOLDOWN_SECONDS:-900}
       - SI_AGENT_NOTIFY_WEBHOOK_URL=${SI_AGENT_NOTIFY_WEBHOOK_URL:-}
+      # #716 : événements (sauvegardes, constats, agents hors ligne) relayés à notify-api -> groupes d'adresses de la tuile Notifications
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=si-agent
+      - SI_AGENT_AUDIT_ALLOWED=${SI_AGENT_AUDIT_ALLOWED:-}   # #687 : cibles de l'audit extérieur (domaines, *.sous-domaines, IP/CIDR)
       - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
       - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
       - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
@@ -1152,6 +1470,47 @@ services:
       - memcached
     ports:
       - "${SI_AGENT_API_PORT:-6129}:5000"
+
+  # hermes-web (livraison #911) -- clone navigateur du harnais Hermes. Dépôt SÉPARÉ, cloné À CÔTÉ du dépôt
+  # (../hermes-web, même code que la tuile Hermes du hub maison ; image officielle nousresearch/hermes-agent).
+  # Profil « supervision » = LECTURE SEULE (écriture/destructif refusés par les garde-fous). Service OPTIONNEL
+  # (profiles: hermes) : IGNORÉ par un `up` ordinaire ; démarré seulement avec COMPOSE_PROFILES=hermes, une fois
+  # ../hermes-web cloné. /opt/data et /data doivent appartenir à l'uid 10000 (chown + chmod go-w) -- voir ../hermes-web/README.md.
+  hermes-web:
+    profiles: ["hermes"]
+    build:
+      context: ../hermes-web
+      dockerfile: deploy/Dockerfile.pcia
+    restart: unless-stopped
+    environment:
+      - HERMES_WEB_HUB=supervision                                 # profil lecture seule (config/supervision.json)
+      - HERMES_WEB_MOTEUR=${HERMES_WEB_MOTEUR:-hermes}             # vrai moteur Hermes (provider Ollama à configurer une fois par hôte)
+      - HERMES_OLLAMA_URL=${HERMES_OLLAMA_URL:-http://ollama:11434} # Ollama de l'hôte (préchauffage) -- preprodia/prodia : URL propre
+      - HERMES_MODELE=${HERMES_MODELE:-qwen3:4b}
+    volumes:
+      - ../hermes-web/config:/app/config:ro
+      - ${HERMES_WEB_DATA_DIR:-./hermes-web-data}/data:/data
+      - ${HERMES_WEB_DATA_DIR:-./hermes-web-data}/opt-data:/opt/data
+    ports:
+      - "${HERMES_WEB_PORT:-8092}:8092"
+
+  htop-relais:
+    # Livraison #800 -- relais si-htop : reçoit en UDP les relevés signés des émetteurs (VM, CT, Proxmox ; toutes les
+    # 2 s), garde l'état et 24 h d'historique, calcule les constats soutenus, les sert à si-agent-api (HTTP interne,
+    # jeton) et les diffuse aux clients UDP abonnés (poste d'exploitation). Voir si-agent/htop/README.md.
+    build:
+      context: .
+      dockerfile: si-agent/htop/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${SI_AGENT_DATA_DIR:-./si-agent/data}/htop:/data
+    environment:
+      - HTOP_CLE_EMETTEURS=${HTOP_CLE_EMETTEURS:-}
+      - HTOP_CLE_CLIENTS=${HTOP_CLE_CLIENTS:-}
+      - HTOP_JETON_INTERNE=${HTOP_JETON_INTERNE:-}
+      - HTOP_SEUILS=${HTOP_SEUILS:-}
+    ports:
+      - "${HTOP_UDP_PORT:-8399}:8399/udp"
 
   si-proxy:
     # Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS
@@ -1174,7 +1533,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./si-proxy/certs:/certs:ro
-      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/certs/ca.crt:/ca/ca.crt:ro   # #582 : CA propre au bastion
       - ./si-proxy/data:/data
     environment:
       - SI_PROXY_PORT=6450
@@ -1188,9 +1547,18 @@ services:
       - SI_PROXY_BAN_THRESHOLD=${SI_PROXY_BAN_THRESHOLD:-5}
       - SI_PROXY_BAN_WINDOW=${SI_PROXY_BAN_WINDOW:-300}
       - SI_PROXY_BAN_MINUTES=${SI_PROXY_BAN_MINUTES:-15}
+      # #583 : publications de port -- « PORT=SHIM:HOTE:PORT » (virgules) ; le
+      # relais écoute PORT (TCP brut) et renvoie vers HOTE:PORT par le shim
+      # nommé (ex. 6488=campus:192.0.2.10:8006 -> interface web d'un Proxmox
+      # distant, joint par le shim « campus » et son tunnel SSH). Deux ports
+      # sont publiés (6488, 6489) ; IP autorisées : SI_PROXY_PUBLISH_ALLOW.
+      - SI_PROXY_PUBLISH=${SI_PROXY_PUBLISH:-}
+      - SI_PROXY_PUBLISH_ALLOW=${SI_PROXY_PUBLISH_ALLOW:-}
     ports:
       - "${SI_PROXY_PORT:-6450}:6450"
       - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
+      - "${SI_PROXY_PUBLISH_1_PORT:-6488}:6488"
+      - "${SI_PROXY_PUBLISH_2_PORT:-6489}:6489"
 
   cortex-api:
     # Livraison #462 -- « Cortex » : décloisonne, corrèle, relie, consolide.
@@ -1227,6 +1595,7 @@ services:
       # #466 : notifications par incident -- SMS / courriel par les SECRETS_ALERT_* du PRA #206
       # (même module partagé que si-agent et UPS), webhook propre à Cortex ; CORTEX_NOTIFY=0 coupe l'envoi.
       - CORTEX_NOTIFY=${CORTEX_NOTIFY:-1}
+      - CORTEX_WIFI_SITE_MAP=${CORTEX_WIFI_SITE_MAP:-}   # #760 : site d'agent=site Nebula;… (corrélation sondes de terrain × Wi-Fi)
       - CORTEX_NOTIFY_WEBHOOK_URL=${CORTEX_NOTIFY_WEBHOOK_URL:-}
       - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
       - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
@@ -1257,7 +1626,7 @@ services:
       dockerfile: si-proxy/admin/Dockerfile
     restart: unless-stopped
     volumes:
-      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/certs/ca.crt:/ca/ca.crt:ro   # #582 : CA propre au bastion
     environment:
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=supervision-si
@@ -1267,6 +1636,141 @@ services:
       - SI_PROXY_CONTROL_CA=/ca/ca.crt
     depends_on:
       - si-proxy
+
+  messages-api:
+    # #903 : « blog » du hub -- tuile Messages (un mot pour tous ou pour soi, permanent ou à durée de vie, effaçable).
+    # Ouvert à tout utilisateur connecté (jeton Keycloak) ; seuls l'auteur et les administrateurs suppriment.
+    build:
+      context: .
+      dockerfile: messages/api/Dockerfile
+    volumes:
+      - ${MESSAGES_DATA_DIR:-./messages/data}:/data
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      - MESSAGES_ADMIN_GROUPS=${MESSAGES_ADMIN_GROUPS:-administrateurs}
+    # pas de depends_on keycloak : il vit dans gateway/docker-compose.yml (voir #135)
+    restart: unless-stopped
+
+  notify-api:
+    # Livraison #590 (backlog item 92) -- notifications par courriel des
+    # actions du hub (routeurs, tour de contrôle...) et GESTIONNAIRE D'ENVOI
+    # détaché : catalogue d'actions « module.action », groupes et
+    # méta-groupes de destinataires, affectation action → groupes (groupe par
+    # défaut généré par module), file persistante (SQLite), regroupement,
+    # retenue des rafales, débit, backoff, disjoncteur SMTP, liste noire.
+    # Producteurs : modules du hub (NOTIFY_INTERNAL_TOKEN) et services
+    # EXTERNES (jeton par consommateur, émis dans la tuile). Administration
+    # par jeton Keycloak vérifié (groupe administrateurs). Voir notify/README.md.
+    build:
+      context: .
+      dockerfile: notify/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${NOTIFY_DATA_DIR:-./notify/data}:/data
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_ADMIN_GROUPS=${NOTIFY_ADMIN_GROUPS:-administrateurs}
+      - NOTIFY_ADMIN_USERS=${NOTIFY_ADMIN_USERS:-}
+      - NOTIFY_SUBJECT_PREFIX=${NOTIFY_SUBJECT_PREFIX:-[Hub SI]}
+      # SMTP propre (NOTIFY_SMTP_*) ; à défaut, les SECRETS_ALERT_SMTP_* du PRA.
+      - NOTIFY_SMTP_HOST=${NOTIFY_SMTP_HOST:-${SECRETS_ALERT_SMTP_HOST:-}}
+      - NOTIFY_SMTP_PORT=${NOTIFY_SMTP_PORT:-${SECRETS_ALERT_SMTP_PORT:-587}}
+      - NOTIFY_SMTP_USER=${NOTIFY_SMTP_USER:-${SECRETS_ALERT_SMTP_USER:-}}
+      - NOTIFY_SMTP_PASSWORD=${NOTIFY_SMTP_PASSWORD:-${SECRETS_ALERT_SMTP_PASSWORD:-}}
+      - NOTIFY_SMTP_FROM=${NOTIFY_SMTP_FROM:-${SECRETS_ALERT_SMTP_FROM:-}}
+      - NOTIFY_SMTP_USE_TLS=${NOTIFY_SMTP_USE_TLS:-${SECRETS_ALERT_SMTP_USE_TLS:-true}}
+      # #787 : SMS internes du hub -- relais du TRB140 avec une clé PROPRE (utilisateur dédié du relais, distinct du client externe)
+      - NOTIFY_SMS_RELAY_URL=${NOTIFY_SMS_RELAY_URL:-}
+      - NOTIFY_SMS_RELAY_KEY=${NOTIFY_SMS_RELAY_KEY:-}
+      - NOTIFY_SMS_RELAY_UI=${NOTIFY_SMS_RELAY_UI:-}
+      - NOTIFY_SMS_TRB_UI=${NOTIFY_SMS_TRB_UI:-}
+      - NOTIFY_VAPID_SUBJECT=${NOTIFY_VAPID_SUBJECT:-mailto:supervision@example.org}
+
+  licenses-api:
+    # Livraison #595 -- gestionnaire de LICENCES LOGICIELLES par site :
+    # catalogue, contrats, attributions poste / utilisateur (grille),
+    # installations relevées par la sonde « software-inventory » des agents
+    # (si-agent-api), écarts, import des tableurs, comptes vendeurs
+    # (Microsoft Graph via un accès du coffre), installation /
+    # désinstallation depuis la tuile (commande software_action à l'agent,
+    # confirmation obligatoire). Lecture libre, écritures = jeton Keycloak
+    # vérifié (groupe administrateurs). Voir licenses/README.md.
+    build:
+      context: .
+      dockerfile: licenses/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${LICENSES_DATA_DIR:-./licenses/data}:/data
+    environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - LICENSES_ADMIN_GROUPS=${LICENSES_ADMIN_GROUPS:-administrateurs}
+      - LICENSES_ADMIN_USERS=${LICENSES_ADMIN_USERS:-}
+      - LICENSES_EXPIRING_DAYS=${LICENSES_EXPIRING_DAYS:-60}
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - ACCOUNTS_API_URL=http://accounts-api:5000   # #597 : annuaire (Keycloak fédéré LDAP) -> table utilisateurs / site
+      # #598 : analyse croisée automatique avec l'annuaire (présence, groupes) ; groupe(s) des personnes
+      # qui ne travaillent plus avec nous (créer le groupe « anciens » dans Comptes / LDAP) -> alerte + écart critique.
+      - LICENSES_FORMER_GROUPS=${LICENSES_FORMER_GROUPS:-anciens}
+      - LICENSES_DIRECTORY_INTERVAL=${LICENSES_DIRECTORY_INTERVAL:-3600}
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=licenses
+    depends_on:
+      - si-agent-api
+      - credentials-api
+
+  services-api:
+    # Livraison #584 -- « Services du hub » (sous-tuile de Paramétrage) :
+    # feu tricolore de TOUS les conteneurs du projet (état Docker,
+    # healthcheck, requête HTTP interne sur le port exposé) et redémarrage
+    # (start/restart seulement, jamais stop/suppression/image). Socket
+    # Docker monté = root sur l'hôte : la route /api/services/ exige un
+    # jeton Keycloak VÉRIFIÉ (RS256/JWKS, comme si-proxy-admin-api #454) et
+    # un utilisateur de SERVICES_ADMIN_USERS. Voir services/README.md.
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # #586 : tour de contrôle -- le dépôt AU MÊME CHEMIN que sur l'hôte
+      # (lancer run.sh depuis la racine du dépôt, comme toujours) : les
+      # chemins relatifs du compose se résolvent pareil dans le runner.
+      - ${PWD}:${PWD}
+      # #593 : santé de l'hôte -- racine de l'hôte en LECTURE SEULE (bind
+      # récursif : /var, /home… s'ils sont des partitions) pour mesurer
+      # l'espace disque ; charge et mémoire viennent de /proc (noyau hôte).
+      - /:/host:ro
+    environment:
+      - SERVICES_HOST_ROOT=/host
+      # #594 : hyperviseur qui porte la VM du hub, via les agents Proxmox (si-agent-api)
+      - SERVICES_SI_AGENT_URL=http://si-agent-api:5000
+      - SERVICES_VM_NAME=${SERVICES_VM_NAME:-}
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=services
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
+      - SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}   # #589 : droits gérés dans le hub (groupe Keycloak)
+      - SERVICES_PROJECT_DIR=${PWD}
+      - SERVICES_HOST_IP=${HOST_IP:-}
+      - SERVICES_EXTRA_PROJECTS=${SERVICES_EXTRA_PROJECTS:-supervision-si-gateway}
+      - SERVICES_HEAL_INTERVAL=${SERVICES_HEAL_INTERVAL:-60}
+      - SERVICES_HTTP_TIMEOUT=${SERVICES_HTTP_TIMEOUT:-4}
+      - SERVICES_CACHE_SECONDS=${SERVICES_CACHE_SECONDS:-20}
+      - TOWER_JOB_AS_ROOT=${TOWER_JOB_AS_ROOT:-0}   # #672 : 1 = runner des jobs en root (ancien comportement)
 
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
@@ -1323,6 +1827,14 @@ services:
       - LDAP_ADMIN_BIND_DN=${LDAP_ADMIN_BIND_DN:-}
       - LDAP_ADMIN_BASE_DN=${LDAP_ADMIN_BASE_DN:-}
       - LDAP_ADMIN_BACKUP_RETENTION_COUNT=${LDAP_ADMIN_BACKUP_RETENTION_COUNT:-30}
+      # Création de comptes / affectation aux groupes (livraison LDAP) :
+      # conteneurs et défauts. Défauts = conventions du groupe exemple ; réglables.
+      - LDAP_ACCOUNTS_DN=${LDAP_ACCOUNTS_DN:-ou=accounts,dc=exemple,dc=fr}
+      - LDAP_EXTERNAL_DN=${LDAP_EXTERNAL_DN:-ou=external,ou=accounts,dc=exemple,dc=fr}
+      - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-ou=groups,ou=accounts,dc=exemple,dc=fr}
+      - LDAP_DEFAULT_GID=${LDAP_DEFAULT_GID:-65534}
+      - LDAP_DEFAULT_SHELL=${LDAP_DEFAULT_SHELL:-/bin/false}
+      - LDAP_UID_FLOOR=${LDAP_UID_FLOOR:-1000}
     volumes:
       # LDAP_ADMIN_DATA_DIR (.env, optionnel) : même logique que
       # DBA_DATA_DIR/TICKETS_DATA_DIR -- sort les sauvegardes LDIF de
@@ -1575,6 +2087,10 @@ services:
       # lecture seule des géolocalisations (jamais rien de sensible,
       # voir la décision de sécurité assumée) depuis Supervision SI.
       - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
+      # Affichage du coffre (#501, défaut inversé #502) : simple (défaut,
+      # colonne centrale en tableau, sans pictogramme) ou complet (trois
+      # colonnes) -- défaut d'installation, chaque navigateur peut basculer.
+      - VITE_VAULT_UI_MODE=${VAULT_UI_MODE:-tableur}
     depends_on:
       - vault-api
       # keycloak retiré (livraison #135) -- voir tickets-api plus haut.
@@ -1611,6 +2127,7 @@ services:
       - ldap-admin-api
 
   hub:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     build:
       context: .
       dockerfile: hub/Dockerfile
@@ -1631,6 +2148,24 @@ services:
       - VITE_DBA_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/dba/
       - VITE_LDAP_ADMIN_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/ldap-admin/
       - VITE_VAULT_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/vault/
+      # ProjeQtOr (fork, livraison #476) — tuile visible de tous,
+      # embarquable en onglet (même origine via tls-proxy).
+      - VITE_PROJEQTOR_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/projeqtor/
+      # MikroTik (livraison #485) — tuile de la thématique Réseau,
+      # embarquable en onglet (même origine via tls-proxy).
+      - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
+      # Équipements Cisco (livraison #508) -- tuile réservée admin/technicien.
+      - VITE_CISCO_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/cisco/
+      # Entrées de services (livraison #531) -- tuile de la thématique Supervision.
+      - VITE_SERVICE_WATCH_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/service-watch/
+      # Assistant IA PoC (livraison #532) -- tuile Documents & ENT (profil assistant).
+      - VITE_ASSISTANT_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/assistant/
+      # Accès d'équipements (livraison #498) — tuile de la thématique
+      # Sécurité & accès, embarquable en onglet (même origine).
+      - VITE_CREDENTIALS_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/credentials/
+      # Pont « suivi » (#484) — page d'ADMINISTRATION (import/export
+      # Excel, synchro) pour la tuile « Demandes (suivi) » (#489).
+      - VITE_DEMANDE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/demande/admin
       # Adresse LAN DIRECTE (http, pas https via la passerelle) --
       # même raisonnement que vault-admin-portal lui-même, jamais routé
       # par tls-proxy.
@@ -1648,6 +2183,16 @@ services:
       # l'analyser).
       - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
       - VITE_SCHEMA_ANALYZER_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/schema-analyzer
+      # Portage PHP → Python (livraison #650)
+      - VITE_PORTAGE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/portage
+      # Tests QA en ligne (livraison #651)
+      - VITE_QA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/qa
+      # Synchronisation centrale (livraison #652)
+      - VITE_DATASYNC_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/datasync
+      - VITE_VULN_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vuln
+      - VITE_GROUPWARE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/groupware
+      # DNS éditable de la tour de contrôle (livraison #656)
+      - VITE_DNS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dns
       # Documents joints -- onglet GED (livraison #167) -- même API
       # que TicketDocuments.jsx (tickets-portal, #160), consommée ici
       # pour la navigation/gestion générale (pas liée à un ticket en
@@ -1665,10 +2210,17 @@ services:
       # Nebula + pont GLPI -- onglet hub (livraison #228), backend
       # #196-200 (nebula) et #208 (pont GLPI).
       - VITE_NEBULA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/nebula
+      - VITE_NEBULA_TILE_TITLE=${VITE_NEBULA_TILE_TITLE:-Nebula@Campus}
+      - VITE_HUB_ALIASES=${VITE_HUB_ALIASES:-}
+      - VITE_NEBULA_AGENT_SITE=${VITE_NEBULA_AGENT_SITE:-}
+      - VITE_PROXMOX_WEB_URLS=${VITE_PROXMOX_WEB_URLS:-}
       - VITE_GLPI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/glpi
       # Client IMAP -- onglet hub (livraison #230), backend #179-191
       # (PREMIÈRE interface pour ce module, jamais construite avant).
       - VITE_IMAP_CLIENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/imap-client
+      # Connecteurs IMAP -- tuile hub (livraison #489), backend du
+      # même numéro (boîtes de réception → API du hub).
+      - VITE_IMAP_CONNECTORS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/imap-connectors
       # Exploration réseau -- onglet hub (livraison #233), backend
       # #233 (item 20).
       - VITE_NETWORK_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/network-agent
@@ -1691,17 +2243,29 @@ services:
       - VITE_TASKS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tasks
       # Droits (livraison #283) -- onglet hub réservé à admin_hub.
       - VITE_RIGHTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/rights
+      # Comptes et groupes (livraison #557) -- tuile réservée aux administrateurs.
+      - VITE_ACCOUNTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/accounts
       # Sondes réseau (livraison #301) -- tuile hub pour netprobe-api.
       - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
       # UPS (livraison #415) -- tuile hub pour ups-monitor-api.
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Équipements réseau (livraison #506) -- entrée du menu Réseau pour network-equipment-api.
+      - VITE_NETWORK_EQUIPMENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/network-equipment
       # Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
       - VITE_CORTEX_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cortex
       # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).
       - VITE_SI_PROXY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-proxy
       - VITE_SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
+      # Services du hub (livraison #584) -- feu tricolore + redémarrage (SERVICES_ADMIN_USERS).
+      - VITE_SERVICES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/services
+      - VITE_SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - VITE_SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}
+      # Notifications (livraison #590) -- tuile « Notifications » (groupe administrateurs).
+      - VITE_NOTIFY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/notify
+      - VITE_MESSAGES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/messages
+      - VITE_LICENSES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/licenses   # #595
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.
@@ -2100,13 +2664,344 @@ services:
     ports:
       - "${LAUNCHER_LAN_PORT:-6121}:8000"
 
+  # ProjeQtOr (fork supervision-si, livraison #476) — gestion de
+  # projets intégrée au hub, sources vendorées TELLES QUELLES dans
+  # projeqtor/src (voir projeqtor/README.md, section Fork). Tuile hub
+  # visible de tous ; authentification possible via l'annuaire LDAP du
+  # hub (paramètres générés par l'entrypoint, voir
+  # projeqtor/docker-entrypoint.sh). Routé par tls-proxy sous
+  # /projeqtor/ — penser au `restart tls-proxy` après le premier
+  # déploiement (piège #151).
+  projeqtor-db:
+    image: mariadb:11.4
+    environment:
+      - MARIADB_DATABASE=${PROJEQTOR_DB_NAME:-projeqtor}
+      - MARIADB_USER=${PROJEQTOR_DB_USER:-projeqtor}
+      - MARIADB_PASSWORD=${PROJEQTOR_DB_PASSWORD:-}
+      - MARIADB_ROOT_PASSWORD=${PROJEQTOR_DB_ROOT_PASSWORD:-}
+    volumes:
+      - projeqtor_db_data:/var/lib/mysql
+    # AUCUN port publié : joignable uniquement depuis le réseau Docker
+    # partagé (projeqtor-app), jamais depuis l'hôte ni le LAN.
+
+  projeqtor-app:
+    build:
+      # Contexte LOCAL projeqtor/ (et pas la racine) : src/ fait
+      # 258 Mo, inutile d'y ajouter le reste du dépôt ; le module n'a
+      # aucune dépendance à shared/.
+      context: ./projeqtor
+      dockerfile: Dockerfile
+    environment:
+      - PROJEQTOR_DB_HOST=projeqtor-db
+      - PROJEQTOR_DB_PORT=3306
+      - PROJEQTOR_DB_NAME=${PROJEQTOR_DB_NAME:-projeqtor}
+      - PROJEQTOR_DB_USER=${PROJEQTOR_DB_USER:-projeqtor}
+      - PROJEQTOR_DB_PASSWORD=${PROJEQTOR_DB_PASSWORD:-}
+      # Annuaire du hub -- mêmes variables que Keycloak/ldap-admin
+      # (LDAP_URL pointe vers openldap-test par défaut, voir
+      # .env.example). Vide => pas d'authentification LDAP, comptes
+      # propres à ProjeQtOr.
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - PROJEQTOR_DEFAULT_LOCALE=${PROJEQTOR_DEFAULT_LOCALE:-fr}
+      - PROJEQTOR_DEFAULT_TIMEZONE=${PROJEQTOR_DEFAULT_TIMEZONE:-Europe/Paris}
+    volumes:
+      # PROJEQTOR_DATA_DIR (.env, optionnel) : sort ce dossier de
+      # l'arborescence du projet -- même logique que DBA_DATA_DIR /
+      # TICKETS_DATA_DIR. Contient config/parameters.php (MOT DE PASSE
+      # DE LA BASE EN CLAIR -- voir projeqtor/README.md), pièces
+      # jointes, documents, logs. Vide = ./projeqtor/data comme repli.
+      - ${PROJEQTOR_DATA_DIR:-./projeqtor/data}:/data
+    depends_on:
+      - projeqtor-db
+
+  # projeqtor-bridge (livraison #484) — pont entre le format « suivi des demandes »
+  # imposé, ProjeQtOr et la gestion de tickets du hub : formulaire
+  # PUBLIC de dépôt (LAN, sans authentification, confirmé par la
+  # personne) sur /demande/, import/export xlsx, synchronisation des
+  # demandes ProjeQtOr vers les « imports à valider » du hub, import
+  # des utilisateurs depuis l'annuaire LDAP central (script).
+  # Voir projeqtor-bridge/README.md.
+  projeqtor-bridge:
+    build:
+      # Contexte racine (comme tickets-api) : partage
+      # shared/version_endpoint.py et shared/VERSION.json.
+      context: .
+      dockerfile: projeqtor-bridge/Dockerfile
+    environment:
+      # Compte ProjeQtOr DÉDIÉ au pont (créé une fois dans l'interface
+      # ProjeQtOr — voir projeqtor-bridge/README.md), jamais admin.
+      - PROJEQTOR_API_URL=http://projeqtor-app/projeqtor/api
+      - PROJEQTOR_API_USER=${PROJEQTOR_API_USER:-}
+      - PROJEQTOR_API_PASSWORD=${PROJEQTOR_API_PASSWORD:-}
+      - PROJEQTOR_IMPORT_PROFILE=${PROJEQTOR_IMPORT_PROFILE:-}
+      # Réseau Docker interne, jamais la passerelle : le pont pousse
+      # directement dans tickets-api (même patron que
+      # TICKETS_API_INTERNAL_URL existant).
+      - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
+      - BRIDGE_SYNC_INTERVAL_SECONDS=${PROJEQTOR_BRIDGE_SYNC_SECONDS:-120}
+      - BRIDGE_STATE_PATH=/data/sync_state.json
+      # Espace « Simple » (#541) : référentiel des services et états posés
+      # par l'exploitation, dans le volume de données du pont.
+      - ETAT_SERVICES_FILE=/data/services.json
+      - ETAT_ETATS_FILE=/data/etats.json
+      # #542 : états vivants (critical → panne, warning → dégradé) depuis
+      # service-watch ; vide = fichier seul.
+      - SERVICE_WATCH_API_INTERNAL_URL=http://service-watch-api:5000
+      # #545 : incidents Cortex ouverts et agents hôtes hors ligne.
+      - CORTEX_API_INTERNAL_URL=http://cortex-api:5000
+      - SI_AGENT_API_INTERNAL_URL=http://si-agent-api:5000
+      # Marqueur des demandes dans ProjeQtOr (#494) — voir .env.example.
+      - PROJEQTOR_BRIDGE_LABEL=${PROJEQTOR_BRIDGE_LABEL:-SUIVI}
+      # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,
+      # renseigné à la main dans .env (sync-env.py insère les clés
+      # vides si absentes). Vides = import LDAP impossible mais tout
+      # le reste du pont fonctionne.
+      - CENTRAL_LDAP_URL=${CENTRAL_LDAP_URL:-}
+      - CENTRAL_LDAP_BIND_DN=${CENTRAL_LDAP_BIND_DN:-}
+      - CENTRAL_LDAP_BIND_PASSWORD=${CENTRAL_LDAP_BIND_PASSWORD:-}
+      - CENTRAL_LDAP_USERS_DN=${CENTRAL_LDAP_USERS_DN:-}
+      - CENTRAL_LDAP_FILTER=${CENTRAL_LDAP_FILTER:-}
+      - CENTRAL_LDAP_ATTR_LOGIN=${CENTRAL_LDAP_ATTR_LOGIN:-}
+      - CENTRAL_LDAP_ATTR_NAME=${CENTRAL_LDAP_ATTR_NAME:-}
+      - CENTRAL_LDAP_ATTR_MAIL=${CENTRAL_LDAP_ATTR_MAIL:-}
+    volumes:
+      # État de la synchronisation (derniers ids poussés) — sa perte
+      # ne crée JAMAIS de doublon (déduplication dans tickets-api,
+      # voir /tickets/import-external), elle ne coûte qu'un tour
+      # complet de relecture.
+      - ./projeqtor-bridge/data:/data
+    depends_on:
+      - projeqtor-app
+      - tickets-api
+
+  # credentials-api (livraison #498) — coffre des accès d'équipements :
+  # identifiants utilisés par les SERVICES du hub (API RouterOS, SSH,
+  # HTTP, SNMP), chiffrés au repos (CREDENTIALS_PASSPHRASE, sel dans le
+  # volume), jamais renvoyés au navigateur ; révélation réservée aux
+  # services du réseau Docker par jeton interne. Interface servie sous
+  # /credentials/ (tls-proxy), tuile « Accès d'équipements » de la
+  # thématique Sécurité & accès. Voir credentials/README.md.
+  credentials-api:
+    build:
+      context: .
+      dockerfile: credentials/api/Dockerfile
+    environment:
+      - CREDENTIALS_PASSPHRASE=${CREDENTIALS_PASSPHRASE:-}
+      - CREDENTIALS_SALT=${CREDENTIALS_SALT:-}
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CREDENTIALS_DATA_DIR=/data
+    volumes:
+      # Base SQLite + sel de chiffrement : À SAUVEGARDER (perdre le sel
+      # ou la phrase de passe rend les mots de passe illisibles).
+      - ${CREDENTIALS_DATA_DIR:-./credentials/data}:/data
+
+  # ollama (livraison #532, item 81) -- serveur de modèle ouvert LOCAL pour
+  # le PoC assistant (API compatible OpenAI sur 11434). Profil `assistant` :
+  # jamais démarré par un `up -d` ordinaire (un modèle = plusieurs Go de
+  # RAM) ; ./scripts/run.sh up -d ollama assistant-api l'active. Le modèle
+  # est tiré une fois : docker compose exec ollama ollama pull ${LLM_MODEL}.
+  # Un serveur externe (VM GPU, autre Proxmox) se substitue par LLM_BASE_URL.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["assistant"]
+    environment:
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      # Poids des modèles (plusieurs Go) : hors dépôt, à ne pas sauvegarder.
+      - ${OLLAMA_MODELS_DIR:-./assistant/models}:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: ${OLLAMA_MEMORY_LIMIT:-24g}
+
+  # assistant-api (livraison #532, item 81) -- PoC assistant IA interne :
+  # RAG lexical sur documents locaux / tickets / GED, question avec sources,
+  # classement de document, résumé de demande, évaluation (20 cas, jetons/s).
+  # Page servie sous /assistant/, tuile de la thématique Documents & ENT.
+  assistant-api:
+    build:
+      context: .
+      dockerfile: assistant/Dockerfile
+    profiles: ["assistant"]
+    environment:
+      - ASSISTANT_DATA_DIR=/data
+      - ASSISTANT_DOCS_DIR=/docs
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://ollama:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-600}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-700}
+      - LLM_THINK=${LLM_THINK:-false}
+      - TICKETS_API_URL=http://tickets-api:5000
+      - TICKETS_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/tickets/   # #730 : lien des réponses « tickets »
+      - GED_API_URL=http://ged-api:5000
+      # #715 « Questions sur le hub » : API interrogées (lecture seule) et adresse du hub pour les liens ?view=.
+      # Sources supplémentaires ou retirées : ${ASSISTANT_DATA_DIR}/hub-sources.json (voir assistant/README.md).
+      - HUB_PUBLIC_URL=${HUB_PUBLIC_URL:-/}
+      - TZ=${TZ:-Europe/Paris}
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - IPAM_API_URL=http://ipam-api:5000
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - NETWORK_EQUIPMENT_API_URL=http://network-equipment-api:5000
+      - NEBULA_API_URL=http://nebula-api:5000
+      - MIKROTIK_API_URL=http://mikrotik-api:5000
+      - CISCO_API_URL=http://cisco-api:5000
+      - NETPROBE_API_URL=http://netprobe-api:5000
+      - DNS_API_URL=http://dns-api:5000
+    volumes:
+      # Documents indexés (lecture seule) : par défaut la documentation du
+      # dépôt ; pointer ASSISTANT_DOCS_DIR vers un dossier de documents réels.
+      - ${ASSISTANT_DOCS_DIR:-./docs}:/docs:ro
+      # #556 : règles lisibles, indexées comme documents (ensemble d'apprentissage).
+      - ./rules:/rules:ro
+      # Journal, rapports d'évaluation, dépôts de test : hors dépôt.
+      - ${ASSISTANT_DATA_DIR:-./assistant/data}:/data
+
+  # service-watch-api (livraison #531, backlog item 80) -- supervision des
+  # entrées de services vues d'Internet : inventaire (zone DNS importée,
+  # registre service-watch/entries.json), qualification périodique (DNS,
+  # ports, TLS, HTTP, page d'hébergeur), scénarios HTTP avec compte de test
+  # du coffre, empreinte de contenu avec différence, canaris mail
+  # (SMTP -> IMAP), constats -> événements -> notifications SECRETS_ALERT_*.
+  # Page servie sous /service-watch/, tuile de la thématique Supervision.
+  service-watch-api:
+    build:
+      context: .
+      dockerfile: service-watch/Dockerfile
+    environment:
+      - SERVICE_WATCH_DATA_DIR=/data
+      - SERVICE_WATCH_REGISTRY=/app/entries.json
+      - SERVICE_WATCH_INTERVAL_MINUTES=${SERVICE_WATCH_INTERVAL_MINUTES:-10}
+      - SERVICE_WATCH_CANARY_INTERVAL_MINUTES=${SERVICE_WATCH_CANARY_INTERVAL_MINUTES:-60}
+      - SERVICE_WATCH_NOTIFY_MIN_SEVERITY=${SERVICE_WATCH_NOTIFY_MIN_SEVERITY:-warning}
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
+    volumes:
+      - ./service-watch/entries.json:/app/entries.json:ro
+      # Base SQLite (entrées, passages, références de contenu, canaris,
+      # événements) : à sauvegarder.
+      - ${SERVICE_WATCH_DATA_DIR:-./service-watch/data}:/data
+    depends_on:
+      - credentials-api
+
+  # mikrotik (livraison #485) — supervision et commande de base des
+  # routeurs MikroTik (API REST RouterOS v7). Registre dans
+  # mikrotik/routers.json (versionné) ; identifiants dans le coffre des
+  # accès d'équipements (credentials-api, #498 — plus rien dans .env).
+  # Interface servie sous /mikrotik/ (tls-proxy), tuile de la
+  # thématique Réseau du hub.
+  cisco-api:
+    # Livraison #508 -- switchs/routeurs Cisco (Catalyst 3750/2970 IOS,
+    # Nexus 3064PQ NX-OS…) par SSH : supervision (état, charge, capteurs,
+    # interfaces, journal, alertes), sauvegarde versionnée et restauration
+    # (fusion, aperçu) des configurations, gestes d'urgence journalisés.
+    # Identifiants dans le coffre des accès (genre ssh) ; registre
+    # cisco/switches.json sans secret. Un seul worker (sessions SSH).
+    build:
+      context: .
+      dockerfile: cisco/Dockerfile
+    environment:
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=cisco
+      - CISCO_REGISTRY=/app/registry/switches.json
+      # #585 : registre local hors dépôt, prioritaire (jamais écrasé par un déploiement).
+      - CISCO_REGISTRY_LOCAL=/app/registry/switches.local.json
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CISCO_SSH_TIMEOUT=${CISCO_SSH_TIMEOUT:-15}
+      - CISCO_BACKUP_INTERVAL_HOURS=${CISCO_BACKUP_INTERVAL_HOURS:-24}
+      - CISCO_KEEP_CONFIGS=${CISCO_KEEP_CONFIGS:-60}
+    volumes:
+      - ./cisco:/app/registry      # #585 dossier (switches.json + switches.local.json), relu à chaque appel ; #592 : en écriture, la tuile ajoute des équipements
+      # Configurations archivées + journal des gestes : À SAUVEGARDER.
+      - ${CISCO_DATA_DIR:-./cisco/data}:/data
+    depends_on:
+      - credentials-api
+
+  mikrotik-api:
+    build:
+      context: .
+      dockerfile: mikrotik/Dockerfile
+    environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=mikrotik
+      - MIKROTIK_TLS_VERIFY=${MIKROTIK_TLS_VERIFY:-}
+      - MIKROTIK_REGISTRY=/app/registry/routers.json
+      - MIKROTIK_REGISTRY_LOCAL=/app/registry/routers.local.json   # #585
+      # Coffre des accès (#498) : clé "credential" du registre = nom de
+      # l'accès ; "default" = accès « mikrotik ». Jeton interne partagé
+      # avec credentials-api, jamais exposé par tls-proxy.
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CREDENTIALS_CACHE_SECONDS=60
+    depends_on:
+      - credentials-api
+    volumes:
+      # Registre éditable sans rebuild — jamais d'identifiant dedans.
+      - ./mikrotik:/app/registry      # #585 dossier (routers.json + routers.local.json) ; #592 : en écriture, la tuile ajoute des routeurs
+
+  imap-connectors:
+    # Livraison #489 — gestionnaire de connecteurs IMAP : boîtes de
+    # réception → API du hub (tickets, pont « suivi »/ProjeQtOr, alertes
+    # Zenoss → pixel-grid, SMS, notifications), avec journal, base et
+    # statistiques. Identifiants des boîtes en base (posture UPS),
+    # configurés depuis la tuile hub « Connecteurs IMAP ».
+    build:
+      context: .
+      dockerfile: imap-connectors/Dockerfile
+    environment:
+      - IMAP_CONNECTORS_DB_PATH=/data/imap-connectors.db
+      - TICKETS_API_URL=http://tickets-api:5000
+      - PROJEQTOR_BRIDGE_URL=http://projeqtor-bridge:5000
+      # pixel-grid : même bascule de backend que pixel-grid-api. En
+      # sqlite, la base est le fichier partagé par le volume ci-dessous.
+      - PIXEL_GRID_BACKEND=${PIXEL_GRID_BACKEND:-sqlite}
+      - PIXEL_GRID_DB_PATH=/pixelgrid/timeseries.db
+      - PGHOST=pixel-grid-postgres
+      - PGPORT=5432
+      - PGUSER=pixelgrid
+      - PGPASSWORD=pixelgrid
+      - PGDATABASE=pixelgrid
+    volumes:
+      - ${IMAP_CONNECTORS_DATA_DIR:-./imap-connectors/data}:/data
+      # Base timeseries de pixel-grid (backend sqlite seulement) —
+      # même montage que pixel-grid-api, en lecture-ÉCRITURE ici :
+      # c'est la liaison directe Zenoss → pixel-grid.
+      - ./pixel-grid/data-generator:/pixelgrid
+
 volumes:
+  dependency_track_data:
   api_data:
   pixel_grid_pg_data:
   tickets_pg_data:
   elasticsearch_data:
   geo_pg_data:
   geo_catalog_pg_data:
+  projeqtor_db_data:
+  portage_db_data:
   # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
   # #135) -- le volume EXISTANT (créé avant cette extraction) y est
   # référencé explicitement (external: true) pour préserver le realm,

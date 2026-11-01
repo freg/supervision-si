@@ -64,6 +64,21 @@ fi
 HOST_IP="$(get_env HOST_IP "")"
 EXTRA_SAN="$(get_env TLS_EXTRA_SAN "")"  # ex. "DNS:supervision.interne.local,DNS:super"
 
+# #673 : garde-fou -- un certificat serveur existe déjà mais n'a PAS été signé
+# par la CA qu'on va utiliser (deux PKI sur la machine, PKI_DIR oublié dans
+# .env…) : le régénérer changerait la CA vue par le frontal, les agents et
+# les postes (vu en réel : frontal Apache en « SSL Handshake » après un job
+# de la tour sans PKI_DIR). On s'arrête, sauf demande explicite.
+if [[ -f "$SERVER_DIR/server.crt" ]] && ! openssl verify -CAfile "$CA_DIR/ca.crt" "$SERVER_DIR/server.crt" >/dev/null 2>&1; then
+  if [[ "${PKI_ALLOW_CA_CHANGE:-0}" != "1" ]]; then
+    echo "❌ $SERVER_DIR/server.crt n'est pas signé par $CA_DIR/ca.crt -- la CA du hub CHANGERAIT." >&2
+    echo "   Vérifier PKI_DIR dans .env (une autre PKI est sans doute la bonne), ou relancer avec" >&2
+    echo "   PKI_ALLOW_CA_CHANGE=1 si le changement est voulu (frontaux, agents et postes à mettre à jour)." >&2
+    exit 1
+  fi
+  echo "⚠️  PKI_ALLOW_CA_CHANGE=1 : le certificat serveur change de CA." >&2
+fi
+
 mkdir -p "$SERVER_DIR"
 chmod 700 "$SERVER_DIR"
 

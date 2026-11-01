@@ -1,0 +1,183 @@
+# Tour de contrôle du hub — services-api (#584, #586)
+
+Sous-tuile **Paramètres → Services du hub** (menu Paramètres → « Services du
+hub (feu tricolore) », lien `?view=services`). Pour chaque conteneur du
+projet compose : état Docker, healthcheck s'il existe, requête HTTP interne
+sur le premier port exposé (`/health` puis `/`), classée en trois lampes :
+
+| lampe | cas |
+|---|---|
+| vert | en marche et joignable (HTTP 2xx, ou 401/403 = protégé), ou sans port et en marche |
+| orange | redémarre en boucle, healthcheck en démarrage, réponse lente (> 3 s), `status: degraded`, HTTP 404 sur `/health` et `/` |
+| rouge | arrêté / en erreur, healthcheck en échec, HTTP 5xx, port injoignable |
+
+Actions : **Tout vérifier** (ignore le cache), **Redémarrer** / **Démarrer**
+par service, **Redémarrer les rouges** (jamais `tls-proxy`, `keycloak`,
+`hub`, `services-api` — ils portent la page ou l'entrée), **Journal**
+(dernières lignes du conteneur). Filtre « début de mot d'abord »,
+« problèmes seulement ».
+
+## Sécurité
+
+Le socket Docker est monté (= root sur l'hôte, comme docker-monitor-api
+#376 volontairement hors passerelle). Ici la route `/api/services/` est
+publiée, mais chaque appel exige un **jeton Keycloak vérifié** (RS256 /
+JWKS, `si-proxy/admin/auth.py` partagé) et un utilisateur de
+`SERVICES_ADMIN_USERS` (défaut `freg`). Périmètre : conteneurs du projet
+(label compose) seulement ; start / restart uniquement — ni stop, ni
+suppression, ni image ; variables d'environnement jamais lues. Chaque
+redémarrage est journalisé avec l'utilisateur.
+
+## Configuration
+
+```
+SERVICES_ADMIN_USERS=freg          # utilisateurs Keycloak admis (virgules)
+SERVICES_HTTP_TIMEOUT=4            # s, requête interne
+SERVICES_CACHE_SECONDS=20          # cache de l'inventaire
+```
+
+```bash
+cd <dépôt> && ./scripts/run.sh up -d --build services-api tls-proxy hub
+```
+
+## API (jeton requis sauf /health)
+
+`GET /services[?refresh=1]` → `{project, at, summary{counts, verdict}, protected, services:[{service, container, status, docker_health, started_at, restart_count, port, http, kind, light, text, protected}]}` ;
+`POST /services/<s>/restart` ; `POST /services/restart-red` ; `GET /services/<s>/logs?tail=80`.
+
+Tests : `services/api/test_lights.py` (classement pur), `test_app.py`
+(jeton, inventaire, redémarrages, protégés, journal — Docker simulé) ;
+hub `tests/servicesLights.test.mjs`.
+
+
+## Tour de contrôle (#586)
+
+Paramètres → **🗼 Tour de contrôle** (`?view=control`, onglet par
+`&tab=services|deliveries|configs|auto|journal`). Tout se fait depuis le hub :
+
+- **Services** : le feu tricolore ci-dessus + **Reconstruire** (build + relance
+  du service, job) ; bouton **↻ Passerelle** (re-rendu nginx + relance de
+  tls-proxy, pour une nouvelle route `/api/…`).
+- **Livraisons & jobs** : déposer le zip (`git archive`) → analyse fichier par
+  fichier (ajouté / modifié / inchangé ; **jamais écrasés** : `.env`,
+  `*.local.json`, clés ; **conservés** si déjà présents : `*/data/*`,
+  `backups/*` ; entrées dangereuses `..`/absolues rejetées) → **plan** :
+  `sync-env.py` si `.env.example` a changé, `run.sh up -d --build` des services
+  dont une source COPY/ADD de leur Dockerfile a changé, `run.sh up -d` des
+  services en marche si `docker-compose.yml` a changé (compose ne recrée que
+  ce qui a bougé), `run.sh restart` pour un fichier monté, rechargement de la
+  passerelle si `tls-proxy/` ou `gateway/` ont changé — **seulement parmi les
+  services en marche** (un profil allégé n'est jamais étendu en douce ; les
+  autres sont listés « non démarrés »). Application **automatique** (réglage)
+  ou bouton ; retour arrière (numéro plus ancien) confirmé.
+- **Jobs** : exécutés par un conteneur **runner** détaché (même image, socket
+  Docker, dépôt monté au même chemin, `HOST_IP` transmis) → il survit à la
+  reconstruction de services-api, du hub ou de la passerelle. Journal en
+  direct, code retour ; `services/data/jobs/`.
+- **Configurations** : registres JSON (Cisco `cisco/switches.local.json`,
+  MikroTik `mikrotik/routers.local.json`) — tableau éditable d'après le schéma,
+  **import JSON** (fusion par nom ou remplacement), export, validation côté
+  serveur (noms, ports, choix, doublons), ancienne version gardée dans
+  `services/data/config-history/`. Relus à chaque appel par cisco-api /
+  mikrotik-api : aucun redémarrage.
+- **Automatismes** : auto-réparation (service rouge N vérifications de suite →
+  relance, plafond par heure, puis abandon signalé ; jamais les protégés),
+  application auto des livraisons, services **non surveillés** (gris, jamais
+  relancés). `services/data/settings.json`.
+- **Journal** : réglages, configurations, livraisons, jobs, auto-réparation
+  (`services/data/events.jsonl`).
+
+Montage : `${PWD}:${PWD}` (lancer `run.sh` depuis la racine du dépôt, comme
+toujours) ; `SERVICES_PROJECT_DIR=${PWD}`, `SERVICES_HOST_IP=${HOST_IP}`,
+`SERVICES_EXTRA_PROJECTS=supervision-si-gateway` (tls-proxy, keycloak dans le
+feu), `SERVICES_HEAL_INTERVAL=60`. Les fichiers écrits prennent le
+propriétaire du dépôt.
+
+API supplémentaires : `GET/PUT /settings`, `GET /events`, `GET /configs`,
+`GET/PUT /configs/<id>`, `POST /deliveries` (multipart `file`),
+`GET /deliveries`, `POST /deliveries/<id>/apply {allow_downgrade}`,
+`GET /jobs`, `GET /jobs/<id>`, `POST /services/<s>/rebuild`,
+`POST /gateway/reload`. Tests : `test_tower.py` (pur),
+`test_app.py::TestTower` (zip réel, plan, runner simulé, réglages,
+auto-réparation), hub `tests/towerLib.test.mjs`.
+
+**Premier passage** (la tour ne peut pas s'installer elle-même) :
+
+```bash
+cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d --build services-api hub && ./gateway/scripts/run.sh up -d --force-recreate tls-proxy
+```
+
+Ensuite, plus besoin de `scp` / `rsync` : les livraisons se déposent dans la tour.
+
+
+## Mise à jour depuis le git (#659)
+
+Onglet **Livraisons & jobs**, carte « Mise à jour depuis le git » : `GET /git` interroge le clone (`git fetch origin
+<branche>` depuis le conteneur : le dépôt distant doit être en **HTTPS** — pas de clé SSH dans l'image), affiche
+version en place → version distante, commits entrants, fichiers modifiés et le plan ciblé (même calcul que les
+livraisons zip : reconstruire les services dont une source a changé, parmi ceux en marche).
+
+- **Mettre à jour le central** : `POST /git/update {mode: central}` → job runner : `git pull --ff-only origin <branche>`
+  puis les étapes du plan ciblé.
+- **Tout mettre à jour en cascade** : `{mode: cascade, agents}` → `git pull`, reconstruction de **tous** les services en
+  marche + passerelle, `python3 deploy/node_agent.py update-all` si `deploy/nodes.json` compte plusieurs nœuds (chaque
+  nœud : `POST /update` sur son agent de nœud = pull + apply --build), puis, à la fin du job (vérification des jobs du
+  central), `POST si-agent-api/updates/apply` : commande `update` aux agents hôtes éligibles (canal bêta / activation
+  générale de la tuile Agents hôtes → Mises à jour ; sinon l'événement l'indique).
+- Refus : dépôt non git, remote SSH ou absent, fichiers suivis modifiés localement (`force` pour passer outre),
+  commits locaux non poussés (pas d'avance rapide), déjà à jour (central).
+- Le runner tire le dépôt en root : sous Linux, les fichiers tirés appartiennent à root (`sudo git …` ensuite, ou
+  `chown -R` du dépôt) ; sous Docker Desktop (Mac), aucun impact.
+
+## Répartition des nœuds (#662)
+
+Onglet **Répartition** : `GET /repartition` (nœuds de `deploy/nodes.json`, cohortes de `deploy/cohorts.json`, nœud courant
+= `deploy/generated/node.name` ou `SI_NODE_NAME` ou nom d'hôte, état de chaque agent de nœud par le VPN avec le jeton
+`SI_NODE_TOKEN` du `.env`), `PUT /repartition {nodes}` (affectation validée : noms uniques, adresse VPN, cohorte affectée
+au plus une fois, manager toujours affecté), `POST /repartition/apply {build, only}` (job `deploy/repartition.py apply`),
+`POST /repartition/migrate {cohort, target, force}` (job `deploy/repartition.py migrate … --yes` : arrêt source, copie des
+données, apply partout). Quand `nodes.json` connaît ce nœud, les plans (zip, git) ne reconstruisent **que** les services
+de ses cohortes (`not_here` liste les autres).
+
+## Miroir froid (#663)
+
+`GET /mirror` (config `deploy/mirror.local.json`, état primaire `deploy/generated/mirror-primary.state.json`, âge / RPO,
+état du miroir via son agent de nœud), `POST /mirror/<sync|sync-full|failover|failback|prune>` → job runner
+`deploy/mirror.py …` ; après un failover / failback réussi, la tour bascule le rôle `role_id` (si-agent-api
+`/pra/roles/<id>/switch`) vers le candidat miroir / primaire et le notifie.
+
+## Santé de l'hôte (#593)
+
+Après un `/var` saturé qui tronquait les fichiers du hub : la tour mesure
+l'hôte toutes les minutes — **espace disque** de chaque partition (racine
+de l'hôte montée en lecture seule sous `/host`, bind récursif), **charge**
+(1 / 5 / 15 min vs CPU) et **mémoire** (`/proc` du noyau hôte), plus
+`docker system df` (images inutilisées, cache de build, conteneurs,
+volumes). Seuils : disque orange ≥ 85 % ou < 1 Go libre, rouge ≥ 95 % ou
+< 200 Mo ; charge orange ≥ nb CPU (1 min), rouge ≥ 2 × CPU (5 min) ;
+mémoire orange ≥ 90 %, rouge ≥ 97 %.
+
+- **Bandeau d'alerte** en haut de toutes les pages du hub (`/host/public`,
+  sans jeton : lampe + texte seulement), lien vers la tour, masquable
+  jusqu'au prochain changement d'état.
+- Tour → Services : carte **Hôte du hub** (barres par partition, charge,
+  mémoire, Docker) et **🧹 Nettoyer images + cache** (`images.prune` sans
+  filtre dangling = toutes les images sans conteneur, `prune_builds` ;
+  option conteneurs arrêtés hors projet ; **jamais les volumes**),
+  journalisé et notifié (`tower.host.prune`).
+- Notifications `tower.host.disk` (critique) et `tower.host.load` à chaque
+  changement d'état, jamais répétées ; retour au vert notifié.
+
+Pour les autres hôtes (agents), les métriques disque / charge existent déjà
+dans si-agent (#503) ; la tour ne couvre que l'hôte du hub.
+
+### Hyperviseur (#594)
+
+La carte « Hôte du hub » identifie le **Proxmox qui porte la VM** (nom de
+la VM = hostname de l'hôte, ou `SERVICES_VM_NAME`) dans les mesures des
+agents Proxmox (`si-agent-api /proxmox`, plugin #487/#504) : nœud et
+version, VM (vmid, état, disque virtuel, RAM, instantanés, disques →
+stockages), **stockages** (ceux qui portent la VM en évidence) et **pools
+ZFS** (capacité, santé — `DEGRADED` = rouge), mémoire du nœud ; ces états
+entrent dans la lampe et le bandeau. Sans agent Proxmox sur l'hyperviseur,
+la carte le dit et renvoie vers la tuile Proxmox.

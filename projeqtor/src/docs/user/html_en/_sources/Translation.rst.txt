@@ -1,0 +1,111 @@
+.. include:: ImageReplacement.txt
+
+.. index:: Translation
+
+.. _Translation:
+
+###########
+Translation
+###########
+
+Translations are a separate module. By activating it you have access to a series of screens allowing you to manage your translation requests.
+
+.. seealso:: 
+
+   :ref:`Module management<module-management>`
+
+
+Translation request
+###################
+
+You must enable configuration management to manage products, product versions, and release components.
+
+When you request a translation, the fields "version component" and "product version" are mandatory.
+
+
+.. figure:: /images/GUI/ACCESSRIGHT_SCR_ManagementModule.png
+   :alt: Module management screen
+   
+   Module management screen
+
+Translation
+###########
+
+When you perform a translation request, a translation line is created for each language associated with the product or component version.
+
+.. figure:: /images/GUI/TRANSLATION_ZONE_TranslationItems.png
+   :alt: Translation items
+   
+   Translation items
+   
+Each of these lines are displayed on the translation screen.
+
+
+.. figure:: /images/GUI/TRANSLATION_SCR_Translations.png
+   :alt: Translation items
+   
+   Translation items
+
+
+You will find the information entered in the translation requests screen.
+These fields are grayed out and can only be modified on the request screen.
+
+The only field available is that of translators.
+
+The list of translators is proposed according to the skills indicated on the traudctors and the languages requested during the request.
+
+If the text to be translated is of German origin and the destination languages are English and Spanish, then the translator must know these three languages to appear in the lists.
+
+If no translator appears in the lists, it means that you do not have the competent translators for this translation.
+
+.. _translators:
+
+Translators
+###########
+
+
+You register your translators from your resources.
+
+
+.. figure:: /images/GUI/TRANSLATION_SCR_Translators.png
+   :alt: Translators screen
+   
+   Translators screen
+   
+* Each translator can have one or more associated languages.
+
+* Each language has a skill level.
+
+   
+Language skill level
+####################
+
+You set the skill levels on this screen.
+
+The levels are customizable and you can create as many as you want.
+
+By default, ProjeQtOr offers you the 3 most basic levels: beginner, intermediate and advanced.
+
+These skill levels are required of you when creating your :ref:`translators`.
+
+
+
+Translation requests and items types
+####################################
+
+You define the types of translation that you will use in your business.
+   
+This allows you to apply a different workflow and behavior for each type.
+
+For each type you can apply automatisms.
+
+Translation lines also have the possibility of being typed.
+
+You can more easily compartmentalize your requests.
+
+.. seealso:: :ref:`List of types<list_of_type>`
+
+
+
+
+

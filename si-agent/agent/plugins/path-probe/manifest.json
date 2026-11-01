@@ -1,0 +1,13 @@
+{
+  "id": "path-probe",
+  "version": "1",
+  "runner": "python",
+  "entry": "path_probe.py",
+  "interval_seconds": 60,
+  "timeout_seconds": 120,
+  "args": ["--ifaces", "auto"],
+  "enabled": false,
+  "description": "Sonde « chemin de service » (#527, famille explorer) : par interface IPv4 du poste, rejoue chaque minute ce qu'un utilisateur subit -- bail DHCP (serveur, passerelle, DNS reçus, âge du bail ; adresse statique signalée), ping de la passerelle, requête DNS vers CHAQUE serveur distribué, DNS publics (8.8.8.8, 1.1.1.1), GET HTTP d'une page de test (portail captif / interception sur le contenu) et HTTPS (certificat vérifié). Interface sans route par défaut : table de routage temporaire. Option --connections c1,c2 : active à tour de rôle chaque connexion NetworkManager (vrai échange DHCP par SSID). Constats : pas d'adresse, passerelle injoignable, DNS distribué mort, DNS unique, DNS publics coupés, HTTP/HTTPS en échec, portail captif, lenteurs. Aucune action. Privilégiée : ip rule/route et ping -i 0.2.",
+  "source": "bundled",
+  "privileged": true
+}

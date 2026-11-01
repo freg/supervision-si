@@ -1,0 +1,604 @@
+.. include:: ImageReplacement.txt
+
+
+
+.. index:: Access rights
+
+.. _Acces_Right:
+
+
+########################
+Configuration Management
+########################
+
+
+.. index:: Module Management
+
+.. _module-management:
+
+Module Management
+#################
+
+The Module Management allows to choose the module(s) that will appear in the interface. Each module can be enabled/disabled individually.
+
+This enables or disables a consistent group of features. 
+
+.. figure:: /images/GUI/ACCESSRIGHT_SCR_ManagementModule.png
+   :alt: Module management screen
+   
+   Module management screen
+
+The menu at the top of the page allows you to display all the modules or to display the modules corresponding to a part of the scope of the project management.
+
+When you have selected one of these menus, the modules are displayed below.
+
+* Click on a module to display its description, as well as the list of screens that will be activated or desactivated. 
+   
+* Click on the checkboxes to enable or disable the module.
+
+.. warning:: 
+
+   Disabling some modules will also hide reports, all related parameters and some fields.
+
+   For example, the project and activity expense fields are hidden when the financial/expense module is disabled. 
+
+
+
+ 
+ 
+ 
+ 
+#############
+Access rights
+#############
+ 
+
+
+.. index:: Profile (Access Rights)
+
+.. _profiles: 
+
+Profiles
+########
+
+The profile is a group of rights. Each with specific access rights to the database.
+
+Thus, each user is linked to a profile which defines the data that he can see and possibly manage. 
+
+.. seealso:: 
+
+   :ref:`Concept<profiles-definition>`
+
+.. figure:: /images/GUI/ACCESSRIGHT_SCR_Profiles.png 
+   :alt: Profiles screen
+   :align: center
+   
+   Profiles screen
+
+.. rubric:: Value of Field "Name"
+
+* The value of field "Name" is not the name displayed, but it is a code in the translation table. 
+* The value of field "Name" must be a significant name and must not contain spaces or special characters.
+* The name displayed at right of the field is the translated name.
+* when the new profile is created, it appears in the list of existing profiles in the list box.
+* It remains between square brackets because it does not exist in :ref:`Translatable name<translatable-name>`. 
+
+.. tip::
+   
+   Ideally, the value of the field should start with "profile" to be easily identified in the translation table.
+   
+.. figure:: /images/GUI/ACCESSRIGHT_ZONE_ProfilesDescription.png
+   :alt: Profile description with translatable name
+   :align: center
+   
+   Profile description with translatable name
+   
+      
+
+.. rubric:: Field Profile code
+
+You can put the abbreviations you need and they do not have an impact on most profiles.
+
+However, for administrators and project managers, you must respect these codes so that the application recognizes them.
+
+
+* **ADM:** will designate administrator.
+
+* **PL:** will designate project leader. 
+
+
+.. rubric:: Sort order
+
+The sort order is important in profiles because it allows the most important profile to be placed at the top of the drop-down lists.
+
+When a project manager assigns a resource, he can assign a profile to them, starting from his own profile and going down to the lowest one.
+
+
+.. figure:: /images/GUI/ACCESSRIGHT_ZONE_SortOrder.png
+   :alt: sort order with administrator below project leader
+   
+   sort order with administrator below project leader
+   
+   
+If the administrator profile is, due to its sort order, below the project manager in the list, in this case, the project manager could assign the administrator profile to any resource on the project in question.
+
+.. figure:: /images/GUI/ACCESSRIGHT_ZONE_SortOrderManager.png
+   :alt: Project manager can assign a resource with the administrator profile
+   
+   Project manager can assign a resource with the administrator profile
+   
+
+.. rubric:: Restriction zone
+
+
+The restriction zone offers two types of restriction:
+
+* By type based on ProjeQtOr elements (actions, activities, invoices, catalog ...) 
+* By product versions
+
+.. seealso:: 
+
+   :ref:`Restriction types<type-restriction-section>`
+   
+   
+   
+    
+.. index:: Access to form
+
+.. _access-to-forms:
+
+Access to forms
+###############
+
+This settings screen allows you to define access to the element screens for each profile. 
+
+Users who have access to this screen cannot modify their own screen access rights.
+
+The checkbox is read-only to make sure that at least one profile can always access it. 
+
+Only another profile with access to the screen will be able to uncheck this box.
+
+.. figure:: /images/GUI/ACCESSRIGHT_SCR_AccesTOforms.png
+   :alt: Access to forms screen
+   :align: center
+   
+   Access to forms screen
+
+* Click the checkbox to allow or revoke access to a profile screen.
+
+* Click |Add| to open all sections
+
+* Click |Minus| to close all sections
+
+
+
+
+
+
+
+
+
+
+
+
+.. index:: Access mode
+
+.. _access-mode:
+
+Access modes
+############
+
+The access mode defines a combination of rights to Created, Read, Update or Delete items. 
+
+It's the CRUD RIGHTS: 
+
+* Create rights
+* Read rights
+* Update rights
+* Delete rights
+
+Each access is defined as scope of visible and/or updatable, that can be, by kind of elements.
+
+
+
+
+Project dependant
+*****************
+
+By default, ProjeQtOr offers 10 different access modes.
+
+Each access defines the visibility that can be applied by type of elements dependent on a project (activity, ticket, action, ...).
+
+You can choose from several levels of visibility for each CRUD entitlement.
+
+* **No element:** No element is visible and updatable.
+* **Own elements:** Only the elements created by the user.
+* **Elements he is responsible for:** Only the elements the user is responsible for.
+* **Elements of own project:** Only the elements of the projects the user/resource is allocated to.
+* **All elements on all projects:** All elements, whatever the project.
+
+
+
+.. rubric:: Value of Field "Name"
+
+* The value of field "Name" is not the name displayed, but it is a code in the translation table. 
+* The value of field "Name" must be a significant name and must not contain spaces or special characters.
+* The name displayed at right of the field is the translated name.
+* when the new profile is created, it appears in the list of existing profiles in the list box.
+* It remains between square brackets because it does not exist in :ref:`translatable name<translatable-name>`. 
+
+
+.. tip::
+   
+   Ideally, the value of the field should start with "accessProfile" to be easily identified in the translation table.
+
+   
+
+Not project dependant
+*********************
+
+The non-dependent elements of a project, such as organizations, parameters, lists of values, tools or even controls and automatisms can also be set with CRUD rights.
+
+These elements must be visible. So the reading right is granted on a basic basis.
+
+ProjeQtOr offers 5 different access modes where you can define creation, update and deletion rights.
+
+* **Yes:** allows the right to ...
+* **No:** does not allow the right to ...
+* **Own elements:** Only the elements created by the user.
+* **Elements he is responsible for:** Only the elements the user is responsible for.
+
+   
+You can then define a mode corresponding to the visibility rights that you wish to grant on each profile in the access to data not dependent on the project.
+
+.. index:: Access to data 
+
+Access to data
+##############
+
+This screen allows to set element access mode for each profile.
+
+Allows to define scope of visibility and/or updating of data in elements for users and resources.
+
+* Click on |Add| to open all the sections
+
+* CLick on |Minus| to closed all the sections
+
+
+.. index:: Access to data (Project dependant)
+
+.. _access-mode-to-data-project-dependant:
+
+Project dependant
+*****************
+
+
+This screen is only for the elements reliant on a project.
+
+**For each element, selected the access mode granted to a profile.**
+
+.. figure:: /images/GUI/ACCESSRIGHT_ZONE_AccessToDataProjectDependant.png
+   :alt: Access to data (Project dependant) screen
+   :align: center
+   
+   Access to data (Project dependant) screen
+
+.. index:: Access to data (No project dependant)
+
+.. _access-mode-to-data-not-project-dependant:
+
+Not project dependant
+*********************
+
+This screen allows to set for each profile, elements access rights.
+
+Allows to grant access rights (read only or write) to users, to data on specific elements.
+
+This screen is only for the elements not reliant on a project.
+
+**For each element, select the access rights granted to a profile.**
+
+Some features do not have a manager or are not linked specifically to a user profile, like messages, tools or even environmental parameters.
+
+Certain access modes are therefore not offered in the drop-down lists on certain elements of this screen.
+
+
+.. index:: Access to reports
+
+.. _access-to-reports:
+
+Access to reports
+#################
+
+This screen allows to define report access for each profile.
+Users belonging to a profile can see the corresponding report in the report list.
+Reports are grouped by report categories
+
+* Click on checkbox to permit or revoke access to the report  for a profile.
+
+* Click on |Add| to open all the sections
+
+* Click on |Minus| to closed all the sections
+
+
+
+.. index:: Rights per directory
+
+.. _doc-rights-per-directory:
+
+Document rights per directory
+#############################
+
+You can define the access rights to documents according to the profile at each level of the document directory tree.
+
+By default, all values are initialized for each existing directory from the existing values in the "Project-dependent access to data" rights screen.
+   
+
+.. index:: Specific Access 
+
+.. _specific_access:
+
+Specific access
+###############
+
+This screen groups specific functionalities options.
+Users belonging to a profile can have access to the application specific functions.
+Depending on options of functionality, allows to grant access rights, to define data visibility  or to enable or disable option.
+
+**For each option, select the access granted to a profile.**
+
+   
+.. rubric:: Access to resource data
+
+This section allows to:
+
+* Defines who will be able to see and update :ref:`real work<timesheet>` for other users.
+* Defines who can :ref:`validate work<validation-timesheet>` for resource.
+* Defines who have access on :ref:`diary` for resources.
+* Defines who, as a resource, can :ref:`subscribe to survey<subscribe-detail>` for users. 
+* Defines who have access on :ref:`report` for resources.
+
+.. note:: **Validate real work:** in most cases, it is devoted to project leader.
+
+.. rubric:: Work and Cost visibility
+
+This section defines for each profile the scope of visibility of work and cost data on project and activity for example.
+
+.. rubric:: Assignment management
+
+This section defines the visibility and the possibility to edit assignments (on activities or else).
+
+.. index:: Checklist (Access rights)
+
+.. rubric:: Display specific buttons
+
+This section defines whether some button, checklist, job list will be displayed or not (if defined).
+
+**Display of combo detail button**
+
+* This option defines for each profile whether the button |Search| will be displayed or not, facing every combo list box.
+* Through this button, it is possible to select an item and create a new item.
+* This button may also be hidden depending on access rights (if the user has no read access to corresponding elements).
+
+
+**Access to...**
+
+...The todo list
+
+...Checklist
+
+...Jobs list
+
+
+allows you to display the corresponding sections on the element screens.
+ 
+ 
+ 
+**Bulk Edit**
+
+* Defines the possibility or not to change one or more criteria for one or more selected rows at a time
+ 
+
+
+.. _vote-accesrights:
+
+.. rubric:: Conditional display
+
+This section allows you to view the voting table in the voting section of the ticket details tab.
+
+**Voting tables**
+
+The voting table must display the real name of the voters, the number of points awarded to the selected item, their user name and the name of the client to which the user belongs.
+         
+.. image:: /images/GUI/ACCESSRIGHT_TableVote.png
+  
+**Name of voters**
+
+If you don't want to see or display so much detail, you can only display the names of people who voted on this item.
+
+.. image:: /images/GUI/ACCESSRIGHT_NamesVoters.png
+
+
+
+
+.. _planning-acces-right:
+  
+.. rubric:: Planning access rights
+
+This section defines access for each profile to planning functionality.
+
+**Calculate the planning**
+
+Defines whether a profile has the right to recalculate the schedule using the calculator tool.
+
+**Can plan with overuse of resource**
+
+Defines whether a profile can check the Calculate with overuse box in the calculator tool of the schedule view.
+
+**Access to resource planning of others**
+
+Defines which profile has the right to view the scheduling information of other resources.
+
+**Change the Validated Date**
+
+Validated information can be sensitive data; you decide whether a profile can modify these fields.
+
+**Change the Project Priority**
+
+**Change the Priority of Other Items**
+
+Priority can have a significant impact on the scheduling of projects and their items. This is why ProjeQtOr allows you to define a specific profile to modify these values.
+
+**Change manual progress**
+If manual progress for fixed-duration activities is enabled in the global settings, you can define whether a profile has the right to modify this field in the details of schedulable items.
+
+**Validate the Planning**
+
+Enable automatic calculation
+
+**Enable automatic calculation**
+
+Defines which profile will be able to use automatic calculation on the planning view.
+
+.. _monthly-consolidation-rights:
+
+.. rubric:: Monthly consolidation of projects
+
+This section defines the right for each profile if it can validate and / or block the allocations of the resources of a project for a defined month.
+
+
+.. rubric:: Unlock items
+
+This section defines for each profile the ability to unlock any document or requirement.
+
+Otherwise, each user can only unlock the documents and requirements locked by himself.
+
+
+.. rubric:: Reports
+
+This section defines for each profile the ability to change the resource parameter in reports.
+
+.. rubric:: Financial
+
+This section defines for each profile the possibility of modifying the financial situations or of being able to automatically generate a project expense.
+
+
+.. _specific-access-right:
+
+.. rubric:: Specific update rights
+
+You determine for each profile whether they have the rights to perform or execute certain features. The mention of "all" refers to the elements of any user. 
+
+* Can manage all notes.
+
+* Add notes on a closed element 
+
+* Adding notes to a read-only element
+
+* Can delete all attached files.
+
+* Can force delete.
+
+* Can delete items with real work  
+
+* Can force close.
+
+* Can update creation information (header of the details area).
+
+* Can view components on tickets.
+
+* Can update left work (Assignment and/or timesheet).
+
+* Can work on tickets
+
+* Activation of the assignment breakdown
+
+* Can manage votes.
+
+* Can impose a layout on other users.
+
+* Can create new tags.
+
+
+.. rubric:: Limit visibilty to resources
+
+By profil, allows to restrict or not the number of resources displayed, by organizations or own team, on resource lists.
+
+By profil, allows to restrict or not the number of resources displayed, by organizations or own team, on resource screen.
+
+.. rubric:: Limit visibility to organizations
+
+By profil, allows to restrict or not the number of organizations displayed, by organizations or own organization, on organization lists.
+
+By profil, allows to restrict or not the number of organizations displayed, by organizations or own organization, on organization screen.
+
+
+
+
+.. index:: Audit connections
+.. index:: Connection (Audit)
+
+.. _audit-connections:
+
+#################
+Audit connections
+#################
+
+Audit connection proposes a view of “who is online”.
+
+you can know which platform the user has logged on to, his browser and dates of his first and last access, as well as the duration of the connection
+
+.. figure:: /images/GUI/TOOLS_SCR_AuditConnexion.png
+   :alt: Audit connection screen
+
+.. note::
+
+   The administrator has the possibility to force the disconnection of any user (except his own current connection,
+   see: :ref:`admin-console<manage_connection>`.
+   
+   
+   
+   
+
+
+
+.. index:: Translatable name
+
+.. _translatable-name:
+
+#################
+Translatable name
+#################
+
+For profiles and access modes, the value of field "Name" is translatable.
+
+The field "Name" in screens :ref:`profiles` and :ref:`access-mode` is not the name displayed, but it is a code in the translation table. 
+
+The name displayed at right of the field is the translated name.
+
+The translated name depends on user language selected in :ref:`User parameters<display-parameters>` screen.
+
+.. note::
+
+   If translated name is displayed between square brackets [ ], then the value of field "Name" is not found in the translation table.
+
+.. rubric:: Translation table files
+
+* In ProjeQtOr, a translation table file is defined for each available language.
+* The files are named "lang.js" and are localized in a directory named with ISO language code.
+
+.. tip:: 
+
+   **For instance:** ../tool/i18n/nls/fr/lang.js.
+
+
+.. rubric:: How to modify the translation file?
+
+* You can edit  file "lang.js" to add translation of new value or to modify the existing value translation.
+* Or, you can download Excel file named "lang.xls", available on ProjeQtOr site. You can modify the translation tables of all languages and produce  files "lang.js".
+
+
+
+
+
+

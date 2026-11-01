@@ -90,6 +90,14 @@ ce qui n'existe QUE dans Keycloak lui-même (mot de passe LDAP corrigé
 sessions actives...). Répondre autre chose que "oui" (y compris juste
 Entrée) laisse tout en l'état.
 
+**Sans purge, pour les seules URL de redirection / origines** (cas le plus
+fréquent : `KEYCLOAK_EXTRA_ORIGINS`, nouveau nom public, changement de
+port) : `python3 keycloak/render.py && python3 keycloak/sync_clients.py`
+(#611) — ajoute par l'API Admin, client par client, les entrées rendues
+absentes du realm vivant, ne retire rien, `--dry-run` pour simuler. Un
+client rendu qui n'existe pas encore dans Keycloak reste du ressort du
+réimport.
+
 Pour forcer une purge complète volontairement, sans passer par cette
 détection : `./scripts/run.sh reset-keycloak` (demande de taper
 `RESET` en toutes lettres, plus strict qu'un simple oui/non vu que
@@ -848,3 +856,20 @@ faire tourner tous les conteneurs de ce projet à la fois. Réduire le
 nombre de stacks lancés simultanément (`gateway`/`mayan`/`main`/
 `vault-standalone` -- voir `scripts/run-all.sh`) reste une autre
 option si augmenter la mémoire de Docker Desktop n'est pas possible.
+
+## « authentification du compte de service refusée (401) » (livraison #609)
+
+Le compte de service `supervision-si-service` est créé au **tout premier**
+démarrage de Keycloak (bootstrap) ; si `.env` a été régénéré depuis, le
+secret ne correspond plus. Sans passer par la console :
+
+```
+cd ~/SRC/data2/tickets/supervision-si && ./gateway/scripts/run.sh service-account
+cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d accounts-api tickets-api keycloak-backup
+```
+
+(`kc.sh bootstrap-admin service` sur la base existante -- Keycloak arrêté une minute
+(base H2 verrouillée par le serveur), secret pris dans
+l'environnement du conteneur = `KEYCLOAK_SERVICE_CLIENT_SECRET` de `.env`.
+Si le client existe déjà : `service-account supervision-si-service-2` puis
+`KEYCLOAK_SERVICE_CLIENT_ID=supervision-si-service-2` dans `.env`.)

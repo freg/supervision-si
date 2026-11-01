@@ -4,7 +4,18 @@
 #
 #   sudo ./install.sh --agent srv-01 --secret '...' --central https://VM:6443/api/si-agent \
 #        [--site siege] [--ca /chemin/ca.crt | --ca-fingerprint sha256hex | --insecure] \
-#        [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG]
+#        [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG] [--no-detect]
+#        [--python /opt/pyagent/python/bin/python3]   # interpréteur d'EXÉCUTION de l'agent
+#
+# Python : l'agent requiert Python >= 3.7. Sur un hôte trop ancien (Debian 9 /
+# PVE 5 = 3.5), installer un Python autonome (aucun changement système) et le
+# passer via --python -- voir docs/agent-python-autonome.md. À défaut, l'install
+# REFUSE proprement (plutôt qu'un service qui boucle en crash au démarrage).
+#
+# Détection (#524) : sur un hôte Proxmox VE (/etc/pve présent et `pvesh`
+# disponible) le plugin `proxmox` est activé et les sondes tournent en root
+# (pvesh/qm/zpool l'exigent) sans rien ajouter à la ligne du hub ;
+# `--plugins-user` explicite l'emporte, `--no-detect` désactive la détection.
 #
 # TLS (#422) : `--ca` installe un certificat d'autorité fourni ; `--ca-fingerprint`
 # le RÉCUPÈRE du central (GET /ca, sans vérification à ce seul moment) et ne
@@ -17,9 +28,19 @@
 # (mode 600), installe et démarre le service systemd.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true" OBSERVATION="false"
+PYAGENT="python3"   # #645 : interpréteur d'exécution de l'agent (peut différer du python3 système)
+# #864 : arguments d'origine, pour proposer la relance EXACTE avec --python (le secret affiché comme "$TOKEN")
+RELANCE="" PREC=""
+for a in "$@"; do
+  case "$PREC" in --secret) a='"$TOKEN"';; --python) PREC="$a"; continue;; esac
+  [ "$a" = "--python" ] && { PREC="$a"; continue; }
+  case "$a" in '"$TOKEN"') RELANCE="$RELANCE $a";; *[!A-Za-z0-9_./:=@,+-]*) RELANCE="$RELANCE '$a'";; *) RELANCE="$RELANCE $a";; esac
+  PREC="$a"
+done
 while [ $# -gt 0 ]; do
   case "$1" in
+    --upgrade) UPGRADE="true"; shift;;   # #522 : code et service seulement, configuration/secret/CA/sondes conservés
     --agent) AGENT="$2"; shift 2;;
     --secret) SECRET="$2"; shift 2;;
     --central) CENTRAL="$2"; shift 2;;
@@ -31,12 +52,90 @@ while [ $# -gt 0 ]; do
     --enable-plugin) ENABLE+=("$2"); shift 2;;
     --plugins-user) PLUGINS_USER="$2"; shift 2;;
     --log-level) LOG_LEVEL="$2"; shift 2;;
+    --no-detect) DETECT="false"; shift;;   # #524 : pas d'activation automatique selon l'hôte
+    --python) PYAGENT="$2"; shift 2;;
+    --observation) OBSERVATION="true"; shift;;   # #687 : point d'observation extérieur (audit_enabled), CT/VM dédié seulement   # #645 : Python >= 3.7 pour faire tourner l'agent (hôte ancien = Python autonome)
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
-[ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L]" >&2; exit 2; }
+# #645 : garde-fou Python -- l'agent tourne sous PYAGENT (>= 3.7). Vérifié AVANT
+# tout enrôlement, pour ne jamais laisser un hôte trop ancien s'enrôler puis
+# boucler en crash. Les petits scripts d'amorçage ci-dessous (enrôlement, CA)
+# restent sous le python3 système : ils sont volontairement compatibles 3.5.
+PYAGENT="${SI_AGENT_PYTHON:-$PYAGENT}"
+# #685 : une mise à jour (lancée par l'agent, sans --python ni SI_AGENT_PYTHON) garde l'interpréteur du
+# service en place -- sinon un hôte en Python autonome (Debian 9) retombait sur le python3 système 3.5 et
+# l'installeur s'arrêtait avant de relancer l'agent (« l'installeur n'a pas relancé l'agent »).
+if [ "$UPGRADE" = "true" ] && [ "$PYAGENT" = "python3" ] && [ -f /etc/systemd/system/si-agent.service ]; then
+  CUR_PY="$(sed -n 's#^ExecStart=\([^ ]*\).*#\1#p' /etc/systemd/system/si-agent.service | head -n 1)"
+  [ -n "$CUR_PY" ] && [ -x "$CUR_PY" ] && PYAGENT="$CUR_PY"
+fi
+PYAGENT_ABS="$(command -v "$PYAGENT" 2>/dev/null || true)"
+[ -n "$PYAGENT_ABS" ] || { [ -x "$PYAGENT" ] && PYAGENT_ABS="$PYAGENT"; }
+[ -n "$PYAGENT" ] || { echo "--python vide : uv n'est pas installé ? Commencer par : curl -LsSf https://astral.sh/uv/install.sh | sh  (voir docs/agent-python-autonome.md)" >&2; exit 1; }
+[ -n "$PYAGENT_ABS" ] || { echo "interpréteur Python introuvable : $PYAGENT (voir --python)" >&2; exit 1; }
+if ! "$PYAGENT_ABS" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 7) else 1)' 2>/dev/null; then
+  ver="$("$PYAGENT_ABS" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "?")"
+  {
+    echo "ERREUR : si-agent requiert Python >= 3.7, or $PYAGENT_ABS est en $ver."
+    echo "  Hôte trop ancien (ex. Debian 9 / Proxmox VE 5 = Python 3.5)."
+    echo "  Installe un Python AUTONOME dans /opt/pyagent (aucun changement système), une commande à la fois :"
+    echo "    curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "    sudo UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python install 3.11"
+    echo '    PYAGENT="$(UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python find 3.11)"; "$PYAGENT" --version'
+    echo "  puis relance l'installation avec TOUTES les options (secret dans la variable TOKEN) :"
+    echo "    sudo ./install.sh --python \"\$PYAGENT\"$RELANCE"
+    echo "  Hôte 32 bits (uname -m = i686) sans uv : docs/agent-python-autonome.md, option B."
+  } >&2
+  exit 1
+fi
+
+# #616 : enrôlement par jeton de site (SI_AGENT_ENROLL_TOKEN + SI_AGENT_CENTRAL, posés par le script d'amorçage
+# GET /deploy/linux?token=) -- l'agent est nommé d'après la machine, le secret est délivré ici.
+if [ "$UPGRADE" != "true" ] && [ -n "${SI_AGENT_ENROLL_TOKEN:-}" ]; then
+  CENTRAL="${SI_AGENT_CENTRAL:-$CENTRAL}"; [ -n "${SI_AGENT_SITE:-}" ] && SITE="$SI_AGENT_SITE"
+  [ -n "${SI_AGENT_CA_SHA256:-}" ] && CAFP="$SI_AGENT_CA_SHA256"
+  for p in ${SI_AGENT_PLUGINS:-}; do ENABLE+=("$p"); done
+  [ -n "$CENTRAL" ] || { echo "SI_AGENT_CENTRAL requis avec SI_AGENT_ENROLL_TOKEN" >&2; exit 2; }
+  ENROLL=$(python3 - "$CENTRAL" "$SI_AGENT_ENROLL_TOKEN" "$(hostname)" <<'PY'
+import json, ssl, sys, urllib.request
+central, token, host = sys.argv[1:4]
+ctx = ssl._create_unverified_context() if not central.startswith("https://") or __import__("re").match(r"^https://(\d{1,3}\.){3}\d{1,3}", central) else None
+req = urllib.request.Request(central.rstrip("/") + "/api/v1/enroll", data=json.dumps({"token": token, "hostname": host, "platform": "linux"}).encode(), headers={"Content-Type": "application/json"})
+try:
+    with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+        d = json.load(r)
+except Exception as exc:  # noqa: BLE001
+    print("enrôlement refusé : %s" % exc, file=sys.stderr); sys.exit(1)
+print(d["agent_id"]); print(d["secret"]); print(d.get("site") or "")
+PY
+) || exit 1
+  AGENT=$(echo "$ENROLL" | sed -n 1p); SECRET=$(echo "$ENROLL" | sed -n 2p); S=$(echo "$ENROLL" | sed -n 3p); [ -n "$S" ] && SITE="$S"
+  echo "enrôlé comme « $AGENT » (site $SITE)"
+fi
+if [ "$UPGRADE" = "true" ]; then
+  [ -f /etc/si-agent/agent.json ] || { echo "--upgrade : /etc/si-agent/agent.json absent, faire une installation complète" >&2; exit 2; }
+else
+  [ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L] | --upgrade" >&2; exit 2; }
+fi
 command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
-case "$CENTRAL" in https://*) ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
+# #524 : hôte Proxmox VE -> plugin proxmox + sondes en root (sauf choix explicite).
+if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && [ -d /etc/pve ] && command -v pvesh >/dev/null; then
+  case " ${ENABLE[*]:-} " in *" proxmox "*) ;; *) ENABLE+=("proxmox");; esac
+  [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
+  [ -f /var/lib/si-agent/secours.jsonl ] && case " ${ENABLE[*]:-} " in *" pulled-backups "*) ;; *) ENABLE+=("pulled-backups");; esac   # #725 : copies de secours ZFS
+  echo "hôte Proxmox VE détecté : plugin proxmox activé, sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
+fi
+# #716 : serveur Proxmox Backup Server -> plugin pbs (+ pulled-backups si des sauvegardes tirées y sont journalisées), en root.
+if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && command -v proxmox-backup-manager >/dev/null; then
+  case " ${ENABLE[*]:-} " in *" pbs "*) ;; *) ENABLE+=("pbs");; esac
+  if [ -f /srv/backup/dumps/pulls.jsonl ]; then case " ${ENABLE[*]:-} " in *" pulled-backups "*) ;; *) ENABLE+=("pulled-backups");; esac; fi
+  if [ -f /etc/si-agent/pve-remote.json ]; then case " ${ENABLE[*]:-} " in *" pve-remote "*) ;; *) ENABLE+=("pve-remote");; esac; fi   # #723
+  [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
+  echo "Proxmox Backup Server détecté : plugin(s) ${ENABLE[*]} activé(s), sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
+fi
+[ -n "$PLUGINS_USER" ] || PLUGINS_USER="nobody"
+case "$CENTRAL" in https://*|"") ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
 if [ -n "$CAFP" ]; then
   install -d /etc/si-agent
   python3 - "$CENTRAL" "$CAFP" <<'PY' || exit 1
@@ -66,7 +165,38 @@ if [ -d "$HERE/plugins" ]; then
   for d in "$HERE"/plugins/*/; do
     [ -e "$d" ] || continue   # glob non résolu : plugins/ vide
     id="$(basename "$d")"
-    [ -d "/var/lib/si-agent/plugins/$id" ] || cp -r "$d" "/var/lib/si-agent/plugins/$id"
+    if [ ! -d "/var/lib/si-agent/plugins/$id" ]; then
+      cp -r "$d" "/var/lib/si-agent/plugins/$id"
+    else
+      # #694 : sonde livrée déjà présente -> code remis à jour (sinon une correction
+      # n'atteint jamais les hôtes), état local conservé (enabled, blocked, args).
+      # Python 3.5 compatible (python3 système d'un Debian 9).
+      python3 - "$d" "/var/lib/si-agent/plugins/$id" <<'PY' || echo "note : sonde $id non mise à jour" >&2
+import json, os, shutil, sys
+src, dst = sys.argv[1].rstrip("/"), sys.argv[2]
+try:
+    old = json.load(open(os.path.join(dst, "manifest.json"), encoding="utf-8"))
+except (OSError, ValueError):
+    old = {}
+if old.get("source", "bundled") != "bundled":
+    sys.exit(0)                      # sonde du central portant le même nom : on n'y touche pas
+new = json.load(open(os.path.join(src, "manifest.json"), encoding="utf-8"))
+for k in ("enabled", "blocked", "args"):
+    if k in old:
+        new[k] = old[k]
+for name in os.listdir(src):
+    if name == "manifest.json":
+        continue
+    a, b = os.path.join(src, name), os.path.join(dst, name)
+    if os.path.isdir(a):
+        shutil.rmtree(b, ignore_errors=True)
+        shutil.copytree(a, b)
+    else:
+        shutil.copy2(a, b)
+with open(os.path.join(dst, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(new, fh, indent=2, ensure_ascii=False)
+PY
+    fi
   done
 else
   echo "note : dossier plugins/ absent de l'archive -- installation poursuivie sans plugin livré" >&2
@@ -74,7 +204,7 @@ fi
 chmod 750 /var/lib/si-agent/plugins/*/*.sh /var/lib/si-agent/plugins/*/*.py 2>/dev/null || true
 if [ -n "$CA" ]; then install -m 644 "$CA" /etc/si-agent/central-ca.crt; fi
 
-SI_AGENT_FALLBACK="$FALLBACK" python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
+[ "$UPGRADE" = "true" ] || SI_AGENT_FALLBACK="$FALLBACK" python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
 import json, sys
 agent, secret, central, site, insecure, plugins_user, log_level = sys.argv[1:8]
 enable = [e for e in sys.argv[8:] if e]
@@ -90,9 +220,86 @@ if os.environ.get("SI_AGENT_FALLBACK"):   # #474 : central de secours, vérifié
 with open("/etc/si-agent/agent.json", "w") as fh:
     json.dump(cfg, fh, indent=2)
 PY
+if [ "$OBSERVATION" = "true" ]; then   # #687 : vaut aussi en --upgrade (ajout à une configuration existante)
+  python3 -c 'import json;p="/etc/si-agent/agent.json";c=json.load(open(p));c["audit_enabled"]=True;json.dump(c,open(p,"w"),indent=2)'
+  echo "point d'observation : audit extérieur activé (cibles limitées à la liste blanche du central)"
+fi
+# #691 : central en https sans CA épinglée (nom public, Let's Encrypt) : l'interpréteur de l'agent doit
+# vérifier la chaîne. Hôte ancien (Debian 9) ou Python autonome : racines absentes (ISRG Root X2) ->
+# magasin `certifi` installé dans cet interpréteur (uv), inscrit en ca_file. Rien si la vérification passe.
+"$PYAGENT_ABS" - "$PYAGENT_ABS" <<'PY' || true
+import json, os, ssl, subprocess, sys, urllib.request
+p = "/etc/si-agent/agent.json"
+cfg = json.load(open(p))
+url = (cfg.get("central_url") or "").rstrip("/")
+if not url.startswith("https") or cfg.get("ca_file") or cfg.get("insecure"):
+    raise SystemExit(0)
+def ok(cafile=None):
+    try:
+        urllib.request.urlopen(url + "/health", timeout=15, context=ssl.create_default_context(cafile=cafile))
+        return True
+    except urllib.error.HTTPError:
+        return True          # chaîne acceptée, statut applicatif sans importance ici
+    except Exception as exc:  # noqa: BLE001
+        return "CERTIFICATE_VERIFY_FAILED" not in str(exc)
+if ok():
+    raise SystemExit(0)
+for cand in ("/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt"):
+    if os.path.exists(cand) and ok(cand):
+        cfg["ca_file"] = cand; break
+else:
+    try:
+        import certifi
+    except ImportError:
+        uv = os.path.expanduser("~/.local/bin/uv")
+        if os.path.exists(uv):
+            subprocess.call([uv, "pip", "install", "--python", sys.argv[1], "--break-system-packages", "-q", "certifi"])
+        try:
+            import importlib, site; importlib.invalidate_caches(); site.main()
+            import certifi
+        except ImportError:
+            certifi = None
+    if certifi and ok(certifi.where()):
+        cfg["ca_file"] = certifi.where()
+if cfg.get("ca_file"):
+    json.dump(cfg, open(p, "w"), indent=2)
+    print("note : chaîne du central vérifiée avec %s (ca_file)" % cfg["ca_file"])
+else:
+    print("ATTENTION : certificat du central non vérifiable par %s -- voir docs/agent-python-autonome.md (certifi)" % sys.argv[1], file=sys.stderr)
+PY
 chmod 600 /etc/si-agent/agent.json
-install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
-systemctl daemon-reload
-systemctl enable --now si-agent.service
-echo "si-agent installé : systemctl status si-agent ; PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status"
+# #695 : etckeeper versionne /etc à chaque apt -- le secret de l'agent n'a rien à y faire.
+if [ -d /etc/.git ] && [ -f /etc/.gitignore ] || [ -d /etc/.etckeeper ]; then
+  grep -qx 'si-agent/agent.json' /etc/.gitignore 2>/dev/null || echo 'si-agent/agent.json' >> /etc/.gitignore
+  git -C /etc rm --cached -q --ignore-unmatch si-agent/agent.json 2>/dev/null || true
+fi
+if [ ! -d /run/systemd/system ] || ! command -v systemctl >/dev/null 2>&1; then
+  # #831 : sans systemd (conteneur, émulateur Raspberry, image minimale) : agent lancé en arrière-plan, relancé par
+  # /etc/si-agent/demarrer.sh (à appeler au démarrage du conteneur) ; une instance précédente est arrêtée d'abord.
+  cat > /etc/si-agent/demarrer.sh <<EOS
+#!/bin/sh
+pkill -f "si_agent.agent --config /etc/si-agent/agent.json" 2>/dev/null
+PYTHONPATH=/opt/si-agent nohup $PYAGENT_ABS -m si_agent.agent --config /etc/si-agent/agent.json >>/var/log/si-agent.log 2>&1 &
+echo \$! > /run/si-agent.pid
+EOS
+  chmod 755 /etc/si-agent/demarrer.sh
+  /etc/si-agent/demarrer.sh
+  echo "si-agent installé SANS systemd ($PYAGENT_ABS) : lancé en arrière-plan (/etc/si-agent/demarrer.sh, traces /var/log/si-agent.log)"
+else
+  install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
+  # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
+  sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
+  # #685 : interpréteur sous /root ou /home (uv python install) -- ProtectHome=true le rendrait invisible au service
+  case "$PYAGENT_ABS" in
+    /root/*|/home/*) sed -i "s#^ProtectHome=true#ProtectHome=read-only#" /etc/systemd/system/si-agent.service
+                     echo "note : $PYAGENT_ABS est sous un dossier personnel -> ProtectHome=read-only";;
+  esac
+  systemctl daemon-reload
+  systemctl enable si-agent.service
+  # #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien
+  # process avec l'ancienne configuration lors d'une réinstallation (vu sur
+  # deux hyperviseurs : agent démarré sous le mauvais identifiant / sans CA).
+  systemctl restart si-agent.service
+  echo "si-agent installé ($PYAGENT_ABS) : systemctl status si-agent ; PYTHONPATH=/opt/si-agent $PYAGENT_ABS -m si_agent.agent --status"
+fi
 echo "blocage local d'urgence : touch /etc/si-agent/BLOCKED (ou --block) ; traces : journalctl -u si-agent -f"

@@ -1,0 +1,13 @@
+{
+  "id": "migration",
+  "version": "1",
+  "runner": "python",
+  "entry": "migration_report.py",
+  "interval_seconds": 60,
+  "timeout_seconds": 50,
+  "args": [],
+  "enabled": false,
+  "description": "Migration 2026-2027 (#774) : état des étapes de migration lancées sur cet hôte par le hub (copies rsync / ZFS, vérifications) -- unité systemd, code de sortie, fin du journal, taille copiée, débit et fin estimée. Lecture seule ; alimente la tuile « Migration 2026-2027 ». Privilégiée : lit /var/lib/si-agent/migration.",
+  "source": "bundled",
+  "privileged": true
+}

@@ -6,6 +6,7 @@ import {
 import { fetchSites } from "./networkAgentClient.js";
 import { COMPARISON_LABELS, previewRows, dropdownsLabel, describeSiAgent, describeGlpiAgent, importResultLine } from "./glpiImport.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet GLPI Inventory (hub), livraison #231 -- backlog item 21,
 // enrichi en #269 suite à un audit explicite : "les données
 // explorateur réseau et import nebula sont t'elles prêtes à être
@@ -226,7 +227,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
               <p className="muted">Aucun candidat à importer pour cette source.</p>
             ) : (
               <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
-                <table>
+                <AutoColumns id="GlpiInventoryView.1"><table>
                   <thead><tr><th></th><th>Nom</th><th>Type GLPI</th><th>Action</th>{source === "si-agent-hosts" && <th>Fabricant / modèle / lieu</th>}</tr></thead>
                   <tbody>
                     {previewRows(preview).map((c) => (
@@ -241,7 +242,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
             {preview.warnings?.length > 0 && (
@@ -279,7 +280,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
             {comparison.si_agent_error && <p style={{ color: "var(--warning, #b7791f)" }}>⚠️ si-agent : {comparison.si_agent_error}</p>}
             {(comparison.rows || []).length > 0 && (
               <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                <table>
+                <AutoColumns id="GlpiInventoryView.2"><table>
                   <thead><tr><th>Hôte</th><th>Statut</th><th>si-agent</th><th>GLPI Agent</th></tr></thead>
                   <tbody>
                     {comparison.rows.map((r) => (
@@ -291,7 +292,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
           </div>
@@ -320,7 +321,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
             <p className="muted">Aucun {manageItemtype} pour l'instant.</p>
           ) : (
             <div style={{ maxHeight: 320, overflowY: "auto" }}>
-              <table>
+              <AutoColumns id="GlpiInventoryView.3"><table>
                 <thead><tr><th>Nom</th><th></th></tr></thead>
                 <tbody>
                   {existingItems.map((item) => (
@@ -330,7 +331,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           )
         )}

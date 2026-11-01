@@ -187,3 +187,67 @@ class NebulaClient:
         payload = {"period": period, "featrues": features or default_features}  # "featrues" -- faute de frappe RÉELLE dans la doc officielle Zyxel elle-même, reproduite telle quelle (jamais corrigée de notre côté, l'API ne comprendrait pas la version corrigée)
         result = self._post(f"/v2/nebula/{site_id}/clients", payload, f"clients du site '{site_id}' échoués")
         return result.get("data", []) if isinstance(result, dict) else result
+
+    # ------------------------------------------------ carte des VLAN (#548)
+    # Points d'entrée de l'OpenAPI utilisés pour reconstituer les VLAN :
+    # réglages de ports des commutateurs (PVID, trunk, VLAN autorisés),
+    # voisins LLDP (topologie), table MAC (VLAN vus), IP de gestion,
+    # interfaces de la passerelle (sous-réseaux), SSID (VLAN par SSID),
+    # clients des commutateurs (VLAN par client).
+    def sw_port_settings(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/port-settings", f"réglages de ports de '{dev_id}' échoués")
+
+    def sw_set_port_settings(self, site_id, dev_id, port):
+        """POST .../sw/{dev}/port-settings (#556) -- ÉCRITURE : un objet
+        complet {portNum, enabled, trunk, portVid, allowedVLAN, pseEnabled}
+        (tous les champs requis par la doc, pas de mise à jour partielle).
+        Seul appel d'écriture du module ; gardé par NEBULA_ALLOW_WRITE côté app."""
+        body = {"portNum": port["portNum"], "enabled": bool(port.get("enabled", True)), "trunk": bool(port.get("trunk", False)),
+                "portVid": int(port.get("portVid") or 1), "allowedVLAN": [str(v) for v in (port.get("allowedVLAN") or [])], "pseEnabled": port.get("pseEnabled")}
+        return self._post(f"/v1/nebula/{site_id}/sw/{dev_id}/port-settings", body, f"écriture du port {body['portNum']} de '{dev_id}' échouée")
+
+    def sw_lldp_neighbors(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/lldp-neighbor", f"voisins LLDP de '{dev_id}' échoués")
+
+    def sw_mac_table(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/l2-mac-table", f"table MAC de '{dev_id}' échouée")
+
+    def sw_ip_status(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/ip-status", f"IP de '{dev_id}' échouée")
+
+    def sw_uplink(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/uplink", f"liaison montante de '{dev_id}' échouée")
+
+    def gw_interface_settings(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/interface-settings", f"interfaces de la passerelle '{dev_id}' échouées")
+
+    def gw_nat_settings(self, site_id, dev_id):
+        """#712 : NAT de la passerelle -- {"oneToOne": [...], "virtualServer": [...]} (lecture seule)."""
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/nat-settings", f"NAT de la passerelle '{dev_id}' échoué")
+
+    def ap_wlan_settings(self, site_id):
+        return self._get(f"/v1/nebula/{site_id}/ap/wlan-settings", f"SSID du site '{site_id}' échoués")
+
+    # ------------------------------------------------ charge (#851)
+    # Doc OpenAPI : aucun point d'entrée ne donne directement un nombre de clients ni un débit par borne / SSID /
+    # VLAN ; on agrège les listes de clients (v2 ap-clients : upload / download par client sur la période) et
+    # l'usage de la liaison montante des commutateurs (traffic-usage). Périodes : 2h, 1d, 7d (30d pour ap-clients).
+    def ap_clients_v2(self, site_id, period="1d"):
+        feats = ["mac_address", "ipv4", "connected_device_id", "ssid", "wifi_sta", "upload", "download", "last_seen", "os_hostname", "description"]
+        r = self._post(f"/v2/nebula/{site_id}/ap-clients", {"period": period, "featrues": feats}, f"clients des bornes du site '{site_id}' échoués")
+        return r.get("data", []) if isinstance(r, dict) else r
+
+    def sw_traffic_usage(self, site_id, dev_id, period="1d"):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/traffic-usage?period={period}", f"usage de la liaison montante de '{dev_id}' échoué")
+
+    def gw_traffic_usage(self, site_id, dev_id, period="1d"):
+        # chemin supposé (absent du texte de la doc, présent dans son menu « Get Secure Gateway Traffic Usage ») :
+        # une erreur est simplement signalée « non disponible »
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/traffic-usage?period={period}", f"usage de la passerelle '{dev_id}' échoué")
+
+    def sw_clients(self, site_id, period="1d"):
+        # `featrues` (sic, nom du champ dans l'API) : l'énumération acceptée n'est
+        # pas documentée ; "mac_address" seul est accepté et la réponse porte
+        # tous les champs (constaté en réel le 22/09/2026).
+        return self._post(f"/v2/nebula/{site_id}/sw-clients", {"period": period, "featrues": ["mac_address"]},
+                          f"clients des commutateurs du site '{site_id}' échoués")

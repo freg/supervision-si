@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { fetchCyberRisks, createCyberRisk, updateCyberRisk, deleteCyberRisk, fetchCyberRisksHistory } from "./cyberRisksClient.js";
 import { fetchGovernanceDocuments, governanceDocumentDownloadUrl } from "./settingsClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Écran "Cyber" (livraison #187) -- demandé explicitement : "au même
 // niveau que Logs" (menu horizontal texte, #173), "une matrice en
 // premier", "à destination en premier lieu des politiques et des
@@ -72,7 +74,7 @@ const HISTORY_CHANGE_LABELS = { created: "➕ Créé", updated: "✏️ Modifié
 export default function CyberView({ onBack, prefsApiBase, login }) {
   const [risks, setRisks] = useState([]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [tab, setTab] = useState("matrix");
+  const [tab, setTab] = useNavState("CyberView", "tab", "matrix");   // #874 : gardé au rechargement
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -229,7 +231,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
               </button>
             ))}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <AutoColumns id="CyberView.1"><table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr>
                 <th style={{ width: "12%" }}></th>
@@ -281,7 +283,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
 
           {toEvaluateRisks.length > 0 && (
             <div style={{ marginTop: 16 }}>
@@ -422,7 +424,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
             <p className="muted">Aucun changement enregistré depuis la mise en place de l'historique.</p>
           )}
           {!historyLoading && history && history.length > 0 && (
-            <table className="logs-entries-table">
+            <AutoColumns id="CyberView.2"><table className="logs-entries-table">
               <thead>
                 <tr><th>Date</th><th>Type</th><th>Point</th><th>Portée</th><th>Statut</th></tr>
               </thead>
@@ -437,7 +439,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}

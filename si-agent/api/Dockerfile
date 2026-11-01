@@ -5,22 +5,92 @@ WORKDIR /app
 # Chemins RELATIFS À LA RACINE du projet (context: .) -- piège corrigé
 # en #409 sur file-manager-api, jamais `COPY app.py .` ici.
 COPY si-agent/api/requirements.txt .
+# #868 : commande ping (bouton de test de connectivité du hub) ; repli TCP si absente
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 
 COPY si-agent/api/app.py .
 COPY si-agent/api/store.py .
+COPY si-agent/api/publish.py .
 COPY si-agent/api/notify.py .
+COPY si-agent/api/alertfilters.py .
 # COPIES du protocole et du moteur de plugins partagés avec l'agent
 # (source canonique : si-agent/agent/si_agent/), jamais une
 # réimplémentation. Oublier l'une des deux = ModuleNotFoundError.
 COPY si-agent/agent/si_agent/protocol.py ./si_agent_protocol.py
 COPY si-agent/agent/si_agent/plugins.py ./si_agent_plugins.py
 COPY si-agent/agent/si_agent/control.py ./si_agent_control.py
+COPY si-agent/agent/si_agent/imagestore.py ./si_agent_imagestore.py
+COPY si-agent/agent/si_agent/publish.py ./si_agent_publish.py
 # Canaux SMS / courriel du PRA (#206) réutilisés pour les notifications (#422)
 COPY shared/secrets_alert.py .
+COPY shared/notify_client.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
+COPY si-agent/api/package.py .
+COPY si-agent/api/updates.py .
+COPY si-agent/api/pra.py .
+COPY si-agent/api/rotation.py .
+COPY si-agent/api/infra.py .
+COPY si-agent/api/views.py .
+COPY si-agent/api/repatriation.py .
+COPY si-agent/api/guestusage.py .
+COPY si-agent/api/migrun.py .
+COPY si-agent/api/latency.py .
+COPY si-agent/api/journal.py .
+COPY si-agent/api/navigateurs.py .
+COPY si-agent/api/parcours.py .
+COPY si-agent/api/htoprelay.py .
+COPY si-agent/api/datarf.py .
+COPY si-agent/api/prep.py .
+COPY si-agent/api/copies.py .
+COPY si-agent/api/acces.py .
+COPY si-agent/api/risque.py .
+COPY si-agent/api/etat.py .
+COPY si-agent/api/etat_excel.py .
+COPY si-agent/api/etat_rapport.py .
+COPY si-agent/api/etat_plan.py .
+COPY si-agent/api/vpn.py .
+COPY si-agent/api/accueil.py .
+COPY si-agent/api/priorites.py .
+COPY si-agent/api/modeles.py .
+COPY si-agent/api/shell_analyses.py .
+COPY si-agent/api/services_poste.py .
+COPY si-agent/api/sauvegarde_conf.py .
+COPY si-agent/api/sauvegardes_apercu.py .
+COPY si-agent/api/diffusion.py .
+COPY si-agent/api/banc.py .
+COPY si-agent/api/skills.py .
+COPY si-agent/api/apprentissage.py .
+COPY si-agent/api/activite.py .
+COPY si-agent/api/emulation.py .
+COPY si-agent/api/orchestration.py .
+COPY si-agent/api/orch_vms.py .
+COPY si-agent/api/dockerhub.py .
+COPY si-agent/api/modeles_stockage.py .
+COPY si-agent/api/genealogie.py .
+COPY si-agent/api/genealogie_base.json .
+COPY shared/decideur.py .
+COPY si-agent/api/edgepair.py .
+COPY si-agent/api/dnsq.py .
+COPY si-agent/agent/si_agent/edgectl.py ./si_agent_edgectl.py
+COPY si-agent/agent/si_agent/bancmod.py ./si_agent_bancmod.py
+COPY si-agent/agent/si_agent/emulctl.py ./si_agent_emulctl.py
+COPY si-agent/agent/si_agent/orchctl.py ./si_agent_orchctl.py
+COPY si-agent/api/migration.py .
+COPY si-agent/api/maint.py .
+COPY si-agent/api/ping.py .
+# #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,
+# sans secret) construite ICI et servie par GET /package ; #522 : c'est la
+# version que les agents reçoivent par la mise à jour contrôlée.
+COPY si-agent/make-archive.sh /tmp/agent-src/make-archive.sh
+COPY si-agent/agent /tmp/agent-src/agent
+RUN bash /tmp/agent-src/make-archive.sh /app/package && rm -rf /tmp/agent-src
 
 ENV SI_AGENT_DB_PATH=/data/si-agent.db
 RUN mkdir -p /data

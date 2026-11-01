@@ -115,6 +115,92 @@ Plugins livrés (exemples des deux runners, désactivés) :
   (trafic réel observé) : à activer par hôte depuis le catalogue ou
   `--enable-plugin capture-relay`. En conteneur (deploy-docker.sh),
   `--network host` suffit (tcpdump dans l'image).
+- `proxmox` (python, privilégié, #487-488) — **hyperviseur Proxmox VE** :
+  VM/CT (état, CPU, RAM, disques), snapshots (âge), backups (dernier
+  par VM), stockages, pools ZFS (santé, capacité, erreurs). Adressage
+  IP des VM par qemu-guest-agent quand il répond, interfaces LXC
+  natives sinon — aucune IP inventée, le hub recoupe par ailleurs.
+  **Apprentissage par exploration (#488)** : pour chaque VM en marche
+  avec IP connue, balayage TCP connect BORNÉ (ports courants, 0,4 s,
+  16 fils — jamais un nmap), sondes TLS (certificat lu même auto-signé
+  ou expiré : CN, SAN, jours restants — la validité est un constat,
+  pas un filtre) et HTTP (statut, Server, titre, redirection), PTR,
+  puis **URLs entrantes apprises** (SAN, CN, PTR, hôtes de redirection)
+  avec résolution DNS interne : un nom qui résout vers l'IP de la VM
+  est une URL entrante probable ; un nom qui ne résout pas est un trou
+  DNS rapporté, pas masqué. Collecte locale par `pvesh` (aucun mot de
+  passe stocké) + `zpool` ; toutes les 30 min, désactivé par défaut :
+  **activé automatiquement par `install.sh` sur un hôte Proxmox VE**
+  (`/etc/pve` + `pvesh` : plugin `proxmox` et sondes en root, #524 ;
+  `--no-detect` pour l'éviter), sinon `--enable-plugin proxmox
+  --plugins-user root` ou catalogue central. Le central sert la synthèse sur `GET /proxmox` ;
+  la supervision SI affiche chaque VM (type « VM / conteneur »)
+  fusionnée par IP, et la tuile hub **Proxmox** (thématique Réseau)
+  l'arbre hôte → VM avec services et URLs appris. Le host Proxmox
+  lui-même est déjà supervisé par la mesure `host` de l'agent — ce
+  plugin ne couvre que le spécifique PVE.
+- `wifi-probe` (python, privilégié, #525) — **sonde Wi-Fi « expérience
+  client »**, première sonde de la famille *explorer* : le poste qui porte
+  l'agent est associé comme un utilisateur au SSID à observer (interface
+  Wi-Fi **sans route par défaut**, l'Ethernet reste le chemin vers le
+  central : `nmcli connection modify <c> ipv4.never-default yes`). Chaque
+  minute : lien (`iw link` / `station dump` : borne, canal, RSSI, débits
+  négociés, retransmissions et échecs sur le delta du passage précédent),
+  occupation du canal (`survey dump`, y compris le trafic des autres),
+  voisinage (`iw scan` : bornes par canal, co-canal, élément *BSS Load* des
+  balises = stations et utilisation vues par la borne), chemin (`ping -I`
+  vers la passerelle du Wi-Fi : latence, gigue, pertes) et, si `iperf3` est
+  présent et l'argument `--iperf HOTE` donné dans le manifeste, un flux UDP
+  de 20 Mbit/s type cast (gigue, pertes). Constats sans action : non
+  associé, signal faible, retransmissions, canal saturé, débit négocié bas,
+  gigue/pertes, borne chargée, 2,4 GHz. Fiche agent → section « Wi-Fi vu du
+  poste » avec historique des passages (pires valeurs, bornes utilisées).
+  v2 (#526, premier retour terrain) : trafic généré avant la lecture du
+  lien (au repos le pilote annonce 6 Mbit/s), passerelle lue dans l'option
+  DHCP `routers` (le Wi-Fi n'a pas de route par défaut), co-canal compté
+  par borne et non par SSID, pas d'alerte débit sans échantillon de trafic.
+  v3 (#529) : liste des radios visibles avec leur *BSS Load* à chaque scan
+  (utilisation des canaux par borne dans le temps, volet « Bornes vues du
+  poste » de la fiche agent), constat « canal occupé sans client ».
+  Requiert `iw`, `ping`, `ip` ; état entre deux passages dans
+  `/var/lib/si-agent/wifi-probe.state.json`. Activation : `--enable-plugin
+  wifi-probe` ou depuis la fiche agent.
+- `path-probe` (python, privilégié, #527) — **sonde « chemin de service »**,
+  deuxième sonde *explorer* : rejoue chaque minute, par interface IPv4 du
+  poste, ce qu'un utilisateur subit quand il dit « je n'ai plus Internet »,
+  dans l'ordre où ça casse -- **bail** (adresse, serveur DHCP, passerelle et
+  DNS reçus, âge / durée du bail ; adresse statique signalée), **passerelle**
+  (ping court : latence, pertes), **DNS distribués** (requête UDP/53 vers
+  CHAQUE serveur reçu du DHCP : un serveur mort parmi d'autres est un
+  constat, un seul serveur distribué en est un autre), **DNS publics**
+  (8.8.8.8, 1.1.1.1 : sortie UDP/53), **HTTP réel** (GET d'une page de test
+  connue ; portail captif / interception détectés sur la redirection ou le
+  contenu) et **HTTPS** (certificat vérifié ; certificat invalide =
+  interception). Sockets liés à l'adresse de l'interface ; interface sans
+  route par défaut (Wi-Fi d'observation) : table de routage dédiée posée le
+  temps du passage (`ip rule from <ip> lookup 250+i`) puis retirée. Option
+  `--connections wifi-a,wifi-b` dans le manifeste : à chaque passage la
+  sonde active la connexion NetworkManager suivante, donc un **vrai échange
+  DHCP sur chaque SSID à tour de rôle** (la sonde `wifi-probe` mesure alors
+  le SSID actif, son historique reste lisible par SSID). Autres arguments :
+  `--name` (nom résolu, défaut `www.google.com`), `--public-dns`, `--http`,
+  `--https` (`none` pour désactiver). Constats sans action : pas d'adresse,
+  activation échouée, passerelle injoignable / pertes / lente, aucun DNS
+  distribué, DNS unique, DNS distribué muet, tous muets, DNS publics coupés,
+  HTTP/HTTPS en échec, portail captif, résolution ou page lente. Fiche agent
+  → section « Chemin de service vu du poste » : tableau par chemin (bail,
+  passerelle, chaque DNS avec sa latence, publics, HTTP, HTTPS, état),
+  constats, historique par chemin (passages sans adresse, DNS muet, HTTP en
+  échec, pires latences). Requiert `ip`, `ping`, `nmcli` (`iw` pour le
+  SSID) ; état dans `/var/lib/si-agent/path-probe.state.json`. Activation :
+  `--enable-plugin path-probe` ou depuis la fiche agent.
+- Constats des sondes → notifications (#530) : le central compare les
+  constats warning/critical de chaque mesure `plugin:wifi-probe` /
+  `plugin:path-probe` avec la précédente ; nouveaux constats → événement
+  `probe-alert` (sévérité la pire), constats disparus → `probe-recovered`
+  (info) ; ces événements suivent le circuit de notification habituel
+  (`SI_AGENT_NOTIFY_*`, `SECRETS_ALERT_*`). Un constat persistant n'est pas
+  répété.
 
 ## Installation
 
@@ -148,6 +234,11 @@ segment « vm », l'hôte avec son IP et la passerelle comptée comme relais
 
 ### Archive de déploiement et variante conteneur (#430)
 
+**#518 : l'archive est construite dans l'image de si-agent-api et servie par
+`GET /api/si-agent/package`** (`/package/info` : nom, version, taille,
+SHA-256). Dans la tuile, la fiche d'un agent donne le lien de
+téléchargement et une ligne `curl … && sha256sum -c && tar xzf … && cd …`
+à coller sur l'hôte avant la commande d'installation. En local,
 `si-agent/make-archive.sh [dossier]` produit `si-agent-agent-<version>.tar.gz`
 (paquet, plugins, `install.sh` + systemd, `docker/`, `README-DEPLOIEMENT.md`,
 sans secret). Sur un hôte qui a Docker :
@@ -202,7 +293,7 @@ journal, comptes) ; non vérifié : `docker build`/`run` réels.
 `batch_size` 100, `queue_path`, `plugins_dir`, `risk_thresholds`, `plugins`
 (surcharges locales), `ca_file`, `insecure` ; #422 : `state_path`,
 `block_file`, `require_signed_responses` (true), `plugins_user` (nobody),
-`plugin_max_memory_mb` (512), `log_level`, `log_file`.
+`plugin_max_memory_mb` (4096, espace d'adressage), `log_level`, `log_file`.
 
 ## Protocole attendu du central (contrat pour `si-agent-api`, #421)
 
@@ -314,7 +405,7 @@ configuration, identifiants de commandes mémorisés (`state.json`).
 
 **Sondes confinées.** Environnement minimal (jamais celui du service),
 session propre (le délai tue tout le groupe de processus), priorité
-abaissée, limites CPU / mémoire (`max_memory_mb`, 512 Mo par défaut) /
+abaissée, limites CPU / mémoire (`max_memory_mb`, 4096 Mo d'espace d'adressage par défaut depuis #577 : 512 faisait planter les binaires Go) /
 fichiers, umask 077, et abandon des privilèges vers `plugins_user`
 (`nobody`) quand l'agent est root — sauf sonde `privileged: true`, drapeau
 **couvert par la signature** du central et journalisé ; les sondes livrées
@@ -567,6 +658,86 @@ la collecte continue). `measured_as` sur l'entrée, « (uid N) » dans la
 tuile. Agent 0.3.3. Marche à suivre : `README-DEPLOIEMENT.md`, section
 « Montages réseau et FUSE ».
 
+## Stockage de l'hôte Linux : volumes, partitions, systèmes de fichiers (livraison #503)
+
+Demandé : « compléter l'agent linux sur la gestion de Z{volume/partition/fs} ».
+La mesure `host` embarque désormais une section `storage`
+(`si_agent/storage.py`), quatre couches facultatives (outil absent =
+couche absente, jamais une erreur ; `available` dit lesquelles ont
+répondu) :
+
+| Couche | Source | Contenu |
+|---|---|---|
+| blocs | `lsblk -J -b` | disques, partitions, LVM, md, zvols : type, taille, FS, montage, parent, modèle, HDD/SSD, amovible |
+| LVM | `pvs` / `vgs` / `lvs --reportformat json` | PV, VG (taille, libre), LV (genre linear/thin/thin-pool/raid…, pool, origine, **occupation données/métadonnées des thin pools**) |
+| RAID logiciel | `/proc/mdstat` | niveau, membres, actifs/total, **dégradé**, reconstruction en cours |
+| ZFS | `zpool list/status`, `zfs list` | pools (santé, alloué/libre, **capacité**, fragmentation, erreurs par disque, **dernier scrub**), datasets et zvols (utilisé, disponible, quota/volsize, compression), **snapshots agrégés par dataset** (nombre, espace, plus ancien, plus récent — jamais la liste brute) |
+
+Risques dérivés (`risks.evaluate_storage`) : pool ZFS `FAULTED/UNAVAIL`
+ou `DEGRADED` → critique ; capacité ZFS ≥ 80 % avertissement, ≥ 90 %
+critique (seuils plus bas que les FS : copy-on-write) ; erreurs
+d'E/S/checksum → avertissement ; scrub > 35 jours ou jamais → info ;
+dataset ≥ 90 % de son quota → avertissement ; thin pool LVM ≥ 85/95 %
+→ avertissement/critique ; md dégradé → critique, resync → info. Seuils
+surchargeables par `risk_thresholds` comme les autres. Tuile Agents
+hôtes : section **Stockage** (pools, datasets/zvols, LVM, RAID, arbre
+des blocs). Tests : `tests/test_storage.py` (parseurs sur sorties
+représentatives, collecte contre faux runner, risques).
+
+## Proxmox : disponibilité, sauvegardes, accès, journaux internes (livraison #504)
+
+Plugin `proxmox` **v3** (voir aussi #487, #488) — « superviser l'état /
+disponibilité des VM, un suivi des backup/snapshot, le log des accès VM
+(ssh, http/https) et la récupération des logs internes » :
+
+- **Disponibilité** : le central garde chaque passage du plugin
+  (30 min) ; `GET /proxmox/history?agent_id=&hours=168` donne par VM le
+  taux de relevés « en marche », les transitions d'état ; à chaque
+  mesure reçue, un **événement** est journalisé quand une VM change
+  d'état (arrêt d'une VM en marche = avertissement, reprise = info,
+  VM apparue/disparue = info) — visibles dans le journal de la tuile
+  Agents hôtes et notifiés comme les autres.
+- **Sauvegardes** : en plus du dernier fichier par VM (#487), les
+  **tâches vzdump** (`/nodes/<n>/tasks?typefilter=vzdump`, 200
+  dernières : résultat OK / erreur / en cours, durée, utilisateur, par
+  VM ou job global) et les **jobs planifiés** (`/cluster/backup` :
+  planning, stockage, VM couvertes, actif). Par VM : 5 dernières
+  exécutions, dernier résultat, jobs qui la couvrent ; par hyperviseur :
+  OK / échecs sur 24 h. Snapshots inchangés (liste avec âge).
+- **Accès** (fenêtre 24 h) : journal `pveproxy` (`/var/log/pveproxy/
+  access.log`, fin bornée à 2 Mo) → par VM : **sessions console**
+  (vncproxy/termproxy/spice), modifications (POST/PUT/DELETE),
+  consultations, utilisateurs, adresses, dernier accès ; pour
+  l'hyperviseur : requêtes, utilisateurs, adresses, **401**. SSH de
+  l'hyperviseur (`journalctl -u ssh`) : acceptés par utilisateur@IP,
+  refus par IP, dernier accepté. Échecs d'authentification
+  `pvedaemon`/`pveproxy` (journal).
+- **Journaux internes des VM** : pour chaque VM en marche avec
+  qemu-guest-agent (`agent/exec` + `exec-status`, borné à 10 s) ou
+  chaque conteneur (`pct exec`), lecture du journal **sshd**
+  (`journalctl _COMM=sshd`, repli `auth.log`/`secure`) et des journaux
+  **web** (nginx/apache, format combiné) — 300 lignes, résumés
+  (acceptés/refusés/utilisateurs inconnus, requêtes par classe de
+  statut, clients, chemins) + **extrait brut** (16 Ko max par journal)
+  consultable dans la tuile. **Tourniquet de 15 VM par passage** pour
+  borner la durée ; rien n'est jamais écrit dans l'invité ; une VM
+  sans agent ou dont l'agent interdit `exec` est signalée, pas
+  bloquante. Aucun mot de passe : tout passe par `pvesh`/`pct` en
+  root local.
+- Tuile **Proxmox** : colonnes Dispo. 7 j, Sauvegarde (dernier fichier
+  + résultat de la dernière tâche, série d'échecs), Accès 24 h ; fiche
+  dépliée avec transitions d'état, exécutions de sauvegarde, accès
+  (utilisateurs, adresses, dernière console), journaux internes (SSH,
+  web, extraits). En tête d'hyperviseur : sauvegardes 24 h, accès et
+  SSH de l'hôte.
+
+Manifeste : `timeout_seconds` 600 (journaux invités). Tests :
+`test_proxmox_plugin.py` (UPID, tâches, jobs, journal pveproxy avec
+fenêtre, sshd, web, tourniquet, disponibilité, exec borné, collecte
+complète contre faux `pvesh`/`pct`/`journalctl`), `test_si_agent_api.py`
+(disponibilité et événements sur mesures successives), Node
+(`proxmoxLib.test.mjs`).
+
 ## Tests
 
 ```bash
@@ -621,3 +792,806 @@ l'accueil en thème sombre).
 extrait Python contre le vrai `/ca`) et le service systemd sur une vraie
 machine ; Raspberry Pi ; build Docker ; passerelle TLS réelle ; canaux SMS
 et courriel réels (fonctions du PRA réutilisées telles quelles).
+
+## Antivirus Windows / macOS (livraison #520)
+
+Demande SAV : « un contrôle / alerte sur les antivirus des Windows et des
+Mac ». Section `antivirus` de la mesure `host`, même forme sur les deux
+plateformes (`si_agent/antivirus.py`, logique pure testée) :
+`{products: [{name, enabled, up_to_date, source}], primary, status, platform}`
+avec `status` = ok · disabled · outdated · none · unknown.
+
+- **Windows** : `host.ps1` interroge le Centre de sécurité
+  (`root/SecurityCenter2`, `AntiVirusProduct`) -- tout antivirus installé y
+  est enregistré (Defender, Bitdefender GravityZone, ESET…) avec un
+  `productState` codé (actif / à jour), décodé côté agent ; Defender reste
+  lu par `Get-MpComputerStatus` (#440). Si le Centre de sécurité est
+  illisible (serveurs), Defender seul fait foi ; rien de lisible = section
+  absente, jamais « aucun antivirus » à tort.
+- **macOS** : pas de registre commun -- produits reconnus par leurs
+  fichiers et leurs démons (`ps -axo comm`) : Bitdefender, Microsoft
+  Defender, Sophos, ESET, Kaspersky, Avast, Malwarebytes, SentinelOne,
+  CrowdStrike, ClamAV ; protections système : XProtect (version, âge du
+  bundle), Gatekeeper (`spctl --status`), SIP (`csrutil status`).
+- **Risques** : `antivirus-none` (warning), `antivirus-off` (critical),
+  `antivirus-outdated` (warning), `antivirus-state-unknown` (info),
+  `gatekeeper-off`, `sip-off` (warning), `xprotect-old` (info, > 60 j).
+  Defender seul garde ses risques détaillés de #440 (pas de doublon).
+- **Tuile** : ligne « Antivirus » dans la section Système de chaque agent.
+
+Agent **0.5.1**.
+
+## Auto-mise à jour contrôlée depuis le central (livraison #522)
+
+Demandé : « que les agents soient en mesure de s'auto mettre à jour, que
+dans le front on voie l'état des mises à jour, avec un contrôle sur le
+déploiement : un premier qui bêta-teste, puis activation volontaire de
+l'administrateur ; auto-installation mais déploiement contrôlé depuis le
+central ».
+
+- **Version cible** = l'archive construite dans l'image de si-agent-api
+  (#518, `GET /package`) : mettre à jour les agents = reconstruire
+  si-agent-api avec les nouvelles sources.
+- **Réglages** (`GET/PUT /updates`, réglage `updates`) : `beta_agents`
+  (identifiants servis en premier), `general_enabled` (activation par
+  l'administrateur pour tous les autres), `auto` (planification dès
+  qu'un agent éligible dépose son inventaire ; sinon bouton « Appliquer
+  maintenant », `POST /updates/apply`), `retry_after_s` (6 h avant de
+  réessayer un échec). Statuts : up-to-date · newer · unknown · pending ·
+  started · failed · eligible · not-eligible.
+- **Commande `update`** (acquittée, comme les autres) : `{version, sha256,
+  url}` ; l'agent télécharge par son TLS habituel (central de secours
+  compris), vérifie le SHA-256, extrait (chemins et liens contrôlés),
+  lance l'installeur de sa plateforme en `--upgrade` / `-Upgrade`
+  (configuration, secret, CA et sondes conservés) **détaché** de son
+  processus (`systemd-run` sous Linux, nouvelle session sous macOS,
+  processus détaché sous Windows), acquitte « installation lancée »,
+  puis au redémarrage signale `agent-updated` ou `agent-update-failed`
+  (marqueur `update-pending.json`). La nouvelle version apparaît à
+  l'inventaire suivant.
+- **Tuile** Agents hôtes → onglet « Mises à jour » : version servie, état
+  par agent, cases « bêta », activation générale (confirmation), auto,
+  « Appliquer maintenant », mise à jour unitaire.
+
+Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
+Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
+du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
+détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
+sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2 ; **0.5.7** (#527) : sonde
+`path-probe` ; **0.5.8** (#528) : `--upgrade` macOS/Windows conserve la
+configuration (elle était effacée) ; **0.5.9** (#529) : wifi-probe v3.
+
+## Publication locale d'un tableau de santé (livraison #547, agent 0.5.10)
+
+Demandé : le responsable du site veut un tableau de bord de l'état de
+santé du réseau ; « l'agent mini-PC (sur le réseau du campus) devrait
+porter un service web qui le publie ».
+
+Principe : le **central prépare le contenu** (tableau de santé Nebula de
+nebula-api, #546 : phrases, disponibilité, incidents, une ligne par
+équipement, sans identifiant interne), l'**agent le relève** toutes les
+`interval_seconds` par son canal signé (`GET /api/v1/agents/<id>/publish`,
+réponse signée comme la configuration) et le **sert sur le LAN du site**
+sur `http://<agent>:<port>/` (page « État du réseau » dans la charte
+Simple, sans dépendance) et `/board.json`. Aucune clé Nebula sur le poste,
+deux chemins en lecture seule, page marquée « information ancienne » au
+delà de cinq minutes sans relevé. Le serveur s'arrête si la publication est
+désactivée ou si l'agent est bloqué.
+
+Réglage par agent (remplacé en bloc), depuis le central :
+
+```
+curl -sk -X PUT https://localhost:6443/api/si-agent/agents/<agent_id> -H "Content-Type: application/json" \
+  -d '{"publish": {"enabled": true, "port": 8081, "title": "Réseau du campus", "site_id": "", "hours": 24, "interval_seconds": 60}}'
+```
+
+`site_id` vide = tous les sites Nebula ; `port` 1024–65535 (ouvrir le port
+sur le pare-feu local du poste si besoin). `NEBULA_API_URL` sur
+si-agent-api (compose). Logique pure `agent/si_agent/publish.py`,
+`api/publish.py` ; tests `agent/tests/test_publish.py`,
+`api/test_si_agent_api.py`. Depuis le hub (#549), la même page se voit
+sans être sur le site : fiche de l'agent → « voir la page telle que
+publiée » (`GET /agents/<id>/publish/preview`, même gabarit et même
+contenu, calculé par le central). Suites : autres contenus publiables
+(état des services de l'espace Simple, demandes en attente), réglage
+dans la tuile Agents hôtes.
+
+## Lien vers le hub sur la page publiée (livraison #559, agent 0.5.11)
+
+Réglage `publish.hub_url` (http(s), 200 caractères max) : la page servie
+par l'agent affiche « Tableau de bord complet (connexion demandée) → »
+vers cette adresse, par exemple `https://<hub>/?view=nebula` (le hub ouvre
+directement la tuile ; la personne se connecte avec son compte et ne voit
+que ce que la matrice des droits lui accorde). Le lien voyage dans le
+contenu signé, comme le reste.
+
+## Page publiée : exports et historique par thématique (livraison #564, agent 0.5.12)
+
+La page servie par l'agent gagne deux boutons — **Exporter CSV**
+(équipements et historique, `;` et UTF-8 BOM pour Excel) et **Imprimer /
+PDF** (mise en page d'impression, « enregistrer en PDF » du navigateur) — et
+une section **Historique par thématique** (Passerelle, Commutateurs, Bornes
+Wi-Fi, Autres) listant les changements d'état de la fenêtre. Le central
+joint au contenu signé les transitions nebula-api (`/sites/<id>/transitions`)
+avec la thématique déduite du modèle (`publish.device_theme`).
+
+## Sonde « postes Windows » (livraison #567, plugin `windows-probe`)
+
+Famille explorer, à activer sur l'agent placé sur le réseau du site
+(Agents hôtes → l'agent → Sondes → windows-probe ; `--targets auto` = les
+/24 du poste, ou `--targets 192.0.2.0/24,198.51.100.7`). Toutes les 5 min :
+ports SMB 445, RDP 3389, AnyDesk 7070, VNC 5900, WinRM 5985/5986, SSH 22,
+HTTP(S) ; NetBIOS node status (nom, groupe/domaine, MAC) ; négociation SMB2
+(dialecte, signature exigée) et essai SMB1 ; demande de connexion RDP
+(NLA / TLS). Aucune authentification, aucune action ; 254 hôtes en ~10 s.
+Constats → événements du central (#530) : `smb1_enabled`, `rdp_without_nla`
+(warning), `smb_signing_optional`, `vnc_open`, `netbios_silent` (info).
+Central : `GET /windows-hosts?site=` (fusion entre agents). Hub : tuile
+Nebula → Campus → **Accès Windows** (rapprochement avec les fiches matériel
+par MAC ou nom, liens RDP (.rdp), AnyDesk (`anydesk:`), partage (`smb://`,
+`\\ip` à copier), VNC, SSH, WinRM). Tests : `test_windows_probe.py`.
+
+## Sonde « annonces réseau » (livraison #568, plugin `broadcast-probe`)
+
+Famille explorer, privilégiée (socket brut `AF_PACKET` ; sans privilège ou
+sous Windows : écoute UDP mDNS / SSDP / LLMNR / NetBIOS / WS-Discovery).
+Toutes les 5 min, une minute d'écoute **passive** des trames diffusées et
+multidiffusées du segment : ARP (dont gratuit), DHCP (offres, serveurs),
+NetBIOS (enregistrements de noms), mDNS/Bonjour (noms, services `_ipp`,
+`_googlecast`, `_ndi`…), SSDP/UPnP (NOTIFY, SERVER), LLMNR, WS-Discovery,
+LLDP/CDP (voisins, ports), STP (racine, changements de topologie), IPv6
+(RA, ND, MLD), IGMP, VRRP/HSRP, multicast applicatif (AnyDesk, Dropbox,
+Steam, Art-Net, MikroTik, Ubiquiti…). Résultat : protocoles (trames,
+émetteurs), annonceurs (MAC, IP, noms, services, rythme), constats →
+événements (#530) : `dhcp_multiple` (critique), `arp_conflict`,
+`stp_topology_change`, `stp_multiple_roots`, `storm` (warning), `ipv6_ra`,
+`broadcast_rate` (info). Ne voit que le VLAN du poste : une sonde par VLAN
+à écouter. Central : `GET /broadcasts?site=`. Hub : Nebula → Campus →
+**Annonces réseau**. Tests : `test_broadcast_probe.py`.
+
+## Contrôle des VM Proxmox depuis le hub (livraison #572, agent 0.5.13)
+
+Tuile Proxmox → cliquer une VM → barre **Actions** : démarrer, arrêt propre
+(ACPI, 120 s), redémarrer, couper, reset, reprendre ; snapshot (créer,
+revenir, supprimer). Chaque action = commande `vm_action`
+(`{vmid, action, kind: qemu|lxc, snapname?}`) signée, relevée par l'agent de
+l'hôte (≈ 1 min), exécutée par `qm` / `pct` (`si_agent/vmctl.py`, tests
+`test_vmctl.py` : ligne de commande construite depuis des paramètres
+validés, jamais interpolés), résultat renvoyé au central et suivi dans le
+hub ; événement `command-vm` à chaque action. L'agent doit tourner en root
+sur l'hôte (comme la sonde proxmox) ; agent bloqué = action refusée. Pas
+besoin de l'interface web Proxmox ni du port 8006 : tout passe par le
+canal agent → central.
+
+## Mise à jour restée sans effet (livraison #576, agent 0.5.14)
+
+Symptôme : commande `update` « done · acquittée », l'agent reste en
+ancienne version, rien dans les événements. Deux causes corrigées :
+(1) le central testait le statut `acked` alors qu'il note `done` /
+`failed` — une mise à jour lancée retombait en « à planifier » et était
+renvoyée à chaque passage sans jamais signaler l'échec ; l'état
+**« installeur lancé, sans effet »** apparaît désormais après 15 min ;
+(2) l'installeur tournait détaché sans journal : sa sortie va maintenant
+dans `update-<horodatage>.log` à côté de `state.json` de l'agent
+(`/var/lib/si-agent/` ; Windows : dossier de données de l'agent) ; si
+l'agent tourne toujours 15 min après le lancement, il émet
+`agent-update-failed` avec la fin de ce journal ; un lancement impossible
+(binaire, droits) est refusé tout de suite dans le résultat de la commande.
+Pour passer les agents encore en 0.5.x sur cette version, une fois à la
+main : Linux `sudo /opt/si-agent/... install.sh --upgrade` depuis l'archive
+servie (`/api/si-agent/package`), Windows `install.ps1 -Upgrade` en
+administrateur ; ensuite le journal dira pourquoi les précédentes
+échouaient.
+
+## Mise à jour automatique : cause réelle (livraison #577, agent 0.5.15)
+
+Journaux des postes après passage manuel en 0.5.14 : l'installeur lancé par
+`systemd-run` ne trouvait pas le script — le service tourne avec
+`PrivateTmp=true`, l'archive était extraite dans le `/tmp` privé de l'agent,
+invisible depuis l'unité transitoire. Depuis 0.5.15 l'archive s'extrait dans
+`/var/lib/si-agent/update/` (dossier d'état, partagé). Une version courante
+plus récente que la cible du marqueur compte comme réussie (plus de faux
+`agent-update-failed` après un passage manuel). `plugin_max_memory_mb`
+passe à 4096 : la limite est un espace d'adressage (RLIMIT_AS) et 512 Mo
+faisait planter les binaires Go (sonde docker-containers : « failed to
+reserve page summary memory »).
+
+## Inventaire logiciel et installation / désinstallation (livraison #595, agent 0.5.16)
+
+Sonde `software-inventory` (bundled, **désactivée par défaut**, 6 h) :
+liste des logiciels installés — Linux (dpkg / rpm, flatpak, snap), macOS
+(`/Applications`, Homebrew), Windows (clés `Uninstall` 64 / 32 bits et
+utilisateur, Office click-to-run) — nom, version, éditeur, date, source,
+plus les comptes ouvrant des sessions. Lecture seule. Central :
+`GET /software-inventory?site=` (dernier relevé par agent) ; consommé par
+`licenses-api` (tuile Licences logicielles, voir `licenses/README.md`).
+Commande `software_action` `{action: install|uninstall, package, manager?}`
+(`si_agent/swctl.py`, tests `test_swctl.py`) : apt-get / dnf / brew /
+winget / choco, gestionnaire déduit de l'OS, nom de paquet validé
+(`PKG_RE`), jamais de shell, `DEBIAN_FRONTEND=noninteractive`, délai 15
+min, sortie tronquée renvoyée au central ; événement `command-software`.
+Windows : l'agent tourne en service (session 0) où `winget` peut manquer —
+préférer `choco` ou installer winget pour le compte système.
+
+## Filtres d'alertes (livraison #607)
+
+Demandé : « les alertes agents sont inutiles pour une partie des cas ; une
+case à cocher sur chaque agent pour activer / désactiver un filtrage ; des
+groupes de filtres ; classer / catégoriser les alertes ; paramétrage fin ;
+besoin immédiat : filtrer les postes de travail éteints hors des heures de
+travail (8 h 30 – 18 h) ». `api/alertfilters.py` (pur, 4 tests) : chaque
+`kind` d'événement a une **catégorie** (disponibilité, sécurité, sondes,
+mises à jour, commandes, flotte, captures, risques, autres) ; un **groupe**
+= règles {catégories et/ou genres, `when` toujours / hors / pendant les
+heures ouvrées, jours, début, fin, action filtrer / laisser passer} ; un
+agent = `filter_enabled` + `filter_group`. Groupes par défaut : « Postes
+de travail (heures ouvrées) » (disponibilité hors lun.–ven. 08:30–18:00,
+fuseau `SI_AGENT_ALERT_TZ`) et « Silencieux ». Un événement filtré est
+conservé (`muted`, `muted_by`) mais absent du bandeau, de la synthèse
+(`muted` compté à part), de la liste par défaut (`?include_muted=1`) et des
+notifications. Routes : `GET/PUT /alert-filters`, `POST /alert-filters/test`
+(« un hors-ligne à telle heure serait-il filtré ? »), `PUT /agents/<id>`
+(`filter_enabled`, `filter_group`). Tuile : onglet **Filtres d'alertes**
+(tableau par agent avec case + groupe, éditeur de groupes, test à blanc),
+case « Filtrer les alertes » dans les réglages de l'agent, « afficher les
+filtrées » dans le journal.
+
+## Poste : redémarrage, réveil, lanceurs, chien de garde (livraison #613, agent 0.5.17)
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ». Section **Poste** de la fiche agent (bouton
+« Poste » dans les sections), sur toute plateforme sauf mention.
+
+- **Alimentation** — commande `power_action` {action: reboot|shutdown|cancel,
+  delay_seconds, message, force}. Windows `shutdown.exe /r|/s /t N /c
+  "message" [/f]`, Linux/macOS `shutdown -r|-h +M`. Refus si une session
+  est ouverte sur la console (utilisateur affiché) sauf `force`. Acquittée
+  avant l'exécution, événement `command-power` (warning). `si_agent/powerctl.py`.
+- **Réveil réseau** — commande `wol` {mac, broadcast?, port?} envoyée à **un
+  autre agent en ligne du même site** (le paquet magique ne traverse pas les
+  routeurs) ; le MikroTik du site peut aussi le faire (`/tool wol`). MAC
+  préremplie depuis la vue réseau de l'agent visé. Le poste doit avoir le
+  Wake-on-LAN activé (BIOS + carte) ; le seul retour est l'agent qui revient
+  en ligne.
+- **Lanceurs au démarrage** (Windows) — mesure `startup` toutes les 30 min
+  (`win/startup.ps1`) : clés Run / RunOnce machine et utilisateur (y compris
+  WOW6432Node), dossiers Démarrage, tâches planifiées à l'ouverture de session
+  ou au démarrage (hors \Microsoft\), services automatiques hors Windows.
+  État activé/désactivé lu dans `Explorer\StartupApproved` (même source que le
+  Gestionnaire des tâches). Commande `startup_action` {kind, scope, name,
+  enable} : Run / dossier → valeur StartupApproved (02 = activé, 03 =
+  désactivé, l'entrée n'est jamais supprimée), tâche → `schtasks /Change
+  /Enable|/Disable`, service → `sc config start= auto|disabled` (effet au
+  prochain démarrage). Refusés : tâches \Microsoft\, services système
+  (wuauserv, WinDefend, mpssvc, BFE, Dhcp, Dnscache, EventLog, RpcSs,
+  Winmgmt, TermService, si-agent…). `si_agent/startupctl.py`.
+- **Chien de garde applicatif** — commande `watchdog_config`
+  {interval_seconds, apps: [{id, label, process, command, cwd, hours, days,
+  cooldown_seconds, max_restarts_per_hour, enabled}]}, persistée dans
+  `state.json` et rappelée dans la mesure `inventory`. Toutes les
+  `interval_seconds` (15–3600) l'agent liste les processus (`tasklist` /
+  `ps`) ; application absente dans sa plage → relance détachée (jamais
+  attendue, jamais rattachée à l'agent), au plus `max_restarts_per_hour` par
+  heure et à `cooldown_seconds` d'écart ; quota atteint ou pas de commande →
+  événement `app-down` (critical, une fois) ; retour → `app-recovered`.
+  Mesure `watchdog` (état par application). Catégorie d'alertes
+  « Applications surveillées » (#607) pour les grouper ou les filtrer.
+  `si_agent/watchdog.py`.
+
+Vérifié réellement : 13 tests (`test_winctl.py` : lignes de commande,
+bornes, refus console, paquet magique, StartupApproved, protections,
+cycle relance → repos → quota → retour, fenêtres horaires, analyse de
+`tasklist`), non-régression agent (80 tests) et central ; JSX compilé.
+**Non vérifié sur un Windows réel** : `startup.ps1` (PowerShell 5.1,
+`Get-ScheduledTask`, COM WScript.Shell pour les .lnk) et la valeur binaire
+StartupApproved sur Windows 11 — à confirmer sur le poste de test comme en
+#446.
+
+## Déploiement en masse et introspection (livraison #616, agent 0.5.18)
+
+Demandé pour la démonstration Numeria : « les sondes Windows pour un maximum
+de PC » et « un banc de test lourd pour vérifier l'impact d'une sonde sur la
+charge et la stabilité : introspection ».
+
+**Enrôlement par jeton de site** (onglet *Déploiement* de la tuile Agents) :
+un jeton `enr-…` par site (libellé, URL du central vue des postes, usages
+max, validité, sondes activées à l'enrôlement). La même ligne s'exécute sur
+tous les postes — Windows : `powershell -NoProfile -ExecutionPolicy Bypass
+-Command "iex (iwr -UseBasicParsing '<central>/deploy/windows?token=…').Content"`
+(PowerShell administrateur, GPO de démarrage, Intune, PsExec) ; Linux :
+`curl -fsSL '<central>/deploy/linux?token=…' | sudo bash`. Le script
+d'amorçage télécharge l'archive (`GET /package`), lance l'installeur avec
+`-EnrollToken` : `POST /api/v1/enroll` {token, hostname, platform} crée
+l'agent nommé d'après la machine (`slug_agent_id`) et délivre son secret —
+jamais dans la ligne ni dans le script. Relancer la ligne sur un poste déjà
+enrôlé redonne un secret neuf (déploiement GPO rejoué) ; un poste enrôlé par
+un autre jeton est refusé. Jetons révocables, bornés en usages et en durée ;
+événements `enroll-token-created` / `-revoked`, `agent-enrolled`.
+CA : par un nom public (frontal Let's Encrypt) l'installeur prend le magasin
+système (`-SystemCa`) ; par l'adresse LAN du hub il épingle la CA du projet
+comme avant (`_pin_internal_ca`). Frontal : `si-agent/deploy/` et
+`si-agent/api/v1/enroll` sont exemptés de la vérification de jeton A0
+(docs/acces-public-frontal.md). `store.py` : table `enroll_tokens`,
+colonnes `agents.enrolled_by` / `hostname` (3 tests).
+
+**Introspection** (`si_agent/introspect.py`, 4 tests) : mesure `agent-self`
+toutes les 60 s — temps CPU du processus de l'agent ET de ses enfants (les
+sondes) rapporté au temps écoulé (% d'un cœur, % machine), mémoire
+résidente (Linux /proc, Windows GetProcessMemoryInfo, macOS getrusage),
+durée min / moyenne / max et échecs de chaque collecte et sonde, taille de
+la file, charge de l'hôte ; fenêtre glissante de 120 points avec résumé.
+Flotte : colonne *Impact agent* (moyenne % cœur, mémoire). Fiche agent →
+Poste → *Empreinte de l'agent* : détail, coût par tâche.
+
+**Banc de charge** : commande `bench` {minutes 1–60, factor 2–20, stop} —
+collectes et sondes à cadence forcée (intervalle ÷ factor, plancher 15 s),
+introspection toutes les 30 s, événements `bench-started` / `-finished`
+(avec la synthèse) / `-stopped` ; la fiche compare « en banc » et « hors
+banc ». C'est la réponse chiffrée à « quel est l'impact d'une sonde ».
+
+Vérifié réellement : tests agent (80) et central ; JSX compilé. Non vérifié
+sur Windows réel : `-EnrollToken` sous Windows PowerShell 5.1 (chemin
+WebClient), `GetProcessMemoryInfo`. `tests/test_updater.test_run_update`
+échouait déjà avant cette livraison (lambda à 2 arguments) — à reprendre.
+
+## Audit d'application web depuis le poste (livraison #617)
+
+Demandé : « un module sur sonde Windows permettant d'auditer un
+dysfonctionnement partiel d'application web ». Sonde `web-audit` (famille
+explorer, Python stdlib, Windows / Linux / macOS, non privilégiée) : pour
+chaque URL (`--urls a,b` dans le catalogue, ou `web-audit.txt` dans
+`%ProgramData%\si-agent` / `/etc/si-agent`), décompose l'accès tel que le
+poste le subit — DNS, TCP, TLS (version, expiration), premier octet,
+téléchargement, code, redirections — puis chaque script / style / image /
+cadre de la page avec son code et sa durée. Constats : `dns-failed`,
+`connect-failed`, `tls-failed`, `http-error`, `http-client-error`,
+`slow-ttfb`, `slow-total`, `sub-errors`, `sub-slow`, `cert-expiring`,
+`redirect-chain`, `empty-body`, `mixed-content`. Sans authentification : une
+application derrière une connexion renvoie sa page de connexion (302/401),
+déjà une information. Hub : section « Audit d'application web » dans la
+fiche agent (détail dépliable par URL) et onglet **Audit web** de la tuile :
+matrice URL × poste (`GET /web-audit?site=`) — colonne rouge = l'application,
+ligne rouge = le poste ou son segment. 4 tests (analyse HTML, constats,
+serveur HTTP local réel, ligne de commande).
+
+## Trace réseau du poste : pktmon / tcpdump analysés sur place (livraison #618)
+
+Demandé : « idem en mode tcpdump pour relever les URL, les protocoles, les
+erreurs, les latences ». Sonde `web-trace` (privilégiée, désactivée par
+défaut) : capture bornée (`--seconds` 5–300) avec **pktmon** natif sous
+Windows 10/11 (`pktmon start --capture --comp nics`, `pktmon stop`, `pktmon
+etl2pcap`) ou tcpdump ailleurs, puis analyse **sur le poste** par
+`trace_analyzer.py` (stdlib : pcap et pcapng, Ethernet/VLAN/IPv4/TCP/UDP,
+ClientHello TLS → SNI, HTTP/1 en clair, DNS) ; seul le résumé remonte, la
+capture est effacée. Remonte : serveurs joints avec leur nom (SNI, Host ou
+réponse DNS), protocole (par port), connexions, connexions sans réponse
+(SYN sans SYN-ACK), RST, retransmissions, RTT moyen / max de la poignée de
+main, volume ; DNS (requêtes, réponses, échecs, sans réponse, latences) ;
+requêtes HTTP en clair (hôte, méthode, chemin, code, premier octet) ;
+poignées TLS (SNI, délai ServerHello). Constats : `connect-failed`,
+`connect-partial`, `slow-rtt`, `retransmissions`, `resets`, `dns-failures`,
+`dns-unanswered`, `slow-dns`, `http-error`, `http-client-error`, `slow-tls`.
+Hub : section « Trace réseau du poste » dans la fiche agent (filtre début de
+mot, tableau des serveurs, HTTP en clair, TLS). 5 tests (pcap et pcapng
+synthétiques identiques, scénario complet, robustesse des décodeurs, plan
+de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
+`pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
+Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
+
+## Bureau à distance ; mise à jour de l'agent (livraison #636, agent 0.5.28)
+
+`remote_desktop` {action: status|enable|disable, nla?} : bascule le RDP
+intégré (service + règle de pare-feu « Remote Desktop »), NLA exigée par
+défaut. Aucun compte n'est créé ni stocké : la connexion se fait avec un
+compte déjà autorisé sur le poste, avec les identifiants de l'administrateur.
+Mise à jour : le central pousse `update {version, sha256, url}` (#522),
+l'agent télécharge par son canal signé, vérifie le SHA-256 et relance
+l'installeur en `--upgrade` -- sans intervention sur le poste. Un antivirus
+tiers (AVG) n'est pas pilotable par script ; seul Microsoft Defender l'est
+(`protection`, #633).
+
+## Redémarrer et rouvrir la session une fois (livraison #628, agent 0.5.22)
+
+`power_action` {action: reboot, autologon: {user, password, domain?}} (Windows) :
+l'agent écrit dans Winlogon `AutoAdminLogon=1`, `AutoLogonCount=1`,
+`DefaultUserName/DomainName/Password` ; Winlogon ouvre la session au
+démarrage suivant puis efface lui-même le mot de passe et l'autologon
+(compteur à zéro). L'agent repasse 2 min après son démarrage : événement
+`autologon-cleared` (« déjà nettoyé par Windows » ou « traces retirées »).
+Le mot de passe est masqué (`***`) dans le central dès l'acquittement et
+dans tout ce que renvoie l'API ; il n'est jamais journalisé. Compte local ou
+de domaine avec mot de passe (pas un compte Microsoft à PIN seul).
+
+## Transfert de l'image vers le serveur (livraison #634, agent 0.5.26)
+
+`image_host` avec `transfer: true` : à la fin de Disk2vhd, l'agent envoie le
+VHDX au central par morceaux de 8 Mo signés (`PUT /api/v1/agents/<id>/images/<nom>?offset=`),
+reprend après coupure (`GET …/status`), clôt avec taille et SHA-256
+(`POST …/complete`) ; `delete_after` supprime l'image du poste une fois le
+condensé vérifié. `image_transfer` {path} envoie ou reprend une image déjà
+présente. Reçu sous `SI_AGENT_IMAGES_DIR` (`/data/images` dans le conteneur ;
+`data/images/` pour le central local), `GET /images` liste pour le hub.
+
+## Parcours de l'arborescence du poste (livraison #627, agent 0.5.21)
+
+Commande `browse` {path?} : sans chemin, les lecteurs (lettre, libre /
+total) ; avec un chemin (dossier ou partage UNC), ses sous-dossiers. Lecture
+seule, 300 entrées au plus, vue du compte de l'agent (SYSTEM : pas les
+lecteurs réseau mappés d'une session -- taper le chemin UNC). Bouton
+« Parcourir depuis le poste… » dans le bloc Image de la section Poste.
+Le central peut imposer `commands_poll_seconds` (5 s mini) dans la
+configuration ; le hub ne le fait pas (60 s par défaut sur le poste).
+
+## Poste multi-amorçage : cible du prochain démarrage (livraison #625, agent 0.5.20)
+
+`power_action` accepte `target` : `windows` (depuis Windows : `bcdedit /set
+{fwbootmgr} bootsequence {bootmgr}`, GRUB est sauté ; depuis Linux :
+`efibootmgr -n` de l'entrée « Windows Boot Manager »), `linux` (depuis
+Windows : entrée UEFI ubuntu/grub/debian/… de `bcdedit /enum firmware`) ou
+`firmware` (`shutdown /r /fw`, `systemctl reboot --firmware-setup`). C'est
+`BootNext` du firmware : une seule fois, l'ordre habituel reprend ensuite.
+L'agent ne modifie jamais GRUB (grubenv est sur ext4, invisible de Windows).
+Si le menu GRUB reste affiché après un passage sous Windows, c'est
+`recordfail` (Ubuntu) : `GRUB_RECORDFAIL_TIMEOUT=5` dans `/etc/default/grub`
+puis `update-grub`.
+
+## Image complète du poste à chaud, pour virtualisation (livraison #621, agent 0.5.19)
+
+Demandé : « un agent Windows pourrait-il faire une image complète de son host
+en vue d'une virtualisation, en parallèle de son fonctionnement continu ? »
+(portable de test pilotant 4 postes d'écrans interactifs). Commande
+`image_host` {target, drives ("*" ou "C: D:"), tool_url?, tool_sha256?,
+force?} depuis la section Poste. L'agent : refuse si une image est déjà en
+cours ; lit `manage-bde -status` et refuse si BitLocker protège un lecteur
+visé (image illisible) ; compare l'espace utilisé (`fsutil volume diskfree`)
+× 1,1 à l'espace libre de la cible ; télécharge `disk2vhd64.exe`
+(live.sysinternals.com par défaut, ou miroir interne / dépôt manuel dans
+`ProgramData\si-agent\tools`, empreinte SHA-256 vérifiée si fournie) ;
+lance `disk2vhd64.exe <lecteurs> <cible>\<poste>-<date>.vhdx -c -v
+-accepteula` DÉTACHÉ (instantané VSS : la machine reste en service, 30–60
+min pour 200–300 Go sur Gigabit) et suit le travail à chaque tour :
+`image-started`, `image-progress` (toutes les 5 min, Go écrits),
+`image-finished` (taille, durée, mode d'emploi Proxmox dans les détails),
+`image-failed`. `si_agent/imagectl.py` (pur, 4 tests).
+
+Import Proxmox (détails de l'événement de fin) : `qm create` en OVMF + TPM
+(Windows 11), `qm importdisk <vmid> <image>.vhdx <stockage> --format qcow2`,
+disque en SATA au premier démarrage puis VirtIO après installation des
+pilotes ; démarrer réseau coupé (`link_down=1`) — même nom et même IP que
+l'original ; activation Windows et logiciel de pilotage lié au matériel
+(USB / série / carte réseau → passthrough) à vérifier. Non vérifié sur
+Windows réel : options de Disk2vhd 2.02 (`-c` instantané, `-v` VHDX) et
+`manage-bde` localisé.
+
+## Accès publics du frontal dans le hub (livraison #622, item 99)
+
+Un agent Linux installé sur la VM frontale (ligne Linux de l'onglet
+Déploiement, ou installeur classique) avec la sonde `front-access`
+(privilégiée) lit le journal d'accès Apache des 60 dernières minutes
+(`--log /var/log/apache2/hub-*-access.log`, `--minutes`) et remonte un
+résumé, jamais le journal : requêtes, codes (401 = jeton exigé par A0,
+403 = périmètre, 5xx = hub / Keycloak injoignable), clients par IP publique
+(volume, refus, navigateur, chemin le plus demandé, dernier accès), chemins
+les plus demandés, requêtes lentes, erreurs 5xx, latence moyenne / max.
+Constats : `hub-unreachable`, `auth-refused-burst`, `scan-404`,
+`slow-backend`. `front-reverse-proxy.sh` journalise désormais la durée de
+chaque requête (`%D`, format `hub_timed`) — relancer le script sur le
+frontal pour l'activer. Hub : section « Accès publics (frontal) » dans la
+fiche de cet agent. 3 tests (analyse du format, constats, ligne de
+commande sur fichiers réels).
+
+## Contrôle PVE : opérations d'exploitation et plans de reprise (livraison #653, agent 0.5.29)
+
+Demande : « un outil de supervision/contrôle de tous les PVE : migration des volumes, backup, VM… ; réplication / PRA ».
+Socle : la commande `vm_action` (#572) s'étend aux opérations longues (`si_agent/vmctl.py`, `build_ops_argv`,
+délai 3600 s) — `migrate` (`qm|pct migrate <vmid> <nœud> [--online|--restart] [--with-local-disks]`), `backup`
+(`vzdump <vmid> --storage S --mode snapshot|suspend|stop --compress zstd`), `move_disk` (`qm disk move` /
+`pct move-volume`, suppression de la source), `clone` (`--full`, nom, nœud, stockage), `replicate` /
+`unreplicate` (`pvesr create-local-job <vmid>-<n> <nœud> --schedule`, `pvesr delete`). Chaque paramètre est validé
+par un motif fermé avant de construire la ligne de commande (nœud, stockage, disque, planification), jamais
+interpolé tel quel. L'agent doit tourner en root sur l'hyperviseur (comme la sonde proxmox).
+
+Central (`si-agent/api/pra.py`) : **plans** = suites ordonnées d'étapes `{agent_id, vmid, kind, action, params,
+label, wait_s}` (natures : PRA, maintenance, bascule de rôle, migration). `POST /pra/plans/<id>/run` en mode
+`simulate` (validation, agents connus, commandes qui seraient envoyées — rien n'est envoyé) ou `execute` : fil du
+central qui envoie une commande, attend l'acquittement de l'agent (statut `done`/`failed`, délai 3600 s), s'arrête
+à la première erreur sauf `continue_on_error`, journalise chaque étape (`pra_runs.steps`). Une seule exécution
+réelle à la fois par plan. Hub : tuile « Contrôle PVE (opérations, PRA) » (`PveOpsView.jsx`) — VM par hyperviseur,
+formulaire d'opération (exécuter maintenant / ajouter au plan en cours), plans, simulation, exécution suivie.
+
+Vérifié : `tests/test_vmctl_ops.py` (argv de chaque opération, refus, délai long), `api/test_z_pra.py`
+(validation, simulation, exécution contre un agent simulé : done puis failed → arrêt, 3e jamais envoyée).
+Non vérifié : sur un vrai Proxmox (qm migrate/vzdump/pvesr réels), rendu navigateur. Hors périmètre de cette
+livraison, notés au backlog : migration de serveurs physiques vers la virtualisation (item 101 pour Windows),
+bascule de rôle « celui qui répond » (DNS/VIP), tour de contrôle DNS / routage / flux.
+
+## Réplication, déclencheurs PRA et rôles « celui qui répond » (livraison #654, agent 0.5.30)
+
+- Plugin proxmox : `measure["replication"]` (`/nodes/<n>/replication` → id, VM, cible, planification, âge de la dernière
+  synchro, échecs, erreur, désactivé) ; absent = liste vide sans alerte. Tuile Contrôle PVE : colonne Réplication et
+  dernière sauvegarde par VM.
+- Déclencheurs (`pra.on_agent_offline`, appelé par le chien de garde à la transition hors ligne) : un plan peut
+  désigner un agent déclencheur ; à sa perte, le plan est **proposé** (événement `pra-suggested`, notifié) — ou,
+  si `trigger_mode = auto`, **lancé** (`pra-triggered`, critique) avec un délai de garde entre deux lancements. Le
+  mode automatique est un choix explicite par plan, jamais le défaut.
+- Rôles (`pra_roles`) : nom, URL de service, candidats ordonnés `{label, address}`, mécanisme `manual` (enregistrement
+  seul) ou `mikrotik_nat` (PATCH `to-addresses` de la règle NAT via mikrotik-api, `MIKROTIK_API_URL` sur
+  si-agent-api) ; `POST /pra/roles/<id>/switch {to}` applique, vérifie l'URL (GET 5 s), journalise (`role-switch`) ;
+  `POST /pra/roles/<id>/check`. Étape de plan `role_switch {role_id, to}` exécutée par le central (simulée aussi).
+  Mécanismes DNS / VIP : à ajouter quand le serveur DNS éditable sera choisi (BACKLOG 113/114).
+
+Vérifié : `tests/test_proxmox_plugin.py::test_replication_jobs`, `api/test_z_pra.py` (déclencheurs proposé/auto/
+délai de garde, rôles : validation, bascule avec mécanisme et vérification simulés, échec de vérification, étape de
+plan simulée puis exécutée). Non vérifié : NAT MikroTik réel, agents réels.
+
+## Migration d'un serveur / service vers la virtualisation (livraison #658, agent 0.5.32, item 112)
+
+Un plan de migration = un plan PRA ordinaire (`kind = migration`) généré par `POST /pra/migrations/plan` (aperçu, ou
+`save: true`), simulable et exécuté pas à pas par le central. Deux méthodes, toutes deux avec **étapes de transition**
+et **retour en arrière** :
+
+- **image** (serveur tel quel) : `image_host` sur l'agent du serveur source (Windows : Disk2vhd/VSS, #621 ; Linux :
+  `dd` du disque de la racine — ou `device` — `| zstd -T0` vers `target`, stockage séparé du disque imagé, vérifié par
+  `findmnt`/`lsblk`), transfert au central (#634), puis sur le nœud Proxmox : `create` (VM réseau coupé `link_down=1`,
+  OVMF + TPM si `ostype` Windows), `import_disk {source: central:<agent>/<image>, storage, attach: scsi0|sata0}` (l'agent
+  du nœud télécharge l'image par requête signée `GET …/images/<src>/<nom>/download`, reprise par `Range`, décompresse
+  le `.zst`, `qm importdisk`, rattache le disque `unusedN` et le met en premier au démarrage), `start`, transition
+  « console », `set net0` (mise en réseau), bascule (rôle #654 ou transition manuelle), observation, `host_shutdown`
+  (power_action sur le serveur, qui reste intact).
+- **rebuild** (reconstruction par rôle) : `create` d'un conteneur depuis un modèle (`pct create`, `--unprivileged 1`,
+  `--start 0`), `start`, transition « reconstruire le rôle » (application réinstallée : portage-kit / playbook ; données :
+  connecteur datasync #652 du serveur source vers le central puis vers le conteneur), bascule, observation, arrêt.
+
+Nouvelles actions `vm_action` de l'agent (`vmctl.build_ops_argv`) : `create` (qemu / lxc, paramètres validés par motifs
+fermés), `import_disk`, `set` (options en **liste blanche** : disques, boot, net0, mémoire, cœurs, onboot, nom… — jamais
+`args`), `destroy` (`confirm` doit répéter le vmid). Étapes du central : `checkpoint` (le plan passe en `paused`, étape
+`waiting` ; `POST /pra/runs/<id>/resume` reprend, `POST /pra/runs/<id>/abort {rollback}` abandonne, avec les étapes
+de retour si demandé ; une transition sans réponse expire après 7 jours), `image_host` (attend l'événement
+`image-received` du central, 12 h au plus), `host_shutdown`. Plan : `rollback_steps` (rôle rendu, VM coupée du réseau
+puis arrêtée, transition « rallumer le serveur », `destroy` seulement si `purge_on_rollback`), `auto_rollback`
+(retour automatique à la première étape en échec) ; `POST /pra/runs/<id>/rollback` rejoue le retour après coup ;
+l'exécution de retour porte `parent_run_id`. Les transitions vivent dans le processus du central (un seul worker) : après
+un redémarrage du central, relancer le plan (les étapes déjà faites sont rejouables : `create` refuse un vmid existant,
+à retirer du plan).
+
+Vérifié : `agent/tests/test_p2v_migration.py` (argv create/import/set/destroy, rattachement, image Linux),
+`api/test_z_pra.py::PraMigration` (plan généré image/rebuild, aperçu puis enregistrement, simulation, exécution avec
+transition → Reprendre, image attendue par événement, Abandonner avec retour, retour rejouable, téléchargement signé
+avec Range). Non vérifié : Proxmox réel (`qm importdisk`, OVMF/TPM), `dd` sur un vrai serveur, Disk2vhd.
+
+## Point d'observation extérieur : audit non intrusif (livraison #687, agent 0.5.37)
+
+Un agent installé sur un CT/VM **dédié** chez l'hébergeur (jamais l'hyperviseur) avec `install.sh --observation`
+(`audit_enabled: true` dans agent.json) voit nos applications comme Internet les voit. Depuis sa fiche dans le hub,
+« Audit extérieur » : une cible par ligne (ports facultatifs). Contrôles stdlib, une connexion à la fois : ports TCP
+d'une courte liste, TLS (chaîne, nom, échéance, TLS 1.0/1.1 acceptés), en-têtes de sécurité, redirection http → https.
+Le central refuse toute cible hors de `SI_AGENT_AUDIT_ALLOWED` (`.env` : `exemple.fr,*.exemple.fr,192.0.2.0/28` ;
+vide = aucun audit). Résultat : mesure `ext-audit` (historique 90 j), événement résumé.
+Vérifier les conditions de l'hébergeur avant d'ajouter des outils plus lourds (nmap, testssl.sh, ZAP).
+
+## Sauvegardes : tâches quelconques, sonde PBS, notifications par le hub (livraison #716, agent 0.5.51)
+
+- **Journal `pulls.jsonl` ouvert à tout script de sauvegarde** (sonde `pulled-backups` v2) : une ligne avec `"job"` au lieu
+  de `"vmid"` décrit une tâche quelconque (base d'une application, archive d'un site…) :
+  `{"host": "appli", "job": "base+site", "ok": true, "size": 25000000, "sha256": "…", "file": "/chemin", "started": 1791…,
+  "ended": 1791…, "error": "", "max_age_h": 26, "notify_ok": true}`. `max_age_h` remplace le délai global ; `file`
+  facultatif ; `notify_ok` = chaque nouvelle réussite devient un événement `backup-done`. Les codes des constats portent
+  désormais la sauvegarde concernée (`pull-old:<hôte> / <tâche>`) : deux tâches en retard font deux constats.
+- **Sonde `pbs`** (privilégiée, sur le serveur Proxmox Backup Server) : datastores (`datastore.cfg`, remplissage 85/95 %),
+  groupes par espace de noms lus dans l'arborescence (dernière sauvegarde, snapshot incomplet ; « en retard » au-delà de
+  `--max-age-h`, « inactif » au-delà de `--forget-after-days`, sans alerte), tâches des 24 h (`proxmox-backup-manager task
+  list` : sauvegarde, GC, vérification, purge en échec ou avec avertissements). `install.sh` l'active seule sur un PBS
+  (avec `pulled-backups` si `/srv/backup/dumps/pulls.jsonl` existe), sondes en root.
+- **Événements** : constats de ces deux sondes -> `backup-alert` / `backup-recovered`, réussites marquées -> `backup-done`
+  (regroupées par mesure ; aucune à la première mesure).
+- **Relais vers notify-api** (`NOTIFY_API_URL`, `NOTIFY_INTERNAL_TOKEN`, consommateur `si-agent`) : actions
+  `si-agent.backup-alert|backup-recovered|backup-done` (toujours) et `si-agent.<genre>` des événements warning/critical,
+  catalogue déclaré au démarrage. Les destinataires se règlent dans la tuile Notifications (groupe + affectation de
+  l'action) : aucune adresse dans le dépôt. Les canaux historiques `SECRETS_ALERT_*` restent inchangés.
+- Tests : `plugins/pbs/test_pbs.py` (configuration, vrai arbre de datastore en dossier temporaire, constats, tâches),
+  `plugins/pulled-backups/test_pulled_backups.py` (+ tâches), `api/test_z_backup_notify.py` (cycle réussite → échec →
+  rétablissement, regroupement, sonde PBS, relais avec client simulé).
+
+## Campagne de sauvegardes tirées pour vider des PVE (livraison #717)
+
+`si-agent/tools/pve-pull-batch.sh <liste>` sur le serveur de sauvegarde, lancé détaché
+(`systemd-run --unit=pull-campagne /usr/local/sbin/pve-pull-batch.sh /root/campagne.list`, suivi :
+`journalctl -fu pull-campagne`). Liste : `hôte vmid [mode=stop] [garder=2] [nom pour le hub]` par ligne, `#` = commentaire.
+Une sauvegarde à la fois, échec non bloquant, arrêt propre sous `PULL_MIN_FREE_GB` (100) Go libres, verrou (une seule
+campagne), journal `campagne-<date>.log` dans `PULL_DEST`. Chaque CT réussi est notifié (`PULL_NOTIFY_OK=1` par défaut →
+`notify_ok` dans `pulls.jsonl` → événement `backup-done` → notify-api) ; un échec donne `backup-alert`.
+**Mode `stop` : le CT est arrêté pendant toute la copie** (redémarré ensuite par vzdump s'il tournait) — pour un CT en
+service, choisir le créneau ou la copie en deux passes de la Maintenance des Proxmox.
+
+## Inventaire des PVE distants sans agent et campagne générée par le hub (livraison #723, agent 0.5.52)
+
+Sonde **`pve-remote`** (privilégiée, sur le serveur de sauvegarde) : pour chaque hôte de `/etc/si-agent/pve-remote.json`
+(`[{"name": "pve-1", "host": "<ip>", "key": "/root/.ssh/pve_backup"}]`, hors dépôt), par ssh en lecture seule :
+`pvesh get /cluster/resources --type vm --output-format json` (repli `pct list` + `qm list` sur les PVE anciens) et
+`pvesm status`. Nœud injoignable = constat `pve-remote-unreachable:<nom>`. `install.sh` l'active sur un PBS si le fichier
+existe. Hub, Maintenance des Proxmox › Sauvegardes, section « PVE distants » : CT/VM par nœud (état, disque), stockages,
+et **campagne prête** pour `pve-pull-batch.sh` (#717) : CT arrêtés d'abord, CT en marche seulement si on coche (ils
+seront arrêtés pendant leur copie), exclusions case à case, téléchargement de `campagne.list`.
+
+## Inventaire des snapshots et des sauvegardes (livraison #724, agent 0.5.53)
+
+Maintenance des Proxmox › Sauvegardes, section « Inventaire des snapshots et sauvegardes » : une table unique, filtrable
+(type, ancienneté, texte), de tous les snapshots et sauvegardes connus, quelle que soit leur source :
+- PVE avec agent : snapshots de chaque CT/VM et **toutes** les sauvegardes des stockages (sonde `proxmox` v5 :
+  `backups.files`, et plus seulement la dernière par VM) ;
+- PVE distants sans agent (les PVE hébergés) : sonde `pve-remote` v2, `pct/qm listsnapshot` et `pvesm list` en un appel
+  ssh par famille ; la date d'une sauvegarde vient du nom vzdump ;
+- PBS : sonde `pbs` v2, 30 derniers snapshots de chaque groupe (et le premier) ;
+- sauvegardes tirées (`pulls.jsonl`).
+Les snapshots de plus de 30 jours sont signalés (ils occupent l'espace des nœuds pleins).
+
+## Copie de secours ZFS différentielle sur disque externe (livraison #725, agent 0.5.54)
+
+`si-agent/tools/zfs-secours.sh <pool du disque> <vmid> [vmid…]`, sur l'hyperviseur qui porte la VM (ex. la VM du PBS) :
+opération ponctuelle, sans rotation de disques — brancher le disque USB, lancer, débrancher. Instantané atomique de tous
+les disques de la VM (système de fichiers figé si l'agent invité répond), `zfs send` complet la 1re fois puis
+**différentiel** (`-i` depuis le dernier instantané commun), 2 instantanés gardés côté hyperviseur, 10 sur le disque,
+configuration de la VM copiée (`<pool>/secours-conf`), pool exporté à la fin. Jamais de copie des volumes du disque de
+secours lui-même. Préparer le disque une fois (l'efface) : `zpool create -o ashift=12 -O compression=lz4 secours
+/dev/disk/by-id/usb-…`.
+Le journal `/var/lib/si-agent/secours.jsonl` est lu par la sonde `pulled-backups` v3 (plusieurs `--index`) : le hub
+affiche l'ancienneté de chaque copie (Maintenance des Proxmox › Sauvegardes) et alerte au-delà de 14 jours
+(`SECOURS_MAX_AGE_H`), avec notification. Restauration : `zfs send` en sens inverse depuis le disque, puis la configuration.
+
+## Sondes GTB/GTC sur poste Windows (livraison #739, plugins `gtb-netwatch` et `app-logwatch`)
+
+Pour un poste Windows 10 22H2 qui fait tourner un superviseur GTB ancien (ex. Neutrino GLT) : `gtb-netwatch`
+(capture d'en-têtes par `pktmon` intégré, ou tcpdump/dumpcap) qualifie chaque tentative de connexion vers les
+automates — acceptée, refusée, sans réponse, injoignable, coupée — et les tentatives entrantes refusées ;
+`app-logwatch` liste processus/services, fichiers ouverts (handles), journaux récents et leurs erreurs réseau
+(Winsock 10060/10061…), plantages du journal d'événements. Livrées désactivées, privilégiées, lecture seule ;
+constats → événements `probe-alert`. Mode d'emploi : `docs/sondes-gtb-windows.md`.
+
+## Virtualisation directe pilotée par deux agents (livraison #748, agent 0.5.56)
+
+Méthode `direct` du plan de migration (tuile Contrôle PVE › Migration, méthode par défaut) : ni le central ni le nœud
+ne stockent l'image entière sur un disque qui pourrait saturer.
+
+1. **Source** (`p2v` `prepare_source`) : espace utilisé des volumes à imager, emplacements possibles (lecteurs Windows,
+   montages Linux) ; l'agent choisit le plus grand hors volume système (ou celui donné), refuse s'il manque de la place.
+2. **Cible** (`p2v` `prepare_target`, nœud Proxmox) : stockage LVM-thin lu dans `/etc/pve/storage.cfg`, place du pool
+   vérifiée (volume temporaire + disque importé), volume `p2v-<job>` créé et monté sous `/var/lib/vz/import/` — jamais
+   sur le disque système ; puis VM réceptacle créée réseau coupé.
+3. **Relais** : la cible lit l'image au fil de l'eau (`GET /api/v1/agents/<cible>/relay/<source>?offset=`) ; le central
+   ne garde qu'une fenêtre (4 Go par défaut) : il libère ce que la cible a déjà (perforation du fichier) et répond 429 à la
+   source tant que la cible n'a pas suivi. Débit borné des deux côtés (`bwlimit_mbps`). Condensé SHA-256 vérifié par la
+   cible ; événement `image-fetched` ; l'image est supprimée du poste après envoi et du central après lecture.
+4. Import (`qm importdisk`, SATA pour Windows), suppression du volume temporaire (`p2v` `cleanup`), puis transitions
+   habituelles (premier démarrage réseau coupé, mise en réseau, bascule, observation).
+
+Limite : Disk2vhd (Windows) écrit l'image complète sur le poste avant l'envoi : il faut un emplacement local ou un
+partage de la taille des données (vérifié à l'étape 1).
+
+## Rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (livraison #750, agent 0.5.58)
+
+Tout ce qui se faisait à la main (vzdump --stdout par ssh, restauration, comparaison, destruction par tranches) se fait
+depuis le hub : tuile Contrôle PVE › Migration › **+ Rapatriement distant → local**. Le nœud distant (OVH, hors cluster)
+est désigné par son NOM dans `/etc/si-agent/pve-remote.json` de l'agent du nœud local (même format que pour la sonde
+`pve-remote` : `[{"name": "pve-a", "host": "<ip>", "key": "/root/.ssh/<clé>"}]`, hors dépôt) ; le hub ne voit ni
+l'adresse ni la clé. Le formulaire propose les nœuds et CT/VM distants vus par la tuile Infra (#749).
+
+Commande d'agent `xfer` (détachée, fin signalée par `xfer-done` / `xfer-failed`, progression `xfer-progress`) :
+
+1. `export` : `vzdump <id> --stdout --compress zstd --mode stop|snapshot|suspend [--bwlimit]` sur le distant, flux écrit
+   dans le dossier de dump local, puis `pct restore` / `qmrestore` sous le nouvel identifiant (`--unique 1`) ; refusé si
+   l'identifiant existe ; archive supprimée sauf `keep_archive`.
+2. `verify` (conteneurs) : liste triée chemin / taille / date de l'original (monté, ou `/proc/<pid>/root` s'il tourne)
+   et de la copie, comparée ; les exclusions par défaut de vzdump (`/tmp`, `/var/tmp`, `*.pid`) ne comptent pas. Une
+   vérification réussie est mémorisée par l'agent (`state.json`, `xfer_verified`).
+3. `destroy` : refusé si l'original tourne, si `confirm` ne répète pas son identifiant, si la copie locale n'existe plus
+   ou **sans vérification réussie contre cette copie** ; attend la plage horaire (`20:00-07:00` par défaut), réduit
+   chaque image brute par tranches (`truncate -s -10G`, pause 20 s : pas de gel d'IO sur le distant), puis `destroy --purge`.
+
+Plan généré (`method: repatriate`) : transition 1 → export + restauration → vérification → transition 2 (valider la
+copie ; Abandonner = l'original est gardé) → destruction dans la plage. Pas de retour en arrière : l'original n'est
+touché qu'après la transition 2.
+
+## Virtualisation directe sur le LAN, d'agent à agent (livraison #751, agent 0.5.59)
+
+Méthode `lan` du plan de migration (Contrôle PVE › Migration, méthode par défaut) pour un poste et un nœud Proxmox du
+même LAN : **le hub orchestre seulement, l'image ne passe pas par lui**.
+
+1. Préparations source / cible et VM réceptacle : comme #748 (volume temporaire LVM-thin hors disque système).
+2. Nœud (`p2v` `receive`) : récepteur HTTP temporaire sur son IP LAN (détectée, ou `lan_ip`), port 6461 par défaut,
+   jeton à usage unique (`X-P2V-Token`), éventuellement limité à l'IP du poste (`source_ip`). Écrit dans le volume
+   temporaire au fil de l'eau ; condensé SHA-256 tenu à jour ; fermé après la clôture, après 12 h d'inactivité ou au
+   nettoyage (`cleanup`).
+3. Poste (`image_host` avec `push_url` / `push_token`) : image à chaud puis envoi par le même fil que vers le central
+   (morceaux de 8 Mo, reprise à l'octet près, débit borné `bwlimit_mbps`) mais vers le nœud : connexion SORTANTE du poste,
+   rien à ouvrir dans son pare-feu. Le nœud vérifie taille et condensé et émet `image-fetched` ; le plan enchaîne import,
+   nettoyage et transitions.
+
+Pare-feu du nœud : le port du récepteur doit être joignable depuis le poste (firewall Proxmox désactivé, ou règle
+d'entrée sur 6461/tcp). Le flux est en HTTP clair sur le LAN (jeton à usage unique) : pour un LAN non maîtrisé, garder
+la méthode `direct` (relais par le hub en HTTPS).
+
+## Serveur de messagerie : exploitation -- incidents, file, échecs de distribution, listes, réglages (livraison #752, agent 0.5.60)
+
+Nouveaux onglets de la tuile « Serveur de messagerie » (commande `mail`, module `mailadmin.py`). Toute modification
+exige le motif saisi en haut de la page ; elle est journalisée sur le serveur (`/var/log/si-agent/mail-audit.log`).
+
+- **Incidents** : constats en cours de la sonde `mail-server` avec la conduite à tenir et un lien vers l'onglet qui
+  permet d'agir ; suivi sur 7 / 30 / 90 jours (incident ouvert à l'apparition d'un constat, clos à sa disparition,
+  durée, occurrences et durée cumulée par constat).
+- **File d'attente** : `postqueue -j` -- regroupement par domaine distant (messages, plus ancien, motifs normalisés) ;
+  relancer la file, recalculer les routes des reports, tenter / router / retenir / libérer / supprimer une sélection.
+- **Échecs de distribution** : reports et rebonds du journal par domaine, code DSN et motif normalisé, classés par
+  nature (réputation / liste noire, SPF-DKIM-DMARC, boîte inexistante, boîte pleine, limitation / greylisting, serveur
+  injoignable / DNS, TLS).
+- **Listes** : tables d'accès découvertes dans `postconf` (client, expéditeur, destinataire, HELO, postscreen) et listes
+  blanches postgrey, entrées classées blanche (OK / permit) / grise (4xx, HOLD) / noire (REJECT / 5xx) ; ajout,
+  modification, retrait sur les tables hash / lmdb / btree / cidr / texthash et les `.local` de postgrey (sauvegarde
+  `.si-bak-…`, `postmap`, rechargement, retour à l'état antérieur si le rechargement échoue) ; listes DNS de smtpd et de
+  postscreen (action, seuil). Les règles par expéditeur d'Amavis restent dans Quarantaine › Règles de protection.
+- **Réglages** : liste fermée Postfix (délais de file, filtre avant file, limites de débit, postscreen, TLS) et Amavis /
+  SpamAssassin (processus, seuils tag / tag2 / kill, destin du spam, virus, pièces interdites, préfixe du sujet) ;
+  Postfix : `postconf -e` + `postfix check` + rechargement ; Amavis : `50-user` puis redémarrage vérifié ; en cas
+  d'échec, fichier rétabli.
+
+## Vues de parc paramétrables (livraison #753)
+
+Tuile « Vues de parc » (thème Équipements) : listes d'agents organisées en groupes, une vue par onglet -- **Serveurs**,
+**Postes**, **Serveurs d'IA**, **Postes personnels** par défaut, autant d'autres que voulu. Pour chaque agent, l'en-tête de
+htop en tableau trié : CPU (et cœurs si la sonde node-activity tourne), charge 1 / 5 / 15, mémoire, swap, disques (le
+plus rempli, les autres au survol), débit, uptime, services en échec, constats, version de l'agent, modèles Ollama
+chargés et part sur GPU ; synthèse par groupe (en ligne, moyennes, disque max, « à traiter »). Pleine largeur,
+rafraîchie toutes les 30 s ; mode compact.
+
+« Organiser » : vues (ajout, libellé, suppression), groupes (nom, note, ordre), affectation de chaque agent ;
+« Proposer un rangement » remplit les vues encore vides à partir des catégories (#742), de l'OS (Windows Server ->
+serveurs), de la sonde ollama (serveurs d'IA) et de l'étiquette `#perso` dans le libellé d'un agent (postes
+personnels). Réglage partagé côté central : `GET` / `PUT /views`, `GET /views/<id>/overview`.
+
+## Gestes encadrés sur l'hôte (livraison #756, agent 0.5.62)
+
+Commande `hostops`, proposée par la tuile Parc IA : une liste fermée d'actions, jamais un shell.
+Lecture : `service_status`, `journal`, `docker_ps`, `docker_logs`, `gpu`, `disk`. Actions (motif obligatoire, journalisé
+avec l'acteur dans `/var/log/si-agent/hostops-audit.log`) : `service_restart`, `docker_restart`, `compose_update`
+(`docker compose pull` puis `up -d`). Listes blanches dans `/etc/si-agent/agent.json` :
+
+    "hostops": {"units": ["ollama", "docker"], "containers": ["open-*"], "compose_dirs": ["/opt/ia"], "enabled": true}
+
+Par défaut : services ollama et docker, tous les conteneurs, aucune pile compose. `"enabled": false` coupe tout.
+
+
+## Restes du rapatriement sur le nœud local (livraison #765, agent 0.5.64)
+
+Commande `xfer` : `{"action": "leftovers"}` liste les archives vzdump, fichiers `.part` et images brutes (≥ 1 Gio) des
+dossiers `xfer_leftover_dirs` (agent.json ; défaut `/var/lib/vz/dump`, `/data/dump`, `/var/lib/vz/import`) et les
+images montées en boucle (`losetup -J -l`). `{"action": "purge", "path", "confirm": <nom du fichier>, "reason"}`
+démonte, détache et efface un élément listé ; refus si le fichier est référencé par `/etc/pve/{lxc,qemu-server}/*.conf`
+ou si un export est en cours. Audit : `/var/log/si-agent/xfer-purge-audit.log`. Les conditions (copie présente,
+démarrée, sauvegarde PBS postérieure) sont évaluées par l'API (`/repatriation/cleanup/*`) et affichées dans la tuile.
+
+## Activité des CT / VM (livraison #769, sonde guest-usage, agent 0.5.67)
+
+Sonde `guest-usage` (toutes les 30 min) sur l'agent qui joint les Proxmox : nœud local si `/etc/pve` existe, nœuds
+distants de `/etc/si-agent/pve-remote.json` (même clé que pve-remote, un `ssh … bash -s` par nœud et par passage).
+Pour chaque CT / VM : charge processeur (RRD du nœud : instant, moyenne et pic 24 h, moyenne 7 j, réseau 24 h) ; dans
+l'invité démarré (`pct exec`, `qm guest exec` si l'agent invité répond) : journaux d'accès Apache / nginx (fichier
+courant + `.1`) agrégés sur place par awk (requêtes par heure, par IP, dernier accès, accès ownCloud et dernier
+compte), `last` (connexions unix), MySQL / MariaDB par `/etc/mysql/debian.cnf` ou root par socket (état, sessions,
+version). MySQL ne date pas les connexions : le compteur `Connections` est comparé d'un passage à l'autre
+(`/var/lib/si-agent/guest-usage.state.json`, connexions de la sonde déduites). Aucun mot de passe, aucune ligne de
+journal remontée.
+
+API : `GET /infra/guests` (lignes nœud/vmid, invités de l'inventaire Infra non relevés compris), `PUT
+/infra/guests/profile` `{node, vmid, profile, actor}` : fiche de paramétrage (comptes unix suivis, compte MySQL, URL
+HTTPS / ownCloud, compte ownCloud, IP à ignorer, rôle, notes, nom de l'entrée du coffre-fort). Tout champ dont le nom
+évoque un secret est refusé (400) ; table `guest_profiles` ; événement `guest-profile`. Écran du hub : « Activité des
+VM » (Équipements › Hôtes › Hyperviseurs).
+
+## Contrôles et tests fabriqués du serveur de messagerie (livraison #770, mail-server v3, agent 0.5.68)
+
+Catalogue `/etc/si-agent/mail-checks.json` (écrit depuis le hub, tuile Serveur de messagerie › Contrôles) :
+`canary` (boîte de test `to`, `from`, `every_hours`, `timeout_minutes`), `tests` (`id`, `label`, `template` parmi
+clean / gtube / eicar / banned / custom, `expect` : verdicts admis comme « Blocked INFECTED »), `indicators` (`id`,
+`label`, `regex`, `window_minutes`, `warn_above`, `crit_above`), `remove` (ids par défaut retirés). Sans boîte de test,
+aucun message n'est envoyé. Verdict : ligne Amavis portant le Message-ID du test, ou réponse du filtre au Postfix
+émetteur (VM de filtrage distante). État : `/var/lib/si-agent/mail-canary.json` ; `canary_run` force une série.

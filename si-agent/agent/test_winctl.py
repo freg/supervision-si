@@ -1,0 +1,210 @@
+"""Tests #613 : powerctl (reboot / arrêt / WoL), startupctl (lanceurs), watchdog (chien de garde)."""
+import datetime as dt
+import os
+import sys
+import unittest
+from types import SimpleNamespace as NS
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from si_agent import powerctl, startupctl, watchdog  # noqa: E402
+
+
+class PowerTests(unittest.TestCase):
+    def test_reboot_windows_avec_message_borne(self):
+        argv, err, delay = powerctl.build_argv({"action": "reboot", "delay_seconds": 30, "message": 'Maj "urgente"\nmaintenant'}, "win32")
+        self.assertIsNone(err)
+        self.assertEqual(argv[:4], ["shutdown.exe", "/r", "/t", "30"])
+        self.assertNotIn('"', argv[5]); self.assertNotIn("\n", argv[5]); self.assertNotIn("/f", argv)
+
+    def test_console_active_refuse_sans_force(self):
+        argv, err, _ = powerctl.build_argv({"action": "shutdown"}, "win32", console_active=True)
+        self.assertIsNone(argv); self.assertIn("force", err)
+        argv, err, _ = powerctl.build_argv({"action": "shutdown", "force": True}, "win32", console_active=True)
+        self.assertEqual(argv[1], "/s"); self.assertIn("/f", argv)
+
+    def test_linux_et_cancel_et_bornes(self):
+        argv, _, _ = powerctl.build_argv({"action": "reboot", "delay_seconds": 600}, "linux")
+        self.assertEqual(argv[:3], ["shutdown", "-r", "+10"])
+        argv, _, _ = powerctl.build_argv({"action": "shutdown", "delay_seconds": 5}, "linux")
+        self.assertEqual(argv[2], "now")
+        self.assertEqual(powerctl.build_argv({"action": "cancel"}, "win32")[0], ["shutdown.exe", "/a"])
+        self.assertEqual(powerctl.build_argv({"action": "reboot", "delay_seconds": 99999}, "win32")[2], 3600)
+        self.assertIsNotNone(powerctl.build_argv({"action": "explode"}, "win32")[1])
+
+    def test_interpret_codes_windows(self):
+        self.assertIn("déjà programmé", powerctl.interpret(NS(returncode=1190, stdout="", stderr="1190"), "reboot", 60)["error"])
+        ok = powerctl.interpret(NS(returncode=0, stdout="", stderr=""), "reboot", 60)
+        self.assertTrue(ok["ok"]); self.assertIn("60 s", ok["message"])
+
+    def test_run_journalise_argv(self):
+        calls = []
+        r = powerctl.run(lambda argv, timeout: (calls.append(argv), NS(returncode=0, stdout="", stderr=""))[1], {"action": "reboot"}, "win32")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[0][0], "shutdown.exe")
+
+    EFI = "BootCurrent: 0001\nBootOrder: 0001,0000\nBoot0000* Windows Boot Manager\tHD(1,GPT)/File(\\\\EFI\\\\MICROSOFT\\\\BOOT\\\\BOOTMGFW.EFI)\nBoot0001* ubuntu\tHD(1,GPT)/File(shimx64.efi)\n"
+    BCD = ("Gestionnaire de démarrage du microprogramme\n---\nidentificateur          {fwbootmgr}\ndisplayorder            {bootmgr}\n"
+           "                        {a1b2c3d4-1111-2222-3333-444455556666}\n\nGestionnaire de démarrage Windows\n---\nidentificateur          {bootmgr}\n"
+           "description             Windows Boot Manager\n\nApplication du microprogramme (101fffff)\n---\nidentificateur          {a1b2c3d4-1111-2222-3333-444455556666}\n"
+           "description             ubuntu\n")
+
+    def test_cible_demarrage_uefi(self):
+        # #625 : jamais les fichiers de GRUB, toujours le firmware (BootNext une fois)
+        self.assertEqual(powerctl.parse_efibootmgr(self.EFI), "0000"); self.assertIsNone(powerctl.parse_efibootmgr("rien"))
+        self.assertEqual(powerctl.parse_bcdedit_firmware(self.BCD), "{a1b2c3d4-1111-2222-3333-444455556666}")
+        self.assertIsNone(powerctl.parse_bcdedit_firmware(self.BCD.replace("ubuntu", "Onboard NIC")))
+        calls = []
+
+        def cmd(argv, timeout=30):
+            calls.append(argv)
+            return NS(returncode=0, stdout=self.BCD if argv[:2] == ["bcdedit.exe", "/enum"] else self.EFI if argv == ["efibootmgr"] else "", stderr="")
+        r = powerctl.run(cmd, {"action": "reboot", "target": "windows", "delay_seconds": 5}, "win32")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[0], ["bcdedit.exe", "/set", "{fwbootmgr}", "bootsequence", "{bootmgr}"]); self.assertIn("windows", r["result"]["message"])
+        calls.clear(); r = powerctl.run(cmd, {"action": "reboot", "target": "linux"}, "win32")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[1][-1], "{a1b2c3d4-1111-2222-3333-444455556666}")
+        calls.clear(); r = powerctl.run(cmd, {"action": "reboot", "target": "windows"}, "linux")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[1], ["efibootmgr", "-n", "0000"]); self.assertEqual(calls[2][0], "shutdown")
+        self.assertEqual(powerctl.run(cmd, {"action": "reboot", "target": "firmware"}, "win32")["result"]["argv"][-1], "/fw")
+        self.assertEqual(powerctl.run(cmd, {"action": "reboot", "target": "firmware"}, "linux")["result"]["argv"], ["systemctl", "reboot", "--firmware-setup"])
+        self.assertFalse(powerctl.run(cmd, {"action": "reboot", "target": "mars"}, "win32")["ok"])
+        self.assertFalse(powerctl.run(cmd, {"action": "shutdown", "target": "windows"}, "win32")["result"].get("target"))  # cible ignorée hors reboot
+        bad = lambda argv, timeout=30: NS(returncode=1, stdout="", stderr="Accès refusé") if argv[0] == "bcdedit.exe" else NS(returncode=0, stdout="", stderr="")
+        self.assertIn("refusée", powerctl.run(bad, {"action": "reboot", "target": "windows"}, "win32")["error"])
+
+    def test_wol(self):
+        self.assertEqual(powerctl.normalize_mac("AA-BB-CC-DD-EE-FF"), "aa:bb:cc:dd:ee:ff")
+        self.assertIsNone(powerctl.normalize_mac("aa:bb"))
+        pkt = powerctl.magic_packet("aa:bb:cc:dd:ee:ff")
+        self.assertEqual(len(pkt), 102); self.assertEqual(pkt[:6], b"\xff" * 6); self.assertEqual(pkt[6:12], bytes.fromhex("aabbccddeeff"))
+        sent = []
+        r = powerctl.send_wol({"mac": "aa:bb:cc:dd:ee:ff", "broadcast": "192.0.2.255"}, sender=lambda p, a, port: sent.append((a, port)))
+        self.assertTrue(r["ok"]); self.assertEqual(sent, [("192.0.2.255", 9)] * 3)
+        self.assertFalse(powerctl.send_wol({"mac": "zz"}, sender=lambda *a: None)["ok"])
+        self.assertFalse(powerctl.send_wol({"mac": "aa:bb:cc:dd:ee:ff", "broadcast": "lan"}, sender=lambda *a: None)["ok"])
+
+
+class StartupTests(unittest.TestCase):
+    def test_run_key_startup_approved(self):
+        argv, err = startupctl.build_argv({"kind": "run", "scope": "user", "name": "OneDrive", "enable": False})
+        self.assertIsNone(err)
+        self.assertEqual(argv[0], "reg.exe"); self.assertTrue(argv[2].startswith("HKCU\\")); self.assertTrue(argv[2].endswith("StartupApproved\\Run"))
+        self.assertEqual(argv[argv.index("/d") + 1][:2], "03")
+        argv, _ = startupctl.build_argv({"kind": "folder", "name": "Caisse.lnk", "enable": True})
+        self.assertTrue(argv[2].startswith("HKLM\\")); self.assertTrue(argv[2].endswith("StartupFolder")); self.assertEqual(argv[argv.index("/d") + 1][:2], "02")
+
+    def test_task_et_service_proteges(self):
+        argv, _ = startupctl.build_argv({"kind": "task", "name": "\\Caisse\\Lancement", "enable": False})
+        self.assertEqual(argv, ["schtasks.exe", "/Change", "/TN", "\\Caisse\\Lancement", "/Disable"])
+        self.assertIsNotNone(startupctl.build_argv({"kind": "task", "name": "\\Microsoft\\Windows\\Defrag", "enable": False})[1])
+        self.assertIsNotNone(startupctl.build_argv({"kind": "service", "name": "WinDefend", "enable": False})[1])
+        argv, _ = startupctl.build_argv({"kind": "service", "name": "CaisseSvc", "enable": True})
+        self.assertEqual(argv, ["sc.exe", "config", "CaisseSvc", "start=", "auto"])
+        self.assertIsNotNone(startupctl.build_argv({"kind": "run", "name": "x & del", "enable": True})[1])
+        self.assertIsNotNone(startupctl.build_argv({"kind": "bios", "name": "x", "enable": True})[1])
+
+    def test_summarize(self):
+        s = startupctl.summarize([{"kind": "run", "enabled": True}, {"kind": "run", "enabled": False}, {"kind": "service"}])
+        self.assertEqual((s["total"], s["enabled"], s["disabled"], s["by_kind"]["run"]), (3, 2, 1, 2))
+
+
+class WatchdogTests(unittest.TestCase):
+    CFG = {"interval_seconds": 30, "apps": [
+        {"id": "caisse", "label": "Caisse", "process": "caisse.exe", "command": "C:\\Caisse\\caisse.exe", "cooldown_seconds": 60, "max_restarts_per_hour": 2, "hours": "08:00-20:00", "days": "1-6"},
+        {"id": "afficheur", "process": "afficheur.exe"},
+        {"id": "Bad Id", "process": "x"},
+    ]}
+
+    def test_normalize(self):
+        cfg, errors = watchdog.normalize_config(self.CFG)
+        self.assertEqual([a["id"] for a in cfg["apps"]], ["caisse", "afficheur"])
+        self.assertEqual(len(errors), 1); self.assertEqual(cfg["interval_seconds"], 30)
+        self.assertEqual(cfg["apps"][0]["hours"], "08:00-20:00"); self.assertEqual(cfg["apps"][1]["max_restarts_per_hour"], 5)
+
+    def test_cycle_relance_quota_retour(self):
+        cfg, _ = watchdog.normalize_config(self.CFG)
+        mon10 = dt.datetime(2026, 9, 28, 10, 0)  # lundi 10h
+        t0 = 1_000_000
+        acts, st, meas = watchdog.evaluate(cfg, ["explorer.exe"], t0, {}, now_dt=mon10)
+        self.assertEqual([a["action"] for a in acts], ["restart", "down-alert"])  # caisse relancée, afficheur sans commande
+        self.assertEqual(meas["apps"][0]["status"], "restart"); self.assertEqual(meas["apps"][1]["status"], "down")
+        acts, st, meas = watchdog.evaluate(cfg, [], t0 + 10, st, now_dt=mon10)
+        self.assertEqual(meas["apps"][0]["status"], "waiting"); self.assertEqual(acts, [])  # cooldown, alerte afficheur une seule fois
+        acts, st, meas = watchdog.evaluate(cfg, [], t0 + 70, st, now_dt=mon10)
+        self.assertEqual([a["action"] for a in acts], ["restart"]); self.assertEqual(acts[0]["attempt"], 2)
+        acts, st, meas = watchdog.evaluate(cfg, [], t0 + 140, st, now_dt=mon10)
+        self.assertEqual([a["action"] for a in acts], ["down-alert"]); self.assertIn("quota", acts[0]["reason"])
+        acts, st, meas = watchdog.evaluate(cfg, ["C:\\Caisse\\CAISSE.EXE", "afficheur.exe"], t0 + 200, st, now_dt=mon10)
+        self.assertEqual(sorted(a["action"] for a in acts), ["recovered", "recovered"])
+        self.assertEqual(meas["summary"], {"total": 2, "ok": 2, "down": 0, "idle": 0})
+
+    def test_fenetre_horaire(self):
+        cfg, _ = watchdog.normalize_config(self.CFG)
+        sun = dt.datetime(2026, 9, 27, 10, 0)
+        acts, _, meas = watchdog.evaluate(cfg, [], 5, {}, now_dt=sun)
+        self.assertEqual(meas["apps"][0]["status"], "idle")
+        night = dt.datetime(2026, 9, 28, 22, 0)
+        self.assertFalse(watchdog.in_window(cfg["apps"][0], night))
+        self.assertTrue(watchdog.in_window({"hours": "22:00-06:00"}, night))
+
+    def test_parse_process_list(self):
+        win = '"System Idle Process","0","Services","0","8 K"\n"caisse.exe","1234","Console","1","50 000 K"\n'
+        self.assertIn("caisse.exe", watchdog.parse_process_list(win, "win32"))
+        self.assertIn("caisse", watchdog.parse_process_list("/opt/caisse/caisse\nbash\n", "linux"))
+
+
+class WinSessionTests(unittest.TestCase):
+    """#683 : relance dans la session console (et non en session 0)."""
+
+    def test_option_session(self):
+        cfg, _ = watchdog.normalize_config({"apps": [{"id": "a", "process": "a.exe", "command": "a.exe"},
+                                                     {"id": "b", "process": "b.exe", "command": "b.exe", "session": "service"},
+                                                     {"id": "c", "process": "c.exe", "session": "n'importe"}]})
+        self.assertEqual([x["session"] for x in cfg["apps"]], ["console", "service", "console"])
+        acts, _, _ = watchdog.evaluate(cfg, [], 1000, {}, now_dt=dt.datetime(2026, 9, 28, 10, 0))
+        self.assertEqual({a["app"]: a["session"] for a in acts if a["action"] == "restart"}, {"a": "console", "b": "service"})
+
+    def test_ligne_de_commande(self):
+        from si_agent import winsession
+        self.assertEqual(winsession.command_line(r'"C:\App\a.exe" --kiosque', None, comspec=r"C:\W\cmd.exe"),
+                         r'"C:\W\cmd.exe" /d /c start "" "C:\App\a.exe" --kiosque')
+        self.assertEqual(winsession.command_line("a.exe", '"C:\\App"', comspec="cmd.exe"),
+                         '"cmd.exe" /d /c start "" /D "C:\\App" a.exe')
+        self.assertIsNone(winsession.current_session_id())   # hors Windows
+
+
+class PowerScheduleTests(unittest.TestCase):
+    """#684 : redémarrage planifié, instantané des applications de la session console."""
+
+    def test_normalize_et_creneau(self):
+        from si_agent import powersched
+        cfg, err = powersched.normalize({"time": "7:05", "days": "1-5"})
+        self.assertEqual((cfg["time"], cfg["enabled"], cfg["relaunch"], err), ("07:05", True, True, []))
+        self.assertEqual(powersched.normalize({"time": "x"})[1], ["time : HH:MM attendu"])
+        self.assertFalse(powersched.normalize({"action": "shutdown"})[0]["relaunch"])
+        mon = dt.datetime(2026, 10, 5, 7, 10)
+        self.assertEqual(powersched.due(cfg, mon, None), "2026-10-05")
+        self.assertIsNone(powersched.due(cfg, mon, "2026-10-05"))
+        self.assertIsNone(powersched.due(cfg, dt.datetime(2026, 10, 5, 7, 25), None))   # créneau de 15 min passé
+        self.assertIsNone(powersched.due(cfg, dt.datetime(2026, 10, 4, 7, 10), None))   # dimanche
+        self.assertIsNone(powersched.due(dict(cfg, enabled=False), mon, None))
+
+    def test_instantane(self):
+        from si_agent import powersched
+        procs = powersched.parse_processes('''[
+          {"ProcessId": 4, "ParentProcessId": 0, "SessionId": 0, "Name": "System"},
+          {"ProcessId": 10, "ParentProcessId": 2, "SessionId": 1, "Name": "explorer.exe", "ExecutablePath": "C:\\\\Windows\\\\explorer.exe"},
+          {"ProcessId": 11, "ParentProcessId": 10, "SessionId": 1, "Name": "afficheur.exe", "ExecutablePath": "C:\\\\App\\\\afficheur.exe", "CommandLine": "\\"C:\\\\App\\\\afficheur.exe\\" --plein"},
+          {"ProcessId": 12, "ParentProcessId": 11, "SessionId": 1, "Name": "helper.exe", "ExecutablePath": "C:\\\\App\\\\helper.exe"},
+          {"ProcessId": 13, "ParentProcessId": 10, "SessionId": 1, "Name": "OneDrive.exe", "ExecutablePath": "C:\\\\U\\\\OneDrive.exe"},
+          {"ProcessId": 14, "ParentProcessId": 999, "SessionId": 1, "Name": "lecteur.exe", "ExecutablePath": "C:\\\\L\\\\lecteur.exe"},
+          {"ProcessId": 15, "ParentProcessId": 10, "SessionId": 1, "Name": "afficheur.exe", "ExecutablePath": "C:\\\\App\\\\afficheur.exe", "CommandLine": "\\"C:\\\\App\\\\afficheur.exe\\" --plein"}
+        ]''')
+        apps = powersched.pick_apps(procs)
+        self.assertEqual([a["name"] for a in apps], ["afficheur.exe", "lecteur.exe"])
+        self.assertEqual(apps[0]["command"], '"C:\\App\\afficheur.exe" --plein')
+        self.assertEqual(apps[1]["command"], '"C:\\L\\lecteur.exe"')
+        self.assertEqual(powersched.pick_apps([]), [])
+        self.assertEqual(powersched.parse_processes("pas du json"), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

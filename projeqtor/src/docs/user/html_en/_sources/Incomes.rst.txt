@@ -1,0 +1,904 @@
+
+.. include:: ImageReplacement.txt
+
+.. title:: Incomes
+
+.. index:: Incomes
+
+.. _Incomes:
+
+#######
+Incomes
+#######
+
+Follow with the "Incomes" menu, incoming financial movements and your customers and all the elements revolving around them, such as contracts, quotations, bills, catalogs ...
+
+
+
+
+
+.. index:: Quotation 
+
+.. _quotation:
+.. _client-quotation:
+
+Client Quotation
+################
+  
+A quotation is a proposal estimate sent to customer to get approval of what’s to be done, and how must the customer will pay for it.
+
+On the quotation form, you can record all the information about the sent proposal, including attaching some file completely describing the proposal with details terms and conditions.
+
+A quotation can be copied into an order when corresponding document is received as customer agreement.
+
+Invoices lines allows to detail the quotation.
+
+.. tip:: 
+     
+   The **client** field is automatically filled in if the project selected on the quote is linked to a customer.
+
+
+
+
+
+.. index:: Orders (Client)
+
+.. _orders:
+
+.. _client-orders:
+
+Client Orders
+#############
+
+An order (also called command) is the trigger to start work.
+
+On the order form, you can record all the information of the received order.
+
+.. rubric:: Scheduled work and budgeted cost of project
+
+The scheduled work (field: "validated work") of the project will be initialized with the sum of total work from all orders.
+
+The budgeted cost (field: "validated cost") of the project will be initialized with the sum of the total amount before taxes for all orders. 
+
+.. seealso:: 
+
+   :ref:`progress-section`
+
+
+
+.. tip:: 
+     
+   The **client** field is automatically filled in if the project selected on the quote is linked to a customer.
+
+
+
+.. rubric:: Fields behavior
+
+
+* **Ex VAT:** Amount before taxes: the column value is automatically updated with the sum of bill line amounts.
+
+* **Tax:** Applicable tax. if the applicable tax isn’t set, the tax defined for the selected customer is used.
+ 
+* **Full:** Amount with taxes.
+  
+* **Work**: Work days corresponding to the order. The column value is automatically updated with the sum of invoice lines quantities.
+         
+* The columns values "Ex VAT" and "Work" are automatically updated with the sum of invoice lines with selected amendment checkboxes.
+
+
+.. warning:: 
+
+   **Activity type:** the activity should be created only after approval.
+
+
+
+
+
+
+.. index:: Invoice (Term)
+
+.. _term:
+
+.. _client-billing-term:
+
+Client invoicing terms
+######################
+
+A term is a planned trigger for billing.
+
+You can define as many terms as you wish, to define the billing calendar.
+
+.. note::
+
+   Terms are mandatory to bill “Fixed price” project.
+   
+   A term can be used just one time. The bill name will be displayed.
+
+.. rubric:: A term has triggers
+
+* You can link the activities that should be billed at this term.
+* A summary of activities is displayed for validated and planned amount and end date.
+* Validated and planned values play the role of reminder.
+* You can use these values to set real amount and date.
+
+
+.. tip:: 
+
+   **Fields Amount and Date (Planned & Validated)**
+
+   When a trigger is entered, the values of planned and validated are automatically updated with the sum and the max of triggered amounts.
+
+
+* Click on |Add| to add an element trigger. 
+* Click on |Delete| to delete an element trigger.
+
+
+
+
+
+.. _bill:
+
+.. _client-bill:
+
+Client invoices
+###############
+   
+An invoice is a request for payment for delivered work.
+
+Invoicing will depend on invoice type defined for the project through project type.
+
+.. figure:: /images/GUI/INCOMES_SCR_InvoicesClient.png
+   :alt: Clients Bills
+   :align: center
+   
+   Clients Bills
+   
+.. attention::
+
+   Projeqtor is compatible with Factur-X since version 14.5. You can import or export your invoices in PDF - XML format.
+
+
+
+.. _Billing_types:
+
+Invoice Type
+************
+
+.. figure:: /images/GUI/INCOMES_CAPT_SchemaBill.png
+   :align: center
+      
+   Schema bill
+
+Each invoice is linked to project, a project has a project type, and a project type is linked to a billing type.
+    
+So the invoicing type is automatically defined for the selected project. 
+
+Invoicing type will influence invoice line format.
+
+
+
+At terms
+--------
+
+* A :ref:`term <term>` must be defined to generate the invoice, generally following a billing calendar.
+* Used for instance for: **Fixed price projects**.
+
+On produced work
+----------------
+
+* No term is needed.
+* The billing will be calculated based on produced work by resources on selected :ref:`activities <activity-price>` and on a selected period.
+* Used for instance for **Time & Materials projects**.
+
+On capped produced work
+-----------------------
+
+* No term is needed.
+* The billing will be calculated based on produced work by resources on selected :ref:`activities <activity-price>` and on a selected period. 
+* Taking into account that total billing cannot be more than project validated work.
+* Used for instance for **Capped Time & Materials projects**.
+
+Manual
+------
+ 
+* Billing is defined manually, with no link to the project activity.
+* Used, for instance for **Any kind of project where no link to activity is needed**.
+
+Not billed
+----------
+
+* No billing is possible for these kinds of projects.
+* Used, for instance for **Internal projects & Administrative projects**.
+
+.. warning:: 
+
+   **Report**
+
+   Only invoice with at least status "done" will be available for reporting.
+   
+   Before this status, they are considered as a draft.
+
+
+
+
+Invoice lines
+*************
+
+.. figure:: /images/GUI/INCOMES_ZONE_InvoiceLines.png
+   :alt: Treatment
+   :align: center
+   
+   bill lines treatment
+   
+Input for each invoice line depends on invoicing type.
+
+A different “invoice line” dialog box will be displayed depends on invoicing type.
+
+
+* Click on |Add| to add an invoice line. 
+* Click on |Bill|  to add a formated line depending on invoicing type.
+* Click on |Edit| to modify an existing bill line.
+* Click on |Delete| to delete the bill line.
+
+
+Bill line "At terms"
+--------------------
+
+Client invoicing terms must be created in client invoices terms screen to be displayed in the list.
+
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine-Terms.png
+   :alt: Add a line at term   
+   
+   Add a line at term
+
+Can be modified on update.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine-Terms_Table.png
+   :alt: Line at term   
+   
+   Line at term 
+   
+   
+   
+
+Bill line On produced work & On capped produced work
+----------------------------------------------------
+Select the resource whose work you want to recover and the period you want to invoice
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine.png
+   :alt: Row insertion popup for a resource and over a given period   
+   
+   Row insertion popup for a resource and over a given period
+   
+
+Can be modified on update.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine_Table.png
+   :alt: Retrieving job information for the resource
+   
+   Retrieving job information for the resource
+
+
+
+
+.. _manual-billing: 
+
+Invoice line Manual billing
+---------------------------
+
+For manual invoicing, you can select a line from the catalog if you have created one beforehand.
+
+The catalog is not mandatory to fill in a line
+
+At least describe the invoice line and enter the price.
+
+The unit to be invoiced is left to the user's choice (day, month, piece, lot, etc.)
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine-Manual.png
+   :alt: Manual invoicing
+
+   Manual invoicing 
+
+Can be modified on update.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_InvoiceLine-Manual_Table.png
+   :alt: Invoice line for manual invoicing.
+
+   Invoice line for manual invoicing
+
+
+
+
+.. index:: Bill (Payment)
+.. index:: Payment
+
+.. _client-payment:
+
+Client Payments
+###############
+
+Allow to define payment of bills. 
+
+The bill keeps track of payment.
+
+.. figure:: /images/GUI/INCOMES_SCR_PaymentClient.png
+   :alt: Payment client
+   
+   Payment client
+   
+   
+
+
+
+
+
+.. index:: Bill (Activity Price)
+
+.. _activity-price:
+
+Activities prices
+#################
+
+Activity price defines daily price for activities of a given **activity type** and a given **project**.
+
+This is used to calculate a billing amount for billing type **On produced work** and **On capped produced work**.
+
+
+
+
+    
+.. index:: Financial Galery
+
+.. _financial-gallery:
+
+Financial Gallery
+#################
+
+the financial gallery allows you to display in list form and by elements, 
+the different client quotation, invoices and orders recorded in ProjeQtOr, 
+per date, client or per type, partial, final and complete bill.
+
+Attachments are displayed grouped by element.
+
+Click on |View| to display attachment list.
+
+.. figure:: /images/GUI/INCOMES_ZONE_FinancialGallery.png
+   :alt: financial gallery
+   
+   Financial gallery
+
+
+
+Filters can be applied to the list.
+
+
+
+
+
+    
+.. index:: Bill (Catalog)
+.. index:: Catalog
+
+.. _catalog:
+
+Financial catalog
+#################
+
+Catalog defines items (products or services) that can be obects of a quotation, an order or a bill.
+
+This is used on the quotation lines, order lines and invoice lines. 
+
+.. seealso:: :ref:`Invoice lines<manual-billing>`.
+
+
+
+     
+
+.. index:: Revenue managment
+
+.. _revenue-managment:
+
+Revenue Managment
+#################
+     
+You can manage the turnover of the project at completion, and its consistency with the orders and invoices on the project.
+
+
+A "Revenue management" section is visible on the projects screen in the Progress section after activation of the "Revenue management" module under the financial section.
+
+   
+**The following information is then accessible:**
+
+* The turnover at completion corresponds to the total amount that will be invoiced for this project.
+
+* Display of the sum of the project's customer orders
+
+* Display of the sum of customer invoices for the project
+
+* Method of valuation of turnover
+
+
+.. rubric:: Method of valuation of turnover 
+
+    
+The turnover is fixed then it is entered manually
+   
+The turnover is Variable over time depending on the activities, it will be calculated from the turnover of all the activities (not canceled) of the project and possibly of the sub-projects. In this case the activities will also have a turnover field to feed.
+
+Projects with sub-projects will systematically have a “Variable” valuation mode, this mode will automatically consolidate the turnover of the sub-projects on the parent project.
+        
+
+.. rubric:: Consistency with project orders and invoices
+
+For projects with sub-projects, the sum of orders and invoices will consolidate the data of the sub-projects, that is to say, it will integrate the orders and invoices of the sub-projects in addition to the orders and invoices possibly on the project itself.
+
+The sum of the orders is in red if it is lower than the turnover.
+The sum of the invoices is in red if it is greater than the turnover.
+
+
+.. rubric:: Raise alerts
+
+You can create definable alerts for projects in the "unit indicators" section:
+
+* Revenue upper than command's sums
+* Revenue less than invoices sums
+
+In order to integrate this evolution into the community version, without disturbing the users who do not need this functionality, we will condition the behavior:
+   
+In order to transcribe the current use of the validated cost, a :ref:`global parameter<gp-revenue-work-unit>` will determine whether the turnover is automatically reported as validated cost on activities and projects.
+
+
+
+.. note:: 
+
+   This functionality is only visible if the Revenue Management module is activated via the access rights menu in :ref:`Modules management<module-management>`.
+   
+   The Revenue Managment is a sub-module of the financial module. 
+   
+   This new module will activate / desactivate the management of OUs and everything related to the management of OUs (see below). 
+   
+   This module will be disabled by default.
+    
+    
+    
+.. index:: Work unit catalog
+
+.. _work-unit-catalog:
+
+Work units catalog
+##################
+
+You can define catalogs of work units, made up of work units, themselves broken down into several complexities.
+
+This functionality will only be accessible if the :ref:`Revenue management<module-management>` module is activated.
+
+The concept of Project on the catalog is not essential, it is present to guarantee the management of rights.
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_WorkUnitCatalog.png
+   :alt: Work units Catalog screen
+   
+   Work units Catalog screen
+   
+
+You can assign any catalog to a project, whatever its position in the structure, while maintaining the notion of inheritance on the sub-projects.
+
+* A "catalog used" field on the projects screen is available.
+* The OUs proposed on the activities of the project will systematically be the OUs of this catalogue.
+* When the "catalog used" field is populated (entered or edited) for a project, all subprojects (recursively) that had the same initial catalog value (or no value) are assigned the new catalog value.
+* The level of recursion stops at the first project that does not respect this rule.
+* When a catalog is created or modified to be attached to a project then the "catalog used" field of the project is updated, and the update is passed on to the sub-projects.
+
+.. important:: 
+
+   Modification rights are defined on the catalog by filling in the project field.
+
+   Only profiles who have the right to modify the project and the catalog will be able to modify it, regardless of the project on which it is used.
+
+
+
+Create a catalog
+****************
+
+In the Finance menu Incomes section Catalog of work unit screen.
+
+* Click on |New| to create a new catalog
+
+        
+.. warning:: 
+
+   If the complexity number is not filled in, you will not be able to add details in the work order units.
+   
+   The default number set in the :ref:`global parameters<gp-revenue-work-unit>` is applied.
+   
+
+   
+Then fill in the fields with the name of the complexities managed by this catalog.
+
+Click on |Add| to open the pop-up windows and complete the complexity details.
+
+You can fill in the following fields for each OU:
+
+   * Reference
+   * Description
+   * Incomes
+   * Deliverable 
+   * validity date 
+
+The description, incoming and deliverable fields are text editors in inline mode. Edit buttons appear when the cursor is in the field.
+
+.. figure:: /images/GUI/INCOMES_BOX_Detailscompexity.png
+   :alt: details complexities
+   
+   Pop-up of the complexities details
+   
+   
+For each complexity of the OU, we can define:
+
+* Validated workload - 0 is allowed
+* Price (CA) of complexity
+* Duration in working days - optional
+
+
+It is not mandatory to fill in all the complexities for an OU. 
+
+ 
+ 
+.. figure:: /images/GUI/INCOMES_ZONE_RevenueSectionActivity.png
+   :alt: Revenue section
+   
+   Revenue section on the activity screen
+   
+
+
+Phasing
+*******
+
+The goal is to be able to provide the technical part, the project management part, the quality part for example on work units.
+
+.. figure:: /images/GUI/INCOMES_ZONE_Phasing.png
+   :alt: Phasing on work unit catalog
+   
+   Phasing on work unit catalog
+   
+You can enter percentages that will express % of the OU load at the catalog level and not at the OU level.
+
+Phasing at the catalog level avoids an entry for each OU and each OU complexity.
+
+You can enter as many lines as desired.
+
+
+      
+Use of a catalog of work units
+******************************
+
+You can select an OU on an activity, only if the project has a Variable CA valuation mode.
+
+
+
+We will inform the OU, its complexity and the number of units:
+
+   * Entering the OU in the list of OUs in the catalog linked to the project. This will dynamically populate the list of OU complexities by displaying only those that have a charge and a price that is not zero but may be equal to zero.
+   * Entering complexity
+   * Entering the quantity number of work units
+   
+An activity will only be associated with a single OU / Complexity pair.
+
+If OU is selected, complexity and quantity are mandatory, otherwise they are prohibited, i.e. not enterable.
+
+The UO / Complexity / Quantity data will make it possible to value:
+
+   * The validated load = load of the OU / Complexity x Quantity
+   * The turnover of the activity = price of the OU / Complexity x Quantity
+   * The validated duration = duration of the OU / Complexity x Quantity
+
+Entering the validated duration will automatically calculate the validated end date if the validated start date is entered.
+
+.. note::
+   
+   This will only determine the planned duration of the activity if it is in "fixed duration" planning mode. 
+   
+   Otherwise, the schedule will determine the planned duration from the assigned load and the availability of assigned resources.
+
+These 3 data (validated load, validated duration, CA) will then go into read-only since they are calculated.
+
+* If the OU's expiry date has passed, an alert will be displayed on the activity, without this blocking the recording of the activity.
+
+* If the global parameter "Report of turnover on the validated cost of activities" is activated, the turnover entered or entered through the OU is recopied in the validated cost of the activity.   
+
+* You can modify the catalog on the data of an OU, a Complexity or a Quantity however it is not possible to modify a unit of work from the catalog, if it is already used on an activity. 
+
+* If resources are assigned, application of the variation in the assigned load, in proportion to the load assigned to each resource and updating of the “still to do” accordingly (without ever being able to become negative).
+
+* You can delete the catalog on the data of an OU, a Complexity or a Quantity however it is not possible to delete a unit of work from the catalog, if it is already used on an activity. 
+
+
+.. tip:: 
+   
+   In the case of an OU whose complexity generates 5 days of load with a quantity of 1.
+   
+   if A is assigned for 2 days and B assigned for 3 days
+
+   if we double the quantity (and therefore the validated load) A is then assigned 4 days and B is assigned 6 days.
+
+
+
+
+
+
+
+.. index:: Ordered work
+
+.. index:: Work command
+
+.. _OrderedWork:
+
+Work commands
+#############
+
+The services ordered use the work unit catalog functionality. 
+
+You must "activate ordered services" in the :ref:`global parameters<gp-revenue-work-unit>`
+
+Services can be recorded directly on client orders or on the dedicated work commands screen.
+
+On the client order
+*******************
+
+On the client orders screen, you must enter the project that will use the catalog.
+
+Only this project will be able to use these work units.
+
+If the project has sub-projects, although the catalog is inherited, the work units will only be accessible to the project linked to the order.
+
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_OrderedWorkCommand.png
+   :alt: Ordered work on activities
+   
+   Command work on activities
+   
+
+Click on |Add| to add a new OU.
+
+Click on |UO| to add a mother line for the OU.
+
+.. figure:: /images/GUI/INCOMES_BOX_AddUniteWork.png
+   :alt: Add a work unit on command
+   
+   Add a work unit on command
+   
+   
+You enter the work unit from the catalog of the project linked to the order that you wish to use.
+
+Its complexity as well as its quantity.
+
+The amount fields are automatically calculated based on the information in the catalog.
+
+Billing
+-------
+
+When copying your order to an invoice, the table of ordered services is also created taking into account the quantity already invoiced.
+
+* The sum of the total invoiced quantity (including the current and already invoiced quantity) must not exceed the ordered quantity.
+
+* Selecting a work order displays the work unit, complexity, unit quantity and quantities (stored on the work order line).
+
+* The amount is calculated = invoiced quantity x unit amount.
+
+* When updating, the work order reference cannot be changed.
+
+* When data is inserted/updated, the sum of the data on the work order is updated.
+
+On the activities
+*****************
+
+When you have an effective order on an activity project, you can link the ordered OUs to the activities of the same project.
+
+The catalogs are inherited, but the OUs are accessible only to the activities of the project linked to the order.
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_UOempty.png
+   :alt: Work Command on activities
+   
+   Work command on activities
+   
+A window allows you to add an OU from the catalog linked to the project.
+
+If an order exists for this OU (or+complexity) on this project, then you can select the order in the corresponding field.
+
+Once linked, the order will follow the completion of the activities to update the Work Units used.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_AddUniteWorkActivity.png
+   :alt: Work Command on activities
+   
+   Work command on activities
+
+
+.. important::
+
+   * The quantity must not be less than the quantity already invoiced,
+   * The quantity must not be less than the quantity already carried out
+   * If there is a quantity performed or invoiced, the unit of work and the complexity cannot be changed   
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_OrderedWork.png
+   :alt: Work Command on activities
+   
+   Work command on activities
+
+
+When an activity is linked to an OU of the order, the OU table of the order is updated to indicate the number of OUs that were used on your activity.
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_UOUsed.png
+   :alt: OU updated in order table
+
+   OU updated in client order table
+
+On the work command screen
+**************************
+
+This screen allows you to view all the units of works ordered, all projects and catalogs combined.
+
+A dedicated screen allows you to treat the units of works ordered as a separate element and benefit from the filter functions.
+
+
+
+.. figure:: /images/GUI/INCOMES_SCR_WorkCommand.png
+   :alt: Work Command on activities
+   
+   Work command on activities
+
+
+You will find the same information as on your customer order but in a generalized way.
+
+
+Acceptance
+**********
+
+Accepted services are linked to Ordered services.
+
+This involves integrating the concept of Client Acceptance. The objective is to be able to define and track these in terms of dates and content.
+
+Click on |New| to create a new acceptance.
+
+In the detail tab, click on |Add| to add the relevant work units of your order.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_Acceptance.png
+   :alt: Acceptance on OU
+   
+   Acceptance on OU
+   
+   
+The current accepted column is filled in.
+
+
+.. figure:: /images/GUI/INCOMES_ZONE_AcceptanceCurrent.png
+   :alt: Current accepted
+   
+   Current accepted
+   
+   
+In the Progress tab, enter the client acceptance date so that the accepted column is displayed.
+
+.. figure:: /images/GUI/INCOMES_ZONE_AcceptanceComplete.png
+   :alt: Accepted
+   
+   Accepted
+
+
+On the client order, you find the consolidation of the acceptance of the OUs.
+
+
+.. figure:: /images/GUI/INCOMES_BOX_AcceptanceClientOrder.png
+   :alt: OU accepted on Client Order
+   
+   OU accepted on Client Order
+
+
+
+
+
+
+
+
+.. index:: Client contract 
+
+.. _client-contract:
+
+Client contract
+###############
+  
+ProjeQtOr gives you the possibility to precisely manage and monitor your customer contracts.
+
+The customer contract is necessarily linked to a customer.
+
+A Gantt chart view is available to visualize your contracts graphically.
+
+
+
+.. figure:: /images/GUI/INCOMES_SCR_ClientContrat.png
+   :alt: Client contract screen
+   
+   Client contract screen
+
+
+Treatment
+*********
+
+Follow the state, the progress of your contract in this section.
+
+.. rubric:: Responsible
+   
+* Choose a responsible
+   
+* Its initials are displayed on the Gantt chart of contracts
+   
+
+.. rubric:: Workflow
+
+* The workflow is based on the default workflow. 
+   
+* You can change or modify the current workflow.
+   
+.. seealso:: 
+
+   :ref:`workflow`
+ 
+
+.. _renewal-incomes:
+ 
+.. rubric:: Renewal
+   
+Defines the behavior of the renewal of a contract at the end of the initially planned duration
+   
+* **Never:** the contract will never be renewed
+      
+* **Tacit:** the contract will be renewed if there is no termination
+      
+* **Express:** the contract is renewed and is the subject of a written or verbal act 
+
+
+.. rubric:: States
+   
+* **In progress:** Date on which the contract is taken over. Effective. This date can be entered manually or by going to the Assigned state of the workflow
+      
+* **Done:** Date the contract ends.
+      
+* **Closed:** Date on which the contract was closed.
+
+* **Cancelled:** Cancellation Date 
+
+
+.. _client-Gantt:
+
+Client contract Gantt chart
+***************************
+
+In addition to the contract management screen (list and details area), you can view your contracts in a time view on a Gantt chart. This is the "customer contract calendar"
+
+Each bar representing the different contracts, going from the start date to the end date of the contract.
+
+Notice dates and due dates are displayed as milestones. 
+
+Gantt bars for customer contracts turn red when the due date is higher than the end of contract date. 
+
+No calculation is made. This is an indication to show an inconsistency. 
+
+
+.. figure:: /images/GUI/INCOMES_SCR_ClientContratGANTT.png
+   :alt: Client contract gantt chart screen
+   
+   Client contract Gantt chart screen
+
+   

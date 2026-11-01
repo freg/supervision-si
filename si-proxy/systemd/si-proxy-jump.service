@@ -1,0 +1,20 @@
+# #575 : tunnel SSH permanent d'un shim host qui n'a pas de route vers le relais
+# (poste d'agent sur un site client) : sort par l'entrée SSH du SI, ramène le
+# port du relais sur 127.0.0.1. Clé dédiée /etc/si-proxy/jump.key, à restreindre
+# côté serveur : restrict,port-forwarding,permitopen="<relais>:6450" dans
+# ~/.ssh/authorized_keys du compte de saut.
+[Unit]
+Description=si-proxy jump (tunnel SSH vers le relais)
+After=network-online.target
+Wants=network-online.target
+Before=si-proxy-host.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/si-proxy/host.env
+ExecStart=/usr/bin/ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=accept-new -o BatchMode=yes -i /etc/si-proxy/jump.key -p ${SI_PROXY_JUMP_PORT} -L ${SI_PROXY_JUMP_FORWARD} ${SI_PROXY_JUMP}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

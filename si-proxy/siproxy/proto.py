@@ -65,6 +65,35 @@ def valid_hello(obj, expected_token, roles=("host", "client")):
     return True, None
 
 
+SHIM_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+
+
+def shim_name(hello, key="name"):
+    """#575 : nom d'un shim host (« hub » par défaut) -- lettres minuscules,
+    chiffres, _ et -, 32 max ; tout autre chose retombe sur « hub »."""
+    v = str((hello or {}).get(key) or "hub").strip().lower()
+    return v if SHIM_NAME_RE.match(v) else "hub"
+
+
+PUBLISH_RE = re.compile(r"^(?P<port>\d{1,5})=(?P<via>[a-z0-9][a-z0-9_-]{0,31}):(?P<target>.+)$")
+
+
+def parse_publication(spec):
+    """#583 : « PORT=VIA:HOTE:PORT » -> {"port", "via", "target"} ; ValueError
+    sinon. Le relais écoute PORT (TCP brut, sans TLS : celui de la cible
+    traverse) et renvoie chaque connexion vers HOTE:PORT par le shim VIA."""
+    m = PUBLISH_RE.match(str(spec or "").strip().lower())
+    if not m:
+        raise ValueError("publication attendue sous la forme PORT=SHIM:HOTE:PORT, reçu %r" % (spec,))
+    port = int(m.group("port"))
+    if not 1 <= port <= 65535:
+        raise ValueError("port de publication invalide : %d" % port)
+    host, tport, why = split_target(m.group("target"))
+    if why:
+        raise ValueError("cible de publication invalide : %s" % why)
+    return {"port": port, "via": m.group("via"), "target": "%s:%d" % (host, tport)}
+
+
 def split_target(target):
     """« host:port » -> (host, port, None) ou (None, None, raison). IPv6
     accepté entre crochets : « [::1]:443 »."""

@@ -4,45 +4,188 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
-## ⚠️ Deux prérequis BLOQUANTS, à réunir AVANT tout test réel
+## Prérequis (mis à jour le 22 sept. 2026, #546)
 
-1. **L'organisation Nebula visée doit avoir la licence Nebula Pro
-   Pack.** Confirmé explicitement dans la documentation officielle
-   ("Zyxel Nebula OpenAPI only supports PRO mode organizations") et
-   sur la page produit ("Ensure your Nebula devices are registered
-   under a Nebula Professional Pack licensed organization"). Sans
-   Pro Pack, tous les appels échoueront systématiquement, quel que
-   soit le code -- `GET /test-connection` (voir plus bas) le
-   signale explicitement s'il détecte une organisation sans Pro Pack.
-2. **La clé d'API n'est PAS en libre-service.** La documentation
-   officielle recommande explicitement de contacter le bureau
-   régional Zyxel ou d'ouvrir un dossier support NCC Help Center pour
-   en obtenir une ("Since Nebula OpenAPI is still in its early
-   stages... it is not yet generally available"). Rien dans ce
-   module ne peut contourner cette étape administrative.
+1. **L'organisation Nebula visée doit être en Professional Pack** (tous
+   ses équipements licenciés) : l'OpenAPI n'existe que dans ce pack.
+   `GET /test-connection` renvoie le `mode` de chaque organisation.
+2. **La clé d'API est en libre-service** depuis NCC 20 : compte
+   administrateur de l'organisation → rond du compte (en haut à droite)
+   → *My devices & services* → onglet **NCC OpenAPI Key** → *Generate*
+   (cocher *Acknowledge*). Si le clic revient à un écran vide, refaire
+   dans une fenêtre privée sans extension : c'est un bloqueur de scripts
+   qui empêche l'enregistrement (constaté en réel). La clé porte les
+   droits du compte ; elle va dans `NEBULA_API_KEY` du `.env`, jamais
+   dans le dépôt. (L'ancienne mention « clé réservée au support Zyxel »
+   datait de #196 et n'est plus vraie.)
 
-Sans ces deux prérequis réunis, ce module ne pourra jamais se
-connecter réellement, peu importe la configuration.
+Testé en réel le 22 sept. 2026 : `test-connection` OK, organisation en
+mode PRO, 1 site, 18 équipements listés.
 
-## Portée de cette livraison
+## Santé du réseau : relevé à la minute (#546)
 
-Couvre la **connexion** et la **consultation** (organisations, sites,
-appareils d'un site, clients réseau) -- **PAS ENCORE l'import vers
-GLPI**, volontairement laissé pour une étape suivante, une fois la
-connexion elle-même validée en conditions réelles par la personne.
-Empiler un import non testé sur une connexion non testée aurait
-démultiplié le risque sans bénéfice réel avant un premier retour
-concret.
+Demandé : « une mesure régulière à la minute ou un delta t raisonnable en
+termes de charge induite et d'observation : ne rien louper en considérant
+qu'un incident dure un temps minimum et que la fenêtre de consultation est
+assez étroite pour le voir ».
 
-## ⚠️ Jamais testé contre une vraie API Nebula
+Règle : un incident qui dure au moins D est vu par au moins un relevé si la
+période T ≤ D. Nebula ne déclare un appareil hors ligne qu'après son propre
+délai de battement (quelques minutes), donc tout ce que Nebula voit dure
+plus que T = 60 s : rien n'est loupé de ce que Nebula sait. Charge : un
+appel `online-status` par site et par minute (1 440 par jour et par site),
+inventaire (sites, appareils) une fois par heure, clients jamais en
+automatique (coûteux, à la demande). En base : l'état courant par appareil
+et les **transitions** seulement, jamais un relevé par minute — la base ne
+grossit qu'avec les incidents. Un seul sondeur pour les workers gunicorn
+(verrou fichier sur le volume de données).
 
-Aucun accès réseau externe dans cet environnement de développement,
-et les deux prérequis ci-dessus ne peuvent de toute façon pas être
-satisfaits depuis ici. Toute la logique (`nebula_client.py`) est
-construite à partir de la spécification OpenAPI OFFICIELLE
-(https://zyxelnetworks.github.io/NebulaOpenAPI/, consultée le jour
-de cette livraison), mais reste à confirmer contre un vrai compte
-une fois les prérequis réunis -- commencer par `GET /test-connection`.
+- `NEBULA_POLL_SECONDS` (60, 0 = désactivé), `NEBULA_INVENTORY_SECONDS` (3600).
+- `GET /health-board?hours=24` : par site, phrases (« Borne studio (WBE660S) :
+  hors ligne depuis 50 min »), disponibilité moyenne, incidents, ligne par
+  appareil (état, depuis, disponibilité, incidents) ; `GET /sites/<id>/health-board`.
+- `GET /sites/<id>/transitions?hours=24` : changements d'état, nommés.
+- `POST /poll/now`, `GET /poll/status` (dix derniers relevés, erreurs).
+- Hub : tuile Nebula, onglet **Santé du réseau** (fenêtre 1 h / 24 h / 7 j).
+- Logique pure `api/health.py`, tests `tests/test_health.py`, `tests/test_poll.py`.
+
+Suites : publication du tableau de santé pour le responsable de site par
+un service web porté par l'agent mini-PC du campus (item 85) ; Nebula comme
+source d'incidents Cortex et d'état des services de l'espace Simple.
+
+## Carte des VLAN (#548)
+
+Demandé : « dresser une carte des VLAN à partir de l'API Nebula, ou des
+exports ». L'OpenAPI suffit, sans export : par commutateur les réglages de
+ports (`port-settings` : PVID, trunk, VLAN autorisés), les voisins LLDP,
+la table MAC et l'IP de gestion ; les interfaces de la passerelle
+(sous-réseaux) ; les SSID (`wlan-settings` : VLAN par SSID) ; les clients
+des commutateurs (VLAN par client). `GET /sites/<id>/vlan-map` (cache 10
+min, `?refresh=1`, `?format=csv`) renvoie : par VLAN les SSID, le
+sous-réseau, les ports non étiquetés / étiquetés de chaque commutateur,
+les MAC apprises, les clients, la gestion ; les **liaisons LLDP entre
+commutateurs avec les VLAN portés de chaque côté et les manquants** (la
+cause des incidents de septembre) ; des **anomalies** en phrases (VLAN
+manquant sur une liaison, SSID dont le VLAN n'est sur aucun port, VLAN sans
+interface de passerelle). Un appel en échec laisse un trou et une ligne
+dans `errors`, jamais une carte vide. `GET /sites/<id>/vlan-raw` : réponses
+brutes (MAC et clés masquées) pour vérifier les noms de champs contre la
+documentation. Hub : tuile Nebula, onglet **Carte des VLAN**. Logique pure
+`api/vlanmap.py`, tests `tests/test_vlanmap.py`.
+
+**Synoptique en arbre (#555, remplace le graphe par niveaux de #553)** :
+la carte reprend la logique de la topologie Nebula -- un **arbre** :
+passerelle en racine, le cœur sous elle, les commutateurs d'accès et les
+bornes sous celui qui les relie, et **les clients sous chaque appareil**
+(pastille « n clients » dépliable). Les voisins LLDP sont désormais
+reconnus parmi **tous** les appareils de l'inventaire (bornes, passerelle :
+par nom insensible à la casse, par MAC à ±8 du dernier octet, nom contenu),
+plus seulement les commutateurs ; ces liaisons ne déclenchent pas de fausse
+anomalie « VLAN manquant » (une borne n'a pas de réglage de ports). Les
+clients viennent de `POST /v2/nebula/{site}/clients` (92 en réel) : le champ
+`connectedTo` porte le `devId` de l'appareil qui les sert (borne ou
+commutateur) ; `osHostname` est un objet `{os, hostname}` ; `description`
+répète la MAC quand rien n'est connu. Filaire/Wi-Fi = selon l'appareil qui
+sert le client (l'API ne publie pas le SSID par client). `sw-clients`
+renvoie vide sur 1 j, 7 j et 30 j en réel : les clients filaires passent par
+`/clients`. `GET /sites/<id>/topology?period=1d` (cache 2 min,
+`?refresh=1`) : nœuds avec `parent`, ports amont/aval, liaison (VLAN
+manquants, nue), `clients`, `loose_clients` (sans appareil identifié),
+`unmatched` (voisins LLDP inconnus), `counts`. `GET
+/sites/<id>/clients-raw` : champs réels (MAC/IP masquées). Logique pure
+`api/topology.py` (tests `tests/test_topology.py`) et `hub/src/nebulaTree.js`
+(arbre, parent centré sur ses enfants, clients au milieu des enfants ;
+tests `nebulaTree.test.mjs`), rendu `hub/src/NebulaTopo.jsx`.
+
+**Volet Campus (#566)** : la tuile s'intitule `VITE_NEBULA_TILE_TITLE`
+(« Nebula@<site> », réglé dans `.env`) et a deux volets : Nebula (onglets
+existants) et Campus (Matériels, Services/logiciels). Fiches importées des
+tableurs du site — `PUT /campus/assets/import`, `PUT /campus/services/import`
+(multipart `file` xlsx/ods/csv, `mode=replace|merge`), `GET /campus/<coll>`
+(`?site_id=` pour rapprocher les matériels des clients Nebula par MAC, sinon
+par nom : état, IP, borne, VLAN). Table `campus_records` dans `/data`,
+jamais dans le dépôt. Depuis une fiche : « Voir dans le synoptique »
+(sélectionne et déplie l'appareil) et « Tableau d'état ». Logique pure
+`nebula/api/campus.py` (tests `test_campus.py`), `hub/src/campusCards.js`.
+
+**Lisibilité du synoptique (#558)** : étiquettes entières (largeur de
+boîte calculée sur le texte, bornée) ; deux dispositions, inspirées des
+exemples d3 « tree » : **arbre horizontal** (défaut : profondeur en colonnes,
+une ligne par équipement, lisible quel que soit le nombre de bornes) et
+**arbre vertical étagé** (les éléments d'une rangée sont répartis sur 1 à 4
+étages, chacun prenant le premier étage où il ne chevauche pas son voisin ;
+une pastille de clients occupe un slot d'appareil pour ne pas resserrer la
+rangée). Choix mémorisé dans le navigateur. La table MAC n'est plus
+demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
+refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
+téléphones) sont listés en repli, ce n'est pas une erreur.
+
+**Plans du site (#560/#561/#569)** : le fond de placement se dépose dans
+l'onglet Plan du site (PNG/JPG/SVG, volume `/data`) — **jamais dans le
+dépôt** (un plan de bâtiment identifie le client). `nebula/plans/` reste le
+mécanisme de plan livré avec l'image (`<site_id>.svg` ou `default.svg`) pour
+une installation privée qui le souhaite ; le dépôt public n'en contient
+aucun. Outils : `nebula/tools/plan_from_pdf.py` (PDF vectoriel d'architecte
+ou de DCE → SVG : architecture seule, textes réels, symboles de lots et
+cartouche écartés, mots interdits retirés — le meilleur fond) ;
+`nebula/tools/plan_vectorize.py` (photo redressée → SVG par couches de
+couleur, quand il n'y a qu'une photo). Pastilles de santé et accès aux
+équipements par clic : onglet Plan du site.
+
+**Lisibilité du synoptique (#558)** : étiquettes entières (largeur de
+boîte calculée sur le texte, bornée) ; deux dispositions, inspirées des
+exemples d3 « tree » : **arbre horizontal** (défaut : profondeur en colonnes,
+une ligne par équipement, lisible quel que soit le nombre de bornes) et
+**arbre vertical étagé** (les éléments d'une rangée sont répartis sur 1 à 4
+étages, chacun prenant le premier étage où il ne chevauche pas son voisin ;
+une pastille de clients occupe un slot d'appareil pour ne pas resserrer la
+rangée). Choix mémorisé dans le navigateur. La table MAC n'est plus
+demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
+refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
+téléphones) sont listés en repli, ce n'est pas une erreur.
+
+**Plan vectorisé livré (#560/#561)** : `nebula/plans/default.svg` (copié dans
+l'image nebula-api) est le fond de placement **par défaut** quand aucun plan
+n'a été déposé pour le site — un plan déposé (volume `/data/plans`) prime,
+et « Retirer » ne touche jamais un plan livré. Le SVG vient de la photo du
+plan d'évacuation du campus : « Vous êtes ici », son point et sa flèche
+retirés (inpainting), image redressée (0,64°) et recadrée sur son rectangle,
+puis vectorisée par couches de couleur (murs/texte noir, traits gris,
+hachures bleues, flèches vertes, zones jaunes, pictogrammes rouges) avec
+potrace — `nebula/tools/plan_vectorize.py <png redressé> <svg>`. Pastilles de
+santé et accès aux équipements par clic : inchangés (onglet Plan du site).
+
+**Plan du site (#555)** : onglet **Plan du site** de la tuile Nebula. Une
+image de plan par site (`PUT /sites/<id>/plan`, multipart `file`, PNG/JPG/
+WebP/SVG ≤ 8 Mo, stockée dans le volume `/data/plans/`, **jamais dans le
+dépôt** ; `GET` la sert, `DELETE` la retire) ; les appareils se posent par
+clic (« Poser » puis clic sur le plan) ou se déplacent en les glissant ;
+les clients d'un appareil posé s'affichent en anneau autour de lui, colorés
+par état, et peuvent être posés à part (glisser, ou « Déplacer par clic »)
+puis remis en anneau. Positions en fractions de l'image (`PUT
+/sites/<id>/placements` fusionne, `null` retire ; table
+`nebula_placements`). État relu toutes les minutes. Logique pure
+`hub/src/nebulaPlan.js` (tests `nebulaPlan.test.mjs`), rendu
+`hub/src/NebulaPlan.jsx`.
+
+**Anomalies en tableau, règles lisibles, validation (#556)** : les
+anomalies de la carte sont **typées** (`anomalies_detail` : `kind`,
+`element`, `details`, identifiant stable) et présentées en tableau pleine
+largeur : Élément · Constat (avec « pourquoi ? ») · Gravité · Action
+proposée · État · Masquer · Valider, plus « Tout démasquer ». La gravité et
+l'action viennent des **règles** du dossier `rules/` (format Markdown lisible
+et modifiable, voir `rules/README.md`), relues à chaque appel et indexées
+aussi par l'assistant IA. `GET /sites/<id>/anomalies` (`?all=1`,
+`?refresh=1`), `POST …/anomalies/<id>/hide|unhide`, `POST
+…/anomalies/unhide-all`, `POST …/anomalies/<id>/validate` (droit `manage`).
+**Valider** enregistre la validation ; si la règle est `Applicable : oui`
+et que `NEBULA_ALLOW_WRITE=1`, la correction est exécutée sur Nebula après
+confirmation explicite (`confirm: true`) : aujourd'hui l'ajout d'un VLAN
+manquant sur un port, par `POST /v1/nebula/{site}/sw/{dev}/port-settings`
+(objet complet relu juste avant, jamais reconstruit), résultat journalisé,
+carte recalculée. États : `validated`, `applied`, `failed`, `hidden` (table
+`nebula_anomaly_state`). Logique pure `api/rules.py` (tests
+`tests/test_rules.py`).
 
 ## Architecture
 
@@ -399,3 +542,46 @@ inchangé tant qu'elle n'est pas configurée.
 FAIL CLOSED si `rights-api` injoignable, 403 confirmé sur les 5
 routes gardées (multipart et JSON) avec un groupe non autorisé,
 lecture confirmée non affectée. Non-régression complète reconfirmée.
+
+## Occupation des bornes Wi-Fi et alertes Nebula (#747)
+
+Tuile Nebula › Rapports, bloc « Occupation des bornes Wi-Fi et alertes Nebula » (désactivé par défaut) : relevé des
+clients connectés par borne toutes les N minutes, seuils par borne / site / signal faible, alerte quand un appareil
+Nebula reste hors ligne ou en alerte, récapitulatif statistique (CSV joint) aux jours et à l'heure choisis. Messages par
+notify-api (`nebula.occupation-seuil`, `nebula.alerte-nebula`, `nebula.occupation-recap`, `nebula.retour-normale`) :
+destinataires du réglage + groupes de la tuile Notifications. API : `GET /report/occupancy?hours=24`,
+`POST /report/occupancy/send {sample: true}`.
+
+
+
+## Veille de santé du réseau du campus (#847)
+
+Demandé : « une veille alerte sur la santé du réseau du campus : VLAN, DHCP, spots, postes actifs/absents, liaison
+Internet, certains VLAN comme le 51 (derrière le pare-feu, usage mixte par demi-journée avec un organisme extérieur) ».
+
+Pas de réseau d'agents supplémentaire : la veille croise ce qui existe déjà --
+- **Nebula** (sondeur à la minute) : passerelle / pare-feu, commutateurs, bornes ; clients connectés (présence des postes,
+  relus au plus toutes les 10 min) ;
+- **agents internes** (poste du campus, Proxmox) : battement, sonde « chemin de service » `path-probe` (bail DHCP,
+  passerelle, DNS, Internet par interface ou par SSID avec `--connections`), sonde « annonces réseau » `broadcast-probe`
+  (serveurs DHCP vus, appareils qui s'annoncent).
+Un VLAN n'est vu que si une sonde y est présente : interface (ou sous-interface 802.1Q) du poste dans ce VLAN, ou SSID
+rattaché au VLAN dans la rotation `--connections`. Sinon la vérification est « non observé » avec le lien vers l'agent.
+
+- `veille.py` (pur, `tests/test_veille.py`) : réglages, créneaux (« 1-5 08:00-12:30 externe »), évaluation, lignes d'alerte ;
+- `veille_routes.py` : `GET /veille`, `GET /veille/etat` (« OK … » 200 / « PANNE … » 503, jeton `NEBULA_VEILLE_TOKEN`),
+  `GET|PUT /veille/reglages`, `POST /veille/passer` ; passage toutes les 2 min, suivi par `alerting.track` (délai,
+  rappel, retour à la normale) ; notify-api : `nebula.veille-campus`, `nebula.veille-campus-externe` (créneau d'un
+  organisme extérieur), `nebula.veille-campus-retabli`.
+- Hub : tuile Nebula@<site>, onglet **Veille** (premier onglet, `?view=nebula&tab=veille`), réglages dans l'onglet.
+
+
+## Recherche et module d'action (#852)
+
+- `GET /sites/<site>/recherche?q=` (`recherche.py`) : tout enregistrement aplati en texte (dates lisibles, signal en
+  dBm, MAC sans séparateurs), tous les mots de la saisie requis, sans casse ni accents.
+- `actions.py` / `actions_routes.py` : `GET /sites/<site>/actions/plan/<aid>` (plan + impact), `POST
+  /sites/<site>/actions/executer` (API, sauvegarde, chien de garde `NEBULA_ACTION_SURVEILLANCE`, défaut « 60,180 »,
+  retour arrière automatique), `POST /sites/<site>/actions/manuel`, `POST /actions/<id>/verifier`, `POST
+  /actions/<id>/annuler`, `GET /actions?site=` ; table `nebula_actions`. Écriture par l'API possible seulement sur les
+  réglages de ports des commutateurs (doc OpenAPI) : les interfaces de la passerelle restent en plan manuel.

@@ -17,6 +17,7 @@ import {
   SCALE_MODES, GAIN_MIN, GAIN_MAX, loadScalePreference, saveScalePreference,
 } from "./chartScales.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
 
 // Sélecteur d'échelle (#413) partagé par les graphiques de flux et les
@@ -157,7 +158,7 @@ function SubnetCard({ detail: d, onClose }) {
         </p>
       )}
       <div className="hub-table-scroll" style={{ maxHeight: 260 }}>
-        <table>
+        <AutoColumns id="NetworkAgentView.1"><table>
           <thead><tr><th>IP</th><th>Type</th><th>MAC / relais</th><th>Nom</th><th>Sens</th><th>Paquets</th><th>Volume</th><th>Vue la 1ère fois</th><th>Vue la dernière fois</th></tr></thead>
           <tbody>
             {d.ips.map((ip) => (
@@ -175,7 +176,7 @@ function SubnetCard({ detail: d, onClose }) {
             ))}
             {d.ips.length === 0 && <tr><td colSpan={9} className="muted">Aucune adresse connue.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
       {(d.services?.length > 0 || d.links?.length > 0) && (
         <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
@@ -600,7 +601,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
               {observedSubnets.length === 0 ? (
                 <p className="muted">Aucun sous-réseau observé pour l'instant.</p>
               ) : (
-                <table className="na-subnets">
+                <AutoColumns id="NetworkAgentView.2"><table className="na-subnets">
                   <thead><tr><th>Sous-réseau</th><th>Origine</th><th>Appareils</th><th>IP distantes</th><th>Via</th><th>Vu la 1ère fois</th><th>Vu la dernière fois</th></tr></thead>
                   <tbody>
                     {observedSubnets.map((s) => (
@@ -615,7 +616,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               )}
               {subnetDetailLoading && <p className="muted">Chargement de la fiche…</p>}
               {subnetDetail && <SubnetCard detail={subnetDetail} onClose={() => setSubnetDetail(null)} />}
@@ -773,7 +774,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
           </p>
 
           <div className="na-device-list-wrap">
-            <table>
+            <AutoColumns id="NetworkAgentView.3"><table>
               <thead>
                 <tr>
                   <th>MAC</th><th>Dernière IP</th><th>Nom d'hôte</th><th>Rôle</th>
@@ -835,7 +836,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
 
           {activeDevice && (
@@ -857,14 +858,14 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                     <p className="muted">Aucun service observé.</p>
                   ) : (
                     <div style={{ maxHeight: 220, overflowY: "auto" }}>
-                      <table>
+                      <AutoColumns id="NetworkAgentView.4"><table>
                         <thead><tr><th>Protocole</th><th>Port</th><th>Paquets</th></tr></thead>
                         <tbody>
                           {activeDeviceServices.map((s) => (
                             <tr key={s.id}><td>{s.protocol.toUpperCase()}</td><td>{s.port}</td><td>{s.packet_count}</td></tr>
                           ))}
                         </tbody>
-                      </table>
+                      </table></AutoColumns>
                     </div>
                   )}
                 </div>
@@ -874,7 +875,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   {deviceLinks.length === 0 ? (
                     <p className="muted">Aucun échange observé.</p>
                   ) : (
-                    <table>
+                    <AutoColumns id="NetworkAgentView.5"><table>
                       <thead><tr><th>De</th><th>Vers</th><th>Volume</th></tr></thead>
                       <tbody>
                         {deviceLinks.map((l) => {
@@ -894,7 +895,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                           );
                         })}
                       </tbody>
-                    </table>
+                    </table></AutoColumns>
                   )}
                   {activeLink && (
                     <div className="na-link-history">
@@ -924,7 +925,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         <p className="muted">Aucun service identifié entre ces deux appareils.</p>
                       ) : (
                         <div style={{ maxHeight: 180, overflowY: "auto" }}>
-                          <table>
+                          <AutoColumns id="NetworkAgentView.6"><table>
                             <thead><tr><th>Protocole</th><th>Port</th><th>Paquets</th><th>Volume</th><th>Dernier</th></tr></thead>
                             <tbody>
                               {activeLinkServices.map((sv) => (
@@ -937,7 +938,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                                 </tr>
                               ))}
                             </tbody>
-                          </table>
+                          </table></AutoColumns>
                         </div>
                       )}
                     </div>
@@ -957,7 +958,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   ) : (
                     <>
                     <HistoryBars rows={activeDeviceHistory} label="Volume échangé par cet appareil, par intervalle entre relevés" />
-                    <table>
+                    <AutoColumns id="NetworkAgentView.7"><table>
                       <thead><tr><th>Relevé</th><th>IP</th><th>Volume cumulé</th></tr></thead>
                       <tbody>
                         {activeDeviceHistory.map((h, idx) => (
@@ -968,7 +969,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></AutoColumns>
                     </>
                   )}
                 </div>

@@ -1,3 +1,247 @@
+## Parc IA — revue du jour + répartition GPU (2026-10-28) — FAIT : #908 onglet « Revue du jour » (légèreté/machines d'abord, urgence de téléchargement avant disparition/payant, dédicace apprentissage 0..3 dont « apprend & désapprend »), #909 répartition des usages sur machines/GPU (MODELES_MACHINES avec « + » par GPU, planificateur repartir, route /modeles/repartition, onglet « Répartition GPU ») ; partagé hub maison + supervision. Reste : brancher la revue sur les flux réels, dériver les besoins de répartition des usages déclarés par hôte.
+
+## Clone navigateur de Hermes — projet hermes-web (2026-10-28) — tranche 1 FAITE : dépôt autonome ~/Downloads/hermes-web (fork à venir de NousResearch/hermes-agent, MIT), service Flask pilotant Hermes + front sombre (chat + rejeu QA), garde-fous par hub (loi>morale>véracité, supervision=lecture seule, maison=permissif), rejeu QA clé de voûte (trajectoires, cahier, avancement, régressions, interop from/value), config par hub, Dockerfile+compose, docs/architecture.md (feuille de route NéoPays : 4 rôles IA, double déploiement, portage EGroupware). 14 tests. Reste : brancher le vrai hermes CLI, intégration fine via EditApprovalRequester ACP, cahier QA réel, fork amont, panneau navigateur automatisé pour la QA.
+  DEMANDÉ le 30/10 (hermes-web, tranche 2, à noter) : la MÊME interactivité -- voire un accès identique -- que le hermes en
+  shell (parité de commandes et de dialogue, pas une version appauvrie), avec une couche d'ergonomie en plus : navigation
+  dans les dialogues passés (historique, recherche, reprise d'une conversation) et un JOURNAL INTERNE de toutes les
+  actions et accès de Hermes -- y compris et surtout les appels aux API IA (fournisseur, modèle, horodatage, jetons,
+  coût, outils appelés, fichiers lus/écrits, commandes exécutées) -- consultable et filtrable depuis l'interface.
+
+## Couple de proxys d'entrée interchangeables (2026-10-17) — tranche 1 FAITE (#776 : HAProxy piloté par l'agent, bascule de serveur interne, contrôle DNS et alerte « DNS à configurer ») ; reste : mise à jour DNS directe par le module DNS éditable quand la zone y est gérée, IP de basculement OVH (failover) en option, VM à créer
+
+## Latence des IP publiques (2026-10-17) — tranche 1 FAITE (#775 : cibles, points de mesure agent / direct / indirect, diagnostic, erreurs et solutions) ; reste : alertes notifiées sur dégradation durable, découpage par tronçon (frontal → serveur interne) à partir de la conf Apache des frontaux
+
+## Tuile « Migration 2026-2027 » (2026-10-17) — tranche 1 FAITE (#774 : plan d'étapes, pilotage, erreurs et solutions, étape 1 du plan automatisée) ; reste : étapes 2 à 5 en étapes automatiques (envois incrémentaux, bascules, réinstallations), rattachement de l'historique d'une VM migrée (item 128)
+
+## Supervision réseau distribuée : ordonnanceur, chronologie, couverture, architecture (2026-10-13) — item 120 ; volet 1 tranche 1 FAITE (#743)
+
+Cadrage : `docs/supervision-distribuee.md`. Décisions : commencer par l'ordonnanceur réparti ; carte au choix plans de
+bâtiments ou OSM ; déplacements = clients Wi-Fi entre bornes, équipements changés de port / VLAN, VM / services migrés.
+- FAIT #743 : tournées de mesures (`si-agent/api/rotation.py`, routes `/rotations`, onglet « Tournées ») : à tour de
+  rôle avec suppléance ou réparti, phase stable, heures calmes, plafond par site, créneaux tracés, couverture 24 h.
+- Reste : 1b (charge des agents, cibles réparties), 1c (netprobe dans les tournées) ; volet 2 série commune +
+  corrélations ; volet 3 couverture carte + curseur temporel ; volet 4 déclaré / mesuré / nommé + déplacements.
+
+## Ordre des listes généralisé et agents par catégorie (2026-10-13) — item 119 ; tranche 1 FAITE (#742)
+
+Demandé : « généraliser : ordre alphabétique par défaut, antéchronologiquement, gravité » ; « séparation des agents en
+présentation » : par défaut une catégorisation suivant le rôle et l'OS (Proxmox PVE et PBS, Linux, Windows, VM, sondes).
+- FAIT #742 : `listOrder.js` (alpha / récent / gravité, vocabulaires de gravité unifiés, tri naturel sans casse ni
+  accents) + `ListOrder.jsx` (sélecteur mémorisé par liste) ; tuile Agents hôtes : flotte groupée Proxmox (PVE / PBS) ·
+  Sondes · VM · Windows · Linux · Autres, groupes repliables avec compteurs, ordre au choix dans chaque groupe (A → Z par
+  défaut), étiquette `#pve #pbs #sonde #vm #windows #linux` dans le libellé pour forcer ; journal des événements en
+  « Récent » par défaut avec sélecteur ; catalogue des sondes et mises à jour en A → Z.
+- Reste (tranches suivantes) : brancher le sélecteur sur les autres listes du hub (tickets, sauvegardes, coffre, PVE,
+  équipements réseau, Cortex…), défaut « alpha » pour les inventaires, « récent » pour les journaux ; catégories de la
+  tuile Proxmox (nœuds / VM / CT) et des sondes netprobe sur le même modèle.
+
+## Sauvegarde de la VM du PBS sur disque externe / poste de secours (2026-10-09) — item 118, FAIT pour le disque USB (#725 : copie ZFS différentielle ponctuelle, ancienneté suivie) ; disques internes de 2 To sur pve10/pve11 prévus le 12 oct. (second datastore ou réplication croisée à voir)
+
+Demandé : « un mécanisme de backup de la VM du PBS sur disque externe / montage d'un poste identifié comme secours
+backup ». Proposition en deux étages, à valider :
+1. **Le système du PBS** (petit) : vzdump de la VM du PBS par son hyperviseur, disque de données exclu (`backup=0` sur le
+   disque du pool `backup`), vers un stockage « secours » de l'hyperviseur = disque USB monté ou partage du poste de
+   secours (NFS ou SMB) ; rétention courte (3-5).
+2. **Les données du PBS** (gros) : second datastore sur le support de secours (datastore amovible PBS pour un disque USB,
+   ou datastore sur le montage du poste) alimenté par une synchronisation locale planifiée ; vérification et purge
+   propres ; le disque peut être débranché et emporté.
+Suivi par le hub : sonde pbs (datastore de secours, dernière synchro), sonde proxmox de l'hyperviseur (dernier vzdump de
+la VM), alerte si le support est absent ou trop ancien. À préciser : USB ou poste du LAN (OS du poste, partage NFS ou
+SMB), hyperviseur qui porte la VM du PBS, fréquence de rotation des disques.
+
+## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier) ; tranches 1-4 FAITES (#722 export config, #731 registre + clonage des services, #732 agent de nœud, #733 tuile), reste : configuration GED : docs/deploiement-instances.md
+
+Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
+déployer une nouvelle instance d'une application du hub (GED, portail tickets…) pour un site ou un client en clonant
+la configuration d'une instance existante (variables, types/statuts/catégories, droits, habillage), sans les données.
+Briques existantes : tour de contrôle (#586, livraisons et runner), socle de nœud `deploy/socle.py` (#661), répartition
+par nœud (#509-#517), app_settings (prefs-api). À préciser : instance sur le même hub ou sur un autre nœud ; ce qui
+est cloné (configuration seule ou aussi référentiels) ; nommage et URL de la nouvelle instance.
+
+## Assistant IA « Questions sur le hub » (2026-10-09) — FAIT (#715)
+
+Demandé : « une micro IA qui réponde aux questions sur le hub et ses API, du genre où trouver le dernier reboot du pc
+sous Windows xxx, l'ip xx.yy est-elle visible quelque part dans le hub… ». Livré dans assistant-api, sans modèle
+(voir `assistant/README.md`). Suites possibles : autres intentions (« quel ticket concerne… », « qui a accès à… »),
+bouton « ? » dans l'en-tête du hub ouvrant l'onglet, sources validées sur les vraies API.
+
+## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116 ; tranches 1-2 FAITES (#721), 3 FAITE (#727 : référence et différences de captures), 4 FAITE (#728 : maquettes en étapes), 5 FAITE (#729 : maquette validée = cible des campagnes) ; suite : fronts applicatifs (tickets), modèle local pour proposer des refontes libres
+
+Demandé : une IA capable de refondre un design visuel du hub avec des étapes de présentation de maquette, intégrée au
+module QA avec des outils d'automatisation de parcours dans le hub et les applications (tickets…), pour assister le
+design en évolution, rejouer un bug ou vérifier la conformité visuelle et ergonomique. Cadrage et découpage en 5
+tranches : `docs/qa-design-assistant.md` (trois choix à trancher avant de coder).
+
+## Messagerie : supervision du serveur de courrier (Postfix + Amavis + Modoboa) (2026-10-07) — points 1 à 7 FAITS (#692, #697, #704, #708) ; reste : migration Debian 12 / Modoboa
+
+Incident réel (serveur de messagerie `mx-alpha`, Debian 9, Modoboa 1.14) : messages légitimes supprimés en silence
+pendant deux mois (politique Amavis du domaine principal à `spam_kill_level = 3`, `D_DISCARD`, quarantaine purgée
+avant que quiconque s'en aperçoive ; expéditeur Gmail sans DKIM aligné), puis courrier entrant refusé 14 h
+(`451 4.3.0 queue file write error`) : clamd arrêté, Amavis exige l'antivirus. Corrigé à la main (seuils 5 / 10,
+filtre antivirus contourné). À superviser par l'agent (sonde `mail-server`) :
+1. **disponibilité du flux** : compteur de `451 … queue file write error`, `proxy-reject`, file Postfix (taille,
+   ancienneté) -- alerte dès le premier refus temporaire ; état de postfix, amavis, clamd, dovecot, MySQL ;
+2. **antispam** : verdicts Amavis par jour (Passed / Blocked par catégorie), **faux positifs probables** (Blocked SPAM
+   sous un seuil, expéditeurs récurrents, domaines connus), seuils effectifs par domaine (table `policy`, alias
+   compris), mode `D_DISCARD` sans prévenir, durée de la quarantaine et de la rotation des journaux ;
+3. **postscreen** : `postscreen_dnsbl_action` (ignore = listes noires sans effet), rangs DNSBL ;
+4. **antivirus** : âge des signatures, échecs de `freshclam` (blocage du réseau de diffusion pour version en fin de vie) ;
+5. **authentification des expéditeurs** fréquents : SPF / DKIM aligné / DMARC (rapport « à signaler à l'expéditeur ») ;
+6. **fin de support** : OS, Postfix, ClamAV, Modoboa (→ inventaire `vuln`, suggestion endoflife.date) ;
+7. tuile ou section « Messagerie » : verdicts, faux positifs à libérer (lien vers la quarantaine Modoboa), alertes.
+Suite : migration du serveur vers Debian 12 + Modoboa à jour (antivirus fonctionnel), conserver journaux 6 mois.
+
+## Hub : colonnes des tableaux redimensionnables et masquables, mémorisées (2026-10-06) — FAIT pour les agents (#698) et tous les tableaux à en-tête (#707, AutoColumns)
+
+Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne modifiable à la souris, colonnes
+masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
+par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
+
+## Tuile « Maintenance / réorganisation des Proxmox » (2026-10-07) — FAITE (#705), signalements FAITS (#706) , sauvegardes tirées vers le LAN FAITES (#714 : PVE 5.4 sans PBS) ; reste : PBS sur le serveur du LAN quand les PVE seront à jour, détecteur « copie à jour » pour la passe 2
+
+Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement DÉTECTÉ (pas seulement coché) ;
+planification des tâches ; gestion des PBS. Contexte réel : PVE saturés chez l'hébergeur, CT arrêtés à sauvegarder
+puis supprimer, CT actifs à copier en deux passes, PBS du LAN à mettre en service (tunnel, datastore, jetons).
+Piste : s'appuyer sur pve-ops (#653, plans / exécutions / rôles PRA) et sur l'agent des PVE (commande vm_action,
+plugin proxmox) ; détection par mesures (espace libre, présence d'une sauvegarde, CT absent, version de l'agent).
+
+## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — tranche 1 FAITE (#697), onglet Quarantaine FAIT (#704 : récupérable / dépassée / historique complet, statistiques par expéditeur / domaine / destinataire / type / jour / origine, redistribution groupée, règles wblist d'Amavis, exports CSV) ; réponse rapide FAITE (#709, session interactive), historique indexé + plein texte FAIT (#710 ; boîtes : index Dovecot à activer sur le serveur) , export CSV et groupe « messagerie » FAITS (#713)
+
+Demandé : vue des différents traitements des messages ; outil pour retrouver un message **dans toutes les boîtes**,
+**dans l'historique de traitement** (journal) et **dans la quarantaine** (avec libération) ; filtres émetteur,
+destinataire (utilisateur / domaine), sujet avec jokers, plein texte, contenu ; visualiseur **source** et **HTML** ;
+journaux présentés en arbre façon JSON (ligne de journal en feuille, branches par catégorie). Piste : commandes d'agent
+`mailctl` sur l'hôte (doveadm search/fetch, quarantaine SQL Amavis + `amavisd-release`, journal regroupé par n° de file /
+mail_id), visualiseur HTML sans script ni image distante, accès réservé et journalisé (secret des correspondances).
+
+## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688), fiabilisée (#693), tranche 2 « agents » FAITE (#699 Linux, #711 Windows / macOS / images Docker)
+
+Demandé : « tout superviser progressivement » selon ces quatre orientations. Tranche 1 (#688) : `vuln-api` (SBOM
+CycloneDX → osv-scanner → priorité EPSS + KEV × exposition, re-priorisation quotidienne, dépôt Dependency-Track en
+option, tuile « Vulnérabilités », analyse du dépôt lui-même). Suite :
+2. **agents** : commande `sbom` + relevé hebdomadaire (syft embarqué : Linux, Windows, macOS ; images Docker des hôtes
+   Docker ; CT/VM Proxmox par leur agent) → `POST /sbom` signé ; exposition déduite de service-watch / audit extérieur.
+3. **Dependency-Track** sur un autre nœud (profil `vuln-dt`), VEX « non concerné » depuis le hub, politiques et licences
+   (→ gestionnaire de licences, item 95).
+4. **actions** : P1 → ticket (tickets-api) + notification (notify-api) ; échéance KEV ; suivi « corrigée / acceptée ».
+5. **criticité** des actifs par les rôles Cortex (un serveur d'authentification pèse plus qu'un poste).
+Suggestions en plus : **fin de vie** (endoflife.date : OS et produits hors support -- Debian 9, ownCloud 9.1, Zenoss
+2.5.2 relevés au parc) ; **avis CERT-FR** rapprochés de l'inventaire ; **micrologiciels réseau** (versions Cisco /
+MikroTik / Zyxel relevées → CPE → NVD) ; **Trivy** (secrets et mauvaises configurations des images) ;
+**Lynis / OpenSCAP** (durcissement des hôtes, référentiels CIS) ; décision **SSVC** pour trancher P1/P2.
+
+## Point d'observation extérieur (VM/CT chez l'hébergeur) : tests et audit des applications en ligne (2026-10-06) — audit non intrusif FAIT (#687) ; reste (2) et outils lourds
+
+Demandé : un relais sur un nœud de l'hébergeur pour accéder de l'extérieur aux applications en ligne, les tester et
+les auditer (cyber). Décomposition : (1) **point de vue Internet** -- un CT/VM dédié (jamais l'hyperviseur lui-même)
+avec agent + shim si-proxy (déjà possible : `si-proxy/install-host.sh --name <ext>`), sortant seulement ; (2) **exécution
+déportée** des scénarios service-watch (#531, item 80 « exécution hors du SI ») et QA (#651) sur ce point d'observation,
+résultats remontés au hub ; (3) **audit** : outils (nmap, testssl.sh, nuclei, OWASP ZAP) lancés depuis le CT, périmètre
+limité à nos propres domaines/IP (liste blanche côté hub), débit bridé, rapports archivés (GED) et comparés d'une
+campagne à l'autre. À vérifier : conditions de l'hébergeur sur les scans sortants.
+
+## Nebula : architecture active déduite (matrice SSID x VLAN prévue / observée / prouvée) (2026-10-05) — matrice FAITE (#686) ; USG FLEX : NAT et zones invité FAITS (#712) — security policies NON exposées par l'OpenAPI (doc officielle vérifiée), isolation prouvée par le test actif
+
+Demandé : « on a des stats de tout, les listes de tout : on doit pouvoir en déduire l'architecture active ». Trois niveaux :
+(1) **prévue** : SSID→VLAN, VLAN sur ports et liaisons LLDP (carte des VLAN #548, déjà là), interfaces de la passerelle,
++ security policies / isolation / zone invité du USG FLEX -- d'abord vérifier si l'OpenAPI les expose ;
+(2) **observée** : clients par SSID avec VLAN et IP (DHCP + étiquetage prouvés sans rien injecter), SSID sans client ;
+(3) **prouvée** : test actif par l'agent du campus (`nebula/tools/ssid-vlan-check.sh`, futur sonde) seulement sur ce qui
+n'est pas déductible ou contredit la déduction. Tuile Nebula : matrice avec écarts expliqués (règle en cause) ; base
+de raisonnement pour l'agent conversationnel.
+
+## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — FAIT (#684)
+
+Posé à la main sur `poste-ecran-alpha` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
+tâche SYSTEM à minuit (instantané des applications de la session console, événement `host-reboot`, `shutdown /r /t 60`),
+tâche à l'ouverture de session (relance des applications dans la session de l'utilisateur), tâche SYSTEM au démarrage
+(événement `host-boot` avec le résultat de la relance). À intégrer à l'agent (commande `power_action` planifiable depuis
+le hub). Défaut repéré (CORRIGÉ #683, session console) : le chien de garde #613 (`_spawn_detached`) lance en SYSTEM, donc en session 0 -- une
+application graphique relancée par lui est invisible ; il faut lancer dans la session console (tâche /IT ou
+CreateProcessAsUser).
+
+## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — FAIT (#682)
+
+Vu au campus (agent `poste-ecran-alpha`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
+`ROOT`/`CA` de Windows, pas les racines téléchargées à la demande (AuthRoot) ; le certificat Let's Encrypt du frontal
+est en chaîne ECDSA (YE1 → Root YE → ISRG Root X2) → `CERTIFICATE_VERIFY_FAILED`. Contourné à la main : chaîne
+reconstruite par Windows (X509Chain) écrite dans `C:\ProgramData\si-agent\central-ca.pem` + `ca_file` dans agent.json.
+À faire : `install.ps1 -SystemCa` le fait lui-même (et l'agent le régénère si la vérification échoue).
+
+## Groupware « façon eGroupware » — EN PAUSE jusqu'au 9 oct. 2026 (demande du 4 oct., économie de tokens) en Python, ProjeQtOr mis de côté (2026-10-03) — item 115
+
+**Tranche 1 faite en #664** (noyau : partages, catégories, liens, préférences ; Radicale CalDAV/CardDAV sous /dav/, tuile Groupware), **tranche 2 en #665** (carnet d'adresses dans le hub sur CardDAV, compte de service, vérifié contre un Radicale réel), **tranche 3 en #666** (agenda dans le hub : vues, récurrences, disponibilités, ressources réservables ; compte de service depuis le coffre), **tranche 4 en #668** (InfoLog : notes / appels / tâches liées aux contacts, tickets ou toute application, liste et Kanban dans la tuile), **invitations et rappels en #669** (participants avec copie dans leur agenda et réponses accepté / décliné / peut-être propagées, VALARM), **bandeau de rappels en #670** (toutes les pages du hub, notification navigateur). Reste : Kanban ENT comme vue d'InfoLog, test réel des clients DAV et de l'auth LDAP. Décisions : pour les deux (interne et clients), CalDAV/CardDAV dès le départ.
+
+Demandé 3 oct. 2026 : ProjeQtOr (#476-#484, pont demandes) n'est plus voulu pour l'instant — services
+`projeqtor-app` / `projeqtor-db` / `projeqtor-bridge` arrêtés sur super, code conservé. Préférence nette pour
+**eGroupware** (mis en place en 2004 dans un cabinet de soins : « c'était parfait ») : s'en inspirer et le
+reproduire en Python dans le hub. À cadrer avec la personne : périmètre de départ (agenda partagé, contacts,
+gestionnaire de tâches/projets, suivi de temps, notes, ressources ?) ; ce que le hub a déjà (ENT : agenda iCal et
+Kanban #4xx, tickets, tâches, comptes Keycloak/LDAP, GED) ; modèle de droits par application et par groupe
+(point fort d'eGroupware) ; interopérabilité CalDAV/CardDAV ; ergonomie « tout sur une page » (espace de
+travail #541-#545). Pas de code écrit. **Note de cadrage : `docs/groupware-egroupware-python.md`** (eGroupware 2004 vs briques du hub, options A/B/C, recommandation B par tranches, questions à trancher).
+
+## Contrôle de tous les PVE, serveurs/services, tour de contrôle (2026-10-03) — items 111-114
+
+Demandé 3 oct. 2026 : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ;
+réplication / pra (plan de…) ; idem tous serveurs/services : avec gestion/commande de migration vers virtualisation,
+bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flux → traffics ».
+
+- (111, **FAIT #653/#654**) **PVE** : opérations migrate / backup / move_disk / clone / replicate par
+  l'agent de chaque hyperviseur, plans (PRA, maintenance, bascule, migration) simulés puis exécutés pas à pas par le
+  central ; #654 : réplication et dernière sauvegarde par VM, plans déclenchés par la perte d'un nœud (proposés, ou
+  lancés sur choix explicite). Reste : test sur pve10/pve11.
+- (112, **FAIT #658** : les deux méthodes, transitions, retour en arrière) **Serveurs/services → virtualisation** :
+  plan de migration généré (`POST /pra/migrations/plan`) — image brute à chaud (Disk2vhd / `dd | zstd`, import par l'agent
+  du nœud) ou reconstruction par rôle (conteneur + datasync) ; étapes `checkpoint` (Reprendre / Abandonner), `rollback_steps`.
+  Reste : test sur Proxmox réel, image Linux par instantané LVM (cohérence) au lieu de `dd` à chaud, `partclone`
+  (image des seuls blocs utilisés), choix du stockage de transit quand le central n'a pas la place.
+- (113, **FAIT #654/#656** : manuel, NAT MikroTik, DNS avec intranet en fallback, keepalived) **Bascule de rôle (« celui qui répond »)** — mécanisme : enregistrement DNS (zone interne BIND /
+  OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
+  nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;
+  la bascule devient une étape de plan (#653).
+- (114, **FAIT #655/#656/#660** : onglet Réseau, DNS éditable OVH/Scaleway + intranet en fallback, routes Cisco) **Tour de contrôle DNS / routage / flux** : reste Nebula côté relais campus — DNS : quelles zones et quel serveur (BIND interne,
+  OVH, Nebula ?) pour éditer et pas seulement importer (service-watch importe déjà) ; routage : MikroTik (#485/#587)
+  et Cisco (#508) — tables de routes et NAT en lecture, modifications journalisées ; flux → trafic : network-agent
+  (#236+), conntrack (#640), bande passante (#641) — vue consolidée « d'où vers où, combien », par service/rôle.
+
+## Réseau : observabilité DNS, accès aux ressources (ntopng natif), bande passante horaire — items 105-107
+
+Demandé 26/09/2026, validé « enchaîne » : (105, **FAIT #639**) **observabilité DNS** —
+extension de path-probe : apprendre les résolutions toutes sources, comparer
+la répartition par source (VLAN/route) et par destination, tester
+résolution+accès par sonde Ethernet et Wi-Fi (et par route) ; constats « DNS
+divergent selon segment », « NXDOMAIN sur telle route ». (106, **FAIT #640**) **accès aux
+ressources façon ntopng, en NATIF** (pas de conteneur ntopng chez le client) :
+flux conntrack du mini-PC + logs DNS/pare-feu → sous-tuile réseau. (107, **FAIT #641**)
+**bande passante par tranche horaire** via API (compteurs Proxmox/Nebula/
+switch) avec estimation automatique de la fenêtre unitaire (durée d'activité
+minimale). Ordre retenu : 105 (fait) → 106 (fait) → 107 (fait, source Proxmox ; MikroTik/switch = sources à ajouter, et graphe hub des tranches). **Panneau hub « Observabilité réseau » FAIT #643** (onglet de la tuile Agents hôtes / SiAgentView, aussi servi par le front autonome d'un site : divergences DNS 105 avec détail par poste, et accès ressources 106 avec constats + ressources agrégées entre postes). Reste : lecture des logs pare-feu/DNS Zyxel en source complémentaire de conntrack ; déploiement sur l'agent du campus avec la liste de noms des ressources ; sources bande passante MikroTik/switch (107 ; graphe hub des tranches **FAIT #644** — tuile Proxmox, nœud + par VM). Contexte incident campus : accès à
+une ressource vidéo en ligne OK depuis les postes assistants, KO depuis un
+poste contrôleur d'écrans — piste DNS/VLAN différent selon segment (à
+confirmer avec le mini-PC depuis chaque VLAN).
+
+## Haute disponibilité et répartition du hub, agent miroir portail (2026-09-27) — items 108-110
+
+**Cadrage : `docs/architecture-clonage-distribution-hub.md`** (ADR, trois étapes : socle commun → paquets cohérents → miroir complet ; pivot = entrée unique par chemin + front adressant la passerelle → distribution = conf passerelle, pas de rebuild front). Étape 1 (socle commun) faite en #661 (`deploy/socle.py`, `deploy/README-socle.md`) ; étape 2 : IHM Répartition de la tour + filtre de placement des plans (#662) ; étape 3 : miroir froid par sauvegardes poussées + bascule/retour (#663), test de reprise réel à faire. À rattacher à l'item 97 (site miroir) et à la pile
+autonome `si-agent/standalone` (#517), qui posent déjà les briques (API sur
+mêmes données, aiguillage nginx sur super, front statique).
+
+- (108) **Réplication du hub sur un autre hôte** : mécanisme + IHM pour
+  dupliquer le hub (données et services) vers un second hôte — bascule /
+  reprise. Étudier la portée : réplication du dossier de données des agents
+  (déjà partageable), realm Keycloak, bases des API. Lien avec la pile
+  autonome (mêmes données) et l'aiguillage (#517).
+- (109) **Répartition des tuiles / API / charges** : mécanisme + IHM pour
+  répartir les backends (tuiles et leurs API) sur plusieurs hôtes selon la
+  charge — le hub allégé met déjà à genoux le Proxmox et la VM super (cf.
+  #517). Placement par tuile, suivi de charge, déplacement à chaud.
+- (110) **Agent miroir portail/hub déployable sous Linux ou Windows** : un
+  agent qui expose un miroir du portail/hub, installable des deux côtés
+  (comme l'agent si-agent l'est déjà) — portail de secours / lecture locale
+  sur un site sans route vers le super (cf. Proxmox campus sans route vers
+  le hub).
+
 # Backlog — demandes notées, pas encore commencées
 
 Chantiers explicitement mis de côté pour plus tard (contrairement aux
@@ -2477,6 +2721,26 @@ qui fait alors sauter la file.
     tuile) -- reste : appels réels aux référentiels et import OSM à
     confirmer en déploiement ; autres objets à positionner (tickets,
     documents) au-delà des géolocalisations.
+68. ProjeQtOr — refonte d'ergonomie du fork (2026-09-11, demandé avec
+    #476). « Réutiliser et contribuer avec une ergonomie revue à ma
+    façon ». Le socle est livré en #476 (sources V13.1.0 vendorées
+    TELLES QUELLES dans projeqtor/src, tuile hub visible de tous,
+    MariaDB dédié, LDAP du hub, page publique via le frontal).
+    Reste à faire, par itérations à cadrer ensemble : recueillir les
+    irritants d'ergonomie un par un ; commencer par les thèmes
+    (mécanisme natif de ProjeQtOr) avant de toucher aux vues Dojo ;
+    chaque modification doit rester visible via `diff -r` contre
+    l'archive upstream (politique de fork, projeqtor/README.md) pour
+    garder merges upstream et contributions possibles. Sujets connexes
+    déjà identifiés : profil ProjeQtOr par défaut à la première
+    connexion LDAP ; usage éventuel du groupe Keycloak `projeqtor` pour
+    filtrer ; veille PHP 8.4 (extension imap).
+    PREMIÈRE ITÉRATION LIVRÉE en #477 : thème « hub » par défaut
+    (couleurs supervision-si via les 2 paramètres du nouveau GUI, 3
+    fichiers touchés -- voir projeqtor/README.md, journal du fork).
+    Reste : retour visuel réel de la personne (contraste, lisibilité),
+    puis irritants d'ergonomie au-delà des couleurs (navigation,
+    densité, écrans) à recueillir.
 
 ## Bastion si-proxy (2026-09-08, #452) -- réservé freg
 Depuis le Mac, via le hub : shell sur le host de la VM (sous freg),
@@ -2543,9 +2807,27 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
   lieux / prénoms / IP / chemins → valeurs fictives), fichiers générés ou
   locaux retirés et ignorés (`keycloak/.last-imported-realm.json`,
   `.DS_Store`, `pki/scripts/.srl`, journaux).
-- **À faire — historique git** : les 76 commits antérieurs conservent les
+- Fait (#467 bis) : historique réécrit (`git filter-repo`, 77 commits
+  conservés, valeurs remplacées, chemins retirés) — `dev`/`main` locales
+  et distantes sur l'historique réécrit.
+- **Rechute #484/#489, corrigée en #494** : le nom du service de
+  support était revenu dans `projeqtor-bridge` (nom de fichier,
+  marqueur codé en dur écrit dans ProjeQtOr), `imap-connectors`, la
+  tuile du hub, `.env.example`, `docker-compose.yml`, `CHANGELOG.md` et
+  DEUX messages de commit déjà poussés. Arbre corrigé (marqueur devenu
+  `PROJEQTOR_BRIDGE_LABEL`, défaut `SUIVI`), messages de commit
+  réécrits (`git filter-branch --msg-filter` sur `3464bd3..dev`) → les
+  anciens objets restent joignables par hash sur GitHub : **décision
+  (2026-09-13) : recréer le dépôt** — supprimer le dépôt GitHub, le
+  recréer vide (même nom), puis depuis le Mac `git push --force
+  origin dev main` (jamais `--tags`), rebrancher la branche par défaut
+  sur `main`, re-cloner toute copie existante ; Framagit (prévu) part
+  directement de l'historique propre. **Réflexe avant chaque commit** : `git grep -i -E
+  '<motifs réels>'` sur l'index ET sur le message (`git log -1
+  --format=%B`) — les motifs sont dans le script hors dépôt.
+- Historique : les 76 commits antérieurs conservaient les
   valeurs d'origine (CHANGELOG, README, tests, fichier de realm). Deux
-  voies : (a) réécriture `git filter-repo --replace-text` + suppression
+  voies (a retenue) : (a) réécriture `git filter-repo --replace-text` + suppression
   des chemins retirés, puis push forcé de `dev` et `main` (toute copie
   clonée doit être re-clonée ; GitHub garde des objets en cache jusqu'à
   son nettoyage — demander la purge au support ou recréer le dépôt) ;
@@ -2588,11 +2870,1333 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
      magasin système -> impact NUL sur ce chemin. Mais LE ne peut PAS
      remplacer la CA interne pour le LAN (pas de certificat public pour
      une IP privée / un nom interne). Les deux coexistent.
-   - VOIE RECOMMANDÉE : (a) dès maintenant, SANS RISQUE -- corriger
-     `generate-ca.sh` (ajouter `basicConstraints=critical,CA:TRUE` et
-     `keyUsage=critical,keyCertSign,cRLSign`, série neuf) : le script
-     ne régénère JAMAIS une CA existante, donc aucun impact sur le hub
-     en production, seuls les futurs déploiements en bénéficient ;
-     (b) plus tard, bascule en production : régénérer sur le hub puis
-     redéployer `ca.crt` dans l'ordre agents -> postes/navigateurs ->
-     dockers à trust store copié, avec fenêtre de maintenance.
+   - VOIE RECOMMANDÉE : (a) **FAIT en #495** -- `generate-ca.sh` émet
+     `basicConstraints=critical,CA:TRUE`, `keyUsage=critical,keyCertSign,
+     cRLSign`, `subjectKeyIdentifier`, série aléatoire ; `--check`
+     diagnostique une CA existante sans rien écrire (code 3 = à
+     renouveler) et le même avertissement s'affiche à chaque `run.sh` ;
+     aucune CA existante n'est touchée (voir `pki/README.md`) ;
+     (b) **procédure livrée en #496, exécution à planifier par la
+     personne** : `pki/scripts/rotate-ca.sh status | prepare | switch
+     --yes | finish` — CA neuve préparée à côté + BUNDLE ancienne+neuve
+     distribué aux agents / postes / dockers AVANT la bascule (sans
+     coupure : les consommateurs acceptent un PEM à plusieurs CA), puis
+     bascule (ancienne CA archivée `ca-old-<date>/`, cert serveur
+     réémis, pile à redémarrer, `si-proxy/setup-certs.sh` à relancer),
+     puis fin de transition (bundle réduit à la CA neuve, ancienne CA à
+     retirer des magasins). Retour arrière documenté tant que `finish`
+     n'est pas lancé. Jamais lancé par `run.sh`.
+
+69. Frontal public Apache (#471-#473) — option mTLS `CLIENT_CERT_CA`
+    (2026-09-13, décision « plus tard ») : le frontal expose toutes les
+    API du hub, pas toutes authentifiées par Keycloak. Proposition :
+    `SSLVerifyClient require` avec la CA du projet (certificat client
+    émis par `si-proxy/setup-certs.sh --clients` ou un
+    `generate-client-cert.sh` à écrire), exceptions `/api/si-agent/`,
+    `/api/netprobe/` (agents en `--central-fallback`, authentifiés par
+    signature HMAC) et `/.well-known/acme-challenge/`. En attendant :
+    ne publier le frontal que le temps nécessaire, ou restreindre par
+    IP source dans le vhost.
+
+70. Coffre des accès d'équipements (#498) — suites (2026-09-13) :
+    - authentifier les routes de GESTION (`/credentials/list*`) par le
+      jeton Keycloak (pont vérifiant le groupe, même patron que
+      `si-proxy-admin-api` #454) : aujourd'hui posture LAN comme
+      ups-monitor, seule la tuile est filtrée par rôle côté hub ;
+    - rapatrier dans le coffre les mots de passe encore stockés
+      module par module (ups-monitor `password`/`snmp_community`,
+      snmp, ssh-tunnels) — même clé `credential` par équipement, une
+      seule phrase de passe à garder dans le PRA au lieu de trois ;
+    - consommateurs futurs : agent hôte (commandes distantes), Proxmox
+      (#487), Nebula, si-proxy (jetons clients) ;
+    - export chiffré du coffre dans la sauvegarde totale (déjà couvert
+      par le volume `CREDENTIALS_DATA_DIR`, à vérifier au prochain
+      `backup-full.sh`).
+71. Import de tableaux SAV (#497) — fichier réel reçu et vérifié en
+    #499 (conforme, 1 demande). Reste : vérifier sur super le compte
+    ProjeQtOr du pont (`PROJEQTOR_API_USER/PASSWORD`) si la cible
+    ProjeQtOr échoue ; synonymes d'en-têtes à enrichir au besoin
+    (`HEADER_SYNONYMS`, `suivi_format.py`).
+
+72. Agent Proxmox (#503/#504) — suites : commande des VM depuis la
+    tuile (démarrer/arrêter/snapshot) sous confirmation explicite ;
+    corrélation des journaux internes avec Cortex (sshd refusés →
+    événement) ; Proxmox Backup Server (`pvesh /nodes/<n>/storage/<pbs>/
+    content` déjà lu comme stockage backup, vérification `verify`) ;
+    formats réels de `pveproxy/access.log` et `tasks` à confirmer sur le
+    premier hyperviseur ; option pour désactiver la lecture des journaux
+    invités par VM (`--no-guest-logs`) si un invité y est sensible.
+    Santé de l'hyperviseur : livrée #519 (IO par disque/zvol/VM, swap,
+    ARC, pools, options des VM, alertes, recommandations). Restent :
+    historique des IO (courbes), corrélation « seuil dépassé → événement
+    Cortex », journaux Docker côté invité (agent Linux), IO par
+    processus kvm (/proc/<pid>/io) en complément des zvols. Objectifs
+    d'origine (16 sept.) :
+    - IO disque de l'hôte : `zpool iostat -v` (par vdev), `iostat -x`
+      (%util, await, r/s, w/s), remplissage des pools (`zpool list`,
+      alerte > 80 %), état (`zpool status` dégradé / scrub en cours),
+      `atime`, `sync`, `recordsize` des datasets utilisés par les VM ;
+    - mémoire de l'hôte : ARC ZFS (taille courante vs `zfs_arc_max`,
+      taux de hit), swap utilisé (alerte dès le premier Mo), mémoire
+      libre réelle une fois toutes les VM démarrées ;
+    - par VM : ballooning actif (`balloon`), mémoire réellement allouée
+      vs demandée, options du disque (`cache`, `discard`, `iothread`,
+      contrôleur), IO par VM (`/proc/<pid>/io` du processus kvm ou
+      `pvesh get /nodes/<n>/qemu/<id>/rrddata`) -- pour désigner la VM
+      qui sature l'hôte ;
+    - corrélation : quand `%util` ou `await` dépasse un seuil, lister
+      les VM les plus écrivantes à cet instant (événement Cortex) ;
+    - côté invité Docker (agent Linux, déjà en place) : taille des
+      journaux `json-file` par conteneur, absence de rotation dans
+      `daemon.json`, volume de `/var/lib/docker`, dernières
+      reconstructions d'images -- ce qui a saturé super ;
+    - recommandations affichées (jamais appliquées seules) : plafond
+      ARC selon la RAM, `atime=off`, `balloon: 0` pour les VM
+      critiques, `cache=none`/`discard=on`/`iothread=1`, rotation des
+      journaux Docker.
+
+
+## Accueil : pages ouvertes sans connexion (2026-09-14, #505)
+
+Livré : section « Pages ouvertes — sans connexion » en liste à plat
+(publicLinks.js). Suites possibles, non demandées : laisser un
+administrateur ajouter ses propres pages ouvertes (les « liens
+externes » gérés dans le hub restent des tuiles, avec rôles) ; QR code
+à côté de l'adresse pour l'affichage.
+
+## Coffre-fort — affichage tableur (2026-09-14, #507)
+
+Livré en défaut. À ajuster après la première vue réelle (largeurs de
+colonnes, colonnes supplémentaires -- dernier accès, fréquence -- si
+utile, même look pour l'écran d'un code ouvert).
+
+## Équipements réseau — suites (2026-09-14, #506) — item 73
+
+Livré : service network-equipment-api (identification OUI/SNMP/Zenoss/
+manuel, génération, voisins LLDP/CDP, tables MAC, profils de supervision),
+script zendmd, vue hub. Suites, non demandées :
+
+- relevé périodique des profils (automate, historique, seuils → alertes
+  via le journal d'événements existant), au lieu du relevé à la demande ;
+- passer `verified` des profils à True après les premiers relevés réels
+  (Cisco IOS ancien, ProCurve, MikroTik) et ajouter les MIB propriétaires
+  manquantes (3Com, Nortel, Netgear, Zyxel, Alcatel) au premier besoin ;
+- carte de topologie graphique (réutiliser le rendu SVG du cycle réseau)
+  et LLDP-MED (téléphones, bornes) ;
+- rapprochement avec l'inventaire GLPI et les positions (geo-catalog) ;
+- SNMPv3 (dépend de snmp-api, toujours v1/v2c seulement).
+
+## Équipements Cisco — suites (2026-09-15, #508) — item 74
+
+Livré : module cisco (supervision, configurations, urgence). Suites :
+relevé périodique + historique + alertes vers le journal d'événements ;
+`configure replace` strict via SCP ; sauvegarde des configurations vers
+la GED/PBS ; rapprochement avec la facette Équipements réseau (#506) ;
+ajustements après la première session réelle (invite, colonnes,
+algorithmes SSH des IOS 12.x).
+
+## Déploiement réparti — suites (2026-09-15, #509 → #513) — item 75
+
+Livré #513 : Swarm retiré ; compose par nœud avec override généré
+(publication VPN + relais socat à alias DNS), agent de nœud
+(`deploy/node_agent.py`, systemd, API sur le VPN), gestionnaire
+`deploy/repartition.py` (status / plan / apply / migrate avec copie des
+données bind + volumes nommés), installeur profil `node`. Suites :
+premiers tests réels (super seul en `node`, puis une VM LAN),
+tuile hub « Répartition » (lecture des `/status`, bouton migrer,
+charge des nœuds), sauvegarde totale par nœud, exposition publique via
+le nœud OVH (bordure), relais en `expose` réels plutôt que socat si un
+service parle UDP, port interne à déclarer pour les services joints par
+`*_HOST` sans port.
+
+## Disposition du hub — suites (2026-09-16, #516) — item 76
+
+Livré : arbre de disposition (menus, tuiles, outils, options) en
+glisser-déposer, feuilles réutilisables, arbre personnel / du site.
+Suites : retour d'usage du glisser-déposer réel ; profils de disposition
+nommés (astreinte, réseau, direction) à choisir dans l'en-tête ;
+proposer la disposition du site aux personnes qui en ont une
+personnelle (« nouveautés ») ; mode « toutes les tuiles » (#133) à
+faire passer par le même arbre.
+
+## Agents hôtes autonomes — suites (2026-09-16, #517) — item 77
+
+Livré : pile autonome (si-agent-api + interface statique + auth basique)
+et aiguillage TLS sur super. Suites : premier déploiement réel (VM
+légère + edge), profil `agents` dans scripts/install.sh, plusieurs
+identifiants locaux / rôles lecture seule, TLS entre super et la VM si
+le lien n'est pas maîtrisé, extension du même schéma aux sondes réseau
+(netprobe-api) et aux onduleurs, et -- cause de fond de la charge -- le
+hub servi en STATIQUE (build Vite + nginx) au lieu du serveur de
+développement, comme le fait déjà ce front.
+
+## Agents — suites (2026-09-16, #520/#522) — item 78
+
+Livré : antivirus Windows/macOS (#520), auto-mise à jour contrôlée
+(#522). Suites : premier test bêta réel puis activation générale ;
+plusieurs versions servies (canal bêta sur une version différente de la
+générale) ; retour arrière (archive précédente conservée dans l'image) ;
+exploration de site par l'agent classique (famille de sondes
+« explorer » : balayage borné des sous-réseaux déclarés, SNMP avec
+communautés du coffre via le central, identification #506, résultats
+tagués par site dans network-agent-api, choix du site dans le hub) --
+demandé le 16 sept. pour le PC du campus ; sonde de type « conteneur »
+si un site exige le moteur complet sur place.
+Installation (#524) : détection d'autres rôles à l'installation (Docker
+-> `docker-containers`, poste à VLAN multiples -> `network-neighbors`) ;
+case à cocher « hyperviseur Proxmox » dans le bloc d'enrôlement du hub si
+la détection ne suffit pas.
+Exploration Wi-Fi (#525, sonde `wifi-probe`) : source « nebula » (API du
+contrôleur Zyxel : clients / canal / utilisation par borne) corrélée aux
+mesures client ; mode monitor à tour de rôle sur la puce interne (canal de
+la borne : retransmissions globales, clients bas débit, lien P2P Miracast)
+ou clé USB MT7612U/MT7921AU dédiée ; serveur iperf3 sur le LAN du site pour
+le flux type cast ; graphe temporel (créneaux de cours) et alertes Cortex ;
+sonde « bordure » (switch de bordure → firewall : latence/pertes WAN) sur
+le même poste.
+Demandé le 17 sept. (constat réel : une borne à 50 % d'utilisation du canal
+5 GHz sans aucun client) : superviser EN CONTINU l'utilisation des canaux
+par borne -- deux sources à croiser : (a) la sonde wifi-probe côté client
+(BSS Load des balises de TOUTES les bornes visibles, déjà collecté à chaque
+scan : stocker par BSSID et tracer dans le temps, alerte quand une borne
+dépasse un seuil sans client), (b) l'API Nebula (Monitor → borne : channel
+utilization par bande, clients, canal DCS) tirée par le central toutes les
+5 min avec jeton du coffre ; graphe par borne et par heure, corrélation
+avec les plaintes (créneaux de cours), alerte Cortex « canal saturé sans
+charge = interférence / co-canal ».
+Livré #529 : source (a) -- radios visibles + BSS Load à chaque scan, volet
+« Bornes vues du poste », constat `idle-busy-radio`. #530 : constats des
+sondes -> événements notifiés (probe-alert / probe-recovered), profil
+horaire. Reste : source (b) API Nebula -- MISE DE CÔTÉ (17 sept.) : le client
+doit d'abord être convaincu, ce qui suppose une interface et des outils
+présentables ; alerte Cortex dédiée (règle « canal saturé sans charge »).
+Livré #527 : sonde `path-probe` (bail, passerelle, chaque DNS distribué,
+DNS publics, HTTP/HTTPS, rotation des SSID). Suites : alertes Cortex sur
+`dns-server-down` / `captive-portal` / `no-ip` (un DNS distribué muet = le
+signal précoce de l'incident du 17 sept.) ; vue « par SSID » côté central
+(fusion des passages de tous les postes d'un site) ; cible HTTP interne
+(GED, tickets) en plus de la page publique ; mesurer aussi le renouvellement
+forcé du bail (`nmcli device reapply`) sans rotation ; test IPv6.
+
+## Infos synthèse SI — suites (2026-09-16, #523) — item 79
+
+Livré : générateur + page interactive. Suites : tirer les sources sans
+export (API OVH et Online avec jetons du coffre, `ipam-api` pour les
+sous-réseaux et équipements) ; différences entre deux générations (IP
+apparues / disparues, échéances changées) ; ouvrir la fiche d'un
+équipement depuis la synthèse (paramètre `ip` sur Équipements réseau) ;
+export Markdown/PDF de la synthèse pour les documents de bord.
+
+## Supervision des entrées/sorties de services — vue extérieure, jetons traversants (2026-09-17, spécification) — item 80
+
+Demandé le 17 sept. 2026 (dicté) : « superviser toutes nos entrées-sorties en
+termes de services, surtout les entrées visibles d'Internet, avec un jeton de
+test (login/mot de passe dédié) qui teste les services web ; partir du DNS
+pour piocher tout ce qui est déclaré ; gérer des vues d'écran avec un diff et
+une alerte si l'image change ; puis des jetons traversants (mail, GED) :
+injecter depuis l'extérieur avec un compte, vérifier à l'intérieur que c'est
+arrivé dans l'état attendu, et contrôler les journaux correspondants ».
+
+### 1. Inventaire des entrées depuis le DNS
+- Source : la synthèse SI (#523, zones OVH/Online, IP OVH, IPAM) déjà
+  générée -- chaque enregistrement A/AAAA/CNAME/MX/SRV public devient un
+  **point d'entrée candidat** ; liste maintenue automatiquement à chaque
+  génération (apparitions / disparitions signalées, cf. item 79).
+- Qualification automatique de chaque candidat : ports ouverts (80/443/25/
+  465/587/993/22 + ceux déclarés par SRV), certificat TLS (émetteur, SAN,
+  expiration -- reprise des sondes TLS de #488), redirections, titre de page,
+  serveur annoncé ; classement en `web`, `mail`, `ged`, `ssh`, `autre`,
+  `silencieux` (déclaré mais rien ne répond : trou DNS ou service éteint).
+- Vue hub « Entrées de services » : tableau par entrée (nom, IP, hébergeur,
+  service détecté, dernier état, dernier changement) + fusion avec la
+  synthèse et l'IPAM ; export pour les documents de bord.
+
+### 2. Tests fonctionnels avec compte de test
+- Un **compte de test dédié par service** (login/mot de passe ou jeton),
+  droits minimaux, stocké dans le coffre `credentials-api` (#498), jamais
+  dans les scénarios ni les traces ; rotation possible depuis le coffre.
+- Scénarios déclaratifs (JSON/YAML versionné dans `probes/`) : étapes
+  `GET`/`POST`/formulaire de connexion/attendu (code, texte présent, en-tête,
+  délai max, redirection vers…) ; exécution par un runner Playwright (déjà
+  disponible dans le dépôt pour la rétro-ingénierie web #441-448) ou requêtes
+  HTTP simples quand un navigateur est inutile.
+- Point d'exécution **hors du SI** (vue d'un utilisateur d'Internet) : le
+  nœud OVH de la répartition (#513) ou un agent hôte externe ; en parallèle
+  le même scénario depuis l'intérieur pour distinguer « service mort » de
+  « chemin d'accès cassé » (frontal, DNS public, certificat, WAF).
+- Résultat : disponibilité, temps de réponse par étape, écart de
+  comportement extérieur/intérieur ; historique et alertes Cortex.
+
+### 3. Vues d'écran et différence d'image
+- Capture d'écran de chaque page-clé (accueil, page de connexion, page
+  après connexion avec le compte de test) à chaque passage, stockée hors
+  dépôt (`probes/generated/`, chiffrée comme les sauvegardes si elle
+  contient du contenu métier).
+- Comparaison avec la capture de référence : masque des zones volatiles
+  (horloge, compteurs, bandeaux) déclaré dans le scénario ; mesure de
+  différence (pourcentage de pixels, hash perceptuel) et **seuil par page** ;
+  alerte « rendu modifié » avec les deux images côte à côte et le diff
+  surligné dans le hub ; validation d'une nouvelle référence en un clic
+  (déploiement légitime) -- journalisée.
+- Cas d'usage ciblés : défiguration, page d'erreur d'hébergeur, certificat
+  expiré (page d'avertissement), portail captif ou WAF qui s'interpose,
+  bascule involontaire vers un site par défaut.
+
+### 4. Jetons traversants (canaris)
+- **Mail** : envoi depuis l'extérieur (compte de test chez un fournisseur
+  tiers) d'un message porteur d'un jeton unique vers une boîte canari
+  interne ; vérification par IMAP (connecteurs #489-493) que le message est
+  arrivé, dans le délai, non altéré, avec les en-têtes attendus (SPF/DKIM/
+  DMARC pass, passage par l'antispam) ; sens inverse (interne → extérieur)
+  pour vérifier la sortie SMTP et la réputation ; lecture des journaux
+  Postfix/Dovecot correspondants (id de file, délais, rejets) pour expliquer
+  un écart.
+- **GED** : dépôt d'un document canari depuis l'extérieur avec le compte de
+  test (API ou formulaire), puis contrôle interne : présence, empreinte
+  identique, métadonnées et droits attendus, indexation, entrée dans le
+  journal d'audit de la GED (archive immuable #458-460) ; nettoyage
+  automatique des canaris datés.
+- Généralisation : un canari = {injection extérieure, observation
+  intérieure, journaux à corréler, délai max} ; autres candidats : dépôt de
+  demande SAV (#500), formulaire public, passerelle SMS (#489), webhook.
+- Chaque canari produit un chaînage « où ça s'est arrêté » (DNS → frontal →
+  service → stockage → journal) plutôt qu'un simple rouge/vert.
+
+### 5. Contraintes
+- Comptes de test à droits minimaux, cantonnés (dossier/boîte canari),
+  révocables ; aucun secret dans les scénarios, captures ou traces ; les
+  captures d'écran authentifiées ne quittent pas le central.
+- Fréquences modestes (5-15 min pour les tests HTTP, 1 h pour captures et
+  canaris) et identification claire du trafic de test (User-Agent, adresse
+  source, sujet des mails canaris) pour ne pas polluer les statistiques ni
+  déclencher les protections.
+- Ordre de réalisation proposé : 1 (inventaire DNS, gratuit avec #523) →
+  2 (scénarios HTTP + compte de test, sans navigateur) → 4 mail (canari le
+  plus simple et le plus parlant) → 3 (captures et diff) → 4 GED et autres.
+
+Livré #531 (`service-watch/`) : 1 (import de zone / liste de noms, registre,
+disparitions), 2 (scénarios HTTP + compte de test du coffre, exécution depuis
+le central seulement), 3 en version texte (empreinte du contenu visible,
+différence, validation de référence), 4 mail (canari SMTP externe → IMAP
+interne). Reste : point d'exécution hors du SI (nœud OVH / agent externe,
+comparaison intérieur/extérieur), captures d'écran + différence d'image
+(Playwright), canari GED (dépôt + audit immuable) et autres canaris (demande
+SAV, SMS, webhook), alimentation depuis la synthèse SI (#523), journaux
+Postfix/Dovecot corrélés, règles Cortex.
+
+## Assistant IA auto-hébergé (modèle ouvert) — étude de capacité (2026-09-17) — item 81
+
+**État au 2026-09-22 (#537)** : PoC en place (#532), doc infrastructure
+(#533), premier passage réel sur une VM 6 vCPU / 16 Go de l'hyperviseur
+avec `qwen3:8b` (8,97 mots/s) : classification 9,3/10, résumés 5/5,
+questions 0/5 par manque de sources → documentation du dépôt indexée et
+réflexion coupée par défaut (#534). Second passage : classification 10/10,
+résumés 4,75/5, questions 2/5 (journaux CHANGELOG/BACKLOG envahissant les
+extraits), 47 à 62 s par question (prompt sur CPU) → journaux pondérés,
+titre triple, 2 extraits max par document (#535) → pire (0,5/5). Rejeu de
+la recherche hors ligne : mots vides étendus, titres de section dans les
+morceaux, composés décomposés, plafond retiré (#536) : passage réel
+**questions 5/5**, classification 10/10, résumés 4,5/5, 38 à 68 s par
+question (#537). Poste 32 Go : `qwen3:30b-a3b` à 14,6 mots/s, deux fois le
+8b sur la même RAM. Prochain : 10 cas réels hors dépôt (tickets, GED),
+puis mesure sur GPU.
+
+Demandé le 17 sept. 2026 (dicté) : « quantifier les ressources et voir si on
+est en capacité de déployer une IA type GLM ou Kimi, en open source avec
+l'ensemble d'apprentissage fourni, pour un service d'assistance à toutes nos
+orientations : exploration, débogage, analyse de l'architecture des
+gestionnaires de tickets ou des GED, organisation automatique des GED --
+une IA capable de répondre, dans une moindre mesure, sans grosse puissance
+de calcul ». Étude à faire ; premiers repères (état des modèles à vérifier
+au moment du PoC, le paysage bouge vite).
+
+### Familles de modèles (poids ouverts)
+- **Poids ouverts, licence permissive, pas de données d'entraînement** :
+  GLM-4.x (Zhipu, MIT), Kimi K2 (Moonshot, MIT modifiée), Qwen3 (Alibaba,
+  Apache 2), DeepSeek V3/R1 (MIT), gpt-oss (OpenAI, Apache 2), Mistral /
+  Devstral (Apache 2), Llama (licence Meta). Ce sont les plus capables.
+- **Réellement open source (données d'entraînement publiées)** : OLMo
+  (Ai2), SmolLM3 (Hugging Face), Apertus (EPFL/ETH), Pythia. Nettement moins
+  capables que les précédents ; à réserver si l'exigence « corpus fourni »
+  est contractuelle. Le compromis réaliste : poids ouverts + licence
+  permissive, données non publiées.
+
+### Trois paliers de ressources
+1. **CPU seul, hôte Proxmox existant (32 Go)** : modèles MoE « petits
+   actifs » quantifiés 4 bits -- Qwen3-30B-A3B (~18 Go, ~3 Md de paramètres
+   actifs) ou GLM-4-9B / Qwen3-8B/14B denses (~6-10 Go). 5-15 jetons/s sur un
+   CPU récent : suffisant pour des tâches par lots (classement GED,
+   extraction de métadonnées, résumés de tickets, tri de journaux), trop
+   lent pour un dialogue confortable. Coût : 0 €, une VM de 24 Go de RAM.
+2. **Un GPU 24 Go (RTX 3090/4090 d'occasion ou neuf, 1 000-2 000 €)** :
+   Qwen3-30B-A3B ou gpt-oss-20b entièrement en VRAM à 50-100 jetons/s,
+   modèles « coder » 30B (Qwen3-Coder, Devstral) utilisables pour le
+   débogage ; GLM-4.5-Air (106B-A12B) en 4 bits déborde sur la RAM (2 GPU ou
+   CPU offload, plus lent). C'est le palier « assistant d'équipe ».
+3. **Modèles frontière ouverts (Kimi K2 1T-A32B, GLM-4.5 355B-A32B, DeepSeek
+   V3 671B)** : 4-8 GPU datacenter (H100/H200) ou 0,5-1 To de RAM CPU à
+   quelques jetons/s -- hors de portée « sans grosse puissance ». Le service
+   « comme Claude, dans une moindre mesure » se situe au palier 2.
+
+### Architecture d'intégration proposée
+- Service `assistant-api` (conteneur, cohorte dédiée dans la répartition
+  #513, nœud GPU possible) exposant une API compatible OpenAI via
+  llama.cpp / vLLM / Ollama ; modèle choisi par configuration, jamais de
+  secret ni de donnée envoyée hors du SI.
+- **RAG** sur les sources du hub : GED (versionnée, #458-460), tickets,
+  synthèse SI (#523), documentation, journaux -- modèle d'embeddings ouvert
+  (bge-m3 ou Qwen3-Embedding), index local (SQLite-vec / pgvector).
+- **Outils** exposés au modèle = API existantes du hub (agents, synthèse,
+  équipements, tickets), en lecture seule d'abord ; toute action passe par
+  les gestes confirmés déjà en place (cisco, bastion).
+- Tuile hub « Assistant » (dialogue, contexte = la vue ouverte), et usages
+  par lots : organisation automatique de la GED (classement, métadonnées,
+  doublons, propositions de rangement validées par un humain), triage et
+  résumé des demandes SAV, explication d'un incident Cortex, aide au
+  débogage sur les journaux remontés par les agents.
+- Traçabilité : chaque réponse conserve ses sources ; journal des
+  requêtes ; comptes de test pour l'évaluation.
+
+### Démarche
+1. PoC palier 1 sur une VM du Proxmox libre (Qwen3-30B-A3B quantifié,
+   llama.cpp) : mesurer jetons/s, qualité sur 20 cas réels (10 documents
+   GED à classer, 5 tickets à résumer, 5 questions d'exploration avec RAG).
+2. Décision GPU sur ces mesures ; palier 2 si le PoC est concluant.
+3. Intégration hub (assistant-api + RAG GED) puis GED automatique en mode
+   « propositions à valider ».
+
+Livré #532 : squelette du PoC (assistant-api + ollama sous profil compose,
+RAG lexical, trois usages, évaluation 20 cas, tuile). À faire : lancer la
+mesure (CPU d'abord), remplir `data/cases.json` avec 10 documents GED réels /
+5 tickets / 5 questions, comparer 2-3 modèles (qwen3:8b, qwen3:30b-a3b,
+glm5), décider du palier 2 ; ensuite embeddings (bge-m3) + index persistant,
+extraction de texte des PDF de la GED, outils en lecture seule (API du hub),
+mode « propositions à valider » pour la GED.
+Infrastructure (18 sept.) : voir `docs/assistant-ia-infrastructure.md` -- palier 1
+sur l'hyperviseur existant (VM 6 vCPU / 16 Go sous la règle des 2/3) et un
+poste i9 détourné pour le 30B-A3B ; palier 2 contraint par le châssis 2U
+demi-hauteur : RTX 2000 Ada 16 Go (référence) ou Arc Pro B50 16 Go
+(économique, pilote à valider) ; passthrough préparé (q35/OVMF, VT-d).
+
+## Univers du hub — menu invariant (2026-09-22, #538) — item 82
+
+Livré : menu « Univers du hub » en fin d'en-tête, hors de l'arbre de
+disposition, listant tout le catalogue (vues, fronts, fonctions) par
+ordre alphabétique ou d'ajout, avec filtre. Suites : ordre d'ajout exact
+pour les tuiles antérieures à #105 (le journal ne remonte pas plus loin) ;
+raccourci clavier pour ouvrir le filtre ; mêmes entrées dans la vue
+« toutes les tuiles ».
+
+## Vox-cortex — l'IA au centre du hub (2026-09-22) — item 83
+
+Demandé (dicté) : « la portée de l'IA dans le hub va être centrale : c'est
+la tuile IA / Vox-cortex qui va prendre en charge la résolution des tickets
+techniques et supervisera de façon autonome les problématiques
+réseau/services et l'optimisation de l'ensemble ; l'IA fera aussi de
+l'assistance documentaire, de la rédaction, de la génération de minutes de
+réunion, de rapports de réunion, elle corrigera les données SIG ». Objectifs
+affirmés : portée et capacité en complexité, pas le temps de réponse.
+Architecture visée : système multi-agents (SMA) réparti, à terme sur des
+machines recyclées.
+
+Ce qui existe déjà et sert de socle : `assistant/` (RAG lexical, questions
+5/5, classification 10/10, résumés 4,5/5 sur `qwen3:8b`, #536), Cortex
+(incidents corrélés, rôles, lieux, politiques d'alerte), agents hôtes et
+sondes (constats → événements), tickets du hub, GED versionnée, coffre
+d'accès d'équipements, modules MikroTik / Cisco (`show` seulement) /
+Proxmox, service-watch, Infos synthèse SI.
+
+Principes non négociables : l'IA PROPOSE, le hub JOURNALISE, une personne
+CONFIRME toute action qui modifie quelque chose (ticket clos, configuration
+poussée, donnée SIG corrigée) tant que la politique d'autonomie de l'action
+n'a pas été passée en « auto » explicitement, action par action, après un
+historique de propositions justes ; chaque action autonome est réversible
+(diff, restauration) et rejouable ; aucun secret ne transite par le modèle
+(le coffre exécute, l'IA demande) ; rien ne sort du SI.
+
+Étapes proposées, chacune mesurée par un jeu de cas :
+
+1. **Tuile « Vox-cortex »** (remplace la tuile assistant) : conversation
+   avec sources, outils déclarés (lecture : tickets, Cortex, agents,
+   sondes, GED, SIG ; écriture : proposée puis confirmée), journal de
+   chaque outil appelé. Boucle agentique simple (plan → outils → réponse)
+   en Python explicite, sans cadre tiers.
+2. **Résolution de tickets techniques** : pour chaque ticket, diagnostic
+   (corrélation Cortex + constats des sondes + historique de tickets
+   similaires), proposition de réponse et d'actions ; cas d'évaluation =
+   tickets passés anonymisés avec leur vraie résolution.
+3. **Supervision autonome réseau/services** : Vox-cortex abonné aux
+   événements (Cortex, service-watch, agents) ; à chaque incident, enquête
+   automatique (outils de lecture), hypothèse, action proposée ; passage
+   en « auto » par politique (ex. relance d'un service, acquittement) ;
+   optimisation = recommandations périodiques (charge, doublons, dérives)
+   avec justification chiffrée.
+4. **Documentaire et rédaction** : minutes et rapports de réunion depuis
+   une transcription ou des notes (modèle de l'entreprise hors dépôt, gabarit
+   fictif dans le dépôt), rédaction assistée, dépôt en GED versionnée.
+5. **Données SIG** : détection et correction proposée d'incohérences
+   (géométries, attributs, doublons, référentiels) sur le géocatalogue,
+   avec diff avant application.
+6. **SMA réparti** : orchestrateur + agents spécialistes (un rôle, un
+   modèle, une machine), tableau noir partagé, juge ; rejouer les cas des
+   étapes 2 à 5 en réparti et comparer au modèle seul.
+
+Matériel : le châssis 2U avec RTX 2000 Ada 16 Go (proposition client) ou
+une machine recyclée par agent ; sans GPU, tout fonctionne sur CPU, plus
+lentement -- accepté par l'objectif.
+
+## Redesign pour les non-initiés (2026-09-22, #541) — item 84
+
+Livré : brief d'ergonomie (`docs/ergonomie-redesign.md`) et espace
+« Simple » du pont (accueil, suivi par numéro, état des services avec
+dépendances, numéro de suivi à l'envoi) ; états vivants depuis
+service-watch (#542), Cortex et agents (#545). Suites : test à cinq
+personnes (protocole du brief) ; référentiel de services partagé avec le hub
+(Cortex, Infos synthèse) ; appliquer la charte Simple au formulaire
+complet et au tableau ; version « responsable non technicien » du hub
+(tuiles en phrases, sans densité).
+
+## Santé du réseau Nebula et tableau de bord du responsable de site (2026-09-22, #546) — item 85
+
+Demandé : le responsable du site veut un tableau de bord de l'état de
+santé du réseau ; mesure régulière à la minute ou à un delta t raisonnable
+(charge, observation : ne rien louper, un incident durant un temps minimum
+et la fenêtre étant assez étroite pour le voir) ; « l'agent mini-PC (sur le
+réseau du campus) devrait porter un service web qui le publie ».
+
+Livré (#546) : sondeur à la minute dans nebula-api, transitions,
+disponibilité, tableau de santé par site, onglet hub. Livré (#547) : le
+service web sur l'agent (réglage `publish` par agent, relevé signé toutes
+les minutes, page Simple sur `http://<agent>:8081/`, jamais la clé Nebula
+sur le poste). Livré (#548) : carte des VLAN depuis l'OpenAPI (VLAN ×
+commutateurs, liaisons LLDP avec VLAN manquants, anomalies, CSV). Suites :
+réglage `publish` dans la tuile Agents hôtes ; carte des VLAN comme
+contrôle périodique (alerte Cortex quand une liaison perd un VLAN) ;
+autres contenus publiables (état des services, demandes) ; Nebula
+comme source d'incidents Cortex (appareil hors ligne → événement) et
+d'état des services de l'espace Simple (`sources.nebula`) ; relevé des
+clients à la demande.
+
+Livré (#555) : synoptique en arbre façon Nebula (bornes et passerelle
+reconnues en LLDP, clients sous chaque appareil via `connectedTo`) et plan
+du site (image déposée par site, appareils posés par clic ou glisser,
+clients en anneau). Suites : plans multiples (par bâtiment/étage) ; zones
+de couverture des bornes sur le plan ; plan publié sur la page de l'agent
+(sans noms de clients) ; recherche d'un client (nom, MAC, IP) qui le
+surligne dans l'arbre et sur le plan ; historique de présence des clients.
+
+Livré (#556) : anomalies en tableau avec règles lisibles (`rules/`),
+masquer/valider/tout démasquer, application réelle d'un VLAN manquant
+derrière `NEBULA_ALLOW_WRITE`. Suites : autres corrections applicables
+(SSID → VLAN par PATCH wlan-settings, à vérifier dans la doc), journal des
+applications visible dans la tuile, règles pour Cortex et service-watch
+(types `service_down`, `certificate_expiring` déjà décrits dans
+`rules/services.md`), éditeur de règles dans le hub (aujourd'hui : fichier).
+
+## Comptes, groupes et droits du hub (2026-09-22, #557) — item 86
+
+Demandé : une interface de gestion des utilisateurs/groupes commandant
+Keycloak ; une interface de gestion des droits pour toutes les interfaces
+et actions du hub (tableau de tout ce qui doit être paramétré, associant
+utilisateurs et groupes) ; donner accès à la tuile Nebula au groupe
+« site-alpha » (groupe du client) depuis le portail de l'agent du campus.
+
+Livré (#557) : tuile « Comptes et groupes » (accounts-api). Livré (#559) :
+matrice des droits (catalogue des tuiles × groupes et personnes, voir /
+gérer, accès restreint par sujet, application réelle dans le hub), lien
+`publish.hub_url` sur la page publiée par l'agent. Mode d'emploi pour le
+groupe d'un site client : créer le groupe, cocher « accès restreint », cocher
+« voir » sur Nebula, régler `hub_url` sur `https://<hub>/?view=nebula`. Suites : synchronisation des groupes LDAP (mapper
+Keycloak) ; import de comptes par fichier ; journal des actions dans la
+tuile ; désactivation automatique des comptes inactifs.
+
+## Tuile Nebula@site : fiches du campus, sonde « postes métier » (2026-09-23, #566) — item 87
+
+Demandé : la tuile Nebula devient « Nebula@<site> » avec deux volets, Nebula
+(existant) et Campus (onglets Matériels et Services/logiciels alimentés par
+import des tableurs du site, fiches, mise à jour par ré-import, lien vers le
+synoptique et le tableau d'état) ; et « prévoir une sonde de supervision
+logiciel/protocoles » pour la demande du site : quatre PC fixes d'une allée
+immersive instables (logiciel et périphériques), l'éditeur propose un
+redémarrage nocturne (arrêt par script vers minuit, réveil BIOS vers 7 h).
+
+Livré (#566) : volets et fiches, import xlsx/ods/csv (`nebula/api/campus.py`,
+table `campus_records` dans /data, jamais dans le dépôt), rapprochement des
+matériels avec les clients Nebula (MAC, sinon nom) → état, IP, borne, VLAN,
+« Voir dans le synoptique » (sélection et dépliage de l'appareil) et
+« Tableau d'état ».
+
+### Réponse au site (redémarrage nocturne des 4 PC)
+
+- Réveil BIOS à 7 h : possible sur la plupart des cartes (« RTC alarm » /
+  « Auto Power On » / « Wake on RTC »), à régler PC par PC, dépend de
+  l'horloge de chaque BIOS et se perd à la mise à jour ou au changement de
+  pile ; l'arrêt par script (tâche planifiée `shutdown /s /t 0` à minuit)
+  reste nécessaire. Faisable en une visite d'une heure, hors ouverture.
+- Alternative recommandée : **Wake-on-LAN depuis l'agent du campus** (le
+  poste Linux déjà sur le LAN) à 7 h, sans toucher aux BIOS : ordre donné
+  et journalisé par le hub, vérification que le poste répond (ping, port du
+  logiciel) et alerte sinon ; ou, plus simple encore, un **redémarrage**
+  planifié à minuit (`shutdown /r`) au lieu d'un arrêt + réveil, qui règle
+  l'instabilité sans dépendre d'un réveil matériel — à valider avec
+  l'éditeur (certains périphériques USB préfèrent un arrêt complet).
+- Cause de fond : instabilités logiciel + périphériques = pilotes / USB /
+  mémoire qui fuient ; le redémarrage est un contournement, la sonde
+  ci-dessous doit objectiver la dérive (mémoire du processus, périphériques
+  qui disparaissent, erreurs journalisées) pour remonter à l'éditeur.
+
+### Sonde « postes métier » (à faire)
+
+1. **Agent hôte sur les 4 PC** (si-agent Windows, déjà disponible) avec un
+   plugin `workstation-app` : liste de processus attendus (le logiciel de
+   l'allée), mémoire/CPU du processus, périphériques USB/affichage attendus
+   (par VID:PID ou nom) présents ou non, dernières erreurs du journal
+   Windows (Application/System) filtrées sur le logiciel et les pilotes,
+   uptime ; seuils → événements « logiciel absent », « périphérique
+   disparu », « dérive mémoire », « pas redémarré depuis N jours ».
+2. **Sonde réseau depuis l'agent du campus** (déjà sur le LAN) :
+   `flow-probe` = pour chaque poste métier, ping, ports TCP du logiciel
+   ouverts, service réseau utilisé par le logiciel (mDNS/NDI/Art-Net/
+   multicast selon ce que l'éditeur documente) vu en écoute ou en émission
+   (capture courte, comptage de paquets par port) ; et **Wake-on-LAN**
+   planifié (heure par poste, MAC de l'inventaire) avec vérification du
+   réveil.
+3. **Côté hub** : fiches Campus des 4 PC enrichies (état agent, dernière
+   erreur, dernier redémarrage, prochain réveil), règle Nebula/Cortex
+   « poste métier non réveillé à 7 h 10 » → notification ; ordre manuel
+   « réveiller maintenant » / « redémarrer cette nuit » depuis la fiche.
+4. Prérequis à demander à l'éditeur : nom du processus, ports et protocoles
+   réseau, périphériques attendus, préférence arrêt+réveil vs redémarrage.
+
+## Import et classement par l'IA interne (2026-09-23, #571) — item 88
+
+Demandé : « sera-t-il possible de passer par une IA interne pour ce type
+d'import et de classement des infos sensibles ? ». Livré (#571) : extraction
+de fiches depuis un texte collé (assistant-api `/extract`, modèle local),
+champs sensibles signalés, relecture puis import en fusion dans les fiches
+du campus. Suites : (1) classement automatique des colonnes d'un tableur
+inconnu (le modèle propose la correspondance en-têtes → champs, à valider) ;
+(2) étiquette de sensibilité par champ stockée avec la fiche et respectée
+par la page publiée de l'agent et les exports (masquage) ; (3) extraction
+depuis un PDF / une capture (OCR local) ; (4) dédoublonnage assisté
+(rapprocher « Ordi fixe sans nom, Allée immersive » et « LED-01 ») ; (5)
+journal des extractions relisibles dans la tuile Assistant.
+
+## Bastion : publications de port par shim host (2026-09-23, #583) — item 89
+
+Livré : `SI_PROXY_PUBLISH=PORT=SHIM:HOTE:PORT` (relais → cible par le shim
+du site, TCP brut, liste d'IP, audit), lien « interface web » de la tuile
+Proxmox. Suites : (1) publications déclarées depuis la tuile Bastion
+(ajout/retrait sans redémarrer le relais, persistées dans /data) ; (2)
+authentification du hub devant un port publié (jeton Keycloak vérifié par
+l'admin-api, cookie de session) plutôt que la seule liste d'IP ; (3) une
+publication par hôte Proxmox connu de la tuile (lien automatique) ; (4)
+exposition (Bastion → Entrées) : marquer les ports 6488/6489 comme « via
+bastion » avec le shim et la cible.
+
+## Services du hub : feu tricolore (2026-09-24, #584) — item 90
+
+Livré : services-api + sous-tuile Paramètres. Suites : (1) historique des
+lampes (série par service, dernier passage au rouge, durée) et alerte par
+le circuit de notification quand un service passe rouge ; (2) « Tout
+reconstruire » (`up -d --build` d'un service) — nécessite le dépôt monté,
+à cadrer ; (3) dépendances (depends_on) affichées pour expliquer une
+cascade de rouges ; (4) rattacher chaque service à sa tuile (lien
+« ouvrir la tuile ») ; (5) hôtes répartis (#517) : agréger les nœuds.
+
+## Tour de contrôle (2026-09-24, #586) — item 91
+
+Livré : livraisons par le hub (zip → analyse → plan → runner), registres JSON
+Cisco/MikroTik, auto-réparation, journal. Suites : (1) `.env` depuis le hub
+(clés manquantes vs `.env.example`, valeurs non secrètes éditables, secrets
+en écriture seule) ; (2) livraison par `git pull` / URL (Framagit) plutôt que
+zip ; (3) autres registres JSON au même schéma (Nebula sites, service-watch,
+Proxmox web URLs, publications du bastion) ; (4) retour arrière d'une
+livraison (instantané des fichiers écrasés) ; (5) notification (circuit
+habituel) sur abandon d'auto-réparation et échec de job ; (6) planification
+(appliquer la nuit) ; (7) hôtes répartis (#517).
+
+## Notifications par courriel des actions et des impacts, gestionnaire d'envoi (2026-09-24, #590) — item 92
+
+Demandé le 24 sept. 2026 : notifier par mail les actions sur les routeurs
+(Cisco, MikroTik : NAT, interfaces, redémarrage, sauvegarde/restauration) et,
+potentiellement, tout ce qui impacte le fonctionnement du SI local et des
+clients (tour de contrôle : livraisons, reconstructions, auto-réparation ;
+bastion ; agents ; service-watch…).
+
+Modèle demandé :
+- **actions** identifiées (catalogue, `<module>.<action>`, ex.
+  `mikrotik.nat.add`, `cisco.restore`, `tower.delivery.apply`,
+  `tower.heal.gave-up`) ;
+- **groupes** de destinataires (liste d'emails) et **méta-groupes** =
+  plusieurs actions pour un même groupe et plusieurs groupes unifiés ;
+- table d'affectation **action → groupe / méta-groupe → emails** ; par
+  défaut chaque action identifiée est rattachée à un **groupe par défaut
+  généré automatiquement** (nom dérivé du module), l'administrateur regroupe
+  ensuite ;
+- en parallèle un **gestionnaire d'envoi** qui détache la notification de
+  l'envoi réel : file persistante, regroupement / lissage (engorgement,
+  emballement : N messages identiques → un résumé), reprise sur erreur SMTP,
+  liste noire de destinataires ou d'actions, journal, tableau de bord ;
+- le gestionnaire est un **service réutilisable** par les autres modules du
+  hub et par des services **externes** (ex. les GED) : API HTTP `POST
+  /notify {action, subject, body, context}` avec jeton par consommateur,
+  remplaçant à terme les circuits épars (`SECRETS_ALERT_*`,
+  `SI_AGENT_NOTIFY_*`, `VAULT_ADMIN_SMTP_*`, service-watch).
+
+Pistes : service `notify-api` (SQLite, worker d'envoi, SMTP unique
+`NOTIFY_SMTP_*` dans .env), tuile « Notifications » (groupes, méta-groupes,
+affectations, file, journal, test d'envoi), déclaration des actions par
+chaque module au démarrage (`POST /actions/register`) → groupe par défaut
+créé, gabarits de courriel, canaux futurs (SMS via TRB140, webhook).
+
+## Décisions typées locales (2026-09-24) — item 93 (étude, rattaché aux items 81/83)
+
+Analyse du modèle « Jev » (TypeSafe AI, « System One Model » : choix parmi
+des options, note sur échelle, oui/non calibré, 70-500 ms, API SaaS à poids
+fermés) : le *pattern* est exactement celui des décisions du hub (classer un
+ticket, router, noter une urgence, décider de notifier, prioriser les
+propositions, évaluer une hypothèse Cortex), mais l'usage direct enverrait
+des données du SI et des clients à un tiers — exclu. À faire localement :
+sorties contraintes par schéma JSON avec Ollama, score par option (log-
+probabilités) → confiance, seuil en dessous duquel la décision part en file
+« à valider » ; brancher sur notifications (gravité) et tour (priorité des
+rouges). Piste ouverte : modèle « Laya » (libre, scores annoncés inférieurs) ;
+autre piste évoquée : modèles très légers embarqués (robotique) pour les
+sondes / agents.
+
+## Menu du hub en graphe métier déployé (2026-09-24) — item 94 (analyse : docs/menu-graphe-metier.md)
+
+Étape 1 livrée (#599) : `hubBusiness.js`, cinq racines, chemins par tuile,
+menu « Vue métier » par défaut dans Menu ▾. Restent : étape 2 (arêtes
+calculées, lampes d'état à côté des objets, pages pivot), étape 3, 4.
+
+Demandé : « un arbre qui prenne la logique métier et les dépendances ; une
+tuile peut être à plusieurs endroits : un graphe déployé ». Cinq racines
+(équipements par type, services, droits, supervision / états, Cortex / IA),
+nœuds outils / objets métier / états, arêtes typées (dépend-de, supervise,
+configure, sécurise, alimente, explique, déclenche) calculées depuis le
+compose, les registres, les agents, Cortex, les notifications et les
+droits. Étapes : catalogue typé + racines métier (petite livraison), arêtes
+calculées + menu déployé avec lampes, pages pivot des objets métier,
+décisions typées pour proposer la racine et l'action.
+
+## Gestion centralisée du stockage des Proxmox et de la VM du hub — phase chantier (2026-09-24) — item 95 (mis de côté)
+
+Position de freg : on est déjà sur Proxmox avec une cascade de
+virtualiseurs, et les consoles web d'administration ont toujours accompagné
+les services en ligne ; il veut, pour la **phase chantier**, centraliser
+dans le hub le nécessaire (disques, partitions, agrandissement) **avec
+toutes les précautions de droits et de sauvegarde**, en le **limitant aux
+Proxmox et à l'hôte du hub (une VM)**. Mis de côté pour l'instant ; l'état
+(#593/#594) est livré. Cadre retenu pour plus tard : droit dédié (groupe
+Keycloak + confirmation par le nom de la VM), instantané / sauvegarde
+préalable obligatoire et vérifiée, aperçu avant exécution, gestes en ligne
+d'abord (`qm resize` + `growpart` + `pvresize`/`lvextend -r` /
+`resize2fs` / `xfs_growfs`), journal et notification, retrait de
+l'instantané après validation ; les gestes hors ligne (réduction,
+déplacement) via l'agent Proxmox avec la VM arrêtée, même garde-fous.
+Nettoyages guidés (images Docker #593, `journalctl --vacuum`, `apt clean`,
+vieux noyaux, anciennes sauvegardes) avec estimation avant exécution.
+
+## Licences logicielles par site (2026-09-24, #595) — item 96
+
+Livré (#595) : sonde `software-inventory`, licenses-api, tuile, Microsoft
+Graph, import des tableurs, grille, installeur. Restes notés pour plus
+tard : autres gestionnaires vendeurs (Adobe Admin Console, Autodesk,
+Dassault, JetBrains — chacun une fonction `sync_<vendeur>` dans
+`vendors.py`) ; rapprochement des utilisateurs Graph (UPN) avec les
+sessions vues par les agents (comptes locaux) via l'annuaire ; alerte
+périodique d'expiration (fil de vérification quotidien → `licenses.gap`)
+; export de la grille en `.xlsx` ; installation groupée (plusieurs postes
+d'un site) avec file d'attente et rapport ; catalogue de paquets winget /
+choco suggéré depuis le nom relevé.
+
+## Site miroir pour un client — projeté ou autonome (2026-09-25) — item 97 (analyse : docs/site-miroir-client.md)
+
+**25/09, avant A1** : les lectures des API ne sont pas authentifiées (sauf
+écritures de 3 API) ; prérequis **A0 lectures authentifiées** ajouté à
+l'analyse (garde commune + jeton dans tous les clients JS), avec une mesure
+conservatoire possible sur le frontal (refus de `/api/` sans Bearer). En
+attente de décision : A0 d'abord, ou mesure conservatoire d'abord.
+
+Demandé : « pour les clients (Numeria pour le moment) il faut un site
+miroir soit en interne et potentiellement autonome soit projeté par
+supervision.optline.fr ». Plan en deux formes complémentaires : A —
+projeté (vhost par client sur le frontal #471, périmètre de site imposé
+par le groupe Keycloak et vérifié côté API, matrice des droits #559,
+habillage) ; B — miroir autonome (cohorte « site » du compose sur une VM
+du client, fédération miroir → central par HTTPS et jeton de consommateur,
+livraisons par la tour via le shim du site). Prochaine étape : A1 + A3.
+
+## Journal du frontal public dans le hub (2026-09-25) — item 99
+
+**Fait en #622** (sonde `front-access` sur l'agent de la VM frontale, `%D` dans
+le vhost). Reste : corrélation par IP et minute avec les événements Keycloak
+(onglet Connexions) et la vue « accès publics » dans la Tour de contrôle.
+
+Demandé après la mise en service de supervision.optline.fr : « y a-t-il un
+log des échecs de connexion côté proxy et côté Keycloak ? peut-on en créer
+un visible sur le hub ? ». Fait en #612 : côté Keycloak (onglet Connexions
+de Comptes, conservation activable). Reste : côté frontal — installer
+l'agent hôte sur la VM frontale et lui faire remonter
+`/var/log/apache2/hub-<nom>-access.log` / `-error.log` (sonde `path-probe`
+ou rsyslog → rsyslog-listener), puis une vue « accès publics » (IP source,
+code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
+événements Keycloak par IP et minute.
+
+## Bureau à distance et mise à jour poussée (2026-09-26) — item 104
+
+**Fait en #636** (agent 0.5.28) : `remote_desktop` (RDP intégré, service +
+pare-feu, sans création de compte) et mise à jour de l'agent depuis le
+serveur (bouton central local, mécanisme #522). Demandé : « update de
+l'agent depuis le serveur sans intervention sur le poste ; désactiver
+firewall et antivirus ; utiliser le bureau distant avec mes identifiants ».
+Limites assumées : un antivirus tiers (AVG) n'est pas pilotable par script
+(protection contre les falsifications) -- seul Defender l'est (`protection`,
+#633) ; le RDP se connecte avec un compte déjà autorisé sur le poste, l'agent
+ne stocke aucun identifiant. Suite possible : ouvrir le RDP à un compte
+donné (ajout au groupe « Remote Desktop Users »), et un tunnel RDP par le
+bastion pour joindre un poste sans exposer 3389.
+
+## Gestion système du poste Windows depuis le central (2026-09-26) — item 104
+
+**Fait en #633** (agent 0.5.25) : Windows Update (état, installation immédiate
+ou programmée, redémarrage ensuite), pare-feu / Defender (état, bascule),
+logiciels, différé générique `at`. Demandé : « une gestion des mises à jour
+-> état, forçage immédiat et programmée ; une gestion d'installation de
+logiciels ; une gestion d'activation / désactivation antivirus et firewall ».
+**#635** : écriture directe sur un partage du serveur monté par l'agent
+(`share`), pour les postes sans disque libre ; suite : provisionnement
+automatique du partage par le central Linux (compte Samba jetable par image,
+révoqué à `image-finished`), demandé comme « l'agent et le serveur créent et
+montent un partage réservé ». **#634** : transfert de l'image vers le serveur après création (canal signé,
+reprise, vérification), `image_transfer` pour reprendre ; à valider en réel
+sur 60-200 Go (débit, tenue du mandataire tls-proxy en 8 Mo par requête).
+Reste : mêmes commandes dans la section Poste du hub (le central local les
+a) ; winget sous SYSTEM (localiser `winget.exe` dans WindowsApps ou passer
+par choco) ; règle Cortex « pare-feu inactif / Defender inactif » depuis la
+mesure `protection` ; vérification sur Windows réel de `Set-MpPreference`
+avec protection contre les falsifications.
+
+## Central local de test pour l'agent (2026-09-26) — item 103
+
+**Fait en #624** : `si-agent/local-central/` (voir son README). **#626** :
+retours du premier poste Windows réel (champs conservés, Oublier en zone
+sensible, chemin manuel pour antivirus, BOM des .ps1, indice d'horloge).
+**#627** : commande `browse` et parcours graphique de la cible (hub +
+central local). Vérifié sur Windows 11 : enrôlement par jeton, Python
+embarqué, tâche planifiée, redémarrage forcé, cible UEFI Windows/Linux dans
+les deux sens ; reste à confirmer : StartupApproved
+(lanceurs), pktmon, Disk2vhd, `manage-bde` en français. Demandé :
+« une interface de contrôle de l'agent avec frontal web local sur le Mac,
+remplaçant le hub, pour le PC Windows de virtualisation / clonage ».
+Suites possibles : export des mesures vers le hub (rejouer `data/state.json`
+dans si-agent-api), onglets Audit web / Trace dans l'interface locale,
+lancement en application macOS (py2app) si l'usage se répète.
+
+## Agent Windows : redémarrage, réveil, lanceurs, chien de garde (2026-09-25) — item 100
+
+**Fait en #613** (agent 0.5.17, section « Poste »). Réveil réseau = paquet
+magique émis par un autre agent du même segment (n'importe quel poste
+allumé du site, ou un petit Linux sur le VLAN des postes) : c'est la voie
+retenue, indépendante de l'équipement réseau. **Requalifié en #623** : le
+réveil par le MikroTik (`/tool wol`) est abandonné pour Numeria — les
+postes sont derrière un pare-feu Zyxel géré par Nebula, pas un MikroTik ;
+il ne sera fait que si un site équipé MikroTik le demande. Piste Nebula :
+le Nebula Control Center sait réveiller un client vu par un switch/AP
+Nebula, mais l'API (Nebula Open API) exige un abonnement Pro/Plus et une
+clé d'organisation — à confirmer avant tout connecteur `nebula` (clients
+vus, WoL, état des ports, inventaire réseau). **#625** : cible du prochain démarrage (Windows / Linux / réglages UEFI)
+via le firmware, pour les postes multi-amorçage. **#628** : réouverture de
+session une fois après redémarrage (AutoLogonCount), sans autologon
+permanent -- boucle « redémarrer et revenir dans l'état initial » d'un
+poste kiosque. Alternative sans mot de passe à évaluer : ARSO
+(`ExitWindowsEx` avec `EWX_ARSO`, réglage « utiliser mes informations de
+connexion pour terminer la configuration »), qui peut verrouiller la session
+rouverte selon la stratégie. Reste : vérification de
+`startup.ps1` et de StartupApproved sur un Windows 11 réel.
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ». Plan (#613) : commandes acquittées `reboot`
+/ `shutdown` (délai, message aux utilisateurs, refus si session console
+active sauf `force`), réveil par `/tool wol` du MikroTik du site ou par un
+autre agent du même LAN (magic packet), sonde `startup-items` (Run/RunOnce
+HKLM+HKCU, dossiers Démarrage, tâches planifiées à l'ouverture de session,
+services automatiques ; activer/désactiver depuis la tuile), plugin
+`app-watchdog` (liste d'applications : processus attendu, commande de
+relance, délai, fenêtre horaire ; relance et événement `app-restarted` /
+`app-down`).
+
+## Démonstration Numeria — cinq points (2026-09-26) — item 102
+
+Demandé pour lundi : 1. accès depuis le campus / Internet ; 2. sondes
+Windows pour un maximum de PC ; 3. banc de test lourd (impact d'une sonde :
+introspection) ; 4. audit d'un dysfonctionnement partiel d'application web
+depuis le poste ; 5. idem en mode tcpdump (URL, protocoles, erreurs,
+latences). Fait : 1 = #615 (A0 au frontal + intercepteur hub), 2 + 3 = #616
+(jetons d'enrôlement, introspection, banc), 4 = #617 (web-audit), 5 = #618
+(web-trace). Reste après la démo : vérification sur Windows réel
+(`-EnrollToken` PS 5.1, `pktmon etl2pcap`, StartupApproved), matrice
+web-audit par site dans la Tour de contrôle, corrélation web-audit ↔
+web-trace ↔ événements Keycloak par poste et minute.
+
+## Image complète d'un poste Windows à chaud, pour virtualisation (2026-09-25) — item 101
+
+**Fait en #621** (commande `image_host`, agent 0.5.19). Reste : vérification
+sur Windows réel, choix du stockage Proxmox depuis le hub et import
+automatique par l'agent du nœud (`qm importdisk` piloté par `vm_action`).
+
+Demandé : « un agent Windows pourrait-il faire une image complète de son
+host en vue d'une virtualisation, en parallèle de son fonctionnement
+continu ? » — cas : portable de test qui supervise / pilote 4 postes
+Windows contrôleurs d'écrans projetés interactifs. Plan : commande
+`image_host` (Windows) dans la section Poste : Disk2vhd (Sysinternals,
+téléchargé avec empreinte vérifiée) avec instantané VSS (`* <cible>.vhdx
+-c -v`), contrôles préalables (BitLocker suspendu, espace cible, pilotes
+VirtIO présents), cible = partage SMB indiqué depuis le hub, progression et
+événement de fin ; doc : import Proxmox (`qm importdisk`, OVMF, TPM pour
+Windows 11, SATA puis VirtIO), activation OEM, logiciel de pilotage lié au
+matériel (USB/série/carte réseau → passthrough), jamais les deux machines
+en même temps sur le LAN.
+
+## Réglages Keycloak depuis le hub, parties névralgiques protégées (2026-09-25) — item 98
+
+**Fait en #614** (onglet Réglages Keycloak : liste blanche, simulation avant /
+après, origines OIDC, synchronisation LDAP). Reste : actions requises (OTP),
+rotation du secret d'un client de service en écriture seule avec
+confirmation, export du realm avant chaque écriture.
+
+Demandé : « rester (ou créer une interface) dans le hub pour modifier la
+configuration du Keycloak, en limitant ou protégeant les parties
+névralgiques ». Existant : Comptes (#557, utilisateurs / groupes / démo
+#608), Liens externes (clients OIDC par prefs-api-service, droit
+`manage-clients` seulement), matrice des droits (#559), sauvegarde du
+realm (keycloak-backup). Plan « tuile Réglages Keycloak » (dans Comptes,
+groupe administrateurs) sur l'API Admin via le compte de service :
+**liste blanche** de réglages modifiables — nom affiché et langue du
+realm, durées de session (SSO idle / max, jeton d'accès), politique de
+mots de passe, protection force brute, actions requises (OTP), événements
+(durée de rétention), synchronisation LDAP (déclencher « sync all »,
+tester la connexion, voir les réglages sans le mot de passe), URIs de
+redirection du client du hub, thème de connexion ; **protégé / interdit**
+: realm master, suppression ou renommage du realm, clients de service et
+leurs secrets (rotation en écriture seule avec confirmation), rôles
+`realm-management`, comptes administrateurs, mot de passe de liaison
+LDAP (écriture seule). Chaque écriture : aperçu avant / après, export
+partiel du realm avant application (retour arrière en un clic),
+journal + notification `keycloak.settings`. Prochaine étape après A1 du
+site miroir (item 97) si validé.
+
+### 121. Arguments d'une sonde par agent (fiche agent → Sondes)
+Constat (sonde Wi-Fi Raspberry, 13/10) : pas de champ « arguments » sur la fiche ; seul le catalogue (global) les porte,
+et une sonde livrée avec l'agent (wifi-probe, path-probe) ne passe pas par le catalogue. Contournement : manifeste local
+modifié à la main, perdu à la mise à jour. À faire : `args` par affectation (table d'affectation, poussé dans la config),
+champ éditable dans la fiche, priorité affectation > catalogue > manifeste ; valable aussi pour les sondes livrées.
+
+### 122. Anticiper les pannes et saturations Wi-Fi à partir de Nebula (suite de #747) — points 1, 2, 4 LIVRÉS #758 ; 3, 5, 6 LIVRÉS #759 ; 7 LIVRÉ #760 (item clos)
+1. Prévision d'occupation : profil habituel par borne × jour × heure (relevés #747), alerte AVANT le pic attendu
+   (calendrier des séances, événements) ; seuil dynamique = habituel + marge plutôt que fixe.
+2. Battements d'état : borne qui passe plusieurs fois hors ligne / en alerte en 24 h = précurseur (PoE, câble, switch) ;
+   disponibilité par borne sur 7 / 30 j (transitions déjà enregistrées).
+3. Ports des commutateurs vers les bornes : vitesse dégradée (1 G → 100 M), PoE (budget, puissance), erreurs, LLDP
+   perdu (OpenAPI port-settings / uplink / lldp-neighbor déjà appelés).
+4. Pools DHCP par VLAN/SSID : clients vus vs taille du pool (ex. 200 adresses) → alerte à 80 %.
+5. Licences et contrats Nebula (Security / Secure WiFi, CNP) : alerte J-90 / J-30 ; micrologiciels hétérogènes.
+6. Bande et signal : clients 2,4 GHz capables de 5 GHz, clients « collés » à une borne lointaine (signal faible persistant).
+7. Corrélation avec les sondes de terrain (wifi-probe : BSS Load / occupation du canal ; path-probe : DHCP, DNS, HTTP)
+   et Cortex : un constat de sonde + une borne chargée = cause probable proposée.
+
+
+
+### 123. Passe « pleine largeur » sur toutes les tuiles du hub — LIVRÉ #757 (plafonds retirés, glissières 14 px partout)
+Demande (14/10/2026) : la quasi-totalité des interfaces n'utilise pas toute la largeur du navigateur, et quand elles le
+font, les glissières sont peu visibles. Modèle : tuile Infra PVE / PBS (#749) -- conteneur 100 % largeur et hauteur
+fenêtre, grilles auto-fill, glissières 14 px contrastées (`.infra-scroll`), en-têtes de tableau collants. À généraliser.
+
+
+### 124. Virtualisation directe sur le LAN, d'agent à agent (#751) — LIVRÉ #751
+Demande (14/10/2026) : pour un poste du LAN d'un site client (virtualisation et non migration), l'image doit aller directement de
+l'agent du poste à l'agent du Proxmox du site ; le hub orchestre seulement. Cible : récepteur temporaire sur l'IP LAN du
+nœud (jeton à usage unique du hub, fermé à la fin), la source pousse (sortant, rien à ouvrir côté Windows), fenêtre
+bornée + 429, bwlimit, reprise à l'offset, sha256 ; relais par le hub seulement en repli explicite.
+
+### 125. Tuile serveur de messagerie : exploitation complète (#752) — LIVRÉ #752
+Demande (14/10/2026) : faire évoluer la tuile Serveur de messagerie (#697) -- observer, reparamétrer, gérer les incidents
+et leur suivi ; antispam (Amavis/SpamAssassin : scores, quarantaine, réglages) ; listes blanches / grises / noires
+(postscreen, postgrey, expéditeurs, RBL) ; échecs de distribution vers les serveurs distants (file d'attente, reports,
+rebonds, motifs par domaine distant, relance).
+
+### 126. Tuile « Clients » (plus tard)
+Demande (14/10/2026) : un tableau des clients, une ligne par client, et un onglet par client ouvert depuis la ligne.
+Colonnes et contenu de l'onglet : sites, serveurs, services, agents, santé. Dans l'onglet d'un client, un volet ou
+sous-onglet « htop » (vues de parc #753 filtrées sur ses agents) et « Nebula » (#555, #747, #758) ; autres sources à
+définir client par client. Rappel : jamais le nom réel d'un client dans le dépôt (exemples `site-alpha`).
+
+### 127. Intégration de la forge GitLab de l'organisation : gestion et CI depuis le hub (différé)
+Demande (16/10/2026), à reprendre plus tard. Forge visée par `GITLAB_URL` (instance auto-hébergée existante).
+1. **Interface CI** : reproduire l'interface classique GitLab CI (projets, pipelines, jobs, journaux, artefacts, relance,
+   variables) avec le design du hub, par l'API GitLab (jeton dans le coffre, jamais dans le .env).
+2. **Complément CI** : messagerie d'équipe (Mattermost ou équivalent) pour les notifications de pipeline ; environnements
+   dev et préproduction sur des VM « hub-ci » ; accès depuis Internet par le frontal proxy public, **mécanisé** à côté de
+   la configuration Apache existante (non touchée) : liens proxy et certificats (ACME) vers les VM du hub-ci créés,
+   renouvelés et retirés **sous le contrôle du hub** (déclaration, revue, application, journal, retour arrière).
+3. **Inventaire des projets existants** de la forge, puis publication directe de chacun dans le proxy (même mécanique).
+4. **Portail intranet** : ajouter les services/applis ainsi publiés aux liens visibles du portail.
+Rappel : aucun nom réel (forge, frontal, domaines) dans le dépôt ; exemples en `gitlab.exemple`, `ci.exemple`.
+
+### 128. Activité réelle des VM dans le temps, liste pour les décideurs, suivi de migration — LIVRÉ #771 (tranche 1)
+Demande (16/10/2026) : connaître l'usage réel de chaque VM dans le temps (un an et plus, pas l'uptime : taux d'accès et
+transferts par service) et depuis quand elle est réellement inactive, pour faire une liste aux décideurs, avoir leurs
+instructions, puis planifier, automatiser et suivre la migration / le réaménagement. Livré #771 : historique par jour
+(reprise des journaux encore présents puis accumulation centrale), classe d'activité réelle, décision et état de
+migration par VM, export CSV. Suite possible : relier « migrer » aux opérations du hub (virtualisation directe #748,
+opérations PVE #653) pour lancer et suivre la migration depuis la fiche ; garder l'historique d'une VM migrée
+(rattachement par nom / UUID) ; seuils d'activité réglables par VM (cron, sauvegardes).
+
+### 129. Navigateur des hôtes, apprentissage des parcours, demandes en langage courant — LIVRÉ #798-#799
+Demande (20/10/2026) : une VM / un agent pour **voir et utiliser un site web depuis l'hôte de l'agent** (et non le
+navigateur qui consulte le hub), pour le débogage et la QA ; puis un module d'**apprentissage du parcours** et un module
+d'**interprétation d'une demande en langage courant** (« ouvre le site xy, connecte-toi avec user/password et crée un
+ticket de maintenance du chauffage chez truc »). Choix : Chromium + écran web (noVNC) piloté en même temps par l'automate,
+hôtes Linux seulement, en priorité une VM OVH (nos services vus de l'extérieur). Sans préférence exprimée : modèle et
+confirmation -- défauts retenus : modèle de l'assistant du hub (Ollama), confirmation avant toute étape qui écrit.
+1. Navigateur de l'hôte (écran + automate, commande `navigateur`) — LIVRÉ #798.
+2. (LIVRÉ #799) Apprentissage du parcours : enregistrement des gestes dans le navigateur de l'hôte → étapes QA avec sélecteurs
+   robustes, paramètres (`{{site}}`, `{{identifiant}}`, `{{mot_de_passe}}` depuis le coffre, `{{objet}}`…), étapes qui
+   écrivent marquées ; enregistrement comme parcours réutilisable.
+3. (LIVRÉ #799) Demandes en langage courant : catalogue des parcours appris (description, paramètres), interprétation par le modèle
+   (parcours + valeurs), plan montré avant exécution, identifiants pris dans le coffre (jamais dans le texte), arrêt
+   avant écriture, compte rendu avec captures.
+Suites possibles : export d'un parcours appris vers le module QA (non-régression planifiée depuis l'hôte) ; confiance
+par parcours (automatique après N jeux réussis, comme le harnais) ; reprise après arrêt sans rejouer le début ;
+captures de chaque étape dans le compte rendu ; plusieurs parcours enchaînés pour une demande.
+
+### 130. Veille cyber, impacts sur notre SI, couverture du SI (cadrage)
+
+Demande (21/10/2026) : abonnement et lecture continue des RFC, alertes et nouveautés, partagés et diffusés aux RSSI,
+développeurs et administrateurs ; une page des dernières infos et alertes ; une page de ce qui est impacté dans notre
+SI ; une page de couverture du SI (fusion des découvertes réseau -- IP, MAC, protocoles -- et de notre connaissance des
+services et des journaux à surveiller). Cadrage : `docs/veille-cyber.md` (sources ouvertes, chaîne collecte →
+enrichissement → rapprochement → diffusion, trois pages, tranches T1-T5, choix à valider). Réutilise `vuln/` (#688),
+notify-api, agents, fusion IP/MAC, service-watch, journaux, assistant IA local.
+Décision (21/10/2026) : **pas encore lancé** -- terminer d'abord la mise au point des sondes Raspberry (Pi 3B, Pi Zero 2 W)
+et la remontée des infos radio et Wi-Fi dans le hub. Le volet cyber est aussi à prévoir côté **hub maison**, pour y
+tester des outils d'IA et des modèles spécialisés (sécurité).
+Avancement (21/10/2026, à sa demande « priorité cyber et hub maison ») : **T1 et T2 livrées (#814)** dans vuln-api --
+relève, tables alertes / news, impacts par les constats de vuln-api (CVE), publics, suivi et journal, diffusion
+notify-api (alerte immédiate, synthèse quotidienne par public), filtres et extraction, IA locale ; hub maison : tuile
+« Cyber news » (dépôt séparé). Restent : T3 (page Couverture : fusion découvertes réseau × couches de surveillance),
+T4 (fiches d'explication et glossaire), T5 (sources constructeurs / systèmes du parc), rapprochement par nom de
+produit et version (composants des SBOM) en plus des CVE.
+
+### 131. Agent HackRF et client local pour poste nomade (Mac, Linux portable) -- à prévoir
+
+Demande (21/10/2026) : un « agent HackRF » utilisable sur un portable (Mac, Linux), avec une interface ou un client
+local. Pistes : la sonde `rf-spectrum` (#801/#805) tourne déjà partout où `hackrf_sweep` existe (macOS : `brew install
+hackrf` ; Linux : paquet `hackrf`) -- l'agent macOS / Linux l'emporte avec lui ; client local = page servie sur
+127.0.0.1 (spectre en direct, cascade, canaux Wi-Fi, marqueurs, enregistrement d'une session de relevés avec position
+ou nom de pièce) sans dépendre du hub, puis envoi de la session au hub (tuile Data RF, sonde « nomade ») quand le
+réseau le permet ; même famille que le client si-htop (#800). Réception seule, comme `rf-spectrum`.
+But précisé (21/10/2026) : **audit et détection en mobilité** (se promener avec le portable). À terme : se **positionner
+par triangulation** sur les bornes Wi-Fi fixes (positions connues : plan du site, fiches Nebula) et sur les sondes
+émettrices. Pistes : RSSI des balises de plusieurs bornes + modèle de propagation calibré par pièce (trilatération
+pondérée, empreintes radio relevées sur place), cohérence avec les sondes fixes qui émettent un signal connu ;
+position affichée sur le plan du bâtiment avec les relevés (spectre, occupation, bornes) qui s'y rattachent.
+
+
+### 132. Gestion des modèles IA, skills, apprentissage, bancs (les deux hubs) -- tranche 1 LIVRÉE #821 (hub maison ada86b7)
+
+Demande (22/10/2026) : suivre les sorties de modèles dans le temps avec alertes sur les modèles utilisables et
+pertinents, et les passages open-source <-> fermé ; une tuile de gestion des modèles (cases à cocher, types d'usage) ;
+gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des bancs de tests et benchmarks.
+- **T1 (livrée)** : veille des modèles (Hugging Face, éditeurs suivis, relève 6 h, remontée du passé sans alerte),
+  historique (nouveau, ouverture / fermeture de licence, accès restreint, disparition des modèles suivis), alertes,
+  usages par modèle (cases à cocher), liste des bancs. Hub maison : tuile « Modèles IA » ; ici : Parc IA > Veille des
+  modèles.
+- **T2 (livrée en partie #823 : usages -> priorités, alertes -> événements du hub)** : brancher les usages déclarés sur les modules (ici : priorités -- préparation, décideur, explication -- avec
+  l'hôte qui porte le modèle) ; alerte des modèles par notify-api (`modeles.alerte`) ; bouton « installer sur l'hôte »
+  depuis une alerte (geste ollama pull existant #746) ; disponibilité dans la bibliothèque Ollama.
+- **T3 Bancs et benchmarks** : un banc = jeu de cas étiquetés (veille : suivis / rejetés ; assistant : 20 cas #533) x
+  modèles x hôtes, lancé depuis le hub (commande d'agent sur l'hôte, pas depuis l'API), résultats comparés dans le temps
+  (régression quand un modèle change), coût (s / cas, mémoire) ; le banc du décideur du hub maison
+  (`api/banc_decideur.py`) en est le premier.
+- **T4 Skills (livrée #827)** : catalogue des consignes / outils réutilisables par les IA du hub (prompts système, schémas de
+  décision, outils autorisés), versionnés, avec l'usage et le modèle qui les portent ; évalués par les bancs T3.
+- **T5 Apprentissage (livrée #828 : jeu, registre, évaluation ; kit LoRA non exécuté)** : pas d'entraînement complet. LoRA / QLoRA de petits modèles (≤ 8 B)
+  sur nos propres décisions (suivis / rejets, statuts de traitement, corrections de l'utilisateur) pour le décideur et
+  le classement ; sur GPU NVIDIA (outillage mûr), l'Arc Pro de la maison seulement après essai ; export GGUF -> Ollama
+  -> banc T3 avant mise en service ; données d'entraînement jamais hors de nos machines.
+
+### 133. Pool de VM de test des agents et installeur Windows MSI -- MSI #824 et banc #825 écrits (non vérifiés en réel)
+
+Demande (22/10/2026) : un pool d'OS sur VM pour tester automatiquement et mettre au point les agents et leur système
+d'installation ; sous Windows, un installeur MSI ou équivalent.
+- **Pool** : modèles de VM Proxmox (Debian 12/13, Ubuntu 22/24, Rocky 9, Windows 10/11, Windows Server 2016/2019/2022,
+  macOS hors Proxmox) clonés à la demande (clones liés), scénario : installation par la ligne du central local
+  (`--local-view` compris), premier relevé, mise à jour, désinstallation ; résultats dans les bancs (#132 T3) ; VM
+  détruites après. Pilotage par un agent sur le nœud qui porte le pool (gestes vmctl existants), réseau isolé.
+- **MSI** : WiX Toolset v4 (`wix build`) en CI Windows ou sur une VM du pool : Python embarqué + code de l'agent dans
+  Program Files, tâche planifiée SYSTEM (ou service via un petit hôte de service), propriétés MSI `CENTRAL`, `TOKEN`,
+  `CAFINGERPRINT`, `SITE` (déploiement silencieux `msiexec /i si-agent.msi /qn CENTRAL=… TOKEN=…`, GPO / Intune),
+  désinstallation propre, mise à jour majeure ; signature de code à prévoir (certificat de l'organisation).
+
+  Reste (133) : préparer les modèles de VM sur un nœud (Debian 12/13, Ubuntu 24, Rocky 9, Windows 10/11, Server
+  2019/2022), construire le MSI sur la VM Windows du banc puis le faire installer par le banc ; scénario « mise à jour »
+  (installer N-1, pousser N) ; passage planifié à chaque nouvelle version de l'agent ; résultats dans les bancs (#132 T3).
+
+### 134. Pauses d'alertes planifiées (fermeture de site, travaux, coupure électrique) -- tranche 1 LIVRÉE #853 (pauses, bilan de reprise) ; reste : vue calendrier, contrôle de reprise automatique, rappels J-2/J-1
+
+Demandé le 23/10/2026 (évolution et prévision) : le campus ferme une semaine, puis le lundi suivant des travaux avec
+une grosse coupure électrique. Prévoir :
+- un **planning de maintenance** par site (et par agent / groupe d'agents) : fenêtres datées « site fermé »,
+  « travaux / coupure prévue », avec motif et responsable ; vue calendrier dans le hub ;
+- pendant une fenêtre : **alertes en pause** (agents muets, sondes, veille du campus, alertes Nebula, si-veille du
+  poste via le résumé de veille) mais **relevés conservés** et constats journalisés « pendant la maintenance » ;
+- à la fin de la fenêtre : **contrôle de reprise** automatique (agents revenus, équipements Nebula en ligne, VLAN et
+  DHCP vus par les sondes) et rapport « reprise après coupure » avec ce qui n'est pas revenu ;
+- avant une coupure électrique : rappel J-2 / J-1 (arrêts propres des VM / serveurs à prévoir, onduleurs) et liste
+  des équipements sans redémarrage automatique (BIOS « après coupure : allumé ») à vérifier.
+Dates précises de la fermeture et de la coupure : à demander.
+
+### 135. Adresses fixes des systèmes du campus (Ethernet d'abord, Wi-Fi récurrents selon l'historique) -- à étudier
+
+Demandé le 23/10/2026 : passer en IP fixe tous les systèmes en Ethernet, et si possible les clients Wi-Fi récurrents
+(doute : changements de zone et de SSID). Proposition :
+- de préférence des **réservations DHCP** (adresse fixe par MAC sur la passerelle) plutôt qu'une configuration statique
+  sur chaque poste : gestion centrale, retour arrière simple, pas de conflit si le poste change de prise ;
+- l'OpenAPI Nebula ne modifie pas la configuration DHCP de la passerelle : plan d'adressage préparé par le hub
+  (tableau MAC -> nom -> VLAN -> IP proposée, export à saisir dans Nebula) puis vérification par relecture ;
+- Wi-Fi : décider d'après l'historique des clients (30 jours : nombre de VLAN / SSID / bornes vus par MAC, adresses
+  aléatoires « MAC privée » exclues) ; une réservation n'a de sens que pour un client toujours sur le même VLAN.
+
+### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#867), essais prévus
+
+Suite de #855 (pilotage, boucles, bancs). Constat du 24/10/2026 : le Wi-Fi du campus se limite au mieux au Wi-Fi 6
+(pas de Wi-Fi 7 en service) ; inutile d'acheter des cartes Wi-Fi 7.
+
+Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
+- **banc mobile** (amphi, salles) : le mini PC Linux existant + concentrateur USB 3 **alimenté** + 4 clés Wi-Fi 6
+  (MT7921AU, ex. Alfa AWUS036AXML) + 4 clés Wi-Fi 5 (MT7610U, pilote mt76x0u, ex. Alfa AWUS036ACHM) = 8 clients simulés, mélange
+  « récents / anciens » proche d'un vrai amphi ;
+- **surveillance continue** par zone : Raspberry Pi 3B+ (2,4 + 5 GHz) / Pi Zero 2 W ; Pi 4 + clé Wi-Fi 6 (USB 3) ;
+  Pi 3B : 2,4 GHz seulement, à réserver au signal et à la latence ; sur Pi 3, l'USB 2 plafonne vers 200 Mb/s ;
+- 2e banc mobile éventuel : mini PC Intel N100/N150, 2,5 GbE, 4 ports USB 3 (sa carte interne = un client de plus) ;
+- serveur iperf3 **en filaire au plus près du cœur** (2,5 / 10 Gb/s), ports 5201 et 5202, sinon c'est lui qui limite.
+
+Évolution de l'agent netprobe (#867) :
+- **un agent par carte Wi-Fi**, chacune dans son espace réseau Linux (`ip netns`) : une MAC, une association, une
+  adresse DHCP par client simulé ; identifiant de sonde = machine + interface ;
+- **pilotage et remontée par l'Ethernet** (VLAN d'administration) : les tâches et les mesures ne passent pas par le
+  Wi-Fi testé, le banc reste pilotable quand la cellule s'effondre ;
+- installeur : détection des clés, création des espaces réseau au démarrage, `power_save off`, choix du SSID / bande
+  par client (forcer 5 GHz, 2,4 GHz ou laisser choisir), enrôlement auprès de netprobe-api ;
+- tuile Pilotage : regroupement des sondes par machine, sélection « toutes les clés Wi-Fi 6 » / « Wi-Fi 5 ».
+
+Points à vérifier sur le matériel réel :
+- tenue de 4 clés MT7610U et 4 MT7921AU sur un même concentrateur (décrochages, pertes faussées sans alimentation) ;
+- débit réel par clé et total du mini PC en charge (le mini PC ne doit pas être le goulet) ;
+- réglages des sondes Pi : `iw dev wlan0 set power_save off`, alimentation 2,5 A (Pi 3) / 3 A (Pi 4), `iperf3`.
+
+Planning : essais au bureau la semaine du 26/10/2026 (banc mobile, bancs « cast » et « montée en charge » contre un
+serveur iperf3 local), puis au campus la semaine du 02/11/2026 (après la coupure électrique du lundi matin).
+
+### 137. Installeur Windows pour client non développeur, banc de test sur VM Windows -- à reprendre après l'état des lieux
+
+Retour du 26/10/2026 (installation chez un client, serveur Windows Server) : la procédure en ligne de commande (secret,
+empreinte de CA, adresse du central, archive à décompresser) est beaucoup trop compliquée pour un client non
+développeur. À faire : un vrai installeur (double-clic, un seul code d'enrôlement à saisir, central public par défaut,
+vérification de connectivité intégrée avec message clair, exclusion antivirus guidée) et une mécanique de test
+automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) dans le banc (#825, BACKLOG 133).
+
+### 138. Passe de design et d'ergonomie (notes du 26/10/2026)
+
+- On ne voit pas quel bouton / onglet est sélectionné (pages de la tuile Migration et autres barres de boutons) : couleur
+  pleine ou pseudo-onglet pour l'élément actif, partout.
+- Tableaux très larges (État des lieux) : colonnes coupées à droite, lignes trop hautes ; colonnes repliables, détail
+  dans un volet.
+
+### 139. État des lieux : le SI interne hors Proxmox, et les serveurs / services utilisés par les postes -- tranche 1 LIVRÉE #861 (reste : noms DNS des serveurs non suivis, croisement avec la sonde voisinage et postes Windows)
+
+- Ajouter les systèmes du SI interne qui ne sont ni des nœuds ni des invités Proxmox : nms, r2d2, serveur, serveur de
+  fichiers, NAS… (hôtes avec agent : relevé local ; sans agent : relevé par ssh, comme pve-remote) ; Windows compris.
+- À partir des analyses permanentes du réseau (sonde voisinage, postes Windows, connexions des postes), dresser la liste
+  des serveurs et services utilisés par les postes, et les ajouter aux dépendances.
+- Ping (#868, suite) : test « depuis un agent » vers une IP tierce (commande signée à l'agent, résultat dans la fiche) ;
+  bouton ping dans les vues d'exploration de données (fusion IP/MAC, exploration réseau, supervision historique) ;
+  authentification Keycloak des routes de gestion de si-agent-api (aujourd'hui seule une limite de débit protège /ping).
+
+### 140. Connexions, montages et erreurs d'accès des serveurs de fichiers : NAS, ownCloud, ancien Samba -- à faire (noté le 28/10/2026)
+
+Origine : une collègue en VPN (SoftEther, r2d2) s'est vu redemander son mot de passe par le Finder pour le NAS alors
+que le web l'acceptait ; sans journal centralisé, on ne sait ni qui monte quoi, ni d'où, ni pourquoi c'est refusé.
+À suivre pour chacun : qui se connecte (utilisateur, poste, adresse, VPN ou LAN), quel partage / dossier, protocole
+(SMB / AFP / WebDAV / web / client de synchro), durée, et surtout les ÉCHECS (mot de passe, droit d'application,
+compte bloqué / expiré, version SMB refusée), avec alerte sur échecs répétés et croisement avec les sessions VPN (#884, #885).
+- NAS QNAP (nas-grpi-1) : QuLog Center (journaux d'accès et de connexion) -- par SNMP impossible ; voie d'accès
+  à étudier (syslog distant vers un agent, ou export des journaux) sans modifier les réglages Zenoss (#883).
+- ownCloud 9.1.8 (Debian 8) : table oc_authtoken / journal owncloud.log (connexions, échecs), clients de synchro.
+- Ancien serveur Samba : smbstatus (sessions et fichiers ouverts) et journaux log.smbd (échecs d'authentification),
+  par l'agent (installeur des hôtes anciens #867 si besoin).
+Restitution : un onglet « Accès aux fichiers » (ou une extension de l'onglet VPN) par utilisateur et par serveur ;
+lecture seule partout, réglages de journalisation à proposer séparément si un serveur ne journalise pas assez.
+
+### 141. Vue inversée « Services du LAN » et services en ligne, à partir des sockets -- à faire (noté le 28/10/2026)
+
+Base livrée : sonde `sockets` (#906, netstat -laputen par hôte agenté) et sondes `partages-reseau` / `partages-samba`
+(#902). But : passer de la vision « par hôte » à la vision « par service ».
+- Tuile « Services du LAN » : agréger les sockets de TOUS les agents (postes ET serveurs sur les LAN) pour obtenir,
+  par service (hôte:port en écoute, croisé avec l'État des lieux pour le nommer), la liste des postes/clients qui s'y
+  connectent, et inversement par poste la liste des services consommés. Les agents serveurs fournissent le côté
+  offre (écoute + connexions entrantes), les postes le côté usage (connexions sortantes) : on recoupe les deux bouts
+  du lien client<->service. Historique (évolution de l'usage dans le temps) depuis les relevés horodatés.
+  - Hôtes SANS agent (VM/serveurs non instrumentés) : combiner nmap et tcpdump. nmap (sonde `lan-audit` #873 déjà là)
+    donne les services ouverts par hôte/VM (offre) ; tcpdump donne les flux ip-client/port/ip-serveur (usage).
+    `capture-relay` capture déjà en tcpdump borné vers network-agent-api -> en extraire les tuples de flux (src, dst,
+    port, proto, compteurs) ou une sonde `flux` légère qui ne remonte que ces tuples (pas le pcap complet). Fusionner :
+    agent `sockets` (processus/PID/utilisateur) là où un agent existe ; nmap+tcpdump ailleurs. Service nommé en
+    croisant hôte:port avec l'État des lieux.
+- Onglet « services en ligne » : même idée au niveau applicatif, à partir des journaux/API des services eux-mêmes
+  (connexions, sessions), cibles immédiates ownCloud, Roundcube / Postfix (smtpd) / Dovecot (imapd), GED.
+- Prérequis d'ergonomie : la fiche de l'agent est devenue trop lourde (noté le 28/10) -> la retravailler et/ou la
+  relier à une tuile « postes agentés » qui regroupe fiche, postes Windows, sockets, par poste.
+
+- Ergonomie de la fiche agent (noté le 29/10, « je passe trop de temps à chercher ») -- LIVRÉ #922 : fiche en onglets
+  (Résumé, Réseau, Matériel, Activité, Disques et stockage, Ports et services, Journal, Poste, Sondes, Commandes,
+  Réglages) ouverte À LA PLACE du tableau, retour et changement d'agent en tête, liens profonds
+  `?view=si-agent&agent=<id>&section=<section>` ; tableau : colonne Version (orange si le central sert plus récent),
+  collecte = pastille vert / jaune (pas de relevé récent) / orange (partielle, sondes bloquées) / rouge (hors ligne),
+  détail au survol ; actions en micro-symboles (⤓ ⛔ ⏸ 🗑) ; localisation raccourcie, complète au survol.
+  Reste (à faire) : appliquer le même principe aux autres fiches longues (Postes Windows, Infra PVE/PBS) et la tuile
+  « postes agentés » ci-dessus.
+
+- Règle d'ergonomie PERMANENTE (29/10) : une info-bulle importante (erreur, trace, motif de refus, détail d'un état)
+  a toujours son équivalent -- un mini bouton coloré selon l'urgence (rouge critique, orange alerte, bleu info),
+  visible sur la ligne survolée (toujours sur écran tactile), qui ouvre une fenêtre défilante, sélectionnable, avec
+  « Copier » (composant `hub/src/FenetreTexte.jsx`, #924). Appliqué : résultats de commandes, pastille de collecte,
+  dernier résultat des sondes, hôtes relayés, motifs de l'analyse à distance. À généraliser aux autres vues.
+
+- Agent bloqué par ses sondes (29/10, pc-paul) -- LIVRÉ #925 : poste-charge et sondes « à la demande » jamais
+  ordonnancées ; sous Windows les sondes longues (> 2 min) en tâche de fond. Reste (à faire) : afficher sur la fiche
+  de l'agent les sondes en cours d'exécution (`sondes_en_fond()` côté agent) ; étudier la même chose sous Linux sans
+  preexec_fn (processus intermédiaire) pour les sondes serveur longues (systemes, lan-audit, copies-inventory).
+
+- pc-paul, lecture du diagnostic du 30/10 (étude en cours) : NVMe interne sain ; erreurs disque = Harddisk1 (disque
+  externe de la copie du 28/10, à confirmer) ; mémoire sans erreur ; indices système : Wi-Fi Killer (NDIS 10317,
+  échecs de retour d'économie d'énergie ×23), BIOS (HAL 20/21 ACPI ×50), Explorateur (ntshrui.dll, partages réseau),
+  DCOM ×518, Windows Update en échec ×72, stabilité 3/10 ; Defender désactivé. Épreuve processeur à rejouer en journée
+  avec la sonde v3 (#926). Reste : analyses Triage / ownCloud et Excel / Réseau / Veille, puis verdict.
+
+- Tuile NAS -- LIVRÉ #927 : potentiel d'évolution (baies, réserve non allouée, extensible jusqu'à, conseils chiffrés).
+  Reste (à faire) : rattacher chaque volume à sa réserve quand il y en a plusieurs (SNMP ne le donne pas : SSH ou
+  API QTS) ; tendance de remplissage (date estimée de saturation à partir de l'historique des relevés).
+
+- Analyse de poste : accès aux services -- LIVRÉ #928 : onglet « Accès services » (temps brut + authentifié formulaire/
+  Basic/jeton, secret au coffre, mesure en tâche de fond). Reste (à faire) : auth Keycloak/SSO (OIDC, flot code) ;
+  historique/tendance des temps par site ; préréglage « sites de l'entreprise » pour web-audit (temps bruts comparés
+  entre postes) ; option marqueur d'échec par site.
+
+- Sonde sauvegarde/restauration (DEMANDÉ le 30/10) -- EN COURS : #930 a livré la SAUVEGARDE des confs logicielles
+  (registre + dossiers AppData) et des montages (remonter.cmd), destinations clé USB + partage UNC (identifiants au
+  coffre). Reste, dans l'ordre demandé :
+  * #931 -- LIVRÉ : poussée vers PBS (pbs10) par l'agent du serveur PBS (snapshot host/<poste>, ns « postes »,
+    jeton au coffre, préflight en lecture seule). pbs1 = pbs10 confirmé.
+  * points de restauration Windows (lister, créer, déclencher) ; sauvegarde via l'outil du fabricant / Microsoft ;
+    liste des applications à réinstaller ; trousseaux à exporter/importer (interaction utilisateur).
+  * RESTAURATION = opération d'INTERVENTION (réimport registre, recréation des partages), séparée et soumise à
+    autorisation.
+
+- (remplacé par la ligne ci-dessus) sonde de gestion sauvegarde / restauration d'un poste
+  Windows, en vue d'une réinstallation (système identique ou plus récent, départ de zéro) :
+  * points de restauration Windows (lister, créer, déclencher) ;
+  * sauvegarde/restauration via l'outil du fabricant ou de Microsoft, vers une clé et un partage ;
+  * export des clés de base de registre des applications, à redéployer sur le nouveau système ;
+  * liste des applications à réinstaller ;
+  * liste des partages à reconstruire ;
+  * trousseaux (identifiants Windows / navigateurs) à sauvegarder puis redéployer, avec interaction utilisateur
+    (sauvegarde = export, restauration = import).
+  S'appuyer sur ce que poste-windows relève déjà (logiciels, partages, lecteurs réseau, comptes) ; séparer nettement
+  les actions de MODIFICATION (création de point de restauration, écriture sur clé/partage, import de trousseau) des
+  simples relevés, et les soumettre aux règles d'autorisation (mode intervention).
+
+- Fiche agent, confusion « commandes » (30/10) -- LIVRÉ #929 : onglet « Commandes à distance » (autorisation +
+  exécution au même endroit), ancien « Commandes » → « Historique » (console en « Actions avancées » repliée),
+  Journal montre aussi les dernières commandes, autorisation sortie de Réglages. Reste (à faire) : sur un agent NON
+  Windows, l'onglet Commandes à distance propose des analyses orientées Windows (pwsh) — à filtrer par OS ; appliquer
+  le même rangement par intention à la fiche Postes Windows ; envisager de retirer « Analyse à distance » de Postes
+  Windows au profit d'un lien vers l'onglet de la fiche agent (éviter les deux portes d'entrée).
+
+- Consultation des résultats de tests de charge -- LIVRÉ #932 : onglet Tests de charge -> historique daté (verdict,
+  épreuves, cpu/mém/disque, température, alertes), comparaison côte à côte de plusieurs runs, impression. Mesures
+  conservées 730 j. Compléments LIVRÉS #933 : impression dédiée (@media print), export CSV, rétention longue
+  (SI_AGENT_RETENTION_TASKS_LONG, défaut plugin:poste-charge=730). [ANCIENNE NOTE]
+  PRIORITÉ (30/10, « il me faut absolument ») -- STOCKAGE ET CONSULTATION DES RÉSULTATS DE TESTS DE CHARGE :
+  aujourd'hui l'onglet Tests de charge ne montre que le DERNIER test (le hub ne garde que le dernier relevé
+  poste-charge par poste) et l'Historique des commandes ne porte que « {started:true} » (test en tâche de fond). Les
+  relevés successifs existent pourtant en base (mesures plugin:poste-charge, un par run). À faire (#932) : vue
+  historique des tests de charge d'un poste (liste datée avec verdict et épreuves, détail par run), COMPARAISON de
+  plusieurs runs côte à côte, et IMPRESSION. Prévoir une rétention plus longue pour ces mesures (ne pas purger comme
+  les relevés courants). Le défaut de pc-paul est INTERMITTENT (reproduit puis non, « poste figé jusqu'à 2,8 s » sur
+  un run propre) -> comparer les runs est nécessaire au diagnostic.
+
+- Restauration de sauvegarde -- LIVRÉ #934 : simulation (lecture) + application (intervention) avec repli des clés,
+  remise des dossiers, remontage ; gatée par l'autorisation intervention. Reste (à faire) : restauration depuis une
+  source UNC avec identifiants du coffre (comme #930) ; restauration depuis PBS (pbs10 -> restore -> partage ->
+  poste) ; point de restauration Windows créé avant application ; restauration ciblée par application depuis l'UI
+  (cases à cocher par appli, à partir de la simulation).
+
+- Conseils sur les points critiques -- LIVRÉ #935 : section « Propositions et conseils » en tête du Diagnostic
+  (conseilsDiagnostic.js), classés par gravité avec action concrète, croisant diagnostic + tests de charge
+  (intermittence) ; impression ciblée (corrige la régression #933). Reste (à faire) : conseils aussi côté serveurs/
+  NAS/PVE ; export des conseils en note décideurs (non technique) ; pondération apprise (Cortex).
+  RETOUR du 30/10 -- LIVRÉ #938 : éléments nommés (disque visé interne/externe, carte Wi-Fi, mise à jour en échec,
+  dates, BIOS) et procédures avec commandes copiables + export. #943 : plan de remise en état en 2 étapes (conseils
+  appliqués + retests, sinon réinstallation native + redescente des sauvegardes), conseils NTFS / graphique / mémoire
+  nommés, encodage du journal réparé. Reste : vérifier collecte.ps1 v5 sur pc-paul ; pondération apprise.
+- BackupPC : le serveur « fichiers » est en Debian 7 (relevé legacy par super-hub) -> sonde backuppc en mode relais SSH
+  livrée #943 ; à installer : compte si-bk + clé + sudoers sur fichiers, /etc/si-agent/backuppc.json sur super. Les
+  actions backuppc-ctl (lancer / arrêter) relayées de la même façon (#948).
+
+- DEMANDÉ le 30/10 -- TUILE « SAUVEGARDES » (centralisation) : une tuile incluant la sauvegarde par agent et un
+  récapitulatif des espaces et sauvegardes existantes : connecteur/onglet BackupPC (serveur existant), connecteur/
+  onglet NAS QNAP (TimeMachine, snapshots, backups), pbs10, et un récapitulatif host/VM => sauvegarde on/off, dernière,
+  planification (cron), data / image. À faire (#937+) : tuile avec onglets Vue d'ensemble / Postes (agrégation des
+  sauvegarde-poste) / PBS (sonde pbs) / Copies host-VM (copies-inventory, pulled-backups) / BackupPC (nouvelle sonde
+  backuppc : BackupPC_serverMesg status + pc/*/backups) / NAS QNAP (snapshots + TimeMachine par SSH). Pièces livrées :
+  onglet Sauvegardes de la fiche agent (#936) ; TUILE livrée #937 ; THÉMATIQUE d'accueil + BackupPC (sonde backuppc,
+  commande backuppc-ctl gardée par « intervention ») + NAS QNAP (sonde nas-qnap par SSH : snapshots, Time Machine,
+  RAID, partages, découverte des outils) livrés #939 ; #940 : connexions, journaux, aide des outils, gestion à distance
+  (essai lecture / actions déclarées en intervention). Reste : au premier relevé réel de nas-grpi-1, lire l'aide des outils
+  et proposer les actions `snapshot` / `hbs` à déclarer ; journaux QTS 5 (QuLog) ; récapitulatif host/VM on/off ;
+  #944 : conseils NAS livrés (SNMP + SSH) -- reste : conseil chiffré « agrandir le volume X de N To » calé sur la
+  réserve libre, et suivi « fait » comme le plan de remise en état des postes
+  + planification (cron) par invité dans la tuile (aujourd'hui renvoi vers Maintenance PVE et l'inventaire des copies).
+- DEMANDÉ le 30/10 -- BOOT USB D'URGENCE : « je voudrais pouvoir générer une image à copier en dump (dd if=xx.img
+  of=/dev/xy) » : le hub produit une image de clé prête à écrire (environnement de secours WinPE ou Linux + outils
+  disque/mémoire + accès à la dernière sauvegarde du poste), téléchargeable, avec la commande dd complète et sa
+  vérification (sha256) ; mise à jour de l'image quand la sauvegarde change.
+- DEMANDÉ le 30/10 -- INVENTAIRE DÉTAILLÉ des éléments de configuration détectés par la sauvegarde de poste, « pas les
+  valeurs secrètes mais l'inventaire, format compacté façon JSON » : par application, clés de registre, chemins /
+  fichiers, et exports possibles (ex. firefox : cache, conf, export mots de passe, export favoris, export historique).
+  LIVRÉ #941 : bouton « { } Inventaire JSON » (éléments connus par application, exports et portabilité, relevé de la
+  dernière sauvegarde). Reste : enrichir EXPORTS pour les logiciels déduits (CAO, métier) au fil des postes.
+- RÈGLE GÉNÉRALE notée le 30/10 (appliquée #939 aux boutons existants, à respecter partout ensuite) : un bouton d'action
+  passe « en cours » dès le clic même s'il y a un autre effet visible.
+- RÈGLE GÉNÉRALE notée le 30/10 (#946, obligatoire partout) : tout message de refus ou d'erreur qui dépend d'un réglage
+  (autorisation, niveau, option) porte un lien direct vers ce réglage et dit la valeur à choisir. Fait : NAS QNAP et
+  BackupPC (gestion à distance). À passer en revue : restauration (#934), accès services (#928), PBS (#931), tour,
+  et tout nouveau message.
+- DEMANDÉ le 30/10 -- SAUVEGARDES AUTOMATIQUES DU SI DE SUPERVISION : « le hub devrait gérer en automatique ses propres
+  sauvegardes, tous les agents aussi et les hubs secondaires / proxys ». Existant : sauvegarde du hub planifiée par
+  backup-restore (#459, GFS, chiffrée par SI_BACKUP_PASSPHRASE du .env -- à vérifier qu'elle est réglée) mais locale
+  (<projet>/backups). À faire (#943+) : commande agent `sauvegarde-systeme` (conf / état de l'agent, rôle hub :
+  archives du hub + .env, hub secondaire : /opt/si-collecteur, proxy : /etc/si-proxy) avec rotation locale, remontée
+  au hub (petites archives) et poussée PBS (proxmox-backup-client depuis l'hôte) ; planificateur dans si-agent-api
+  (heure, agents, rôles) ; onglet « SI de supervision » dans la tuile Sauvegardes (état du hub via backup-restore,
+  dernière auto-sauvegarde par agent, lancer maintenant).
+- Tour : #942 rattrapage ciblé + durées ; reste : estimation affichée AVANT de lancer (sur le plan), historique des
+  durées par service dans la tour.
+- DEMANDÉ le 30/10 -- Sauvegarde IMAGE du disque d'un poste (wbadmin / image bloc vers partage ou PBS, planifiable) et
+  BOOT USB D'URGENCE (préparateur guidé WinPE/Linux + outils + accès à la dernière sauvegarde). Boutons et sections
+  posés (#936), backends à construire.

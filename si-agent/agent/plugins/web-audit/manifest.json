@@ -1,0 +1,13 @@
+{
+  "id": "web-audit",
+  "version": "1",
+  "runner": "python",
+  "entry": "web_audit.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 240,
+  "args": ["--urls", "", "--timeout", "10", "--max-sub", "25"],
+  "enabled": false,
+  "description": "Sonde « audit d'application web » (#617, famille explorer) : depuis le poste, rejoue l'accès à chaque URL listée (--urls a,b ou fichier web-audit.txt dans le dossier de l'agent) et décompose ce que l'utilisateur subit -- résolution DNS, connexion TCP, poignée de main TLS (version, expiration), premier octet, téléchargement, code, chaîne de redirections, puis chaque script / style / image / cadre de la page avec son code et sa durée. Constats : dns-failed, connect-failed, tls-failed, http-error, http-client-error, slow-ttfb, slow-total, sub-errors, sub-slow, cert-expiring, redirect-chain, empty-body, mixed-content. Lecture seule, sans authentification, stdlib seulement (Windows sans dépendance). Comparaison entre postes dans l'onglet Audit web.",
+  "source": "bundled",
+  "privileged": false
+}

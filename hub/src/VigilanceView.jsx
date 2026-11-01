@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchSignals, fetchSummary, triggerAnalysis } from "./vigilanceClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Vigilance" (hub), livraison #262 -- backlog item 34, suite
 // du module Classification (#260). Demandé explicitement, en
 // confirmant une proposition concrète ("pour la catégorie 'client
@@ -101,7 +102,7 @@ export default function VigilanceView({ onBack, vigilanceApiBase }) {
               <p className="muted">Aucun signal sur les 7 derniers jours -- soit tout va bien, soit
                 l'analyse n'a pas encore tourné (elle tourne périodiquement en arrière-plan).</p>
             ) : (
-              <table>
+              <AutoColumns id="VigilanceView.1"><table>
                 <thead><tr><th>Signal</th><th>Sévérité</th><th>Occurrences</th><th>Appareils distincts</th></tr></thead>
                 <tbody>
                   {summary.map((s, idx) => (
@@ -113,7 +114,7 @@ export default function VigilanceView({ onBack, vigilanceApiBase }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -131,7 +132,7 @@ export default function VigilanceView({ onBack, vigilanceApiBase }) {
               <p className="muted">Aucun signal pour ce filtre.</p>
             ) : (
               <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <table>
+                <AutoColumns id="VigilanceView.2"><table>
                   <thead><tr><th>Appareil</th><th>Signal</th><th>Détail</th><th>Détecté</th></tr></thead>
                   <tbody>
                     {signals.map((s) => (
@@ -143,7 +144,7 @@ export default function VigilanceView({ onBack, vigilanceApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
           </div>

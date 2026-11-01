@@ -2764,6 +2764,54 @@ def delete_pending_ticket(ticket_id):
         conn.close()
 
 
+@app.route("/tickets/import-external", methods=["POST"])
+def import_external_ticket():
+    """Création d'un ticket À VALIDER depuis un système EXTERNE
+    (livraison #484, demandé explicitement : les demandes ProjeQtOr
+    doivent arriver « dans la liste des imports à valider », même file
+    que les imports calendrier #273). Appelé par projeqtor-bridge sur
+    le réseau Docker interne, jamais par un navigateur.
+
+    MÊMES règles que /calendar/create_ticket : pending_validation=1
+    tant qu'un humain n'a pas confirmé via /tickets/<id>/validate.
+
+    Déduplication ICI (et pas chez l'appelant) : un ticket déjà connu
+    pour le même (source_type, source_nom) renvoie 409 SANS rien
+    créer — la source de vérité anti-doublon vit dans cette base, pas
+    dans un fichier d'état d'un service tiers qui peut se perdre.
+    """
+    body = request.get_json(silent=True) or {}
+    subject = (body.get("subject") or "").strip()
+    source_type = (body.get("source_type") or "").strip()
+    source_nom = (body.get("source_nom") or "").strip()
+    if not subject or not source_type or not source_nom:
+        return jsonify({"error": "'subject', 'source_type' et 'source_nom' requis"}), 400
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id FROM tickets WHERE source_type = {PLACEHOLDER} AND source_nom = {PLACEHOLDER}",
+            [source_type, source_nom],
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            return jsonify({"status": "connu", "ticket_id": existing[0]}), 409
+
+        ts = now_ts()
+        cur.execute(
+            f"""INSERT INTO tickets
+                (user_id, subject, description, ts_created, last_change, source_type, source_nom, pending_validation)
+                VALUES ({PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER})""",
+            [None, subject, body.get("description"), ts, ts, source_type, source_nom, 1],
+        )
+        conn.commit()
+        ticket_id = cur.lastrowid if DB_BACKEND == "sqlite" else _pg_lastval(cur)
+        return jsonify({"status": "ok", "ticket_id": ticket_id, "pending_validation": 1}), 201
+    finally:
+        conn.close()
+
+
 @app.route("/tickets/<int:ticket_id>/recalculate_status", methods=["POST"])
 def recalculate_ticket_status(ticket_id):
     """Livraison #284, demandé explicitement -- réévalue le statut
@@ -3339,21 +3387,30 @@ def stats_reopenings():
 
 
 TABLE_ORDER = [
-    "users", "types", "levels", "statuts", "matching_config",
+    "users", "types", "levels", "statuts", "sites", "deadline_escalation_rules", "matching_config",
     "exclusion_rules", "priority_keywords", "oauth_credentials",
     "tickets", "calendar_events", "calendar_filter_rules",
     "ticket_time_entries", "ticket_status_log", "ticket_messages",
 ]
 SERIAL_ID_TABLES = [t for t in TABLE_ORDER if t not in ("matching_config", "oauth_credentials")]  # clés texte, pas de séquence
+# #722 (item 117) : configuration et référentiels d'une instance, SANS données métier ni personnes ni secrets -- ce que
+# copie le clonage d'une instance du portail tickets vers un autre nœud (export ?scope=config puis /import?mode=merge).
+# #722 : sites et règles d'escalade manquaient aussi à l'export complet (ajoutés à TABLE_ORDER).
+CONFIG_TABLES = ["types", "levels", "statuts", "sites", "deadline_escalation_rules", "matching_config",
+                 "exclusion_rules", "priority_keywords", "calendar_filter_rules"]
 
 
 @app.route("/export", methods=["GET"])
 def export_database():
+    """?scope=config (#722) : configuration et référentiels seulement (clonage d'instance)."""
+    scope = request.args.get("scope", "all")
+    if scope not in ("all", "config"):
+        return jsonify({"error": "scope : all ou config"}), 400
     conn = get_connection()
     try:
         cur = conn.cursor()
         dump = {}
-        for table in TABLE_ORDER:
+        for table in (CONFIG_TABLES if scope == "config" else TABLE_ORDER):
             cur.execute(f"SELECT * FROM {table}")
             dump[table] = [row_to_dict(cur, r) for r in cur.fetchall()]
         return jsonify(dump), 200

@@ -1,0 +1,282 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Asset Management &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Documents" href="Document.html" />
+    <link rel="prev" title="Collaboration" href="Collaboration.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Document.html" title="Documents"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asset Management</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="asset-management">
+<span id="index-0"></span><span id="id1"></span><h1>Gestion des actifs<a class="headerlink" href="#asset-management" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>Ce module est dédié à la gestion de votre infrastructure informatique.</p>
+<p>Vous pouvez gérer :</p>
+<ul class="simple">
+<li><p>Tous les types d’actifs</p></li>
+<li><p>Catégories d’actifs</p></li>
+<li><p>Marques</p></li>
+<li><p>Modèles</p></li>
+<li><p>Localisations des actifs</p></li>
+</ul>
+<section id="asset">
+<h2>Actif<a class="headerlink" href="#asset" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran vous permet de gérer des listes de licences, de versions, de produits ou même de composants liés aux équipements.</p>
+<ul class="simple">
+<li><p>Définissez la liste des appareils contenus dans un autre appareil.</p></li>
+<li><p>Affichez l’arborescence globale des équipements constituant un équipement, en pouvant fermer ou développer un niveau donné.</p></li>
+<li><p>Lors de la copie d’un appareil, vous pouvez sélectionner la composition complète de cet appareil.</p></li>
+<li><p>Chaque équipement contenu est dupliqué, récursivement, en initialisant les données uniques (numéro de série, références, etc.).</p></li>
+</ul>
+<figure class="align-default" id="id7">
+<img alt="Écran de gestion des actifs" src="_images/ASSETMANAGMENT_SCR_Assets.png" />
+<figcaption>
+<p><span class="caption-text">Écran de gestion des actifs</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Droits d’accès</p>
+<p>Vous pouvez limiter la visibilité des équipements.</p>
+<p>certains champs seront mis à jour automatiquement pour permettre à l’utilisateur de voir les éléments qu’il vient de créer.</p>
+<p>Si un profil a des droits de création et des droits de lecture uniquement sur « les éléments dont il est responsable », la création doit automatiquement positionner le gestionnaire sur l’utilisateur actuel.</p>
+<p>Si un profil a des droits de création et des droits de lecture uniquement sur « ses propres éléments », la création doit automatiquement positionner l’utilisateur sur l’utilisateur actuel.</p>
+<p>Cette gestion des droits est automatiquement étendue à tous les éléments ne dépendant pas du projet.</p>
+<p>Alimentation du champ responsable lors de la création d’un élément si l’utilisateur a des droits de visibilité tels que « les éléments dont il est responsable ».</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Masquer les boutons « Verrouiller » et « envoyer un mail » lorsque le droit d’accès est en lecture seule</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Chaque actif lié à une ressource ou un utilisateur est affiché sur leur écran respectif.</p>
+<p>Voir : <a class="reference internal" href="Resource.html#allocated-asset-resource"><span class="std std-ref">Ressource</span></a> et <a class="reference internal" href="Resource.html#allocated-asset-user"><span class="std std-ref">Utilisateur</span></a></p>
+</div>
+<p class="rubric">Attribution</p>
+<figure class="align-default" id="id8">
+<img alt="Section Attribution" src="_images/ASSETMANAGMENT_ZONE_Attribution.png" />
+<figcaption>
+<p><span class="caption-text">Section Attribution</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette section permet de définir :</p>
+<ul class="simple">
+<li><p>Un statut pour chaque appareil selon le workflow sélectionné.</p></li>
+<li><p>Une date d’installation et une éventuelle date de mise hors service.</p></li>
+<li><p>L’emplacement de l’équipement, avec la possibilité de définir une liste (voir : <a class="reference internal" href="#asset-types"><span class="std std-ref">Types d’actifs</span></a>) et/ou un champ de saisie manuelle pour plus de précision.</p></li>
+<li><p>L’utilisateur qui bénéficiera de cet équipement.</p></li>
+<li><p>La case à cocher clos. Qui permet de mettre l’équipement en mode archive.</p></li>
+</ul>
+<p class="rubric">Section Coûts</p>
+<p>Cette section permet de définir les coûts pour l’actif sélectionné.</p>
+<p>Vous pouvez définir un coût pour :</p>
+<ul class="simple">
+<li><p>Valeur d’achat</p></li>
+<li><p>La période de garantie</p></li>
+<li><p>Date de fin de garantie</p></li>
+<li><p>La période d’amortissement</p></li>
+<li><p>Le besoin d’assurance</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="Section Coûts" src="_images/ASSETMANAGMENT_ZONE_Costs.png" />
+<figcaption>
+<p><span class="caption-text">Section Coûts</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section composition de l’actif</p>
+<p>Lorsque vous définissez un élément parent, les composants de l’élément apparaissent dans cette section vous donnant la structure complète d’un élément.</p>
+<figure class="align-default" id="id10">
+<img alt="Composition de l'actif" src="_images/ASSETMANAGMENT_ZONE_AssetComposition.png" />
+<figcaption>
+<p><span class="caption-text">Composition de l’actif</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le bouton <strong>afficher la structure</strong> ouvre une fenêtre contextuelle qui résume la composition complète de votre équipement sous forme de tableau.</p>
+<p>Vous pouvez imprimer cette boîte.</p>
+<figure class="align-default" id="id11">
+<img alt="Section composition de l'actif" src="_images/ASSETMANAGMENT_ZONE_DisplayStructure.png" />
+<figcaption>
+<p><span class="caption-text">Section composition de l’actif</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="asset-types">
+<span id="id2"></span><h3>Types d’actifs<a class="headerlink" href="#asset-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="ListsOfTypes.html#behavior-section"><span class="std std-ref">Comportement</span></a></p></li>
+</ul>
+</aside>
+<p>Les types d’actifs dans les équipements permettent de lister les différents matériaux d’un équipement.</p>
+<p>Par exemple, un poste de travail contient un ordinateur, des périphériques tels qu’un écran, une souris, un clavier, ou même une webcam, des logiciels, des licences, une imprimante…</p>
+<p>Mais vous pouvez également créer des listes encore plus détaillées avec des types de stockage d’informations, de traitement ou d’équipements réseau.</p>
+<p>Vous pouvez définir une icône pour chaque type d’actif.</p>
+<p>ProjeQtOr met à votre disposition quelques icônes.</p>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Vous pouvez créer et importer les vôtres dans l’application.</p>
+<p>Enregistrez vos icônes dans le dossier <strong>www\projeqtor\view\icons</strong> et relancez l’application.</p>
+</div>
+</section>
+<section id="asset-category">
+<span id="id3"></span><h3>Catégorie d’actif<a class="headerlink" href="#asset-category" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’écran des catégories d’équipements vous permettra de faire un inventaire plus détaillé de certains équipements.</p>
+<p>Vous pouvez déterminer par exemple si un équipement peut être personnel, pour un service ou collectif.</p>
+<p>Mais vous pouvez également déterminer si un appareil fait partie d’une architecture matérielle, réseau ou poste de travail</p>
+</section>
+</section>
+<section id="brands">
+<span id="id4"></span><h2>Marques<a class="headerlink" href="#brands" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’écran des marques permet de créer une liste de marques constituant votre infrastructure informatique.</p>
+<figure class="align-default" id="id12">
+<img alt="Marques enregistrées" src="_images/ASSET_SCR_BrandList.png" />
+<figcaption>
+<p><span class="caption-text">Marques enregistrées</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="models">
+<span id="id5"></span><h2>Modèles<a class="headerlink" href="#models" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’écran des modèles vous permet de créer une liste de modèles liés à une marque et à un type d’équipement.</p>
+<figure class="align-default" id="id13">
+<img alt="Modèles enregistrés" src="_images/ASSET_SCR_ModelList.png" />
+<figcaption>
+<p><span class="caption-text">Modèles enregistrés</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="location">
+<span id="id6"></span><h2>Emplacement<a class="headerlink" href="#location" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’écran des emplacements permet de créer une liste de lieux pour localiser vos équipements.</p>
+<figure class="align-default" id="id14">
+<img alt="Écran des emplacements" src="_images/ASSETMANAGMENT_SCR_Location.png" />
+<figcaption>
+<p><span class="caption-text">Écran des emplacements</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le champ « emplacement » dans l’écran des actifs offre la possibilité de sélectionner dans la liste enregistrée des emplacements et un champ de saisie manuelle permettant d’ajouter des détails avec des caractères alphanumériques.</p>
+<p class="rubric">Section Adresse</p>
+<p>Vous pouvez compléter l’adresse exacte en renseignant de nombreux champs :</p>
+<ul class="simple">
+<li><p>Rue</p></li>
+<li><p>Complément</p></li>
+<li><p>Code postal</p></li>
+<li><p>Ville</p></li>
+<li><p>État / Région</p></li>
+<li><p>Pays</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gestion des actifs</a><ul>
+<li><a class="reference internal" href="#asset">Actif</a><ul>
+<li><a class="reference internal" href="#asset-types">Types d’actifs</a></li>
+<li><a class="reference internal" href="#asset-category">Catégorie d’actif</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#brands">Marques</a></li>
+<li><a class="reference internal" href="#models">Modèles</a></li>
+<li><a class="reference internal" href="#location">Emplacement</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Collaboration.html"
+                          title="Chapitre précédent">Collaboration</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Document.html"
+                          title="Chapitre suivant">Documents</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Document.html" title="Documents"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asset Management</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

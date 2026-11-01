@@ -30,7 +30,9 @@ _log = logging.getLogger("siproxy.hostshim")
 
 
 class HostShim(object):
-    def __init__(self, relay_host, relay_port, token, ssl_ctx, shell_user="freg", deny=None, shell="/bin/bash"):
+    def __init__(self, relay_host, relay_port, token, ssl_ctx, shell_user="freg", deny=None, shell="/bin/bash", name="hub", server_name=None):
+        self.name = name  # #575 : plusieurs shims (VM du hub, poste d'agent sur un site) distingués par nom
+        self.server_name = server_name or None  # #575 : nom attendu dans le certificat quand le relais est joint par un tunnel SSH (127.0.0.1)
         self.relay_host, self.relay_port = relay_host, relay_port
         self.token, self.ssl_ctx = token, ssl_ctx
         self.shell_user, self.deny, self.shell = shell_user, list(deny or []), shell
@@ -45,13 +47,13 @@ class HostShim(object):
 
     async def _connect_relay(self, hello):
         reader, writer = await asyncio.open_connection(self.relay_host, self.relay_port, ssl=self.ssl_ctx,
-                                                        server_hostname=self.relay_host)
+                                                        server_hostname=self.server_name or self.relay_host)
         writer.write(proto.encode_line(hello))
         await writer.drain()
         return reader, writer
 
     async def _control_session(self):
-        reader, writer = await self._connect_relay({"role": "host", "type": proto.CONTROL, "token": self.token})
+        reader, writer = await self._connect_relay({"role": "host", "type": proto.CONTROL, "token": self.token, "name": self.name})
         ack = await aio.read_hello(reader)
         if not ack or not ack.get("ok"):
             _log.error("enregistrement refusé par le relais : %s", (ack or {}).get("error"))
@@ -231,6 +233,8 @@ async def _amain():
     ap.add_argument("--shell-user", default="freg")
     ap.add_argument("--shell", default="/bin/bash")
     ap.add_argument("--deny", action="append", default=None, help="réseau/hôte refusé (répétable)")
+    ap.add_argument("--name", default=os.environ.get("SI_PROXY_HOST_NAME", "hub"), help="nom de ce shim auprès du relais (hub, campus…) ; le client choisit avec --via")
+    ap.add_argument("--server-name", default=os.environ.get("SI_PROXY_SERVER_NAME") or None, help="nom du relais dans son certificat (tunnel SSH local : --relay 127.0.0.1:6450 --server-name super)")
     ap.add_argument("--log-level", default="INFO")
     args = ap.parse_args()
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -238,7 +242,7 @@ async def _amain():
         raise SystemExit("jeton requis : --token (ou SI_PROXY_HOST_TOKEN)")
     host, _, port = args.relay.rpartition(":")
     ctx = aio.client_context(ca_file=args.ca, insecure=args.insecure, certfile=args.cert, keyfile=args.key)
-    shim = HostShim(host, int(port), args.token, ctx, shell_user=args.shell_user, deny=args.deny, shell=args.shell)
+    shim = HostShim(host, int(port), args.token, ctx, shell_user=args.shell_user, deny=args.deny, shell=args.shell, name=args.name, server_name=args.server_name)
     _log.info("shim host : relais %s, shell sous %s", args.relay, args.shell_user)
     await shim.run_forever()
 

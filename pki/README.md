@@ -33,6 +33,57 @@ pki/scripts/generate-ca.sh
 pki/scripts/generate-server-cert.sh
 ```
 
+## Extensions de la CA et diagnostic (`--check`, #495)
+
+Une CA générée **avant #495** n'a pas d'extension `keyUsage` : OpenSSL
+≥ 3 (Python 3.14, agents macOS récents) refuse alors la chaîne
+(« CA cert does not include key usage extension »), constaté sur le
+premier agent macOS réel (BACKLOG item 3). Depuis #495,
+`generate-ca.sh` émet `basicConstraints=critical,CA:TRUE`,
+`keyUsage=critical,keyCertSign,cRLSign` et un `subjectKeyIdentifier`,
+avec un numéro de série aléatoire (jamais réutilisé entre deux
+générations — `SEC_ERROR_REUSED_ISSUER_AND_SERIAL`). **Une CA
+existante n'est jamais modifiée** : seuls les nouveaux déploiements
+en bénéficient. Pour savoir où en est la vôtre, sans rien écrire :
+
+```bash
+PKI_DIR=<chemin de .env> pki/scripts/generate-ca.sh --check   # 0 = conforme, 3 = à renouveler
+```
+
+Le même diagnostic s'affiche (en avertissement, jamais bloquant)
+quand `gateway/scripts/run.sh` (ou `vault-standalone/scripts/run.sh`)
+relance `generate-ca.sh` sur une CA déjà présente. Le
+renouvellement d'une CA ancienne est une opération planifiée (voie b
+du BACKLOG item 3 : régénérer, puis redistribuer `ca.crt` dans l'ordre
+agents → postes/navigateurs → dockers à trust store copié, en retirant
+l'ancienne CA des magasins avant d'importer la nouvelle).
+
+### Renouveler une CA ancienne sans coupure (`rotate-ca.sh`, #496)
+
+Trois phases explicites, jamais lancées par `run.sh`, chacune refusant
+d'avancer si la précédente n'a pas eu lieu (`rotate-ca.sh status` dit
+où l'on en est) :
+
+```bash
+pki/scripts/rotate-ca.sh prepare        # CA neuve dans $PKI_DIR/next/ca + $PKI_DIR/ca-bundle.crt (ancienne+neuve)
+#   -> distribuer le BUNDLE aux agents (central-ca.crt + redémarrage), au client si-proxy
+#      du Mac (SI_PROXY_CA), aux dockers à trust store copié ; importer la CA neuve sur les postes.
+#      Le hub sert toujours l'ancienne CA : rien n'est cassé, on prend le temps qu'il faut.
+pki/scripts/rotate-ca.sh switch --yes   # ancienne CA archivée (ca-old-<date>/, clé conservée), CA neuve en place,
+#   -> cert serveur réémis ; redémarrer la pile, relancer si-proxy/setup-certs.sh <hub> [--clients]
+pki/scripts/rotate-ca.sh finish         # bundle réduit à la CA neuve ; retirer l'ancienne des magasins à la main
+```
+
+Pourquoi un bundle : `ssl.create_default_context(cafile=…)` (agents,
+client si-proxy) et les magasins acceptent un PEM contenant plusieurs
+autorités — distribuer ancienne + neuve *avant* la bascule évite le
+« TLS rompu jusqu'au remplacement du fichier ». Les deux CA ont le même
+sujet mais des séries différentes (aléatoires depuis #495) : pas de
+`SEC_ERROR_REUSED_ISSUER_AND_SERIAL`. Retour arrière possible tant que
+`finish` n'est pas lancé (la commande exacte est affichée par
+`switch`). La clé de l'ancienne CA n'est jamais supprimée par le
+script.
+
 ## Distribuer la CA aux postes clients — l'étape qui compte vraiment
 
 Sans ça, chaque navigateur affichera un avertissement de sécurité à
@@ -146,7 +197,16 @@ manquer après chaque étape critique.
 cryptographiquement** (`openssl verify -CAfile ca.crt server.crt` →
 `OK`), SAN corrects avec un `HOST_IP` réaliste et `TLS_EXTRA_SAN`,
 idempotence de `generate-ca.sh` (relancé deux fois, rien refait la
-seconde). Bug réel trouvé et corrigé en testant l'enchaînement complet
+seconde). #495 : CA neuve validée en `openssl verify -x509_strict`
+(OpenSSL 3.0) et chargée par `ssl.create_default_context` ; une CA
+« ancienne » (sans keyUsage) régénérée pour l'essai est bien refusée
+en strict et signalée par `--check` (code 3), sans être modifiée.
+#496 : bascule complète jouée dans un bac à sable (ancienne CA sans
+keyUsage → prepare → cert serveur signé par l'ancienne validé avec le
+bundle → switch → cert réémis validé en strict par la neuve ET par le
+bundle → finish, bundle à 1 certificat ; refus de `switch` sans
+`prepare`, de `prepare` en double, de `switch` sans `--yes`). Non
+vérifié : bascule sur super avec de vrais agents (à planifier). Bug réel trouvé et corrigé en testant l'enchaînement complet
 depuis `scripts/run.sh` : `generate-server-cert.sh` ne lisait `HOST_IP`
 que depuis `.env`, jamais depuis la variable d'environnement déjà
 exportée par `run.sh` après détection automatique (`hostname -I`) —

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  fromNetprobe, fromUps, fromSiAgent, fromSnmp, fromSshTunnels, fromWifiAgents, mergeItems, aggregateSupervised,
+  fromNetprobe, fromUps, fromSiAgent, fromSnmp, fromSshTunnels, fromWifiAgents, fromMikrotik, fromProxmox, mergeItems, aggregateSupervised,
   buildProposals, filterSupervised, prioritizeSupervised, setPriority, movePriority,
   buildLinks, knownPositions, deducePositions, describeChain, frameLayout, normalizeFrames, summarizeByState, loadPref, savePref,
   appliedMatch, displaySite, resolveSubjects, resolveKey, geoRows, geoSummary,
@@ -204,4 +204,69 @@ test("#433 alerte UPS active -> état dégradé dans Supervision SI", () => {
   ], NOW);
   assert.equal(a.state, "warning"); assert.equal(a.stateText, "input_voltage_min");
   assert.equal(b.state, "ok", "acquittée : n'altère plus l'état");
+});
+
+test("#486 routeurs MikroTik : états homogènes + fusion par IP avec les autres tuiles", () => {
+  const routers = fromMikrotik([
+    { name: "cœur", host: "10.0.0.1", port: 443, reachable: true, identity: "rb5009-coeur" },
+    { name: "agence", host: "10.0.0.2", port: 443, reachable: false, error: "délai dépassé" },
+    { name: "sans-creds", host: "10.0.0.3", port: 443, reachable: false, error: "identifiants absents du .env (MIKROTIK_AGENCE_USER / MIKROTIK_AGENCE_PASSWORD)" },
+  ], NOW);
+  assert.deepEqual(routers.map((r) => r.state), ["ok", "critical", "unknown"]);
+  assert.equal(routers[0].name, "rb5009-coeur", "l'identité RouterOS prime sur le nom du registre pour l'affichage");
+  assert.equal(routers[0].identity, "ip:10.0.0.1");
+  assert.equal(routers[0].type, "router");
+  assert.equal(routers[2].stateText, "identifiants absents (.env)", "pas un incident : un réglage manquant");
+  // Fusion : le routeur déjà sondé par netprobe reste UN équipement,
+  // l'origine mikrotik s'ajoute ; l'état mesuré le pire l'emporte.
+  const items = mergeItems([
+    fromNetprobe([{ id: 1, ip_address: "10.0.0.1", label: "Routeur", active: 1 }], [{ target_id: 1, success: 1, latency_ms: 1 }]),
+    routers,
+  ]);
+  assert.equal(items.length, 3);
+  const r = items.find((i) => i.ip === "10.0.0.1");
+  assert.deepEqual(r.origins.map((o) => o.origin).sort(), ["mikrotik", "netprobe"]);
+  assert.equal(r.state, "ok");
+  const agg = aggregateSupervised({ mikrotikRouters: [{ name: "cœur", host: "10.0.0.1", reachable: true }], snmpTargets: [{ id: 1, host: "10.0.0.1" }] });
+  assert.equal(agg.length, 1);
+  assert.equal(agg[0].origins.length, 2);
+});
+
+test("#487 VM Proxmox : états, alertes backup/snapshot, fusion par IP", () => {
+  const nodes = [
+    { agent_id: "pve1", hostname: "pve1", site: "siege", ok: true, at: "2026-09-08T09:58:00Z",
+      node: { name: "pve1" },
+      vms: [
+        { vmid: 100, name: "ged", type: "qemu", status: "running", ips: ["10.0.0.5"],
+          snapshots: [{ name: "avant-maj", age_s: 40 * 86400 }], last_backup: { age_s: 3600 } },
+        { vmid: 101, name: "cloud", type: "lxc", status: "running", ips: ["10.0.0.6"], snapshots: [], last_backup: null },
+        { vmid: 102, name: "vieux", type: "qemu", status: "stopped", ips: [], snapshots: [], last_backup: { age_s: 100 * 86400 } },
+        { vmid: 900, name: "modele-debian", type: "qemu", status: "stopped", template: true, ips: [], snapshots: [] },
+      ] },
+    { agent_id: "pve2", hostname: "pve2", site: "ovh", ok: false, at: "2026-09-08T09:58:00Z", node: {}, vms: [{ vmid: 200, name: "x", status: "running" }] },
+  ];
+  const items = fromProxmox(nodes, NOW);
+  assert.equal(items.length, 3, "modèle exclu, mesure en erreur ignorée (l'agent hôte la signale déjà)");
+  const ged = items.find((i) => i.name === "ged");
+  assert.equal(ged.state, "warning");
+  assert.match(ged.stateText, /snapshot « avant-maj » oublié \(40 j\)/);
+  assert.equal(ged.identity, "ip:10.0.0.5");
+  assert.equal(ged.originId, "pve1/100");
+  const cloud = items.find((i) => i.name === "cloud");
+  assert.equal(cloud.state, "warning");
+  assert.match(cloud.stateText, /jamais sauvegardée/);
+  const vieux = items.find((i) => i.name === "vieux");
+  assert.equal(vieux.state, "unknown", "arrêtée n'est pas un incident");
+  assert.equal(vieux.stateText, "arrêtée", "backup ancien non rabâché sur une VM arrêtée");
+  assert.equal(vieux.identity, "name:vieux@pve1", "sans IP : repli nom@hôte, unique par hyperviseur");
+  // Fusion : la VM GED déjà sondée par netprobe reste UN équipement.
+  const merged = mergeItems([
+    fromNetprobe([{ id: 1, ip_address: "10.0.0.5", label: "ged", active: 1 }], [{ target_id: 1, success: 1, latency_ms: 1 }]),
+    items,
+  ]);
+  const g = merged.find((i) => i.ip === "10.0.0.5");
+  assert.deepEqual(g.origins.map((o) => o.origin).sort(), ["netprobe", "proxmox"]);
+  assert.equal(g.state, "warning", "le snapshot oublié dégrade l'équipement fusionné");
+  const agg = aggregateSupervised({ proxmoxNodes: nodes });
+  assert.equal(agg.length, 3);
 });

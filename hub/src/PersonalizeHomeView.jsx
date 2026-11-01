@@ -4,6 +4,7 @@ import {
 } from "./hubLayoutLib.js";
 import { saveHubLayout } from "./settingsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Personnalisation de l'accueil, étape 3 (livraison #140) -- écran
 // accessible à TOUT utilisateur authentifié (pas réservé aux
 // administrateurs, contrairement à "Liens externes"). Contrôles
@@ -150,7 +151,7 @@ export default function PersonalizeHomeView({ fronts, hubLayout, onHubLayoutChan
 
       <div className="hub-card hub-settings-section">
         <h2 className="personalize-section-title">Tuiles</h2>
-        <table className="personalize-tiles-table">
+        <AutoColumns id="PersonalizeHomeView.1"><table className="personalize-tiles-table">
           <thead>
             <tr><th>Tuile</th><th>Visible</th><th>Cadre</th><th>Position</th></tr>
           </thead>
@@ -193,7 +194,7 @@ export default function PersonalizeHomeView({ fronts, hubLayout, onHubLayoutChan
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </div>
   );

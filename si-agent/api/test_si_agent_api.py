@@ -4,6 +4,7 @@ vrai agent (si_agent.agent.Agent) parle au vrai central via le client de
 test Flask -- enrôlement, configuration versionnée, plugin du catalogue
 poussé signé et installé, mesures reçues, commandes acquittées."""
 import json
+from datetime import datetime, timedelta, timezone
 import os
 import shutil
 import sys
@@ -22,6 +23,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "agent"))
 
 import app as app_mod  # noqa: E402
 import notify  # noqa: E402
+import alertfilters  # noqa: E402
 import store  # noqa: E402
 from si_agent import agent as agent_mod  # noqa: E402
 from si_agent import control, host, protocol  # noqa: E402
@@ -66,6 +68,65 @@ class ApiBase(unittest.TestCase):
 
 
 class DashboardTests(ApiBase):
+    def test_session_interactive_709(self):
+        a = self.enroll()
+        http = FlaskHttp(self.c, "srv-01", a["secret"])
+        app_mod._interactive.clear()
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")
+        self.assertEqual(st, 200); self.assertNotIn("fast_poll", body)
+        self.assertEqual(self.c.post("/agents/inconnu/interactive", json={}).status_code, 404)
+        r = self.c.post("/agents/srv-01/interactive", json={"seconds": 99999}).get_json()
+        self.assertEqual(r["fast_poll_seconds"], app_mod.FAST_POLL_SECONDS)
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")
+        self.assertEqual(body["fast_poll"]["seconds"], app_mod.FAST_POLL_SECONDS); self.assertLessEqual(body["fast_poll"]["for"], 900)
+        self.c.post("/agents/srv-01/interactive", json={"close": True})
+        self.assertNotIn("fast_poll", http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")[1])
+        self.c.post("/agents/srv-01/commands", json={"type": "collect_now"})            # une commande ouvre une session courte
+        self.assertGreater(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")[1]["fast_poll"]["for"], 60)
+        app_mod._interactive.clear()
+
+    def test_publication_tableau_par_agent(self):
+        # #547 : réglage `publish` par agent, dans la configuration signée, contenu servi à l'agent
+        import publish as publish_lib
+        a = self.enroll()
+        self.assertFalse(self.c.get("/agents/srv-01").get_json()["publish"]["enabled"])
+        self.assertEqual(self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 80}}).status_code, 400)
+        r = self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 8081, "title": "Réseau du campus", "hours": 24}})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual(r.get_json()["publish"]["title"], "Réseau du campus")
+        http = FlaskHttp(self.c, "srv-01", a["secret"])
+        st, cfg = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/config")
+        self.assertEqual(st, 200); self.assertTrue(cfg["publish"]["enabled"]); v1 = cfg["version"]
+        self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 8082, "title": "Réseau du campus"}})  # le réglage est remplacé en bloc
+        self.assertNotEqual(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/config")[1]["version"], v1)
+        # contenu : nebula-api simulée
+        board = {"sites": [{"site_id": "x", "site_name": "Site", "resume": "Tout le réseau est en ligne (2 équipements).", "phrases": [], "availability": 1.0, "incidents": 0, "online": 2, "total": 2, "hours": 24,
+                            "devices": [{"dev_id": "d", "name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0, "secret": "non"}]}]}
+        app_mod._publish_board = lambda pub: (board, {"x": [{"dev_id": "d", "name": "Borne", "from_status": "offline", "to_status": "online", "at": 1}]}, None)
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")
+        self.assertEqual(st, 200); self.assertTrue(body["enabled"])
+        self.assertEqual(body["sites"][0]["devices"][0], {"name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0, "theme": "borne"})
+        # #564 : historique par thématique
+        self.assertEqual(body["sites"][0]["events"], [{"at": 1, "name": "Borne", "from": "offline", "to": "online", "theme": "borne"}])
+        self.assertEqual(publish_lib.device_theme("XS3800-28"), "commutateur"); self.assertEqual(publish_lib.device_theme("USG FLEX 700H"), "passerelle"); self.assertEqual(publish_lib.device_theme("Truc"), "autre")
+        self.assertNotIn("site_id", body["sites"][0])
+        self.assertEqual(body["title"], "Réseau du campus")
+        # signé comme la configuration
+        from si_agent import control
+        self.assertTrue(control.verify_response(a["secret"], http.last_headers, http.last_raw)[0])
+        # #549 : la même page, vue depuis le hub
+        r = self.c.get("/agents/srv-01/publish/preview")
+        self.assertEqual(r.status_code, 200); self.assertIn("<h1>Réseau du campus</h1>", r.get_data(as_text=True))
+        pv = self.c.get("/agents/srv-01/publish/board.json").get_json()
+        self.assertEqual(pv["sites"][0]["devices"][0]["name"], "Borne"); self.assertFalse(pv["stale"])
+        self.assertEqual(self.c.get("/agents/inconnu/publish/preview").status_code, 404)
+        self.c.put("/agents/srv-01", json={"publish": {"enabled": False}})
+        self.assertEqual(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")[1], {"enabled": False})
+        self.assertIn("désactivée", self.c.get("/agents/srv-01/publish/board.json").get_json()["error"])
+        self.assertEqual(publish_lib.normalize_publish(None)["port"], 8081)
+        with self.assertRaises(ValueError):
+            publish_lib.normalize_publish({"hours": 0})
+
     def test_enrolement_secret_et_installation(self):
         a = self.enroll(label="Serveur fichiers")
         self.assertIn("secret", a)
@@ -98,7 +159,7 @@ class DashboardTests(ApiBase):
             self.assertIn('attachment; filename="si-agent-install-srv-01.cmd"', r.headers["Content-Disposition"])
             body = r.get_data(as_text=True)
             self.assertTrue(body.startswith("@echo off\r\n"))
-            self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
+            self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s -PythonUrl "https://vm:6443/api/si-agent/deploy/python" > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
             self.assertIn("-NonInteractive", body)
             self.assertIn('cd /d "%~dp0"', body)
             self.assertIn("-Verb RunAs", body)
@@ -201,6 +262,78 @@ class SignedFaceTests(ApiBase):
         self.assertEqual(http.request("POST", "/api/v1/agents/srv-01/measurements", {"measurements": [{"task": "x"}]})[0], 400)
 
 
+class ProxmoxTests(ApiBase):
+    def test_route_proxmox(self):
+        """#487 : la mesure plugin:proxmox remontée par l'agent est servie
+        agrégée par hyperviseur sur /proxmox (supervision SI, type « vm »)."""
+        a = self.enroll("pve1", "siege")
+        http = FlaskHttp(self.c, "pve1", a["secret"])
+        batch = {"measurements": [
+            {"agent_id": "pve1", "task": "plugin:proxmox", "at": "2026-09-13T10:00:00Z", "ok": True,
+             "data": {"node": {"name": "pve1", "pveversion": "pve-manager/8.2.4"},
+                      "vms": [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running", "ips": ["10.0.0.5"]}],
+                      "storages": [{"storage": "local-zfs", "type": "zfspool"}],
+                      "zfs": [{"pool": "rpool", "health": "ONLINE"}], "warnings": [],
+                      "bandwidth": {"timeframe": "day", "node": {"hourly": [{"start": 1700000000, "end": 1700003600, "avg_bps": 1200000.0, "peak_bps": 1600000.0, "bytes": 540000000, "active_fraction": 0.9}], "window": {"suggested_slot_seconds": 3600, "unit_seconds": 3200.0}, "peak_bps": 1600000.0, "total_bytes": 540000000}, "by_vm": {"100": {"hourly": [{"start": 1700000000, "end": 1700003600, "avg_bps": 800000.0, "peak_bps": 900000.0, "bytes": 360000000, "active_fraction": 0.8}], "window": {"suggested_slot_seconds": 3600}, "peak_bps": 900000.0, "total_bytes": 360000000}}}}, "error": None},
+        ]}
+        st, _ = http.request("POST", "/api/v1/agents/pve1/measurements", batch)
+        self.assertEqual(st, 201)
+        out = self.c.get("/proxmox").get_json()["proxmox"]
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["agent_id"], "pve1")
+        self.assertEqual(out[0]["node"]["pveversion"], "pve-manager/8.2.4")
+        self.assertEqual(out[0]["vms"][0]["ips"], ["10.0.0.5"])
+        self.assertEqual(out[0]["zfs"][0]["pool"], "rpool")
+        # #644 : la bande passante (#641) est laissée passer par latest_proxmox
+        self.assertEqual(out[0]["bandwidth"]["node"]["peak_bps"], 1600000.0)
+        self.assertEqual(out[0]["bandwidth"]["node"]["window"]["suggested_slot_seconds"], 3600)
+        self.assertEqual(out[0]["bandwidth"]["by_vm"]["100"]["total_bytes"], 360000000)
+        self.assertTrue(out[0]["ok"])
+        # filtre par site comme /netview
+        self.assertEqual(self.c.get("/proxmox?site=ovh").get_json()["proxmox"], [])
+        self.assertEqual(len(self.c.get("/proxmox?site=siege").get_json()["proxmox"]), 1)
+
+    def test_disponibilite_et_evenements(self):
+        """#504 : les mesures successives donnent la disponibilité par VM et
+        des événements de changement d'état (arrêt = warning, reprise = info,
+        VM disparue) ; /proxmox expose backups et access."""
+        a = self.enroll("pve1", "siege")
+        http = FlaskHttp(self.c, "pve1", a["secret"])
+        def measure(at, vms):
+            return {"agent_id": "pve1", "task": "plugin:proxmox", "at": at, "ok": True,
+                    "data": {"node": {"name": "pve1"}, "vms": vms, "storages": [], "zfs": [], "warnings": [],
+                             "backups": {"runs": [], "jobs": [], "failed_24h": 1, "ok_24h": 3},
+                             "access": {"host": {"requests": 12, "auth_failures": 2}}}, "error": None}
+        base = datetime.now(timezone.utc).replace(microsecond=0)
+        def iso(minutes_ago):
+            return (base - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        seq = [
+            (iso(90), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 101, "name": "cloud", "type": "lxc", "status": "running"}]),
+            (iso(60), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "stopped"}, {"vmid": 101, "name": "cloud", "type": "lxc", "status": "running"}]),
+            (iso(30), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 102, "name": "neuve", "type": "qemu", "status": "running"}]),
+            (iso(0), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 102, "name": "neuve", "type": "qemu", "status": "running"}]),
+        ]
+        for at, vms in seq:
+            st, _ = http.request("POST", "/api/v1/agents/pve1/measurements", {"measurements": [measure(at, vms)]})
+            self.assertEqual(st, 201)
+        h = self.c.get("/proxmox/history?agent_id=pve1&hours=24").get_json()
+        self.assertEqual(h["samples"], 4)
+        self.assertEqual(h["vms"]["100"]["availability_percent"], 75.0)
+        self.assertEqual([t["to"] for t in h["vms"]["100"]["transitions"]], ["stopped", "running"])
+        self.assertEqual(h["vms"]["101"]["samples"], 2)
+        self.assertEqual(h["vms"]["102"]["availability_percent"], 100.0)
+        self.assertEqual(self.c.get("/proxmox/history").status_code, 400)
+        events = self.c.get("/events?agent_id=pve1&limit=50").get_json()["events"]
+        kinds = sorted((e["kind"], e["severity"]) for e in events if e["kind"].startswith("vm-"))
+        self.assertIn(("vm-state", "warning"), kinds, "arrêt d'une VM en marche : avertissement")
+        self.assertIn(("vm-state", "info"), kinds, "reprise : information")
+        self.assertIn(("vm-new", "info"), kinds)
+        self.assertIn(("vm-gone", "info"), kinds)
+        out = self.c.get("/proxmox").get_json()["proxmox"][0]
+        self.assertEqual(out["backups"]["failed_24h"], 1)
+        self.assertEqual(out["access"]["host"]["auth_failures"], 2)
+
+
 class CaptureRelayTests(ApiBase):
     """#436 : mesure plugin:capture-relay -> network-agent-api (relais sous mock)."""
 
@@ -256,7 +389,7 @@ class RealChainTests(ApiBase):
         self.c.post("/agents/srv-01/commands", json={"type": "collect_now"})
         # 2. passage complet de l'agent
         out = self.agent.run_once()
-        self.assertEqual([m["task"] for m in out], ["host", "risks", "netview", "inventory", "plugin:hello"])
+        self.assertEqual([m["task"] for m in out], ["host", "risks", "netview", "inventory", "plugin:hello", "agent-self"])  # #616
         self.assertEqual(self.agent.cfg["host_interval_seconds"], 30, "réglage du central appliqué")
         self.assertEqual(self.agent.store.get("hello")["source"], "central", "plugin signé par le central, installé")
         self.assertEqual(out[4]["data"]["hi"], 3, "exécution réelle python avec args")
@@ -452,6 +585,294 @@ class BlockAndEventsTests(ApiBase):
         self.assertEqual(len(fp), 64)
         self.assertIn("--ca-fingerprint " + fp, self.c.get("/agents/srv-01/install").get_json()["install_command"])
         os.remove(path)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class ProbeEvents(unittest.TestCase):
+    """#530 : constats des sondes -> événements notifiables (nouveau / retour à la normale)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.db = os.path.join(self.tmp, "t.db")
+        store.ensure_schema(self.db)
+        store.create_agent(self.db, "a1", "exemple")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def measure(self, at, alerts, task="plugin:path-probe"):
+        return {"task": task, "at": at, "data": {"alerts": alerts, "summary": {"state": "critical" if any(a["severity"] == "critical" for a in alerts) else "ok"}}}
+
+    def test_new_and_recovered(self):
+        dns = {"severity": "warning", "code": "dns-server-down", "message": "DNS 192.0.2.5 muet"}
+        portal = {"severity": "critical", "code": "captive-portal", "message": "HTTP intercepté"}
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:00:00Z", [dns])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "warning")])
+        self.assertIn("chemin de service", ev[0]["message"])
+        # constat persistant : rien ; nouveau constat critique : un événement
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:01:00Z", [dns, portal])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "critical")])
+        # les deux disparaissent : UN retour à la normale (info) qui les cite
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:02:00Z", [])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-recovered", "info")])
+        self.assertIn("dns-server-down", ev[0]["message"]); self.assertIn("captive-portal", ev[0]["message"])
+        # deux constats nouveaux d'un coup : un seul événement, sévérité la pire
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:03:00Z", [dns, portal])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "critical")])
+
+    def test_info_alerts_ignored(self):
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:00:00Z", [{"severity": "info", "code": "co-channel", "message": "x"}], task="plugin:wifi-probe")])
+        self.assertEqual(ev, [])
+
+
+class ImageReceiveTests(ApiBase):
+    def test_reception_image_signee(self):
+        # #634 : morceaux signés avec reprise, clôture vérifiée, liste pour le hub
+        import hashlib, tempfile
+        app_mod.IMAGES_DIR = tempfile.mkdtemp(); app_mod._images = None
+        a = self.enroll("srv-img")
+        sec = a["secret"]
+
+        def put(path, data):
+            h = protocol.auth_headers("srv-img", sec, "PUT", path, data)
+            return self.c.open(path, method="PUT", data=data, headers=h, content_type="application/octet-stream")
+        http = FlaskHttp(self.c, "srv-img", sec)
+        data = os.urandom(50_000)
+        base = "/api/v1/agents/srv-img/images/SRV-IMG.vhdx"
+        r = put(base + "?offset=0", data[:20_000]); self.assertEqual(r.status_code, 201, r.get_json())
+        self.assertEqual(put(base + "?offset=0", data[:5]).status_code, 409)
+        st, body = http.request("GET", base + "/status"); self.assertEqual((st, body["size"]), (200, 20_000))
+        self.assertEqual(put(base + "?offset=20000", data[20_000:]).status_code, 201)
+        st, _ = http.request("POST", base + "/complete", {"size": 50_000, "sha256": "00" * 32}); self.assertEqual(st, 409)
+        st, _ = http.request("POST", base + "/complete", {"size": 50_000, "sha256": hashlib.sha256(data).hexdigest()}); self.assertEqual(st, 200)
+        self.assertEqual(self.c.put(base + "?offset=0", data=b"x").status_code, 401)
+        imgs = self.c.get("/images").get_json()["images"]
+        self.assertEqual((imgs[0]["agent_id"], imgs[0]["name"], imgs[0]["complete"], imgs[0]["size"]), ("srv-img", "SRV-IMG.vhdx", True, 50_000))
+
+
+class SbomForwardTests(ApiBase):
+    def test_inventaire_signe_transmis_a_vuln_api(self):
+        """#699 : SBOM gzip signé par l'agent -> vuln-api (actif = nom d'hôte), refus sans signature."""
+        import gzip
+        a = self.enroll("srv-sbom")
+        sec = a["secret"]
+        store_conn = store._connect(app_mod.DB_PATH)
+        store_conn.execute("UPDATE agents SET hostname = 'mx-alpha' WHERE agent_id = 'srv-sbom'"); store_conn.commit(); store_conn.close()
+        bom = b'{"bomFormat": "CycloneDX", "components": []}'
+        seen = {}
+
+        class R:
+            ok, status_code, headers = True, 201, {"Content-Type": "application/json"}
+            def json(self):
+                return {"asset": "mx-alpha", "components": 0, "findings": 0}
+
+        def fake_post(url, params=None, data=None, headers=None, timeout=None):
+            seen.update(url=url, params=params, data=data)
+            return R()
+        old = app_mod.requests.post
+        app_mod.requests.post = fake_post
+        try:
+            path = "/api/v1/agents/srv-sbom/sbom"
+            gz = gzip.compress(bom)
+            h = protocol.auth_headers("srv-sbom", sec, "POST", path, gz)
+            r = self.c.open(path, method="POST", data=gz, headers=h, content_type="application/gzip")
+            self.assertEqual(r.status_code, 201, r.get_json())
+            self.assertEqual(seen["url"], app_mod.VULN_API_URL + "/sbom")
+            self.assertEqual(seen["params"], {"asset": "mx-alpha", "kind": "host", "source": "agent:srv-sbom"})
+            self.assertEqual(seen["data"], bom)
+            self.assertIn("sbom-received", self.kinds())
+            self.assertEqual(self.c.post(path, data=gz, content_type="application/gzip").status_code, 401)
+            # #711 : image Docker -- la requête fait partie du chemin signé ; actif = l'image
+            ipath = path + "?kind=image&name=registry.exemple%2Fweb%3A1.2"
+            h = protocol.auth_headers("srv-sbom", sec, "POST", ipath, gz)
+            r = self.c.open(ipath, method="POST", data=gz, headers=h, content_type="application/gzip")
+            self.assertEqual(r.status_code, 201, r.get_json())
+            self.assertEqual(seen["params"], {"asset": "registry.exemple/web:1.2", "kind": "image", "source": "agent:srv-sbom"})
+            bad = path + "?kind=disque"
+            r = self.c.open(bad, method="POST", data=gz, headers=protocol.auth_headers("srv-sbom", sec, "POST", bad, gz), content_type="application/gzip")
+            self.assertEqual(r.status_code, 400)
+            h = protocol.auth_headers("srv-sbom", sec, "POST", path, gz)                     # signature du chemin sans la requête
+            self.assertEqual(self.c.open(ipath, method="POST", data=gz, headers=h, content_type="application/gzip").status_code, 401)
+        finally:
+            app_mod.requests.post = old
+
+
+class DeployCommandsTests(unittest.TestCase):
+    def test_chemin_manuel_antivirus(self):
+        # #626 : ligne manuelle (archive par le navigateur + install.ps1), aucun secret, CA épinglée seulement en LAN
+        old = app_mod._ca_info
+        app_mod._ca_info = lambda: {"available": True, "sha256": "ab" * 32}
+        try:
+            c = app_mod._deploy_commands({"token": "tok", "site": "siege", "plugins": ["web-audit"], "central_url": "https://192.0.2.10:6443/api/si-agent"})
+            self.assertIn("-EnrollToken tok -Central https://192.0.2.10:6443/api/si-agent -Site siege -CaFingerprint " + "ab" * 32 + " -EnablePlugin web-audit", c["windows_manual"])
+            self.assertIn("install.ps1", c["windows_manual"]); self.assertEqual(c["package"], "https://192.0.2.10:6443/api/si-agent/package")
+            c = app_mod._deploy_commands({"token": "tok", "site": "siege", "plugins": [], "central_url": "https://supervision.exemple.test/api/si-agent"})
+            self.assertIn("-SystemCa", c["windows_manual"]); self.assertNotIn("CaFingerprint", c["windows_manual"])
+        finally:
+            app_mod._ca_info = old
+
+
+class PublishHubLink(unittest.TestCase):
+    def test_hub_url(self):
+        """#559 : lien vers le hub dans le réglage et dans le contenu publié."""
+        import publish as pl
+        pub = pl.normalize_publish({"enabled": True, "hub_url": "https://hub.exemple/?view=nebula"})
+        self.assertEqual(pub["hub_url"], "https://hub.exemple/?view=nebula")
+        with self.assertRaises(ValueError):
+            pl.normalize_publish({"enabled": True, "hub_url": "javascript:alert(1)"})
+        self.assertEqual(pl.normalize_publish({"enabled": True})["hub_url"], "")
+        self.assertEqual(pl.board_payload({}, "T", 1, "https://hub.exemple/")["hub_url"], "https://hub.exemple/")
+        self.assertNotIn("hub_url", pl.board_payload({}, "T", 1))
+
+
+class AlertFilterTests(ApiBase):
+    """#607 : filtrage des alertes par agent et groupe (postes éteints hors heures ouvrées)."""
+
+    def test_filter_mutes_offline_outside_hours(self):
+        self.enroll("pc-01", site="bureau")
+        self.enroll("srv-01", site="bureau")
+        # paramétrage par défaut exposé ; agent pc-01 filtré par le groupe « postes-travail »
+        g = self.c.get("/alert-filters").get_json()
+        self.assertEqual([x["id"] for x in g["groups"]], ["postes-travail", "silencieux"])
+        self.assertTrue(g["default"])
+        r = self.c.put("/agents/pc-01", json={"filter_enabled": True, "filter_group": "postes-travail"})
+        self.assertEqual((r.status_code, r.get_json()["filter_enabled"], r.get_json()["filter_group"]), (200, 1, "postes-travail"))
+        # test à blanc : un « hors ligne » à 21 h (19:00 UTC en été) est filtré ; à 10 h non ; le serveur jamais
+        t = self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T19:00:00Z"}).get_json()
+        self.assertTrue(t["muted"]); self.assertIn("Postes de travail", t["reason"])
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T08:00:00Z"}).get_json()["muted"])
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "srv-01", "kind": "agent-offline", "at": "2026-09-22T19:00:00Z"}).get_json()["muted"])
+        # événement réel : hors ligne la nuit -> journal (include_muted) mais ni liste par défaut, ni synthèse
+        app_mod._event("agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01")  # horodaté maintenant : filtré ou non selon l'heure
+        conn = store._connect(app_mod.DB_PATH); conn.execute("DELETE FROM events"); conn.commit(); conn.close()
+        import datetime as _dt   # mardi soir récent (dans la fenêtre de 30 j de la synthèse), 21:00 UTC = hors heures été comme hiver
+        _n = _dt.datetime.now(_dt.timezone.utc)
+        _mardi = (_n - _dt.timedelta(days=((_n.weekday() - 1) % 7) or 7)).strftime("%Y-%m-%dT21:00:00Z")
+        stored = store.add_event(app_mod.DB_PATH, "agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01", at=_mardi)
+        muted, why = alertfilters.evaluate(stored, app_mod.alert_groups(), {"filter_enabled": 1, "filter_group": "postes-travail"}, app_mod.ALERT_TZ)
+        self.assertTrue(muted)
+        store.mark_muted(app_mod.DB_PATH, stored["id"], why)
+        self.assertEqual(self.kinds(), [])
+        self.assertEqual(self.kinds(include_muted="1"), ["agent-offline"])
+        s = self.c.get("/events/summary?hours=720").get_json()  # événement daté du dernier mardi soir : dans la fenêtre
+        self.assertEqual((s["counts"]["warning"], s["muted"]), (0, 1))
+        # paramétrage : un groupe personnalisé, refus d'une règle vide, usage par agent
+        r = self.c.put("/alert-filters", json={"groups": [{"id": "postes-travail", "label": "Postes", "rules": [{"categories": ["availability"], "when": "outside", "days": [0, 1, 2, 3, 4], "start": "07:00", "end": "20:00"}]}]})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T17:30:00Z"}).get_json()["muted"])  # 19:30 Paris < 20:00
+        self.assertEqual(self.c.put("/alert-filters", json={"groups": [{"id": "x", "rules": [{"categories": []}]}]}).status_code, 400)
+        g = self.c.get("/alert-filters").get_json()
+        self.assertEqual((g["default"], g["usage"]), (False, {"postes-travail": 1}))
+
+
+class NetworkObservabilityTests(ApiBase):
+    def test_route_network_observability(self):
+        """#643 : dns-observe (105) et resource-access (106) remontés par
+        l'agent sont servis agrégés sur /network-observability, filtrable par site."""
+        a = self.enroll("mini-pc", "numeria")
+        http = FlaskHttp(self.c, "mini-pc", a["secret"])
+        batch = {"measurements": [
+            {"agent_id": "mini-pc", "task": "plugin:dns-observe", "at": "2026-09-27T10:00:00Z", "ok": True,
+             "data": {"names": ["numeria.keepic.net"], "ifaces": ["eth0", "wlan0"],
+                      "summary": {"state": "warning", "queries": 4, "resolved": 4, "alerts": 1},
+                      "learned": {"numeria.keepic.net": {"answers": {"51.15.207.13": ["eth0→172.16.1.1"], "10.0.0.9": ["wlan0→172.16.2.1"]}, "fail": []}},
+                      "by_source": {}, "by_destination": {},
+                      "alerts": [{"code": "dns-divergent", "severity": "warning", "message": "numeria.keepic.net résout différemment selon la source"}]},
+             "error": None},
+            {"agent_id": "mini-pc", "task": "plugin:resource-access", "at": "2026-09-27T10:00:00Z", "ok": True,
+             "data": {"summary": {"state": "warning", "resources": 2, "clients": 1, "bytes": 4200, "alerts": 1},
+                      "resources": [{"key": "51.15.207.13:443/tcp", "dst": "51.15.207.13", "port": 443, "proto": "tcp", "name": "numeria-keepic", "clients": ["172.16.1.50"], "flows": 3, "bytes": 4000},
+                                    {"key": "203.0.113.9:80/tcp", "dst": "203.0.113.9", "port": 80, "proto": "tcp", "name": None, "clients": ["172.16.1.51"], "flows": 1, "bytes": 200}],
+                      "clients": [{"ip": "172.16.1.50", "resources": 1, "flows": 3, "bytes": 4000}],
+                      "alerts": [{"code": "resource-cleartext", "severity": "warning", "message": "accès en clair vers une ressource externe"}]},
+             "error": None},
+        ]}
+        st, _ = http.request("POST", "/api/v1/agents/mini-pc/measurements", batch)
+        self.assertEqual(st, 201)
+        out = self.c.get("/network-observability").get_json()
+        self.assertEqual(len(out["dns"]), 1)
+        self.assertEqual(out["dns"][0]["agent_id"], "mini-pc")
+        self.assertEqual(out["dns"][0]["alerts"][0]["code"], "dns-divergent")
+        self.assertIn("numeria.keepic.net", out["dns"][0]["learned"])
+        self.assertEqual(len(out["resources"]), 1)
+        self.assertEqual(out["resources"][0]["summary"]["resources"], 2)
+        self.assertEqual(len(out["resources"][0]["resources"]), 2)
+        self.assertEqual(out["resources"][0]["alerts"][0]["code"], "resource-cleartext")
+        # filtre par site
+        self.assertEqual(self.c.get("/network-observability?site=ovh").get_json()["dns"], [])
+        self.assertEqual(len(self.c.get("/network-observability?site=numeria").get_json()["resources"]), 1)
+
+
+class DeployInstallTests(ApiBase):
+    def test_deploy_python_sert_le_zip(self):
+        """Le central récupère (ici simulé) et sert le Python embarqué."""
+        import os, tempfile, urllib.request
+        import app as appmod
+        cache = os.path.join(tempfile.mkdtemp(), "py.zip")
+        appmod._PYTHON_EMBED_CACHE = cache
+        orig = urllib.request.urlretrieve
+        urllib.request.urlretrieve = lambda url, dst: open(dst, "wb").write(b"PK" + b"0" * 2_000_000)
+        try:
+            r = self.c.get("/deploy/python")
+        finally:
+            urllib.request.urlretrieve = orig
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(r.data), 1_000_000)
+        self.assertTrue(os.path.exists(cache))  # mis en cache
+
+    def test_bootstrap_windows_pointe_python_sur_le_hub(self):
+        import app as appmod, store
+        tok = store.create_enroll_token(appmod.DB_PATH, "numeria", central_url="https://sup.example/api/si-agent")
+        body = self.c.get("/deploy/windows?token=%s" % tok["token"]).get_data(as_text=True)
+        self.assertIn("-PythonUrl", body)
+        self.assertIn("/deploy/python", body)
+
+    def test_page_install(self):
+        import app as appmod, store
+        tok = store.create_enroll_token(appmod.DB_PATH, "numeria", central_url="https://sup.example/api/si-agent")
+        r = self.c.get("/install?token=%s" % tok["token"])
+        self.assertEqual(r.status_code, 200)
+        html = r.get_data(as_text=True)
+        self.assertIn("/deploy/windows?token=", html)
+        self.assertIn("/deploy/python", html)
+        self.assertIn("PowerShell", html)
+        # jeton absent/invalide -> 403 avec consigne
+        r2 = self.c.get("/install?token=inexistant")
+        self.assertEqual(r2.status_code, 403)
+        self.assertIn("jeton", r2.get_data(as_text=True).lower())
+
+
+class AuditWhitelist(unittest.TestCase):
+    """#687 : audit extérieur -- cibles limitées à la liste blanche du central."""
+
+    def test_liste_blanche(self):
+        spec = "exemple.fr, *.exemple.org, 192.0.2.0/28"
+        ok = ["exemple.fr", "EXEMPLE.FR.", "app.exemple.org", "192.0.2.5"]
+        ko = ["autre.fr", "sous.exemple.fr", "exemple.org", "192.0.2.20", "exemple.fr:443", "https://exemple.fr", "", None]
+        self.assertEqual([store.audit_allowed(h, spec) for h in ok], [True] * len(ok))
+        self.assertEqual([store.audit_allowed(h, spec) for h in ko], [False] * len(ko))
+        self.assertFalse(store.audit_allowed("exemple.fr", ""))
+
+    def test_commande_refusee_hors_liste(self):
+        old = os.environ.get("SI_AGENT_AUDIT_ALLOWED")
+        os.environ["SI_AGENT_AUDIT_ALLOWED"] = "*.exemple.fr"
+        try:
+            with self.assertRaises(ValueError) as cm:
+                store._check_audit_params({"targets": [{"host": "app.exemple.fr"}, {"host": "cible.tiers.com"}]})
+            self.assertIn("cible.tiers.com", str(cm.exception))
+            with self.assertRaises(ValueError):
+                store._check_audit_params({"targets": [{"host": "app.exemple.fr", "ports": [0]}]})
+            with self.assertRaises(ValueError):
+                store._check_audit_params({"targets": []})
+            store._check_audit_params({"targets": [{"host": "app.exemple.fr", "ports": [443, 8443]}]})
+        finally:
+            if old is None:
+                os.environ.pop("SI_AGENT_AUDIT_ALLOWED", None)
+            else:
+                os.environ["SI_AGENT_AUDIT_ALLOWED"] = old
 
 
 if __name__ == "__main__":

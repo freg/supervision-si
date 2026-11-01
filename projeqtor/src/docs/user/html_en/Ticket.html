@@ -1,0 +1,930 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Tickets &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Roles definitions" href="Resource.html" />
+    <link rel="prev" title="Risks and issues management" href="RiskIssueManagement.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Resource.html" title="Roles definitions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Risks and issues management"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tickets</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="ticketing">
+<span id="simple-ticket"></span><span id="ticket"></span><span id="index-0"></span><h1>Ticketing<a class="headerlink" href="#ticketing" title="Permalink to this heading">¶</a></h1>
+<section id="id1">
+<h2>Ticket<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<p>A ticket is a kind of task that cannot be scheduled in a unitary manner.</p>
+<p>This is usually a short-lived activity for a single ticket that gives feedback to the issuer or to keep track of the result.</p>
+<figure class="align-default" id="id5">
+<img alt="Tickets management screen" src="_images/TICKET_SCR_Presentation.png" />
+<figcaption>
+<p><span class="caption-text">Tickets management screen</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>It can be globally planned as a general activity, but not unitarily.</p>
+<p>For instance, bugs should be managed through tickets :</p>
+<ul class="simple">
+<li><p>You can not plan bugs before they are registered.</p></li>
+<li><p>You must be able to give a feedback on each bug.</p></li>
+<li><p>You can globally plan bug fixing activity.</p></li>
+</ul>
+<aside class="topic" id="index-1">
+<p class="topic-title">Tickets (simple)</p>
+<ul class="simple">
+<li><p>This screen is a limited version of screen “Tickets”.</p></li>
+<li><p>It’s dedicated to users who want to create and follow their own tickets without be involved in their treatment.</p></li>
+<li><p>When fields and features are available, the description is similar.</p></li>
+</ul>
+</aside>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Possibility to define that only the responsible of ticket can enter real work.</p>
+<p>This behavior can be set in <a class="reference internal" href="GlobalParameters.html#auto-responsible"><span class="std std-ref">Global parameters</span></a> screen.</p>
+</div>
+<p class="rubric">Dates</p>
+<p><strong>Due dates</strong></p>
+<ul class="simple">
+<li><p>Initial and planned due date allows to define a target date for solving the ticket.</p></li>
+<li><p>If a deadline definition for a ticket exists, the initial planned date is automatically calculated with this deadline.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ControlAutomation.html#delay-for-ticket"><span class="std std-ref">Delays for tickets</span></a> screen allows to define ticket delay.</p>
+</div>
+<p><strong>Planned due date</strong></p>
+<ul class="simple">
+<li><p>Is used to define a target date after evaluation.</p></li>
+<li><p>Automatically initialized to the initial due date.</p></li>
+</ul>
+<p><strong>Monitoring indicator</strong></p>
+<ul class="simple">
+<li><p>Possibility to define indicators to follow the respect of dates values.</p></li>
+</ul>
+<p class="rubric">Product, component and versions fields</p>
+<p>Allows to identify the product and component relating to the issue.</p>
+<p>Identifies from which versions, the issue occurs and to which versions a resolution will be applied.</p>
+<p><strong>Versions identified</strong></p>
+<ul class="simple">
+<li><p>A ticket can identify all versions allocated.</p></li>
+<li><p>Possibility to define a main version and the other versions allocated.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">Product concept</span></a>.</p>
+</div>
+<p class="rubric">Responsible of product</p>
+<p>A responsible can be defined for a product or component.</p>
+<p>If a product or component is selected, the responsible defined can be automatically assigned to the ticket.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Ticket responsible from product responsible, in <a class="reference internal" href="GlobalParameters.html#globalparam-tickets"><span class="std std-ref">Global Parameters</span></a>, allows to define, if the defined responsible is automatically assigned to the ticket.</p>
+</div>
+<p class="rubric">Original product version &amp; Original comp. version</p>
+<ul class="simple">
+<li><p>The list of values will be filtered depends on the selected value in fields “Product and component”.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a other version, see <a class="reference internal" href="#multi-version-selection"><span class="std std-ref">Multi-version selection</span></a>.</p></li>
+</ul>
+<p class="rubric">Section Treatment</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id6" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Planning activity</p></td>
+<td><p>Activity where global work for this kind of ticket is planned.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Status</p></td>
+<td><p>Actual <a class="reference internal" href="Glossary.html#term-Status"><span class="xref std std-term">status</span></a> of the ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Resolution</p></td>
+<td><p>Ticket resolution.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Regression</p></td>
+<td><p>Notion of regression can be added.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">Responsible</span></a></p></td>
+<td><p>Resource who is responsible for the ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Criticality</p></td>
+<td><p>Importance of impact on the system, as determined after analysis.</p></td>
+</tr>
+<tr class="row-even"><td><p>Priority</p></td>
+<td><p>Priority of treatment.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Initial due date</p></td>
+<td><p>Initial target date for solving the ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Planned due date</p></td>
+<td><p>Actual target date for solving the ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Estimated work</p></td>
+<td><p>Estimated workload needed to treat the ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Real work</p></td>
+<td><p>Real workload spent to treat the ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Left work</p></td>
+<td><p>Left workload needed to finish the ticket. Automatically calculated as Estimated – Real
+Set to zero when ticket is done</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-In-Progress"><span class="xref std std-term">In progress</span></a></p></td>
+<td><p>Box checked indicates the ticket is taken over.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Done"><span class="xref std std-term">Done</span></a></p></td>
+<td><p>Box checked indicates the ticket has been treated.</p></td>
+</tr>
+<tr class="row-even"><td><p>Solved</p></td>
+<td><p>Box checked indicates the ticket has been solved.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the ticket is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Solved</p></td>
+<td><p>The box is automatically checked or unchecked, according to the resolution selected</p></td>
+</tr>
+<tr class="row-odd"><td><p>Cancelled</p></td>
+<td><p>Box checked indicates the ticket is cancelled.</p></td>
+</tr>
+<tr class="row-even"><td><p>Target product version</p></td>
+<td><p>Product versions for which a resolution of issue will be delivered.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Target comp. version</p></td>
+<td><p>Component versions for which a resolution of issue will be delivered.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Result"><span class="xref std std-term">Result</span></a></p></td>
+<td><p>Complete description of the resolution of the ticket.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Priority</strong> is automatically calculated from Urgency and Criticality values. This can be changed manually</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#priority-value-calculation"><span class="std std-ref">Priority value calculation</span></a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Target product version &amp; Target comp. version</strong></p>
+<ul class="simple">
+<li><p>The list of values will be filtered depends on the selected value in fields “Product and component”.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a other version, see <a class="reference internal" href="#multi-version-selection"><span class="std std-ref">Multi-version selection</span></a>.</p></li>
+</ul>
+</div>
+<p class="rubric">Button <strong>Start/End work</strong></p>
+<figure class="align-default">
+<img alt="Button start work" src="_images/TICKET_ZONE_StartWork.png" />
+</figure>
+<ul class="simple">
+<li><p>The start Work / Stop Work button is a clock on / off timer.</p></li>
+<li><p>If the logged in user is a resource, he or she has the option to start working on the ticket.</p></li>
+<li><p>Click the “Start work” button to start timing the processing time on the ticket.</p></li>
+<li><p>The start time is then displayed under the button and the button changes name.</p></li>
+</ul>
+<figure class="align-default">
+<img alt="Button start work" src="_images/TICKET_ZONE_Button_StartWork.png" />
+</figure>
+<ul class="simple">
+<li><p>Once the work is done, press the “stop work” button.</p></li>
+<li><p>The spend time will automatically be converted as real work.</p></li>
+<li><p>It’ll be transferred on planning activity if it is set.</p></li>
+<li><p>A decrease in “left work” on activity will be carried out.</p></li>
+<li><p>if the ticket goes into a paused state then the work started with the start work button will be stopped.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Closing the application or starting work on another ticket will automatically stop the current ongoing work.</p>
+</div>
+<p class="rubric">Button Dispatch</p>
+<p>This button allows to dispatch ticket.</p>
+<figure class="align-center">
+<img alt="Dialog box - Dispatch work" src="_images/TICKET_BOX_DispatchWork.png" />
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a line.</p></li>
+</ul>
+<p class="rubric">Button Show periods</p>
+<p>You can calculate the time spent between the start of processing, which corresponds to the receipt of the ticket and the end of processing of a ticket, that is to say when it goes to the done state, with the possibility of subtracting waiting periods thanks to the “paused” state macro.</p>
+<p>The passages from an active macro-state to a non-active macro-state (paused or done), are recorded thanks to the start and end dates of each period. This table is updated automatically with calculation of the duration in working hours and the duration in calendar hours when the end date of the period is entered.</p>
+<figure class="align-center" id="id7">
+<img alt="Dialog box - Status period" src="_images/TICKET_BOX_StatusPeriod.png" />
+<figcaption>
+<p><span class="caption-text">Status period</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="planning-activity">
+<span id="ticket-planning-activity"></span><span id="index-2"></span><h3>Planning activity<a class="headerlink" href="#planning-activity" title="Permalink to this heading">¶</a></h3>
+<p>Planning activity field allows to link the ticket with a planning activity.</p>
+<p>If the global parameter <a class="reference internal" href="GlobalParameters.html#globalparam-tickets"><span class="std std-ref">limit Planning Activity to those with flag</span></a> is set to yes then:</p>
+<ul class="simple">
+<li><p>You must check the “Planning activity” box on the activity to be linked.</p></li>
+<li><p>It will then be visible in the planning activities list of your ticket.</p></li>
+<li><p>Work on the ticket will be included in this activity.</p></li>
+<li><p>After saving the option, new fields are displayed.</p></li>
+<li><p>You can see the number of tickets linked to this activity and time information corresponding to all of these tickets.</p></li>
+</ul>
+<figure class="align-default" id="id8">
+<img alt="Planning activity news fields" src="_images/TICKET_ZONE_SteeringActivityPlanningOK.png" />
+<figcaption>
+<p><span class="caption-text">New fields displayed after saving the Planning activity option</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconSearch.png"><img alt="button icon search" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> to open a popup which will display the details of these tickets.</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="List of tickets linked to the activity" src="_images/TICKET_BOX_ActivityPlanningLISTTICKETS.png" />
+<figcaption>
+<p><span class="caption-text">List of tickets linked to the activity</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Real work</p>
+<p>Put the real work from tickets to the resource timesheet.</p>
+<ul class="simple">
+<li><p>When a resource has entered the real work on the ticket and the ticket is linked to a planning activity.</p></li>
+<li><p>The resource is automatically assigned to this activity.</p></li>
+<li><p>Real work set on tickets is automatically set in resource timesheet.</p></li>
+</ul>
+<figure class="align-default" id="id10">
+<img alt="Timesheet" src="_images/TICKET_ZONE_Timesheet.png" />
+<figcaption>
+<p><span class="caption-text">Imputations real work on related tickets.</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>The tickets are very dependent on the planning activity.</p></li>
+<li><p>An assignment and workload must be correctly entered on the planning activity for the display of tickets in the allocations to be consistent.</p></li>
+<li><p>The time indicated by the resources will be decremented to that planned for the activity.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="RealWorkAllocation.html#chargeticket"><span class="std std-ref">Behavior on ticket</span></a></p>
+</div>
+</section>
+<section id="multi-version-selection">
+<span id="id2"></span><h3>Multi-version selection<a class="headerlink" href="#multi-version-selection" title="Permalink to this heading">¶</a></h3>
+<p>In the version fields, it’s possible to set several versions.</p>
+<aside class="topic">
+<p class="topic-title">Main and other version</p>
+<ul class="simple">
+<li><p>The version with smaller id will appear in the select list and is considered as the main version.</p></li>
+<li><p>Other versions are listed above.</p></li>
+<li><p>It is possible to set an ‘other’ version as the main version using the button <a class="reference internal" href="_images/iconSwitch.png"><img alt="Button small button switch" src="_images/iconSwitch.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+</aside>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a other version.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete a version.</p></li>
+</ul>
+</section>
+<section id="priority-value-calculation">
+<span id="id3"></span><h3>Priority value calculation<a class="headerlink" href="#priority-value-calculation" title="Permalink to this heading">¶</a></h3>
+<p>Priority value is automatically calculated from <strong>Urgency</strong> and <strong>Criticality</strong> values.</p>
+<p>Priority, Urgency and Criticality values  are defined in lists of values screens. See: <a class="reference internal" href="ListsOfValues.html#priority"><span class="std std-ref">Priorities</span></a>, <a class="reference internal" href="ListsOfValues.html#urgency"><span class="std std-ref">Urgencies</span></a> and <a class="reference internal" href="ListsOfValues.html#criticality"><span class="std std-ref">Criticalities</span></a> screens.</p>
+<p>In the previous screens, a name of value is set with numeric value.</p>
+<p>Priority numeric value is determined by a simple equation as follows:</p>
+<aside class="topic">
+<p class="topic-title">Equation</p>
+<ul class="simple">
+<li><p>[Priority value] = [Urgency value] X [Criticality value] / 2</p></li>
+<li><p>For example:</p>
+<ul>
+<li><p>Blocking (4) X Critical (8) / 2  = Critical priority (16)for [Priority value]</p></li>
+</ul>
+</li>
+</ul>
+</aside>
+<p class="rubric">Default values</p>
+<ul class="simple">
+<li><p>Default values are determined.</p></li>
+<li><p>You can change its values while respecting the equation defined above.</p></li>
+</ul>
+</section>
+</section>
+<section id="mailbox-for-tickets">
+<span id="ticket-fromemail"></span><span id="index-3"></span><h2>mailbox for tickets<a class="headerlink" href="#mailbox-for-tickets" title="Permalink to this heading">¶</a></h2>
+<p>ProjeQtOr offers to save tickets from e-mail directly in the application.</p>
+<figure class="align-default" id="id11">
+<img alt="Receive email from ticket screen" src="_images/TICKET_SCR_EmailTicket.png" />
+<figcaption>
+<p><span class="caption-text">Receive email from ticket screen</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can create new mailboxes for tickets on projects and for each type of ticket configured in ProjeQtOr.</p>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading">¶</a></h3>
+<p class="rubric">IMAP Host</p>
+<p>You choose de connection mode between simple connexion or securised connection with oAuth2.</p>
+<p>The address must be an IMAP connection string.</p>
+<p><strong>Example to connect to the GMAIL input area, the host must be</strong></p>
+<blockquote>
+<div><p>{imap.gmail.com:143}INBOX</p>
+<p>No protocol is required</p>
+</div></blockquote>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If the certificates are self-signed then you can test to add novalidate-cert in your address</p>
+<p>{imap.gmail.com:143/novalidate-cert}INBOX</p>
+</div>
+<p class="rubric">Security constraints</p>
+<ul>
+<li><p><strong>emails from any source (may lead to spam)</strong></p>
+<blockquote>
+<div><p>Allow you to receive emails from anyone and therefore can cause spam</p>
+</div></blockquote>
+</li>
+<li><p><strong>Only emails from known users</strong></p>
+<blockquote>
+<div><p>Can only receive emails saved in your ProjeQtOr application</p>
+</div></blockquote>
+</li>
+<li><p><strong>Only emails from known users allocated to the project</strong></p>
+<blockquote>
+<div><p>Only allows you to receive emails saved in your ProjeQtOr application and which are assigned to the project selected in the settings of your mailbox</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Processed emails</p>
+<ul>
+<li><p><strong>mark email as read</strong></p>
+<blockquote>
+<div><p>All emails that are authenticated and correct according to the constraints set, are accepted and marked as read.</p>
+</div></blockquote>
+</li>
+<li><p><strong>delete email from imap mail box</strong></p>
+<blockquote>
+<div><p>All emails that are not properly authenticated and that do not meet the set constraints are permanently deleted from the IMAP box.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Rejected emails</p>
+<ul>
+<li><p><strong>do not modify email</strong></p>
+<blockquote>
+<div><p>An email is rejected when it does not meet the criteria for setting up your mailbox. Do not modify the email is an option that will not trigger either deletion or marking.</p>
+<p>The rejected email remains unread.</p>
+</div></blockquote>
+</li>
+<li><p><strong>mark email as read</strong></p>
+<blockquote>
+<div><p>The rejected email is marked as read.</p>
+</div></blockquote>
+</li>
+<li><p><strong>delete email from imap mail box</strong></p>
+<blockquote>
+<div><p>The rejected email is permanently deleted from the IMAP box.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Other contraints</p>
+<ul>
+<li><p><strong>Include attachments</strong></p>
+<blockquote>
+<div><p>Indicates whether or not you allow your users to attach attachments.</p>
+</div></blockquote>
+</li>
+<li><p><strong>recipients to follow up</strong></p>
+<blockquote>
+<div><p>Systematically include the sender and recipients of the email in the follow up of the ticket created or note added by this email.</p>
+<p>This includes the main recipients (except the one corresponding to the inbox) and the copy recipients.</p>
+</div></blockquote>
+</li>
+<li><p><strong>pseudo-users</strong></p>
+<blockquote>
+<div><p>Allow sending from unknown users and keep track of the sender’s emails and copy them.</p>
+<p>Results in the creation of fictitious users.</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>There is no weight limit in ProjeQtOr but probably your mail server.</p>
+<p>Most of the time emails are blocked beyond 5 to 10 MB</p>
+</div>
+<ul>
+<li><p><strong>Sort order</strong></p>
+<blockquote>
+<div><p>In case of several mailboxes on a single project, the order of tru of the boxes is important since it is always in ascending order that the mailboxes manage incoming tickets.</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#management-emailsboxes"><span class="std std-ref">Management of several mailboxes</span></a></p>
+<p><a class="reference internal" href="#replymail"><span class="std std-ref">Replies from email</span></a></p>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>CRON</strong></p>
+<p>Cron must be launched for tickets to be processed in ProjeQtOr, if you do not receive a ticket, try to stop the cron so that it can restart with a refresh of the code.</p>
+</div>
+<p class="rubric">Limit of tickets / hour</p>
+<ul>
+<li><p>This limit allows you to restrict the reception of emails by hour.</p>
+<blockquote>
+<div><p>If the number of tickets received is much higher than your limitation then the probability of spam is to be considered or you have incorrectly evaluated the number of tickets to be processed.</p>
+</div></blockquote>
+</li>
+<li><p>When the maximum number of tickets is reached then the mailbox freezes</p>
+<blockquote>
+<div><p>Only manual intervention by the administrator can unlock it</p>
+<p>Its role will consist in reassessing the number of tickets to allow their receipt</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<ul class="simple">
+<li><p>If the maximum number of tickets per hour has been reached then you have a rejection message on the history line <strong>rejected ticket: ticket limit per hour</strong></p></li>
+</ul>
+</div>
+<p class="rubric">Note on a ticket, change status to… with condition</p>
+<p>You can configure the status change for an incoming ticket when a note is added to it.</p>
+<p>For example, if I add a note to a ticket in this mailbox, the ticket will switch to the <strong>accepted</strong> status.</p>
+<p>If the condition <strong>if the ticket is closed</strong> is met, the ticket will be automatically reopened in addition to the status change.</p>
+<img alt="_images/TICKET_ZONE_StatusCondition.png" src="_images/TICKET_ZONE_StatusCondition.png" />
+<p class="rubric">History of ticket created</p>
+<p>You can choose the number of tickets to display in the history by filling in the “history to display” field</p>
+</section>
+<section id="replies-from-email">
+<span id="replymail"></span><h3>Replies from Email<a class="headerlink" href="#replies-from-email" title="Permalink to this heading">¶</a></h3>
+<p>The use of the mailbox for new tickets is the same for replies.</p>
+<p>The reference of the element from which the email is sent is added in the subject of the email.</p>
+<p>In the procedure for determining the origin of an incoming email, ProjeQtOr searches for the reference in the subject of the email.</p>
+<ul>
+<li><p><strong>If it is not found</strong></p>
+<blockquote>
+<div><p>ProjeQtOr considers it a new request to be integrated as a new ticket.</p>
+</div></blockquote>
+</li>
+<li><p><strong>If the reference is found in the subject of the incoming email</strong></p>
+<blockquote>
+<div><p>When receiving a reply to an email sent by projeqtor, the reply is inserted on the item as a note with an option to include attachments in the attached files.</p>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="oauth2-pour-imap">
+<span id="oauth2imap"></span><h3>oAuth2 pour IMAP<a class="headerlink" href="#oauth2-pour-imap" title="Permalink to this heading">¶</a></h3>
+<p>The goal is to enable connection to IMAP mailboxes via oAuth2 authentication, for the “Input Mailbox for Tickets.” This allows connection to Office 365 mailboxes.</p>
+<p>With oAuth2, the protocol allows the acquisition of client credentials as a connection method.</p>
+<p>This method requires no human interaction. When declaring the client, it will be necessary to correctly define that it has all the necessary rights to process messages from the IMAP mailboxes used, such as:</p>
+<ul class="simple">
+<li><p>listing unread messages,</p></li>
+<li><p>marking messages as read,</p></li>
+<li><p>deleting messages.</p></li>
+</ul>
+<p class="rubric">Management of processed emails</p>
+<p>In the <a class="reference internal" href="GlobalParameters.html#gp-automatic-import-replies"><span class="std std-ref">global parameters</span></a> you can determine, upon receipt of the email, whether you want to mark it as read or delete it.</p>
+<p class="rubric" id="management-emailsboxes">Receipt of multi-project tickets</p>
+<p>You will be able to receive all tickets from different customers on a single IMAP box.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>You define several configurations on the same IMAP box with constraints on the existence of the sender and its assignment to the project concerned.</p></li>
+<li><p>You define a configuration on the IMAP box that has no constraint or just a constraint on the existence of the sender</p></li>
+<li><p>You set the order in which configurations are processed to ensure that the most permissive configuration is processed last.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Be careful, you will have to be careful to have a “final” configuration that will mark as read or delete emails that are not correctly processed. Otherwise, the IMAP box will keep an increasing amount of emails that will be reprocessed (and rejected) by all configurations on each sequenced cycle of reading IMAP boxes. This will not be controlled by the system.</p>
+</div>
+</section>
+<section id="tickets-dashboard">
+<span id="ticket-dashboard"></span><span id="index-4"></span><h3>Tickets dashboard<a class="headerlink" href="#tickets-dashboard" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default">
+<img alt="Ticket dashboard screen" src="_images/TICKET_SCR_Dashboard.png" />
+</figure>
+<p>Allows user to have a tickets global view of his projects.</p>
+<p>Displays several small syntheses that group the tickets by category: type, priority or by product, component or by state.</p>
+<p>The number of tickets is listed. The result is displayed with numbers and as a percentage.</p>
+<p>Filters are available to limit scope.</p>
+<p class="rubric">Direct access to the list of tickets</p>
+<ul class="simple">
+<li><p>In the various summaries, click on an element to obtain the list of tickets corresponding to this element.</p></li>
+<li><p>you return to the tickets screen</p></li>
+</ul>
+<p class="rubric">Parameters</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconParameter.png"><img alt="Parameter" src="_images/iconParameter.png" style="width: 19.05px; height: 19.2px;" /></a> to access parameters.</p></li>
+<li><p>Allows to define reports displayed on the screen.</p></li>
+<li><p>Using <a class="reference internal" href="_images/iconDrag.png"><img alt="Drag" src="_images/iconDrag.png" style="width: 19.2px; height: 19.2px;" /></a> to reorder reports displayed.</p></li>
+<li><p>For Synthesis by status, filter clauses are not applicable.</p></li>
+</ul>
+<figure class="align-center">
+<img alt="Dialog box - Ticket dashboard parameters" src="_images/TICKET_BOX_Parameters.png" />
+</figure>
+<p class="rubric">Filters</p>
+<figure class="align-default" id="id12">
+<img alt="filters" src="_images/TICKET_ZONE_ScopeFilters.png" />
+<figcaption>
+<p><span class="caption-text">Filters</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Filters allow you to restrict the display of saved requirements</p>
+<p class="rubric">Scope filters</p>
+<p>By status, period, duration, closed element, linked to the user or no related…</p>
+<p class="rubric">No resolution scheduled</p>
+<p>Unscheduled: Requirements whose resolution is not scheduled in a next product version (target product version not set).</p>
+</section>
+</section>
+<section id="management-of-tokens-on-ticket">
+<span id="ticket-token"></span><h2>Management of tokens on ticket<a class="headerlink" href="#management-of-tokens-on-ticket" title="Permalink to this heading">¶</a></h2>
+<p>You can define and integrate tokens on tickets that you can track on your customer contracts.</p>
+<p>The use of this feature is configurable and must be activated in the <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">modules management</span></a> to have access to it.</p>
+<p>A new screen for the definition of tokens will be accessible via the financial part incomes menu.</p>
+<section id="token-definition">
+<h3>Token definition<a class="headerlink" href="#token-definition" title="Permalink to this heading">¶</a></h3>
+<p>The objective is to define all types of tokens likely to be ordered by your client.</p>
+<figure class="align-default" id="id13">
+<img alt="Token definition screen" src="_images/FINANCIAL_SCR_WorkTokenDefinition.png" />
+<figcaption>
+<p><span class="caption-text">Token definition screen</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You set values for a token.</p>
+<blockquote>
+<div><p class="rubric">Duration</p>
+<p>Value of the token in days or hours (depending on the time recording unit in global parameters)</p>
+<p class="rubric">Amount</p>
+<p>Monetary value of the token in € (depending on the currency recording unit in global parameters)</p>
+<p class="rubric">Splittable token</p>
+<p>Defines if the token can be divisible, if half tokens can be entered</p>
+<p class="rubric">Surcharge situations</p>
+<p>Enter situations of increase that may apply to tokens, such as night work, or even during days normally not worked</p>
+</div></blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When a token has been used on a ticket, it becomes impossible to modify it.</p>
+<p>Similarly, it is not possible to delete or modify the coefficient for a mark-up situation used on a line of work</p>
+</div>
+</section>
+<section id="token-on-the-client-contract">
+<span id="token-clientcontract"></span><h3>Token on the client contract<a class="headerlink" href="#token-on-the-client-contract" title="Permalink to this heading">¶</a></h3>
+<p>On the client contract, we will add a table with order management functions.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add tokens to the order</p></li>
+</ul>
+<figure class="align-default" id="id14">
+<img alt="Add work token command" src="_images/FINANCIAL_ZONE_AddToken.png" />
+<figcaption>
+<p><span class="caption-text">Add work token command</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Select the token type from those defined on the project or its parent projects.</p></li>
+<li><p>Entering the ordered quantity of tokens</p></li>
+<li><p>Added a descriptive comment</p></li>
+<li><p>Choose if you can exceed the amount of tokens on the order.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Management of ordered tokens" src="_images/FINANCIAL_ZONE_ProgressToken.png" />
+<figcaption>
+<p><span class="caption-text">Management of ordered tokens</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>When you have entered the order, the table will indicate:</strong></p>
+<blockquote>
+<div><p class="rubric">In the tokens ordered section</p>
+<ul class="simple">
+<li><p>The type of tokens ordered and its description</p></li>
+<li><p>The total amount of tokens ordered</p></li>
+<li><p>the total duration to which the number of tokens corresponds</p></li>
+<li><p>The total amount to which the number of tokens ordered corresponds</p></li>
+</ul>
+<p class="rubric">In the tokens used part</p>
+<ul class="simple">
+<li><p>The total number of tokens used without surcharges</p></li>
+<li><p>The total number of tokens used with markup</p></li>
+<li><p>the total duration of the tokens used with and without surcharges</p></li>
+<li><p>The total cost of tokens used taking into account markups</p></li>
+</ul>
+<p class="rubric">In the remaining tokens part</p>
+<ul class="simple">
+<li><p>Display of the remaining duration of the tokens (duration ordered - duration used)</p></li>
+<li><p>Display of the number of remaining tokens (amount ordered - amount used)</p></li>
+</ul>
+</div></blockquote>
+<p>The Total Line, sums the numbers, amounts and durations (ordered, completed, remaining) for all types of tokens in the contract</p>
+</section>
+<section id="token-on-tickets">
+<h3>Token on tickets<a class="headerlink" href="#token-on-tickets" title="Permalink to this heading">¶</a></h3>
+<p>When you create a ticket on the project where the tokens have been defined then you will be able to select these tokens when distributing the work.</p>
+<p>You can retrieve these tokens from a parent project.</p>
+<figure class="align-default" id="id16">
+<img alt="Dispatch work with selection of tokens" src="_images/TICKET_BOX_DispatchWorkTokens.png" />
+<figcaption>
+<p><span class="caption-text">Dispatch work with selection of tokens</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click on <img alt="Token" src="_images/dispatch.png" /> to open the pop-up.</p>
+<p>The start date and time are automatically filled in with the current dates and times.</p>
+<ul class="simple">
+<li><p>Select the resource working on the ticket</p></li>
+<li><p>Add the workload for this ticket</p></li>
+<li><p>Select the token corresponding to the need of the ticket</p></li>
+<li><p>Determine if a markup type applies to this ticket</p></li>
+<li><p>The quantity of tokens (without decimal if the token is not divisible)</p></li>
+<li><p>The mark-up rule, to be chosen from the rules defined on the token</p></li>
+<li><p>The number of increased tokens calculated by applying the increase rule</p></li>
+<li><p>If the billable box is checked then the tokens will not be counted on the customer contract.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The “Mark-up situations” are descriptive and may or may not be related to the time of execution. There will therefore be no automatic determination of the increase situation according to the day or time of the entry of the time spent.</p>
+</div>
+<span class="target" id="index-5"></span></section>
+</section>
+<section id="synchronize-activitys-and-tickets">
+<span id="synchronize-ticket"></span><span id="index-6"></span><h2>Synchronize activitys and tickets<a class="headerlink" href="#synchronize-activitys-and-tickets" title="Permalink to this heading">¶</a></h2>
+<p>You can sync tickets with activities. So when you enable this option, all tickets are synced like this:</p>
+<ul class="simple">
+<li><p>We attach the activity as a planning activity of the ticket</p></li>
+<li><p>We link the activity with the ticket</p></li>
+<li><p>The ticket is entered as the origin of the activity</p></li>
+<li><p>We modify the state of the element which has the least advanced state to pass it to the state of its binomial (the most advanced).</p></li>
+<li><p>The other data is not synchronized (a gap may then exist if the ticket is attached to an existing activity).</p></li>
+</ul>
+<figure class="align-default" id="id17">
+<img alt="Synchronization of tickets with activities" src="_images/TICKET_ZONE_ProjectSynchronization.png" />
+<figcaption>
+<p><span class="caption-text">Synchronization of tickets with activities</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You activate the option directly on the project. More flexible solution that will allow great flexibility according to potentially different behaviors depending on the project.</p>
+<p>This is a one-time link to avoid recursive updates. A ticket is synchronized with a single activity and an activity will be synchronized with a single ticket (unique pair).</p>
+<p>Synchronization functionality set on a project is not inherited to subprojects.</p>
+<section id="synchronize-existing-tickets">
+<h3>Synchronize existing tickets<a class="headerlink" href="#synchronize-existing-tickets" title="Permalink to this heading">¶</a></h3>
+<blockquote>
+<div><p>When this option is selected, all unclosed tickets whose status is greater than or equal to the trigger status and whose type is the one specified will be synchronized with an activity.</p>
+<ul class="simple">
+<li><p>If the ticket is already synced with an activity, nothing happens. This is the case of reactivating a previously deactivated rule.</p></li>
+<li><p>If the ticket is attached to an open planning activity, the ticket is synchronized with this activity.</p></li>
+<li><p>If the ticket originates from one and only one unclosed activity, it is synchronized with this activity. Otherwise we will create a new activity that will be synchronized with the ticket.</p></li>
+</ul>
+<p>In all cases of research of the activity to be attached, we make sure that it is not already synchronized with another ticket and that it does not originate from another ticket</p>
+</div></blockquote>
+<p>When a Ticket or Activity item is edited and synced to a pair, changes to some fields carry over to their pair:</p>
+<ul>
+<li><p>Name</p></li>
+<li><p>Project</p></li>
+<li><p>State</p></li>
+<li><p>Responsible</p></li>
+<li><p>Product</p></li>
+<li><p>Component</p></li>
+<li><p>Target product version</p></li>
+<li><p>Target component version</p>
+<blockquote>
+<div><p class="rubric">The project</p>
+<p>When you change the project of a ticket attached to a planning activity, a consistency check prevents you from making this modification since the two elements must be linked on the same project.</p>
+<p>In case of synchronization, the control is ignored and you can change the project on one of the two elements, the modification will be passed on to the other.</p>
+<ul>
+<li><p>If a ticket changes project or type before its triggered state, it is not synced.</p>
+<p>It is then subject to the new project or new type rule.</p>
+<p>A check is carried out to find out if the ticket is not already in the trigger state for the new project or the new type and to trigger the synchronization in this case.</p>
+</li>
+<li><p>If a ticket changes project or type after its triggered state, it’s already synced. He continues to be synchronized with his partner according to the rule of his original project, whether his new project has a synchronization rule or not.</p>
+<p>The change of project of the ticket can also come directly from a modification on the ticket or from a modification of its binomial activity.</p>
+<p>The rule is always the same: pair synchronization is maintained.</p>
+</li>
+</ul>
+<p class="rubric">The statues and the workflow</p>
+<p>On certain status changes, certain fields may become mandatory and these fields are not necessarily synchronized. Like the description or the result.</p>
+<p>In this case, these fields - not synchronized - are automatically filled in if they are in the element being modified.</p>
+<p>If, despite everything, there are still invalid checks for the element to be synchronized, the update is globally rejected with an explicit message.</p>
+<p>For example, closing a ticket associated with an activity on which there is still work to do should not be done.</p>
+<p>In order for status changes to be consistent, the workflows between the ticket and the related activity should be the same to avoid inconsistencies in status changes.</p>
+<p>A mechanism will still make it possible to override the rules of the workflow for the element which will change state automatically.</p>
+<p>Essential, especially when creating the activity, which must be created directly in the same state as the ticket, but which will also be applied later.</p>
+<p>For example, if an activity has moved into a state that does not belong to the ticket’s workflow, the state change is made to keep synchronization.</p>
+<p>Warning: This can lead to placing the ticket in a state from which it can no longer exit (because it is outside its workflow). In this case, only the change of state of the activity can unlock the ticket.</p>
+<p>The same case can be produced on the activity which would be blocked following the change of state of the ticket.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Workload</p>
+<p>Attaching the activity as the Ticket’s <strong>planning activity</strong> will impact the load:</p>
+<ul class="simple">
+<li><p>The charge charged in real time to the ticket is recorded in the actual costs of the activity</p></li>
+<li><p>The charge charged in real time on the ticket is automatically decremented in the remaining charges of the activity</p></li>
+</ul>
+<p>In the case of synchronized items, you can only enter actual load on the ticket.</p>
+<p>This charge will then be properly accounted for on the activity via the Planning Activity mechanism.</p>
+</section>
+<section id="deleting-a-synced-item">
+<h3>Deleting a synced item<a class="headerlink" href="#deleting-a-synced-item" title="Permalink to this heading">¶</a></h3>
+<p>When a Ticket or Activity item is deleted and synced to a pair, a confirmation message is displayed to the user.</p>
+<p>In this case, the associated item is not deleted, but the synchronization is deleted.</p>
+<p>Click on <strong>define synchronization</strong> to open the pop-up.</p>
+<figure class="align-default" id="id18">
+<img alt="Definition of synchronization" src="_images/TICKET_BOX_DefinitionSynchronization.png" />
+<figcaption>
+<p><span class="caption-text">Definition of synchronization</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When activating the function on a project, a pop-up window will be displayed allowing to define:</p>
+<ul>
+<li><p>The status of the ticket automatically generating the activity</p></li>
+<li><p>The type of ticket concerned (optional) - don’t fill to allow all types of tickets</p></li>
+<li><p>The type of activity to create</p>
+<blockquote>
+<div><p class="rubric">Options</p>
+<ul class="simple">
+<li><p>An option to automatically trigger the attachment of the activity as a ticket <a class="reference internal" href="#ticket-planning-activity"><span class="std std-ref">planning activity</span></a></p></li>
+<li><p>An option to sync existing tickets</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="desactivation-of-the-function">
+<h3>Desactivation of the function<a class="headerlink" href="#desactivation-of-the-function" title="Permalink to this heading">¶</a></h3>
+<p>In case of deactivation of the function at the project level, a check is carried out and alerts the user if there are tickets synchronized with activities.</p>
+<ul>
+<li><p>If there are synchronizations in progress, a pop-up window opens to display the number of existing pairs, distinguishing the number of closed and unclosed.</p></li>
+<li><p>If the number of existing pairs is not zero, you can select the existing links that must be kept or deleted.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>In case the links are deleted, the function is completely disabled</p></li>
+<li><p>In case the links are not deleted, the function is disabled only for tickets not yet synchronized. Tickets already synced remain synced.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>There is then no longer any way to delete the synchronization (except to delete one of the elements of the pair).</p>
+</section>
+</section>
+<section id="vote-on-ticket">
+<span id="id4"></span><h2>Vote on ticket<a class="headerlink" href="#vote-on-ticket" title="Permalink to this heading">¶</a></h2>
+<p>It is possible to vote on tickets. In the detail tab of each ticket, find the voting section.
+The target value, current value, number of votes and fill rate are displayed.</p>
+<p>Click on the vote button to assign a vote on the selected item.</p>
+<figure class="align-default" id="id19">
+<img alt="Voting section" src="_images/TICKET_ZONE_VoteSection.png" />
+<figcaption>
+<p><span class="caption-text">Voting Section</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In the voting window, several pieces of information such as the maximum point limit of the vote that you can use on the vote of the item in question.</p>
+<p>Your personal vote which is not necessarily identical to the maximum points that you can award.</p>
+<p>And finally the number of points that you have left to spend in the period of use set upstream in the rules for awarding and using votes.</p>
+<figure class="align-default" id="id20">
+<img alt="Voting pop-up" src="_images/TICKET_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Voting pop-up</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Voting attribution rule</span></a></p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Voting use rule</span></a></p>
+</div>
+<p>Once you have validated your vote, if the <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">specific access</span></a> dedicated to voting have been activated, a table appears to display the names of the voters and the points that each of them has assigned to the element.</p>
+<p>If several people have voted, the cumulative number of their points is displayed in the current value.</p>
+<p>You continue to see the number of your points already assigned, directly in the vote button or in the table if you have the right to see it.</p>
+<p>In the <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">specific access</span></a>, if the display of the table is deactivated, you can display at least the names of the voters.</p>
+<p>In any case, the names of the voters and the points they have assigned are necessarily displayed in the table.</p>
+<figure class="align-default" id="id21">
+<img alt="Voting table" src="_images/TICKET_ZONE_TicketVoteTable.png" />
+<figcaption>
+<p><span class="caption-text">Voting table</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Ticketing</a><ul>
+<li><a class="reference internal" href="#id1">Ticket</a><ul>
+<li><a class="reference internal" href="#planning-activity">Planning activity</a></li>
+<li><a class="reference internal" href="#multi-version-selection">Multi-version selection</a></li>
+<li><a class="reference internal" href="#priority-value-calculation">Priority value calculation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mailbox-for-tickets">mailbox for tickets</a><ul>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#replies-from-email">Replies from Email</a></li>
+<li><a class="reference internal" href="#oauth2-pour-imap">oAuth2 pour IMAP</a></li>
+<li><a class="reference internal" href="#tickets-dashboard">Tickets dashboard</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#management-of-tokens-on-ticket">Management of tokens on ticket</a><ul>
+<li><a class="reference internal" href="#token-definition">Token definition</a></li>
+<li><a class="reference internal" href="#token-on-the-client-contract">Token on the client contract</a></li>
+<li><a class="reference internal" href="#token-on-tickets">Token on tickets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#synchronize-activitys-and-tickets">Synchronize activitys and tickets</a><ul>
+<li><a class="reference internal" href="#synchronize-existing-tickets">Synchronize existing tickets</a></li>
+<li><a class="reference internal" href="#deleting-a-synced-item">Deleting a synced item</a></li>
+<li><a class="reference internal" href="#desactivation-of-the-function">Desactivation of the function</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vote-on-ticket">Vote on ticket</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="RiskIssueManagement.html"
+                          title="previous chapter">Risks and issues management</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Resource.html"
+                          title="next chapter">Roles definitions</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Resource.html" title="Roles definitions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Risks and issues management"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tickets</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

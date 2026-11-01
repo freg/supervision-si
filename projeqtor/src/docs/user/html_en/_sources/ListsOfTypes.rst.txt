@@ -1,0 +1,2136 @@
+.. include:: ImageReplacement.txt
+
+.. index:: Function - Lists of values
+
+.. title:: Lists of types
+
+.. _list_of_type:
+
+#############
+List of Types
+#############
+
+
+
+Each element of ProjeQtOr can be typed at your convenience according to your profession or your field of activity.
+
+Each type is presented the same. A very simple description section, with different fields depending on the element, and a behavior section that will condition your future actions according to the parameters entered.
+
+
+
+
+.. _behavior-section:
+
+Behavior section
+################
+
+This section is common to several element types.
+
+Allows to determine some GUI behavior, according to element types.
+
+
+.. rubric:: Description or Comments
+
+Box checked indicates the field :term:`Description` is mandatory.
+
+.. rubric:: Responsible
+
+Box checked indicates the field :term:`Responsible` is mandatory when the status to treatment of the item is "In progress".  
+
+.. rubric:: Result
+
+Box checked indicates the field :term:`Result` is mandatory when the status to treatment of the item is "done". 
+ 
+.. rubric:: Flag status
+
+You can lock the macro status: In progress - Done - Closed - Canceled
+
+Those fields allow to determine whether the checkbox fields concerned are locked or not.
+
+If the box is checked then you will only be able to modify the macro status thanks to the workflow statuses.
+
+.. rubric:: No left work on done
+
+* The plannable elements cannot be passed to status **done** if there is still left work.
+
+
+
+Project
+*******
+
+.. figure:: /images/GUI/LISTOFTYPE_ZONE_Behavior.png
+   :alt: Behavior zone of project
+   
+   Behavior zone of project
+
+
+
+.. rubric:: Lead Project
+
+The definition is made by the project type, you define that certain types of projects can not have activities, only subprojects or milestones.  
+
+
+
+
+
+Activity
+********
+
+.. figure:: /images/GUI/LISTOFTYPE_ZONE_BehaviorActivity.png
+   :alt: Behavior zone of activity
+   
+   Behavior zone of activity
+   
+   
+   
+.. rubric:: activity on real time
+
+Possibility of managing activities on real time.  
+
+.. seealso:: 
+
+   :ref:`Global parameters<gp_planning-section>` | :ref:`Assignement section<activity-on-real-time>`
+
+
+.. rubric:: No left work on done
+
+The activity cannot be passed to status **done** if there is still left work.
+
+
+.. rubric:: Todo list
+
+Checked box prohibits status change to completed if not all to-do list items are set to "completed"
+
+
+.. rubric:: Add a note
+
+Select the status that will require adding a new note.
+
+When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken. 
+
+Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.
+
+
+Ticket
+******
+
+.. rubric:: Resolution
+
+Box checked indicates the field **Resolution** is mandatory when the status to treatment of an item is **done**.  
+
+.. rubric:: Lock solved
+
+Box checked indicates the field **Solved** is read only.
+The value of field must come from the field "Solved" defined in the selected resolution.
+
+.. rubric:: Todo list
+
+Checked box prohibits status change to completed if not all to-do list items are set to "completed"
+
+
+.. rubric:: Add a note
+
+Select the status that will require adding a new note.
+
+When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken. 
+
+Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.
+
+
+
+Translation
+***********
+
+.. rubric:: Translation Request type
+
+
+**initial status of items**
+ 
+The initial state of the lines corresponds to the state of the request which will result in the automatic generation of the translation lines according to the languages recorded on your product or component version.
+
+**translation delay (nb days)**
+ 
+The translation deadline (in days) determines the deadline for the planned delivery date which will be calculated automatically from the creation of the request. This period is expressed in calendar duration and does not take into account non-working days.
+
+
+.. rubric:: Translation item type
+
+
+**status of generation of item**
+
+Corresponds to the state in which the rows will be created.
+
+
+
+
+
+
+
+
+
+.. _type-restriction-section:
+
+Types restrictions
+##################
+
+
+Allows to limit values displayed in the list of values for each element type.
+   
+Restrictions can be defined for a project, a project type or a profile.
+   
+.. note:: **Types restrictions section on Project screen**
+   
+   To display types restrictions section:
+   Go to :ref:`Global parameter > Tab Activity > Controls and Restrictions Section<gp-control-restict-section>`
+   "allow type restriction on project" must be set to "Yes".
+   Possibility to define more restrictions to a project against restrictions defined at the project type level.
+   
+.. rubric:: Type restriction management
+   
+.. figure:: /images/GUI/LISTofTYPE_ZONE_TypeRestriction.png
+   :alt: Section - Restrict types 
+      
+   Restrict types section
+      
+      
+* Click on :kbd:`Restrict types` button to display the dialog box.
+      
+* For each element type, select values that will be in the list of values displayed.
+   
+* By default, if no type of element is selected, all the values of the line will be displayed on each screen that will be affected. 
+   
+.. figure:: /images/GUI/LISTofTYPE_ZONE_Restriction.png
+   :alt: Dialog box - Restrict types for the project 
+   :align: center
+   
+   Restrict types for the project
+   
+   
+   
+   
+.. rubric:: Displays element type names where a restriction is applied
+   
+Reminder : It means too, no restriction for remainding element types on each dedicated screen.
+   
+
+
+Element types
+#############
+
+
+
+.. index:: Action (Type)
+
+.. _action-type:
+
+Actions types
+*************
+
+Action type is a way to define common behavior on group of actions.
+
+.. rubric:: Add a note
+
+Select the status that will require adding a new note.
+
+When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken. 
+
+Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.
+
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+    
+.. index:: Activity (Type)
+
+.. _activity-type:
+
+Activities types
+****************
+  
+Activity type is a way to define common behavior on group of activities.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - |RequiredField| Default planning mode
+     - Default planning mode for type. 
+   * - Priority
+     - Defined the priority of the activity type. It will be automatically applied in the activity management section.    
+   * - Color
+     - Defined the default color for this activity type.    
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+.. index:: Asset (Type)
+
+.. _asset-type:
+
+Asset types
+***********
+   
+Question type is a way to define common behavior on group of questions.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+.. index:: Budget (Type)
+
+.. _budget-type:
+
+Budget types
+************
+
+Budget types are a way to define the best budget for each project/activity. 
+
+Estimated budget, cash, investment, sale ...
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+    
+.. index:: Call for tender (Type)
+
+.. _call_for_tender-type:
+
+Call for tender types
+*********************
+
+The types of calls for tenders make it possible to define the best procedure for launching calls with respect to the organization of your company:
+
+the open, restricted tender, with minimum capacity requirements or pre-selection;
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+.. index:: Catalog (Type)
+
+.. _catalog-type:
+
+Catalog types
+*************
+
+Catalog types allow you to defune what type of item you produce or sell to your customers: products, services ...
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+          
+     
+    
+
+.. index:: Change request (Type)
+
+.. _change-request-type:
+
+Change requests types
+*********************
+
+The change request type is a way to define common behavior on a group of particular requests.
+
+Several types are pre recorded: recurring problems, technical and functional improvement, regulatory constraint and process and quality.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+.. index:: Bill (Type)
+
+.. _client_bill_type:
+
+Client Bills types
+******************
+
+Bill type is a way to define common behavior on group of bills.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+.. index:: Supplier Contract (Type)
+
+.. _client-contract-type:
+
+Client contract types
+*********************
+
+Client contract types are a way of defining the type of contract with a client. 
+
+Types of contract are already pre-registered: management assistance, hosting, technical improvement or Maintenance and support
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+.. index:: Client order (Type)
+
+.. _client_order_type:
+
+Client order types
+******************
+
+Client order types allow you to define common order behaviors, such as billing
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+  
+
+.. index:: Client payments (Type)
+
+.. _client_payments_type:
+
+Client payments types
+*********************
+
+customer payment type defines how the customer will pay the bill
+   
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+
+
+
+  
+.. index:: Client quotation (Type)
+
+.. _client_quotation_type:
+
+Client quotations types
+***********************
+
+Customer quote types allow you to define common behaviors on a quote group, such as the type of billing that will be applied
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. index:: Component (Type)
+
+.. _component-type:
+
+Components types
+****************
+
+Component type is a way to define common behavior to group of component.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+
+
+.. index:: Component versions (Type)
+
+.. _component_version_type:
+
+Component version types
+***********************
+   
+Component version type is a way to define common behavior to group of Component version.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+
+    
+.. index:: Context (Type)
+
+.. _context-type:
+
+Contexts types
+**************
+
+Context types are used to define the environmental context to describe ticket or test case.
+
+Only three context types exist, corresponding to the three selectable fields: Environment, OS and Browser.
+
+You can only rename the types, not add nor remove any.
+
+.. note::
+
+   * Only the name of the context types can be changed.
+   * No new context type can be added.
+   * No context type can be deleted.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Description
+     - Description of the type.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+     
+     
+     
+     
+
+
+.. index:: Customer (Type)
+.. index:: client (type)
+
+.. _customer-type:
+.. _client_type:
+
+Customers types
+***************
+   
+Customer type is a way to define different kinds of customers  (prospects or clients).
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+     
+    
+
+.. index:: Decision (Type)
+
+.. _decision-type:
+
+Decisions types
+***************
+
+Decision type is a way to define common behavior on group of decisions.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+.. index:: Document (Type)
+
+.. _document-type:
+
+Documents types
+***************
+
+Document type is a way to define common behavior on group of documents.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+
+.. index:: Expense (Detail type)
+
+.. _expense-detail-type:
+
+Expenses details types
+**********************
+
+Expense detail type is a way to define common behavior and calculation mode on group of expense details.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - Value / unit
+     - Define calculation mode for the detail type. 
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. note:: Field **Value / unit**
+   
+   If unit is set and not value, this line will be imputable.
+   
+   If both unit and value are set, the line will be read only.
+   
+   Result cost will be the multiplication between each of the three non empty line values.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table::
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - Individual expense
+     - Details type of individual expense.
+   * - Project expense
+     - Details type of project expense.
+
+
+
+
+
+
+
+
+
+
+
+
+.. index:: Expense (Individual expense type)
+
+.. _individual-expense-type:
+
+Individual expenses types
+*************************
+
+Individual expense type is a way to define common behavior on group of individual expense.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+    
+.. index:: Issue (Type)
+
+.. _issue-type:
+
+Issues types
+************
+
+Issue type is a way to define common behavior on group of issues.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+
+
+
+
+.. index:: Meeting (Type)
+
+.. _meeting-type:
+
+Meetings types
+**************
+
+Meeting type is a way to define common behavior on group of meetings.
+
+.. note::
+
+   Meeting type is also used for periodic meetings definition.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+.. index:: Message (Type)
+
+.. _message-type:
+
+Messages types
+**************
+
+Message type is a way to define common behavior on group of messages (appearing on today screen).
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Color
+     - Display color for messages of this type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+     
+     
+
+.. index:: Milestone (Type)
+
+.. _milestone-type:
+
+Milestones types
+****************
+
+   
+Milestone type is a way to define common behavior on group of milestones.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - |RequiredField| Default planning mode
+     - Default planning mode for type. 
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+
+    
+.. index:: Opportunity (Type)
+
+.. _opportunity-type:
+
+Opportunities types
+*******************
+
+Opportunity type is a way to define common behavior on group of opportunities.
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+
+
+.. index:: Order to provider (Type)
+
+.. _order_provider_type:
+
+Order to Provider types
+***********************
+   
+Vendor order types categorize the subject of the request: service or product
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+Organization types
+******************
+
+The type of organization allows you to define a common behavior on organizations.
+
+Management of :ref:`Organizations` allows to edit the structure of the company in the frame of organizations
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the project type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+.. index:: Payment to provider (Type)
+
+.. _payment_provider_type:
+
+Payments to provider types
+**************************
+
+Payment type is a way to define common behavior on group of payments.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+
+
+
+    
+.. index:: Planning Poker (Type)
+
+.. _planning-poker-type:
+
+Planning poker session type
+***************************
+
+Planning poker session type is a way to define common behavior on group of planning poker.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+
+
+
+.. index:: Product (Type)
+
+.. _product-type:
+
+Products types
+**************
+   
+Product type is a way to define common behavior to group of product.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+.. index:: Products versions (Type)
+
+.. _product_version_type:
+
+Product version types
+*********************
+   
+Product version type is a way to define common behavior to group of Product version.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+.. index:: Expense (Project expense type)
+
+.. _project-expense-type:
+
+Project expenses types
+**********************
+
+Project expense type is a way to define common behavior on group of project expense.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+.. index:: Project (Type)
+
+.. _project_type:
+
+Projects types
+**************
+
+Project type is a way to define common behavior on group of projects.
+
+
+.. rubric:: Code of the project type
+
+Some important behavior will depend on code of the project type.
+
+
++------+----------------------------------------------+
+| Code | Name                                         |
++------+----------------------------------------------+
+| OPE  | According to schedule                        |
++------+----------------------------------------------+
+| OPE  | Based on actual workload                     |
++------+----------------------------------------------+
+| OPE  | Based on actual fixed workload               |
++------+----------------------------------------------+
+| OPE  | Manual entry                                 |
++------+----------------------------------------------+
+| OPE  | Not billed                                   |
++------+----------------------------------------------+
+| ADM  | Administrative                               |
++------+----------------------------------------------+
+| TMP  | Template                                     |
++------+----------------------------------------------+
+| PRP  | Proposal                                     |
++------+----------------------------------------------+
+   
+ 
+ 
+ 
+
+
+
+
+  
+OPE: Operational project
+------------------------
+
+In ProjeQtOr, operational projects can be associated with a billing type. 
+
+This association allows financial documents (invoices, quotes, purchase orders, etc.) to be automatically adapted to the billing method specific to the project type in question.
+
+Depending on the billing type defined, specific shortcuts will appear in financial documents. 
+
+These shortcuts facilitate the automatic retrieval of relevant data (time spent, expenses, costs, etc.) related to the project, thus optimizing financial monitoring.
+
+   
+
+ADM: Administrative project
+---------------------------
+
+Type of project to follow non productive work : holidays, sickness, training, …
+
+All new types are created with **ADM** code.
+
+Every resource will be able to enter real work on these projects, without having to be allocated to the project, nor assigned to project activities.
+
+Assignments to all project task will be automatically created for users to enter real work.
+   
+These projects are not visible on Gantt type screens.
+   
+Some sections and fields are not visible or do not work on administrative projects like Paused, Fix planning or the minimum threshold.
+   
+
+TMP: Template project
+---------------------
+
+These projects will not be used to follow some work.
+   
+They are just designed to define templates, to be copied as operational projects.
+
+Any project leader (profile) can copy such projects, without having to be allocated to them.
+
+All new types are created with **TMP** code.
+
+   
+   
+PRP: Proposal project
+---------------------
+
+These projects will not be used to follow some work.
+   
+This type of project makes it possible to define whether a project is strategically interesting to carry out.
+   
+All new types are created with **PRP** code.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the project type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - Billing type
+     - Will define billing behavior (see: :ref:`Incomes<Billing_types>`).
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+.. index:: Prospect estimate  (Type)
+
+.. _prospect-estimate_type:
+   
+Prospect estimate types
+***********************
+
+Prospect estimate type is a way to define common behavior on group of prospect estimates.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defines the workflow ruling status changes for prospect estimates of this type (see :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+
+.. index:: Prospect event (Type)
+
+.. _prospect-event_type:
+   
+Prospect events types
+*********************
+
+Prospect event type is a way to define common behavior on group of prospect events.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defines the workflow ruling status changes for prospect events of this type (see :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+.. index:: Prospect (Type)
+
+.. _prospect_type:
+   
+Prospects types
+***************
+
+Prospect type is a way to define common behavior on group of prospects.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for prospects of this type (see :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+
+.. index:: Provider Bill (Type)
+
+.. _provider_bill_type:
+
+Provider bill types
+*******************
+
+There is a wide variety of invoice types. Each one is used in specific circumstances and requires the respect of protocols concerning their constitution and their emission. 
+
+You can create as many invoice types as you need.
+
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+     
+     
+     
+     
+
+.. index:: Provider Tender (Type)
+
+.. _provider_tender_type:
+
+Provider tender types
+*********************
+
+  
+Quote types allow you to organize and categorize the different offers received by your suppliers
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+    
+.. index:: Provider (Type)
+
+.. _provider-type:
+
+Providers types
+***************
+   
+Provider type is a way to define different kinds of providers.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+
+
+.. index:: Question (Type)
+
+.. _question-type:
+
+Questions types
+***************
+   
+Question type is a way to define common behavior on group of questions.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+    
+
+.. index:: Requirement (Type)
+
+.. _requirement-type:
+
+Requirements types
+******************
+
+Requirement type is a way to define common behavior on group of requirements.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+     
+     
+     
+
+.. index:: Risk (Type)
+
+.. _risk-type:
+
+Risks types
+***********
+
+Risk type is a way to define common behavior on group of risks.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. index:: Supplier Contract (Type)
+
+.. _supplier-contract-type:
+
+Supplier contract types
+***********************
+
+Supplier contract types are a way of defining the type of contract with a supplier. 
+
+Types of contract are already pre-registered: management assistance, hosting, technical improvement or Maintenance and support
+
+   
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. index:: Test case (Type)
+
+.. _test-case-type:
+
+Test cases types
+****************
+   
+Test case type is a way to define common behavior on group of test cases.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. index:: Test session (Type)
+
+.. _test-session-type:
+
+Test sessions types
+*******************
+   
+Test session type is a way to define common behavior on group of test sessions.
+
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - |RequiredField| Default planning mode
+     - Default planning mode for type. 
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+
+.. index:: Ticket (Type)
+
+.. _ticket-type:
+
+Tickets types
+*************
+   
+Ticket type is a way to define common behavior on group of tickets.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+     
+     
+     
+     
+
+
+.. index:: Translation item (Type)
+
+.. _translation-item-type:
+
+Translation item types
+**********************
+   
+Translation lines also have the possibility of being typed.
+You can more easily compartmentalize your requests.
+
+Assign a different workflow and behavior for each type of line.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.
+
+
+
+.. index:: Translation request (Type)
+
+.. _translation-request-type:
+
+Translation request types
+*************************
+   
+You define the types of translation that you will use in your business.
+
+This allows you to apply a different workflow and behavior for each type.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the type.
+   * - |RequiredField| Name
+     - Name of the type.
+   * - Code
+     - Code of the type.
+   * - |RequiredField| Workflow
+     - Defined the workflow ruling status change for items of this type (see: :ref:`workflow`).
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Box checked indicates the type is archived.
+   * - Description
+     - Description of the type.     

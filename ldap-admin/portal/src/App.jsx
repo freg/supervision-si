@@ -579,6 +579,158 @@ function BackupsTab({ bindPassword, onAuthError }) {
   );
 }
 
+
+// ---------------------------------------------------------------------
+// Création de compte (livraison LDAP) -- interne sous ou=accounts,
+// externe sous ou=external,ou=accounts. uidNumber alloué automatiquement
+// (max+1) côté serveur. Toute erreur ldapmodify est affichée telle quelle.
+// ---------------------------------------------------------------------
+function genPassword(n = 16) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!%+=";
+  let out = "";
+  const rnd = new Uint32Array(n);
+  (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(rnd) : rnd.fill(0);
+  for (let i = 0; i < n; i++) out += chars[rnd[i] % chars.length];
+  return out;
+}
+
+function CreateAccountTab({ bindPassword, onAuthError }) {
+  const [cfg, setCfg] = useState(null);
+  const [kind, setKind] = useState("externe");
+  const [form, setForm] = useState({ uid: "", given_name: "", sn: "", mail: "", password: "", uid_number: "", gid_number: "", login_shell: "" });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => { getJson("/accounts/config", bindPassword).then((r) => { if (r.ok) setCfg(r.data); }); }, [bindPassword]);
+
+  const parent = cfg ? (kind === "externe" ? cfg.external_dn : cfg.accounts_dn) : "…";
+  const previewDn = `uid=${form.uid || "…"},${parent}`;
+
+  const submit = async () => {
+    setMessage(null);
+    if (!form.uid.trim() || !form.sn.trim() || !form.password) { setMessage({ ok: false, text: "uid, nom et mot de passe requis" }); return; }
+    setBusy(true);
+    const body = {
+      uid: form.uid.trim(), kind, sn: form.sn.trim(),
+      given_name: form.given_name.trim(), mail: form.mail.trim(), password: form.password,
+      actor: "",
+    };
+    if (form.uid_number.trim()) body.uid_number = form.uid_number.trim();
+    if (form.gid_number.trim()) body.gid_number = form.gid_number.trim();
+    if (form.login_shell.trim()) body.login_shell = form.login_shell.trim();
+    const res = await postJson("/accounts", body, bindPassword);
+    setBusy(false);
+    if (res.ok) {
+      setMessage({ ok: true, text: `Compte créé : ${res.data.dn} (uidNumber ${res.data.uid_number})` });
+      setForm({ uid: "", given_name: "", sn: "", mail: "", password: "", uid_number: "", gid_number: "", login_shell: "" });
+    } else if (res.status === 401) {
+      onAuthError();
+    } else {
+      setMessage({ ok: false, text: res.data.error || `échec (HTTP ${res.status})` });
+    }
+  };
+
+  return (
+    <div className="ldap-account-form">
+      <p className="ldap-form-hint">
+        Type de compte&nbsp;:
+        <label className="ldap-radio"><input type="radio" checked={kind === "interne"} onChange={() => setKind("interne")} /> interne</label>
+        <label className="ldap-radio"><input type="radio" checked={kind === "externe"} onChange={() => setKind("externe")} /> externe</label>
+      </p>
+      <div className="ldap-fields">
+        <label>uid <span className="req">*</span><input value={form.uid} onChange={(e) => set("uid", e.target.value)} placeholder="ex. demo_moa" autoFocus /></label>
+        <label>Prénom<input value={form.given_name} onChange={(e) => set("given_name", e.target.value)} placeholder="Demo" /></label>
+        <label>Nom (sn) <span className="req">*</span><input value={form.sn} onChange={(e) => set("sn", e.target.value)} placeholder="MOA" /></label>
+        <label>Courriel<input value={form.mail} onChange={(e) => set("mail", e.target.value)} placeholder="w.leroy@…" /></label>
+        <label className="ldap-pw">Mot de passe <span className="req">*</span>
+          <span className="ldap-pw-row">
+            <input type="text" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder="haché par le serveur" />
+            <button type="button" className="secondary" onClick={() => set("password", genPassword())}>générer</button>
+          </span>
+        </label>
+      </div>
+      <details className="ldap-advanced">
+        <summary>Options avancées (uidNumber, gid, shell)</summary>
+        <div className="ldap-fields">
+          <label>uidNumber<input value={form.uid_number} onChange={(e) => set("uid_number", e.target.value)} placeholder="auto (max+1)" /></label>
+          <label>gidNumber<input value={form.gid_number} onChange={(e) => set("gid_number", e.target.value)} placeholder={cfg ? String(cfg.default_gid) : "65534"} /></label>
+          <label>loginShell<input value={form.login_shell} onChange={(e) => set("login_shell", e.target.value)} placeholder={cfg ? cfg.default_shell : "/bin/false"} /></label>
+        </div>
+      </details>
+      <p className="ldap-dn-preview">DN cible : <code>{previewDn}</code></p>
+      <button className="primary" onClick={submit} disabled={busy}>{busy ? "Création…" : "Créer le compte"}</button>
+      {message && <p className={message.ok ? "ldap-success" : "ldap-error"}>{message.text}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Affectation dans un groupe (sélecteur sur ou=groups,ou=accounts).
+// L'attribut d'appartenance (member / uniqueMember / memberUid) est
+// déterminé côté serveur selon la classe du groupe.
+// ---------------------------------------------------------------------
+function GroupAssignTab({ bindPassword, onAuthError }) {
+  const [groups, setGroups] = useState(null);
+  const [error, setError] = useState(null);
+  const [groupDn, setGroupDn] = useState("");
+  const [uid, setUid] = useState("");
+  const [action, setAction] = useState("add");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const load = async () => {
+    setError(null);
+    const res = await getJson("/groups", bindPassword);
+    if (res.ok) { setGroups(res.data.groups || []); }
+    else if (res.status === 401) { onAuthError(); }
+    else { setError(res.data.error || "chargement des groupes impossible"); setGroups([]); }
+  };
+  useEffect(() => { load(); }, [bindPassword]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submit = async () => {
+    setMessage(null);
+    if (!groupDn || !uid.trim()) { setMessage({ ok: false, text: "groupe et uid requis" }); return; }
+    setBusy(true);
+    const res = await postJson("/groups/member", { group_dn: groupDn, uid: uid.trim(), action, actor: "" }, bindPassword);
+    setBusy(false);
+    if (res.ok) {
+      setMessage({ ok: true, text: `${action === "add" ? "Ajouté" : "Retiré"} : ${res.data.value} (${res.data.member_attr})` });
+      load();
+    } else if (res.status === 401) {
+      onAuthError();
+    } else {
+      setMessage({ ok: false, text: res.data.error || `échec (HTTP ${res.status})` });
+    }
+  };
+
+  if (error) return <p className="ldap-error" style={{ margin: 24 }}>{error} <button className="secondary" onClick={load}>Réessayer</button></p>;
+  if (!groups) return <p className="ldap-loading">chargement des groupes…</p>;
+
+  return (
+    <div className="ldap-account-form">
+      <div className="ldap-fields">
+        <label>Groupe <span className="req">*</span>
+          <select value={groupDn} onChange={(e) => setGroupDn(e.target.value)}>
+            <option value="">— choisir un groupe —</option>
+            {groups.map((g) => <option key={g.dn} value={g.dn}>{g.cn} · {g.member_count} membre(s) · {g.member_attr || "?"}</option>)}
+          </select>
+        </label>
+        <label>uid de l'utilisateur <span className="req">*</span><input value={uid} onChange={(e) => setUid(e.target.value)} placeholder="ex. demo_moa" /></label>
+        <label>Action
+          <select value={action} onChange={(e) => setAction(e.target.value)}>
+            <option value="add">ajouter au groupe</option>
+            <option value="remove">retirer du groupe</option>
+          </select>
+        </label>
+      </div>
+      {groupDn && <p className="ldap-dn-preview">Groupe : <code>{groupDn}</code></p>}
+      <button className="primary" onClick={submit} disabled={busy}>{busy ? "…" : (action === "add" ? "Affecter" : "Retirer")}</button>
+      {message && <p className={message.ok ? "ldap-success" : "ldap-error"}>{message.text}</p>}
+    </div>
+  );
+}
+
 export default function App() {
   const [bindPassword, setBindPassword] = useState(""); // JAMAIS persisté -- état React en mémoire uniquement
   const [unlocked, setUnlocked] = useState(false);
@@ -627,10 +779,14 @@ export default function App() {
       <div className="tabs">
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>👤 Utilisateurs</button>
         <button className={tab === "backups" ? "active" : ""} onClick={() => setTab("backups")}>💾 Sauvegardes</button>
+        <button className={tab === "create" ? "active" : ""} onClick={() => setTab("create")}>➕ Créer un compte</button>
+        <button className={tab === "groups" ? "active" : ""} onClick={() => setTab("groups")}>👥 Groupes</button>
       </div>
 
       {tab === "users" && <LdapBrowser bindPassword={bindPassword} onAuthError={handleAuthError} />}
       {tab === "backups" && <BackupsTab bindPassword={bindPassword} onAuthError={handleAuthError} />}
+      {tab === "create" && <CreateAccountTab bindPassword={bindPassword} onAuthError={handleAuthError} />}
+      {tab === "groups" && <GroupAssignTab bindPassword={bindPassword} onAuthError={handleAuthError} />}
 
       <div className="version-badge" title={`hash contenu : ${versionInfo.content_hash} · hash git : ${versionInfo.git_hash} · dernière vérification : ${versionInfo.last_checked_at}`}>
         #{versionInfo.delivery_number || "?"}

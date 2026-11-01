@@ -1,0 +1,5 @@
+Service ;Type ;Statut ;Renouvellement ;Actions en cours ;Date d'effet ;Actions ;IP extraite;Lien IP ovh;Nb DNS
+exemple.fr ;Zones DNS ;Actif ;Automatique Tous les 12 mois ;;01/09/2027 ;;;;
+exemple.fr ;Domaine ;Actif ;Automatique Tous les 12 mois ;;13/09/2027 ;;;;
+ip-203.0.113.10 ;IP ;Actif ;Automatique Tous les 1 mois ;;01/10/2026 ;;203.0.113.10;OK;2
+ns1000001.ip-203-0-113.eu ;Serveur dédié ;Actif ;Automatique Tous les 1 mois ;;05/10/2026 ;;;;

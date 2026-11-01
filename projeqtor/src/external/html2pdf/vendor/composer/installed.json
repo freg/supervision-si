@@ -1,0 +1,63 @@
+[
+    {
+        "name": "tecnickcom/tcpdf",
+        "version": "6.11.3",
+        "version_normalized": "6.11.3.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/tecnickcom/TCPDF.git",
+            "reference": "b18f6119161019916c5bb07cb8da5205ae5c1b63"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/tecnickcom/TCPDF/zipball/b18f6119161019916c5bb07cb8da5205ae5c1b63",
+            "reference": "b18f6119161019916c5bb07cb8da5205ae5c1b63",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=7.1.0"
+        },
+        "type": "library",
+        "autoload": {
+            "classmap": [
+                "config",
+                "include",
+                "tcpdf.php",
+                "tcpdf_barcodes_1d.php",
+                "tcpdf_barcodes_2d.php",
+                "include/tcpdf_colors.php",
+                "include/tcpdf_filters.php",
+                "include/tcpdf_font_data.php",
+                "include/tcpdf_fonts.php",
+                "include/tcpdf_images.php",
+                "include/tcpdf_static.php",
+                "include/barcodes/datamatrix.php",
+                "include/barcodes/pdf417.php",
+                "include/barcodes/qrcode.php"
+            ]
+        },
+        "license": [
+            "LGPL-3.0-or-later"
+        ],
+        "authors": [
+            {
+                "name": "Nicola Asuni",
+                "email": "info.woop@tecnick.com",
+                "role": "lead"
+            }
+        ],
+        "description": "Deprecated legacy PDF engine for PHP. For new projects use tecnickcom/tc-lib-pdf.",
+        "homepage": "https://tcpdf.org",
+        "keywords": [
+            "PDF",
+            "PDFD32000-2008",
+            "barcodes",
+            "datamatrix",
+            "pdf",
+            "pdf417",
+            "qrcode",
+            "TCPDF"
+        ],
+        "time": "2026-04-21T17:00:00+00:00"
+    }
+]

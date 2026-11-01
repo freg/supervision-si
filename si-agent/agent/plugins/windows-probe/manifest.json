@@ -1,0 +1,13 @@
+{
+  "id": "windows-probe",
+  "version": "1",
+  "runner": "python",
+  "entry": "windows_probe.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 240,
+  "args": ["--targets", "auto"],
+  "enabled": false,
+  "description": "Sonde « postes Windows » (#567, famille explorer) : balaie les sous-réseaux du poste (ou --targets a.b.c.0/24,ip,…) et, pour chaque hôte qui répond, interroge NetBIOS (UDP 137 : nom, groupe de travail / domaine, MAC), SMB (TCP 445 : dialecte négocié, signature exigée, SMB1 accepté), RDP (TCP 3389 : NLA / TLS), AnyDesk (TCP 7070), VNC (5900), WinRM (5985/5986), SSH (22). Sert à relier chaque poste de l'inventaire à ses accès (RDP, AnyDesk, partage) et à constater : SMB1 accepté, signature SMB non exigée, RDP sans NLA, poste muet. Lecture seule : aucune authentification, aucune action.",
+  "source": "bundled",
+  "privileged": false
+}

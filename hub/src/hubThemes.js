@@ -17,27 +17,62 @@
 export const THEMES = [
   { id: "supervision", name: "Supervision", icon: "🗺", description: "Cortex (incidents corrélés), supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs",
     entries: [
+      { view: "aujourdhui", label: "Aujourd'hui" },
+      { view: "urgence", label: "Urgence (téléphone : alertes, contacts, alertes poussées)" },   // #796
       { view: "cortex", label: "Cortex" },
+      { view: "iapark", label: "Parc IA (hôtes, modèles, tests, activité)" },   // #756
+      { view: "hermes", label: "Hermes (harnais IA, lecture seule)" },   // #912
+      { view: "banc", label: "Banc d'installation (pool de VM de test des agents)" },   // #826
+      { view: "emulation", label: "Émulation et déploiement supervisé (Raspberry Pi, Android)" },   // #831
+      { view: "orchestration", label: "Orchestration : VM et conteneurs (Proxmox, k3s, Nomad)" },   // #832
       { view: "supervision-si", label: "Supervision SI" },
       { view: "si-agent", label: "Agents hôtes" },
       { view: "netprobe", label: "Sondes réseau" },
+      { front: "service-watch", label: "Entrées de services" },
       { view: "ups", label: "Onduleurs (UPS)" },
       { view: "snmp", label: "SNMP" },
       { view: "vigilance", label: "Vigilance" },
       { view: "cyber", label: "Cyber" },
+      { view: "vuln", label: "Vulnérabilités (SBOM, EPSS, KEV)" },   // #688
+      { view: "veille", label: "Veille cyber (alertes, news, impacts sur notre SI)" },   // #814
+      { view: "mailserver", label: "Serveur de messagerie (traitements, recherche, quarantaine)" },   // #697
+      { view: "mailbox", label: "Boîtes aux lettres : agents si-mailbox des sessions (requêtes, automates IA)" },   // #840
       { view: "logs", label: "Logs" },
       { view: "history", label: "Historique" },
       { view: "memory", label: "Mémoire" },
     ] },
-  { id: "reseau", name: "Réseau", icon: "🕸", description: "Exploration, cycle agile, orchestrateur, architecture, fusion IP/MAC, Nebula, tunnels SSH",
+  { id: "reseau", name: "Réseau", icon: "🕸", description: "Exploration, cycle agile, orchestrateur, architecture, fusion IP/MAC, Nebula, tunnels SSH, routeurs MikroTik, hyperviseurs Proxmox",
     entries: [
       { view: "network-agent", label: "Exploration réseau" },
+      { view: "network-equipment", label: "Équipements réseau" },
       { view: "network-cycle", label: "Cycle agile réseau" },
       { view: "netmap-orchestrator", label: "Orchestrateur" },
       { view: "architecture", label: "Architecture" },
       { view: "fusion", label: "Fusion IP/MAC" },
       { view: "nebula", label: "Nebula" },
+      { view: "datarf", label: "Data RF (spectre, écoute Wi-Fi des sondes)" },   // #806
       { view: "ssh-tunnels", label: "Tunnels SSH" },
+      { front: "mikrotik", label: "Routeurs MikroTik" },
+      { view: "nat-map", label: "Redirections NAT" },   // #606
+      { view: "latency", label: "Latence des IP publiques (mesures, accès)" },   // #775
+      { view: "edge", label: "Proxys d'entrée (couple interchangeable, DNS)" },   // #776
+      { front: "cisco", label: "Équipements Cisco" },
+      { view: "proxmox", label: "Proxmox" },
+      { view: "pve-ops", label: "Contrôle PVE (opérations, PRA)" },   // #653
+      { view: "pve-maint", label: "Maintenance des Proxmox" },   // #705
+      { view: "infra", label: "Infra PVE / PBS (vue d'ensemble)" },   // #749
+      { view: "htop", label: "htop en direct (VM, CT, Proxmox ; capacité d'un nœud)" },   // #800
+      { view: "nas", label: "NAS (volumes, disques, alertes)" },   // #883
+      { view: "vpn", label: "VPN (WireGuard, SoftEther : sessions, connexions)" },   // #884
+      { view: "postes-windows", label: "Postes Windows (réinstallation, diagnostic, tests de charge)" },   // #896
+      { view: "sockets", label: "Sockets (netstat des hôtes agentés : écoute, connexions, processus)" },   // #906
+      { view: "messages", label: "Messages (blog interne : un mot pour tous ou pour soi)" },   // #903
+      { view: "guest-usage", label: "Activité des VM (accès web, MySQL, connexions, CPU)" },   // #769
+      { view: "migration", label: "Migration 2026-2027 (suivi et pilotage pas à pas)" },   // #774
+      { view: "journal", label: "Journal des chantiers (actes, surveillances, interventions)" },   // #795
+      { view: "navigateur", label: "Navigateur des hôtes (écran web, parcours joués depuis un hôte)" },   // #798
+      { view: "fleetviews", label: "Vues de parc (serveurs, postes, IA, postes personnels)" },   // #753
+      { view: "repatriation", label: "Rapatriement d'un nœud distant (assistant)" },   // #761
     ] },
   { id: "donnees", name: "Données & référentiels", icon: "🗄", description: "Bases externes, GLPI, positions, classification, schémas, rétro-ingénierie, DBA",
     entries: [
@@ -47,25 +82,56 @@ export const THEMES = [
       { view: "classifier", label: "Classification" },
       { view: "schema-analyzer", label: "Analyse de schémas" },
       { view: "retro", label: "Rétro-ingénierie" },
+      { view: "portage", label: "Portage PHP → Python" },   // #650
+      { view: "qa", label: "Tests QA en ligne" },   // #651
+      { view: "datasync", label: "Synchronisation centrale" },   // #652
       { front: "dba", label: "DBA" },
+      { view: "licenses", label: "Licences logicielles" },   // #595
+      { view: "app-instances", label: "Déploiement d'application" },   // #733 : instance clonée (tickets, GED…) sur un autre nœud
     ] },
   { id: "documents", name: "Documents & ENT", icon: "📚", description: "ENT (agenda, tâches, relations), GED, fichiers, messagerie, tickets",
     entries: [
+      { view: "synthese", label: "Infos synthèse SI" },
       { view: "ent", label: "ENT" },
+      { view: "groupware", label: "Groupware (agenda, contacts partagés)" },   // #664
       { view: "ged", label: "GED" },
       { view: "file-manager", label: "Gestionnaire de fichiers" },
       { view: "imap", label: "Client IMAP" },
+      { view: "imap-connectors", label: "Connecteurs IMAP" },
+      { front: "assistant", label: "Assistant IA (PoC)" },
       { front: "tickets", label: "Portail tickets" },
     ] },
-  { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, droits, sauvegardes, coffre-fort, Keycloak, annuaire",
+  // #939 : « je voudrais une tuile principale (accueil) Sauvegardes qui recouvre toute la thématique » -- thématique
+  // dédiée : vue d'ensemble (postes, PBS, copies host/VM, BackupPC, NAS QNAP) et sauvegardes du hub lui-même. Les autres
+  // vues liées (Maintenance PVE, Migration › Copies, Postes Windows, NAS) restent dans leur thématique et sont
+  // atteintes par les liens de la vue d'ensemble.
+  { id: "sauvegardes", name: "Sauvegardes", icon: "💾", description: "Postes (confs, image), PBS pbs10, copies host/VM, BackupPC, NAS QNAP (snapshots, Time Machine), sauvegardes du hub",
+    entries: [
+      { view: "sauvegardes", label: "Vue d'ensemble (postes, PBS, copies host/VM, BackupPC, NAS)" },   // #937
+      { view: "backup-restore", label: "Sauvegardes du hub (si-hub lui-même)" },
+    ] },
+  { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, accès d'équipements, droits, coffre-fort, Keycloak, annuaire",
     entries: [
       { view: "si-proxy", label: "Bastion" },
+      { front: "credentials", label: "Accès d'équipements" },
       { view: "rights", label: "Droits" },
-      { view: "backup-restore", label: "Sauvegardes" },
+      { view: "accounts", label: "Comptes et groupes" },
+      { view: "personal", label: "Données personnelles" },
+      { view: "notifications", label: "Notifications (courriels, SMS)" },
       { front: "vault", label: "Coffre-fort" },
       { front: "vault-admin", label: "Administration du coffre-fort" },
       { front: "keycloak-admin", label: "Administration Keycloak" },
       { front: "ldap-admin", label: "Administration OpenLDAP" },
+    ] },
+  // ProjeQtOr (fork, livraison #482) : la tuile était tombée dans les
+  // « Liens externes » (leftover, jamais rattachée à une thématique) ;
+  // demandé explicitement : « un groupe en plus "projeqtor", visibilité
+  // à tous ». Thématique dédiée d'un seul outil, visible de tous (le
+  // front projeqtor n'a aucune condition de rôle, voir lib.js).
+  { id: "projeqtor", name: "ProjeQtOr", icon: "📋", description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
+    entries: [
+      { front: "projeqtor", label: "ProjeQtOr" },
+      { front: "demande", label: "Demandes (suivi)" },
     ] },
 ];
 
@@ -120,7 +186,24 @@ export function themeOfView(themes, view) {
   return null;
 }
 
-export const HOME_MODES = { themes: "par thématiques", tiles: "toutes les tuiles" };
+export const HOME_MODES = { themes: "par thématiques", tiles: "toutes les tuiles", tree: "arbre dépliable" };  // #603 : arbre
 export function normalizeHomeMode(raw) {
-  return raw === "tiles" ? "tiles" : "themes";
+  return raw === "tiles" || raw === "themes" ? raw : "tree";  // #605 : arbre par défaut
 }
+
+// Livraison d'apparition de chaque outil dans le hub (menu « Univers du
+// hub », #538) : première mention de la vue ou du front dans l'historique
+// (git pour ≥ #395, CHANGELOG avant) -- 105 = « au plus tard #105 », le
+// journal ne remonte pas plus loin. Une nouvelle tuile ajoute sa ligne ici.
+export const SINCE = {
+  "aujourdhui": 544, "architecture": 105, "assistant": 532, "backup-restore": 105, "cisco": 508, "classifier": 259, "cortex": 462,
+  "credentials": 498, "cyber": 186, "dba": 105, "demande": 489, "ent": 105, "external-bases": 425, "file-manager": 226,
+  "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
+  "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "nat-map": 606, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
+  "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
+  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "mailbox": 840, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "htop": 800, "nas": 883, "sauvegardes": 939, "vpn": 884, "postes-windows": 896, "sockets": 906, "messages": 903, "datarf": 806, "veille": 814, "guest-usage": 769, "migration": 774, "journal": 795, "urgence": 796, "navigateur": 798, "latency": 775, "edge": 776, "fleetviews": 753, "iapark": 756, "hermes": 912, "banc": 826, "emulation": 831, "orchestration": 832, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
+  "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
+  "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,
+  "action:home-mode": 457, "action:external-links": 105, "action:debug": 105,
+};

@@ -111,8 +111,12 @@ def from_si_agent(fleet, netviews, events, status=None, since=None):
             continue
         if e.get("kind") in ("agent-offline", "agent-online", "fleet-unblocked", "agent-unblocked"):
             continue  # transitions : l'état courant est déjà porté par /fleet et /status
-        evs.append({"fingerprint": fingerprint("si-agent", e.get("kind"), key, str(e.get("id"))), "at": e.get("at"), "source": "si-agent",
-                    "kind": e.get("kind") or "event", "severity": e.get("severity"), "entity": key, "site": e.get("site"),
+        kind = e.get("kind") or "event"
+        task = str((e.get("details") or {}).get("task") or "") if isinstance(e.get("details"), dict) else ""
+        if kind == "probe-alert" and task.startswith("plugin:"):
+            kind = "probe-alert:" + task[len("plugin:"):]      # #760 : la sonde d'origine (wifi-probe, path-probe…) sert à la corrélation Wi-Fi
+        evs.append({"fingerprint": fingerprint("si-agent", kind, key, str(e.get("id"))), "at": e.get("at"), "source": "si-agent",
+                    "kind": kind, "severity": e.get("severity"), "entity": key, "site": e.get("site"),
                     "message": e.get("message") or "", "raw_ref": "si-agent:event:%s" % e.get("id")})
     if status and status.get("fleet_blocked"):
         evs.append({"fingerprint": fingerprint("si-agent", "fleet-blocked", "central"), "at": status.get("fleet_blocked_at"), "source": "si-agent",
@@ -388,6 +392,38 @@ def from_classifier(results):
         ents.append(_ent(key, "equipement", r.get("input_text"), None, None, None, "classifier", r.get("id"),
                          [{"role": r["category"], "principle": "name-class", "evidence": "classification %s du nom « %s »" % ("confirmée" if r.get("confirmed") else "automatique", r.get("input_text"))}]))
     return ents, [], []
+
+
+def _iso(ts):
+    import datetime as _d
+    try:
+        return _d.datetime.fromtimestamp(float(ts), _d.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (TypeError, ValueError):
+        return None
+
+
+NEB_SEV = {"haute": "critical", "moyenne": "warning", "basse": "info"}
+
+
+def from_nebula_report(report, devices):
+    """#760 (BACKLOG 122, point 7) : constats Wi-Fi en cours de nebula-api (/report/occupancy : occupation, alertes Nebula,
+    anticipation -- pic attendu, borne instable, port, DHCP…) -> événements Cortex, rattachés à la borne (même clé que le
+    référentiel Nebula importé, par nom)."""
+    by_name = {}
+    for d in devices or []:
+        k = entity_key(mac=d.get("mac_address"), name=d.get("name"))
+        if k and d.get("name"):
+            by_name[d["name"].strip().lower()] = k
+    evs = []
+    for e in (report or {}).get("open") or []:
+        el = str(e.get("element") or e.get("site") or "").strip()
+        key = by_name.get(el.lower()) or (("name:" + el.lower()) if el else None)
+        kind = "wifi:%s" % (e.get("kind") or "occupation")
+        evs.append({"fingerprint": fingerprint("nebula", kind + ":" + str(e.get("id")), key or "nebula", str(e.get("site_id") or "")),
+                    "at": _iso(e.get("first_seen")), "last_at": _iso(e.get("last_seen")), "source": "nebula", "kind": kind,
+                    "severity": NEB_SEV.get(e.get("severity"), "warning"), "entity": key, "site": e.get("site"),
+                    "message": e.get("message") or "", "raw_ref": "nebula:%s:%s" % (e.get("site_id"), e.get("id"))})
+    return evs
 
 
 def from_nebula(devices, clients):

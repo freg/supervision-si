@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- Page import/export « suivi » (livraison #484, import tolérant multi-cibles #497) — posture LAN (même
+confiance que le formulaire public, confirmé par la personne) :
+accessible sans authentification sur /demande/admin. Les opérations
+sont visibles dans les logs du service (docker compose logs
+projeqtor-bridge), jamais silencieuses. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import / export des demandes — format « suivi des demandes »</title>
+<style>
+  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
+          --accent: #2980b9; --link: #7ab8f5; --ok: #27ae60; --err: #c0392b; }
+  a, a:visited { color: var(--link); }  /* #607 : liens clairs sur fond sombre */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         min-height: 100vh; display: flex; justify-content: center; padding: 24px 12px; }
+  main { width: 100%; max-width: 620px; display: grid; gap: 16px; }
+  h1 { font-size: 1.35rem; margin: 0; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; }
+  h2 { font-size: 1rem; margin-top: 0; }
+  p { color: var(--muted); font-size: .9rem; }
+  button, a.btn { display: inline-block; padding: 10px 16px; border: 0; border-radius: 8px;
+           background: var(--accent); color: #fff; font: inherit; font-weight: 600;
+           cursor: pointer; text-decoration: none; }
+  button:disabled { opacity: .5; cursor: wait; }
+  input[type=file] { margin: 8px 0; color: var(--muted); }
+  pre { background: var(--bg); border-radius: 8px; padding: 12px; font-size: .8rem;
+        white-space: pre-wrap; word-break: break-word; display: none; max-height: 300px; overflow: auto; }
+  pre.show { display: block; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  .targets { display: grid; gap: 6px; margin: 8px 0 12px; font-size: .9rem; }
+  button.secondary { background: #3b4252; }
+  table.preview { width: 100%; border-collapse: collapse; font-size: .78rem; margin-top: 10px; }
+  table.preview th, table.preview td { border-bottom: 1px solid #333a47; padding: 4px 6px; text-align: left; vertical-align: top; }
+  table.preview th { color: var(--muted); font-weight: 600; }
+  .warn { color: #e0a800; font-size: .8rem; white-space: pre-wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📊 Demandes — format « suivi des demandes »</h1>
+
+  <div class="card">
+    <h2>Exporter (ProjeQtOr → Excel)</h2>
+    <p>Toutes les demandes de ProjeQtOr, agrégées dans le tableau au format imposé (colonnes, listes déroulantes et formules comprises).</p>
+    <a class="btn" id="exportBtn" href="#">⬇ Télécharger le tableau</a>
+  </div>
+
+  <div class="card">
+    <h2>Importer un tableau (Excel / CSV → hub et/ou ProjeQtOr)</h2>
+    <p>Fichier <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b>. Les en-têtes sont reconnus par leur nom (Sujet / Objet, Demandeur, Date, Priorité, Catégorie / Type, Durée, Commentaire / Description, Accomplissement, Clôture), où qu'ils soient dans la feuille ; à défaut, format imposé (ligne 8, colonnes A..O). Les dates et nombres saisis en texte sont acceptés. « Analyser » montre ce qui serait importé sans rien créer.</p>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    <div class="targets">
+      <label><input type="radio" name="target" value="both" checked> Hub (imports à valider) <b>et</b> ProjeQtOr</label>
+      <label><input type="radio" name="target" value="tickets"> Hub seulement</label>
+      <label><input type="radio" name="target" value="projeqtor"> ProjeQtOr seulement</label>
+    </div>
+    <button id="analyseBtn" class="secondary">🔍 Analyser sans importer</button>
+    <button id="importBtn">⬆ Importer</button>
+    <div id="preview"></div>
+    <pre id="result"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Synchronisation vers la gestion de tickets du hub</h2>
+    <p>Les demandes ProjeQtOr arrivent automatiquement dans l'écran « imports à valider » du hub (même file que les imports calendrier). État :</p>
+    <pre id="sync" class="show">chargement…</pre>
+    <button id="syncBtn">↻ Lancer un tour maintenant</button>
+  </div>
+</main>
+
+<script>
+const api = location.pathname.replace(/\/admin\/?$/, "");
+
+document.getElementById("exportBtn").href = api + "/export";
+
+async function refreshSync() {
+  const el = document.getElementById("sync");
+  try {
+    const r = await fetch(api + "/sync/status");
+    el.textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) { el.textContent = "état indisponible : " + e.message; }
+}
+refreshSync();
+
+document.getElementById("syncBtn").addEventListener("click", async () => {
+  const el = document.getElementById("sync");
+  el.textContent = "tour en cours…";
+  try {
+    const r = await fetch(api + "/sync/now", {method: "POST"});
+    el.textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) { el.textContent = "échec : " + e.message; }
+});
+
+function chosenTarget() {
+  const el = document.querySelector('input[name=target]:checked');
+  return el ? el.value : "both";
+}
+
+function renderPreview(body) {
+  const box = document.getElementById("preview");
+  const rows = body.lignes || [];
+  if (!rows.length) { box.innerHTML = ""; return; }
+  const cols = [["id","Id"],["date","Date"],["demandeur","Demandeur"],["sujet","Sujet"],["priorite","Priorité"],["categorie","Catégorie"],["duree_j","Durée"],["accomplissement","Acc."],["cloture","Clôture"],["commentaire","Commentaire"]];
+  const esc = (v) => (v === null || v === undefined) ? "" : String(v).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  let html = `<table class="preview"><thead><tr>${cols.map(([,l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>`;
+  for (const r of rows) html += `<tr>${cols.map(([k]) => `<td>${esc(r[k])}</td>`).join("")}</tr>`;
+  html += "</tbody></table>";
+  if ((body.avertissements || []).length) html += `<div class="warn">${body.avertissements.map(esc).join("\n")}</div>`;
+  if (body.tickets_api === false) html += `<div class="warn">gestion de tickets du hub non configurée côté pont (TICKETS_API_INTERNAL_URL)</div>`;
+  box.innerHTML = html;
+}
+
+async function sendFile(dryRun) {
+  const f = document.getElementById("file").files[0];
+  const out = document.getElementById("result");
+  if (!f) { out.className = "show err"; out.textContent = "Choisis d'abord un fichier .xlsx, .xls ou .csv"; return; }
+  const data = new FormData();
+  data.append("file", f);
+  data.append("target", chosenTarget());
+  if (dryRun) data.append("dry_run", "1");
+  out.className = "show"; out.textContent = dryRun ? "analyse en cours…" : "import en cours…";
+  document.getElementById("importBtn").disabled = true; document.getElementById("analyseBtn").disabled = true;
+  try {
+    const r = await fetch(api + "/import", {method: "POST", body: data});
+    const body = await r.json();
+    out.className = "show " + (r.ok ? "ok" : "err");
+    if (dryRun) {
+      renderPreview(body);
+      out.textContent = r.ok ? `${body.total} demande(s) exploitable(s) — rien n'a été créé.` : JSON.stringify(body, null, 2);
+    } else {
+      document.getElementById("preview").innerHTML = "";
+      out.textContent = JSON.stringify(body, null, 2);
+    }
+  } catch (e) {
+    out.className = "show err"; out.textContent = "échec : " + e.message;
+  } finally {
+    document.getElementById("importBtn").disabled = false; document.getElementById("analyseBtn").disabled = false;
+  }
+}
+
+document.getElementById("analyseBtn").addEventListener("click", () => sendFile(true));
+document.getElementById("importBtn").addEventListener("click", () => sendFile(false));
+</script>
+</body>
+</html>

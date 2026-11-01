@@ -24,4 +24,4 @@ EXPOSE 5000
 # d'une application entière, potentiellement des centaines de
 # fichiers) peut prendre plus que les 30s par défaut de gunicorn à
 # analyser -- jamais un worker tué en pleine analyse.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]

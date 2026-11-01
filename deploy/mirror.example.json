@@ -1,0 +1,10 @@
+{
+  "_doc": "Miroir froid du hub (#663, étape 3 des items 108-110). Copier en deploy/mirror.local.json (ignoré par git). node : nom du nœud miroir dans deploy/nodes.json (agent de nœud joignable par le VPN, jeton SI_NODE_TOKEN du .env) ; host_ip : adresse LAN du miroir, injectée par regenerate à la bascule ; role_id : rôle « celui qui répond » (#654, tuile Contrôle PVE) dont le candidat primary_candidate répond en temps normal et mirror_candidate après bascule (DNS, keepalived, NAT) ; rpo_warning_s : âge de la dernière synchronisation au-delà duquel la tour alerte.",
+  "node": "vm-miroir",
+  "host_ip": "192.0.2.21",
+  "role_id": null,
+  "primary_candidate": 0,
+  "mirror_candidate": 1,
+  "rpo_warning_s": 7200,
+  "keep": 3
+}

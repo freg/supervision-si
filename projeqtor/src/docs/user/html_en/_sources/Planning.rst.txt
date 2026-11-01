@@ -1,0 +1,1329 @@
+.. include:: ImageReplacement.txt
+
+.. title:: Steering lever for planning
+
+.. index:: Planning
+
+.. index:: Steering lever for planning
+
+
+###################
+Manage the planning
+###################
+
+Project planning is of paramount importance to ensure the success of your objective.
+
+By ensuring optimal management of costs, deadlines and quality, project planning allows you to estimate the necessary resources, establish a realistic schedule and define the expected performance indicators. In the absence of planning, you expose your project to risks of financial losses, delays and inadequate quality.
+
+Projeqtor offers a wide choice of control levers to best plan your project and in precise conditions.
+
+
+
+
+.. _planningcode:
+
+Planning codes
+##############
+
+The planning modes that you will find in ProjeQTor are all coded. 
+
+Below you will find the list of codes corresponding to the modes.
+
+
+.. list-table::
+   :header-rows: 1
+
+   * - Code
+     - Planning modes
+   * - :ref:`ASAP<mode-assoon>`
+     - As soon as possible
+   * - :ref:`GROUP<mode-worktogether>`
+     - Work together
+   * - :ref:`START<mode-startbefore>`
+     - Must not start before validated date
+   * - :ref:`STARR<mode-startat>`
+     - Must start at validated star date  
+   * - :ref:`ALAP<mode-endbefore>`
+     - Should end before validated end date
+   * - :ref:`FDUR<mode-fixedduration>`
+     - Fixed duration
+   * - :ref:`DDUR<mode-durationdriven>`
+     - Duration driven
+   * - :ref:`CDUR<duration-constrained>`
+     - Duration constrained
+   * - :ref:`REGUL<mode-regular>`
+     - Regular between dates
+   * - :ref:`FULL<mode-regularFull>`
+     - Regular in full days                                     
+   * - :ref:`HALF<mode-regularHalf>`
+     - Regular in half days
+   * - :ref:`QUART<mode-regularQuarter>`
+     - Regular in quarter days     
+   * - :ref:`RECW<mode-recurring>`
+     - Recurring
+   * - :ref:`MAN<mode-manualplanning>`
+     - Manual planning     
+   * - :ref:`PAR<mode-activityparent>`
+     - Parent activity in fixed duration
+
+
+
+
+.. index:: Planning order
+
+.. _planning-order:
+
+Planning order
+##############
+
+The planning is calculated as simply as possible. This means that no complex algorithm is applied. 
+
+The principle adopted is simply to be able to reproduce what you could do with a spreadsheet, but this time automatically.
+
+All unrealized work is planned, from the start date to the maximum date depending on the load assigned to the project(s).
+   
+   
+.. topic:: **Before v12.0**
+   
+   Calculations are performed task by task, according to the following organization from lowest priority to highest priority.
+   
+   
+   1. **WBS**
+   
+   #. **The validated end date or inherited end date** 
+   
+      - :ref:`CDUR<duration-constrained>`/:ref:`ALAP<mode-endbefore>` or if parameter enabled
+   
+   #. **Priorities of activities**
+      
+   #. **Project priorities**
+      
+   #. **Planning modes** 
+
+      - :ref:`PAR<mode-activityparent>`
+      - :ref:`ASAP<mode-assoon>` - :ref:`GROUP<mode-worktogether>` - :ref:`START<mode-startbefore>`
+      - :ref:`ALAP<mode-endbefore>` (sorted by validated end date)
+      - :ref:`FDUR<mode-fixedduration>` - :ref:`DDUR<mode-durationdriven>` - :ref:`CDUR<duration-constrained>`
+      - :ref:`STARR<mode-startat>` (sorted by validated start date)
+      - :ref:`Not splitted work<minimumthreshold>` with real already entered (started)
+      - :ref:`REGUL<mode-regular>` - :ref:`FULL<mode-regularFull>` - :ref:`HALF<mode-regularHalf>` - :ref:`QUART:ref:`<mode-regularQuarter>`
+      - :ref:`RECW<mode-recurring>`
+                  
+   #. **Dependencies**
+   
+   #. **Meetings**
+   
+   #. **Planning Manual and planned interventions**
+   
+      - :ref:`MAN<mode-manualplanning>`
+      
+   
+
+
+With version 12.0, the planning order has been redesigned and optimized to provide more consistent logic and increased accuracy.
+
+
+.. topic:: **After v12.0**
+
+   Calculations are performed task by task, according to the following organization from lowest priority to highest priority.
+   
+   
+   1. **WBS**
+   
+   #. **The validated end date or inherited end date**
+   
+      - :ref:`STARR<mode-startat>` *(Validated start date)*
+      - end date inherited if setting enabled
+      
+   
+   #. **Priorities of activities** *(Intra Project only)*
+
+   #. **Parent activity**
+   
+      - :ref:`PAR<mode-activityparent>` *(Within the same project)*
+      - elementaries *(Regardless of the planning mode)*
+   
+         
+   #. **Project priorities**
+      
+   #. **Planning modes** 
+
+      - :ref:`ASAP<mode-assoon>` - :ref:`GROUP<mode-worktogether>` - :ref:`START<mode-startbefore>` - - :ref:`ALAP<mode-endbefore>` - :ref:`FDUR<mode-fixedduration>` - :ref:`DDUR<mode-durationdriven>` - :ref:`CDUR<duration-constrained>`
+      - :ref:`STARR<mode-startat>` (sorted by validated start date)
+      - :ref:`Not splitted work<minimumthreshold>` with real already entered (started)
+      - :ref:`REGUL<mode-regular>` - :ref:`FULL<mode-regularFull>` - :ref:`HALF<mode-regularHalf>` - :ref:`QUART:ref:`<mode-regularQuarter>`
+      - :ref:`RECW<mode-recurring>`
+                  
+   #. **Dependencies**
+   
+   #. **Meetings**
+   
+   #. **Planning Manual and planned interventions**
+   
+      - :ref:`MAN<mode-manualplanning>`
+   
+
+
+
+.. important:: 
+
+   These planning order changes will not impact your existing schedule. In fact, only new instances installed after version 12 will benefit from this new organization automatically.
+
+   For previous versions and updates from v12.0, you will need to choose the option that suits you best in the settings.
+
+.. seealso:: 
+
+   :ref:`Apply calculation priority...<ActivityPlanningCalculation>`
+   
+   :ref:`code modes<planningcode>`
+   
+   :ref:`planning mode<planningmodeGantt>` 
+
+Definition
+**********
+
+**WBS**
+   
+The WBS (Work Breakdown Structure), that is to say the structure or scheduling of your schedule is planned first if no other constraint comes to disturb this order. It is read from top to bottom and from left to right.
+   
+**The validated end date**
+   
+It is possible to set the default priority of activities from the finish date posted before the order in the WBS structure.
+     
+- This will give higher priority to activities that need to finish sooner, regardless of WBS.
+- The planned end date is by default the validated end date.
+- If the validated end date is not defined, the planned end date can be retrieved from a successor (e.g. end milestone) or from the parent.
+- When the end date is retrieved then it is displayed in pink and is written in gray italics.
+- The bar is also displayed in pink.
+- If two activities have the same scheduled end date, the WBS is always the last priority criterion.
+- This feature can be disabled in Global setting to fetch default WBS criteria only.
+   
+**Priorities of activities**
+   
+All activities with the lowest priority value will potentially be scheduled first.
+
+.. important:: 
+   
+   Priority of activities before version 12.0 was inter project.
+   
+   After version 12.0 with new scheduling rules enabled, priority of activities is intra project
+   
+**Project priorities**
+   
+The smallest value (index) is calculated first, this means in particular that if the projects have different priorities, all activities of the project with the smallest priority value will potentially be planned first.
+   
+**Planning modes**
+   
+Before v12.0, the modes "F.D.C.DUR", "STARR", "REGUL, FULL, HALF and QUART" and "RECW" modes are priority modes compared to the other activity planning modes other than manual planning.
+
+After v12.0 with the new planification mode, the F.D.C.DUR modes are no longer a priority.
+   
+**Dependencies**
+   
+If an activity or project has a predecessor, the predecessor is always scheduled first.
+   
+**Meetings**
+   
+It is fixed on a given date. Even if not all of the participants are available. 
+
+In this case, an alert informs you and the Gantt chart displays the unavailability.
+   
+**Planning Manual** and planned interventions
+   
+This highest priority planning mode. The workload assigned with this planning mode can be recorded in planned work or in actual work.
+
+
+
+
+
+
+.. _planningmodeGantt:
+
+Planning Modes
+##############
+
+Projeqtor offers several ways to plan your resource's workload with planning modes.
+
+The order of the planning modes is not random.
+
+The further down the list you go, the more priority the planning modes have and will recover the load on the tasks that can be planned in the previous planning modes.
+
+Some planning modes are reserved for expert users. 
+
+If you do not want to keep the modes that you do not use, you can use the dedicated screen which will allow you to close and therefore hide certain modes.
+
+.. seealso::
+
+   :ref:`Planning modes screen<planningmodesscreen>` 
+
+.. topic:: Planning Modes
+
+   * :ref:`As soon as possible<mode-assoon>`
+   * :ref:`Work together<mode-worktogether>`
+   * :ref:`Fixed duration<mode-fixedduration>`
+   * :ref:`Parent activity<mode-activityparent>`
+   * :ref:`Duration driven<mode-durationdriven>`
+   * :ref:`Duration constrained<duration-constrained>`
+   * :ref:`Must start before...<mode-startbefore>`
+   * :ref:`Must start at validated date<mode-startat>`
+   * :ref:`Should end before...<mode-endbefore>`
+   * :ref:`Regular between dates<mode-regular>`
+   * :ref:`Regular between dates in full dat<mode-regularFull>`
+   * :ref:`Regular between dates in half day<mode-regularHalf>`
+   * :ref:`Regular between dates in quarter day<mode-regularQuarter>`
+   * :ref:`Recurring<mode-recurring>`
+   * :ref:`Manual planning<mode-manualplanning>`
+
+
+
+
+
+.. _mode-assoon:
+
+As soon as possible
+*******************
+
+* The task is planned to be completed as quickly as possible.
+
+* If no assignment is created the bar will automatically be 1 day.
+
+* If the validated duration is entered, it is this duration that is planned.
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeAsap.png
+   :alt: Planning Mode As soon as possible
+
+   Planning Mode As soon as possible: the calculation will schedule the resource as soon as it has an available slot 
+   
+   
+   
+   
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+
+.. _mode-worktogether:
+
+Work together
+*************
+
+* When two or more resources are assigned to the same task, planning tries to find periods where all resources are available to work together.
+
+* Periods are searched "as soon as possible".
+
+* If only one resource is assigned, this planning mode is exactly the same as "As soon as possible".
+
+* If one resource is assigned more work than the other, the extra work is planned after working together periods.
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeWorkTogether.png
+   :alt: Planning Mode work together
+   
+   Planning Mode work together: the calculation will schedule the resources at the same time and as soon as it has an available slot
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+.. _mode-fixedduration:
+
+Fixed duration
+**************
+
+* The task is planned by duration. The Validated Duration field is a required field. If you do not fill it out, it will be set to 1 automatically.
+
+* If work is assigned to the task, the scheduling behavior is the same as "Regular Between Dates".
+
+* Ability to readjust (start and end date) the task with handles directly on the Gantt view bar.
+
+* When the number of assigned work days exceeds the indicated duration, then the days (detail of the Gantt bars) following the validated end date of the activity will be in red.
+
+* You can manage the progress of these workload-less activities with the option :ref:`progress-fixedduration`
+
+* The actual cost is calculated based on the validated cost.
+
+   * For instance : **VALIDATED WORKLOAD** is 40 - **VALIDATED COST** is 10 000; 
+   
+   * I fill Progress is 20%  workload done is 8 -> Calculated real cost written down should be 2000 but the field remains empty so far.  
+   
+
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeFixedDuration.png
+   :alt: Planning mode fixed duratiion with workload
+   
+   Planning mode fixed duratiion with workload
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeFixedDuration-RED.png
+   :alt: Planning mode fixed duratiion with workload - validated end date < planned end date
+   
+   Planning mode fixed duratiion with workload and validated end date < planned end date 
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+.. _mode-activityparent:
+
+Parent activity
+***************
+
+* A parent activity can contain workload. 
+
+* In this case, the workload is then distributed over the duration of the parent activity.
+
+* It takes into account the workload distributed to the child activities.
+
+* Load distribution corresponds to the fixed duration planning mode.
+
+* This mode is automatically assigned to the parent activities.
+
+* You can change the smoothing behavior on parent activities using a global parameter.
+ 
+ 
+.. figure:: /images/GUI/GANTT_ZONE_PlannedParentActivity.png
+   :alt: workload assigned to a parent activity
+   
+   Workload assigned to a parent activity 
+   
+
+planning example
+----------------
+   
+   Example with a parent activity with no load and 2 sub-activities with 10 days of load for each of the resources (analyst 1 and analyst 2).
+         
+   In this case, the parent activity is the result of the sub-activities that compose it.
+         
+   .. figure:: /images/GUI/PLANNINGELEM_ZONE_MotherActivity.png
+      :alt: Mother activity without workload
+            
+      Mother activity without workload
+            
+            
+   If workload is entered for a resource on a parent activity, and this resource is also scheduled on child activities, then the total of this workload will be displayed on the parent activity for this resource.
+         
+         
+   .. figure:: /images/GUI/PLANNINGELEM_ZONE_MotherActivityWorkload.png
+      :alt: Mother activity with workload
+            
+      Mother activity with workload
+            
+   The dates and durations section display the result 
+         
+   .. figure:: /images/GUI/PLANNINGELEM_ZONE_MotherActivityDates.png
+      :alt: Dates and durations section on parent activity
+            
+      Dates and durations section on parent activity
+            
+            
+   The dates and duration section of the activity shows the overall load for a resource.
+         
+   20 workload days = 10 workload days for Analyst A for parent activity + 10 workload days for Analyst A for activity A.   
+      
+   The mother activity, even if it has priority in relation to its position in the WBS, will distribute the workload assigned for the resource after the workload on the sub-activities.
+         
+   .. figure:: /images/GUI/PLANNINGELEM_ZONE_MotherActivitydetails.png
+      :alt: the load of the mother activity is planned after the sub-activities
+            
+      the load of the mother activity is planned after the sub-activities
+      
+      
+.. seealso::
+
+   :ref:`Parent planning mode<plan-parent>` in global parameters.
+
+
+
+You can view the content of parent activities even when they are closed.
+
+Enabling the "Compacted display on closed levels" option allows you to view all the content of a single activity on a single bar.
+
+
+.. figure:: /images/GUI/PLANNING_ZONE_CompactedDisplay.png
+   :alt: the load of the mother activity is planned after the sub-activities
+            
+   the load of the mother activity is planned after the sub-activities 
+
+   
+:ref:`|Back to planning modes|<planningmodeGantt>`       
+      
+      
+      
+      
+.. _mode-durationdriven:
+
+Duration driven
+***************
+
+* The task is planned by duration which is fixed. If you do not fill it out, it will be set to 1 automatically.
+
+* If the allocation of resources exceeds the set validated duration then the distribution of remaining work becomes overuse.
+
+* When the assigned workload does not exceed the number of days of fixed duration then the planning mode distributes the workload by smoothing it throughout the duration, exactly as with the fixed duration or the regular between two dates.
+
+* In automatic calculation mode, only the activity in this mode will be recalculated. 
+
+* Other activities, even those driven by dependencies, will only be recalculated with the full calculation function.
+
+* Ability to readjust and move the task (handles on each side of the bar) directly on the Gantt.
+
+* With the left handle you adjust the full bar without changing the duration. 
+
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeDurationDriven.png
+   :alt: Planning mode Duration driven
+   
+   Planning mode Duration driven: work that exceeds the duration is calculated as overuse
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+
+
+.. _duration-constrained:
+
+Constrained duration
+********************
+
+This planning mode behaves similarly to the "fixed duration" and "Duration driven" modes with some additional specificities.
+
+The Validated Duration field is a required field. If you do not fill it out, it will be set to 1 automatically.
+
+This is a priority mode compared to the "as soon as possible" or "work together" mode.
+
+It offers the possibility to shift the validated start date and the end date using the handles on each side of the bar.
+
+.. figure:: /images/GUI/GANTT_ZONE_DurationConstrained.png
+   :alt: Constrained duration
+
+   Activity in constrained duration mode
+   
+
+* Moving the start date fixes the validated start date without affecting the duration of the schedulable task.
+
+* Moving the end date automatically calculates the duration.
+ 
+* No overbooking within the same project.
+
+* Possible inter-project overbooking.
+
+* Respect of the allocation and the assignment rate by project and activity.
+
+
+
+
+.. figure:: /images/GUI/GANTT_ZONE_DurationConstrained_StartDate.png
+   :alt: Display start date
+   
+   indication of the start date by a red line
+   
+* If the start date is specified, the task takes priority over those of the same priority which do not have one.
+
+* When the start date is entered but not respected, the bar turns red and a red line is displayed at the base of the line to indicate the duration of the drift (validated start date or end date of the predecessor(s)).   
+   
+* If the duration is not respected, the task is red.
+
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+
+
+
+
+
+
+
+.. _mode-startbefore:
+
+Must not start before validated start date
+******************************************
+
+* The validated start date field must be set.
+
+* The task must not begin before a specific date.
+
+* If a stronger constraint, such as dependencies or real work, is specified, the planning mode will no longer be respected.
+
+* You can block resource imputations in this planning mode by enabling the global parameters "lock timesheet before validated start date" in :ref:`global parameters<realWorkAllocation-section>`
+  
+
+:ref:`|Back to planning modes|<planningmodeGantt>`  
+
+
+.. _mode-startat:
+
+Must start at validated start date
+**********************************
+
+* The validated start date field must be set.
+
+* The task must not begin before this specific date.
+
+* This planning mode reclaims time from previous planning modes. 
+
+* It has priority over the "as soon as possible", "fixed duration" and "work together" modes.
+
+* The start date is no longer respected if a stronger constraint, such as dependencies or real work, is specified.
+
+You can block resource imputations in this planning mode by enabling the global parameters "lock timesheet before validated start date" in :ref:`global settings<realWorkAllocation-section>`
+
+
+:ref:`|Back to planning modes|<planningmodeGantt>`  
+    
+     
+.. _mode-endbefore:
+
+Should end before validated end date
+************************************
+
+* The validated end date field must be set.
+
+* The task is planned backward from end to start.
+     
+* A validated end date must be defined. 
+
+
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+.. _mode-regular:
+
+Regular between dates
+*********************
+
+* Allows to evenly distribute work between two dates.
+* Used for management recurrent activities.
+* The validated dates fields must be set.
+* Possibility to readjust the task with handles directly on the bar of the Gantt view.
+
+   
+.. figure:: /images/GUI/GANTT_ZONE_ModeRegular.png
+   :alt: Regular between dates
+      
+   Regular between dates mode
+
+
+
+See also: :ref:`Regular modes with excess workload<mode-regularExcess>`
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+
+
+
+.. _mode-regularFull:
+
+Regular in full days
+********************
+ 
+Work will be distributed on full day between on working days.
+
+Possibility to readjust the task with handles directly on the bar of the Gantt view.
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeRegularDAY.png
+   :alt: Planning mode Regular in full days
+   
+   Planning mode Regular in full days: assigned days are distributed evenly in full days
+
+
+.. seealso:: 
+
+   :ref:`Regular modes with excess workload<mode-regularExcess>`
+   
+
+.. _mode-regularHalf:
+
+Regular in half days
+********************
+
+The work will be distributed over half of the day between working days. 
+
+Possibility to readjust the task with handles directly on the bar of the Gantt view.   
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeRegularHALFDAY.png
+   :alt: Planning mode Regular in half day
+   
+   Planning mode in half day: assigned days are distributed evenly in half days
+
+.. seealso:: 
+
+   :ref:`Regular modes with excess workload<mode-regularExcess>`
+
+:ref:`|Back to planning modes|<planningmodeGantt>`
+
+
+
+
+
+.. _mode-regularQuarter:
+
+Regular in quarter days
+***********************
+ 
+Work will be distributed on one quarter of the day between on working days.
+
+Possibility to readjust the task with handles directly on the bar of the Gantt view.
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeRegularQUARTERDAY.png
+   :alt: Planning mode Regular in quarter day
+   
+   Planning mode in half day: assigned days are distributed evenly in quarter days
+
+.. seealso:: 
+
+   :ref:`Regular modes with excess workload<mode-regularExcess>`
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+
+
+
+.. _mode-regularExcess:
+
+Regular modes with excess workload
+----------------------------------
+
+If the dates are too short compared to the assigned load, the excess load will be divided and added in the same way as the chosen mode.
+    
+So you can get full days even in regular mode in quarter day or half days.
+    
+* Example with 8 days of workload to plan over 10 days with the Regular mode in half days between dates 
+    
+.. image:: /images/GUI/GANTT_ZONE_RegularHalf.png         
+         
+The load is distributed regularly so as to respect the dates.
+
+
+.. image:: /images/GUI/GANTT_ZONE_RegularExcess.png
+
+If the load is too high to meet the dates, the excess load will be distributed over the whole day after the validated end date and will therefore be late (red color)
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+.. _mode-recurring:
+
+Recurring (on a weekly basis)
+*****************************
+  
+* This mode allows you to plan the workload on a weekly basis which will be distributed each week, for example 1/2 day every Monday, 1 hour every day, etc.
+
+* It automatically adapts to the elements which determines the total duration of the project. If the project falls behind schedule, this mode will continue to adapt and automatically distribute the load for each added day.
+
+.. tip:: Please note, the project is only an envelope, it is the elements that compose it which will determine its duration. 
+   A recurring activity cannot be calculated correctly if it is the only component of the project, even if it has validated dates. 
+   Other elements (Activities, milestones, etc.) will be needed for the distribution of this load to be done correctly.
+   
+
+Click |edit| to enter the load for each day of the week.
+
+The work is distributed dynamically according to the load indicated on the assignment table.
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeReccurent.png
+   :alt: Planning mode Regular in quarter day
+   
+   Planning mode in half day: assigned days are distributed evenly in quarter days
+      
+   
+If you don't want the recurring activity to fit the project, you can limit it between finish-to-start and finish-to-finish milestones.
+
+
+.. figure:: /images/GUI/GANTT_ZONE_ModeRecurrent-Milestone.png
+   :alt: Planning mode Regular in quarter day
+   
+   Planning mode in half day: assigned days are distributed evenly in quarter days
+
+
+.. seealso:: 
+
+   :ref:`Recurrent mode assignment<recurrent-mode-assign>`
+   
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+
+.. index:: Manual planning
+
+.. _mode-manualplanning:
+
+Manual planning
+***************
+
+* This is the most priority planning mode and constraint.
+
+* You have the option to save the work as planned or real work. 
+
+* Two screens are dedicated to it: :ref:`planned interventions<planned-interventions>` to plan monthly and the :ref:`View interventions<view-interventions>` for read-only.
+
+.. note::
+
+   The choice of planned or actual work is made in the global parameters in the planning section work tab.
+
+   See: :ref:`global parameters<GP-effectCapacity>`.
+   
+   
+   
+   
+ 
+
+.. index:: Planned interventions
+
+.. _planned-interventions:
+
+Planned Interventions
+---------------------
+
+The goal is to make the specifications more flexible to cover broader and more generic needs.
+
+
+
+
+.. _assignment-manualplanning:
+
+Assignment
+==========
+
+The assigned workload is no longer determined but will be entered on a calendar which can be clicked, per half-day.
+
+See: :ref:`Planned interventions assignment<plannedintervention-assign>`
+   
+.. figure:: /images/GUI/GANTT_BOX_PlanningManual-Assignment.png
+   :alt: Assigment with the Manual planning mode
+   
+   Assigment with the Manual planning mode
+   
+The workload saved in this window will be displayed to the planned interventions screen.
+
+
+
+
+   
+
+Planned Interventions screen
+============================
+
+The planned interventions screen allow you to manage the manual planning.
+
+This screen is available if at least one activity has a planning mode set to manual planning. 
+
+
+.. figure:: /images/GUI/GANTT_SCR_PlannedInterventions.png
+   :alt: Planned interventions screen
+   
+   Planned interventions screen
+
+   
+.. topic:: Interface areas
+
+   |one| :ref:`Display zone<manualPlan-display>`
+   
+   |two| :ref:`List of Projects and activity<manualPlan-ListProjectActivity>`
+   
+   |three| :ref:`FTE<manuelPlan-fte>`
+   
+   |four| :ref:`Interventions mode<manualPlan-InterventionMode>`
+   
+   |five| :ref:`Interventions Calendar<manualPlan-InterventionIntervention>` 
+    
+   
+
+.. _manualPlan-display:
+
+.. rubric:: Display zone    
+   
+The display area allows you to filter the resources you want to display.
+
+The screen is blank until you select the resource, the team or the organization.
+
+The calendar is displayed for the resource or for all members of the selected team or organization.
+
+These parameters are not exclusive, you can select team and organization.
+
+* **Resource:** filter by resource on calendar display.
+   
+* **Team:** filter by team on calendar display.   
+   
+* **Organization:** filter by organization on calendar display.
+       
+* **Project:** filter by project on calendar display. 
+      
+* **Year:** select the year to display.     
+      
+* **Month:** select the month to display.  
+
+* **Hide done items:** you can hide the activities recorded in the "done" state in the displayed list.    
+   
+
+.. note:: 
+
+   The selected parameters, except the month, always set by default to the current month, are saved as a user parameter. 
+
+   When the user returns to the screen, he therefore finds the last parameters entered   
+   
+   
+   
+   
+   
+   
+.. _manualPlan-ListProjectActivity:
+
+.. rubric:: List of Projects and activity    
+   
+The list of activities displayed are in the planning mode "manual planning". If no filter is selected (project, resource, organization ...) then the screen does not display any data.
+
+You cannot create new activities in manual planning mode from the intervention screen. You need to access the activities or schedule screen to create the new activity in manual planning mode. The new activity will then appear in the list.
+
+Click on |Goto| to access the activity screen and view its detail 
+ 
+
+
+
+.. _manuelPlan-fte:
+
+.. rubric:: FTE    
+   
+In this calendar, we display graphically if we respect the quantity of people requested on the activity and on the half day.
+
+Fill in an integer value for each activity to check.
+
+If you enter 1, you expect at least one person to perform half a day on this activity.
+
+A check is then carried out and takes into account all the resources assigned to each activity, and not only those selected and visible on the calendar.
+
+If the field is left empty or at 0 then no control is carried out and the calendar will not display any green or red box.
+
+* **Blue box**
+    
+      
+.. figure:: /images/GUI/GANTT_ZONE_FTEBlue.png
+   :alt: Do not yet reach all of the expected FTEs
+      
+   Do not yet reach all of the expected FTEs 
+
+When you start to put in the workload but do not yet reach all of the expected FTEs.
+      
+      
+* **Green Box**
+    
+If the entry respects the workload constraint expected in FTE the box is green.
+   
+.. figure:: /images/GUI/GANTT_ZONE_FTEGreen.png
+   :alt: Workload constraint expected in FTE 
+      
+   Workload constraint expected in FTE 
+      
+Example with a value of 2 in the FTE field for the selected activity.
+      
+This FTE value is defined for each half-day.
+   
+You must therefore have 2 effective persons planned for each half day whatever the resource or resources that will be provided.
+      
+      
+* **Red Box**
+    
+If the total entry is greater than the expected workload in FTE the box is red.
+      
+.. figure:: /images/GUI/GANTT_ZONE_FTERed.png
+   :alt: Greater than the expected workload in FTE
+      
+   Greater than the expected workload in FTE
+      
+The box then turns red: the workload is higher than expected since we expected a person on this half day and on this activity   
+      
+      
+* **Non-colored box**
+    
+There is no expected workload.   
+   
+   
+   
+   
+.. _manualPlan-InterventionMode:
+ 
+.. rubric:: Interventions mode
+   
+The list of possible intervention methods is customizable.
+   
+This list can be modified via a setting screen in the :ref:`list of values<intervention-mode-value>`.
+   
+The saved modes will remain fixed for all projects and all teams.
+   
+.. figure:: /images/GUI/GANTT_ZONE_InterventionsModes.png
+   :alt: Interventions mode
+      
+   Intervention mode
+   
+You can select an activity or a modality or both.
+
+* If the intervention mode is not selected, the box is colored according to the activity but no letter appears, and vice versa.
+
+* If only the intervention mode is selected, it will be saved without modifying the planned or actual work.
+
+You can however add one or the other after having planned the intervention or the intervention mode.
+
+A second click with the same parameters will delete the assignment.
+
+Ctrl Click allows you to complete the two half days
+
+
+
+.. _manualPlan-InterventionIntervention:
+
+.. rubric:: Interventions Calendar
+
+
+Click on an activity and / or an intervention modes to plan workload on it.
+
+Click on half a day to plan the workload.
+      
+The targeted half day is filled with the color of the selected activity and the letter of the chosen intervention mode.
+
+   
+* **Light Gray color**
+
+   The light gray box indicates that the day is inactive on the resource calendar.
+
+   It can correspond to a weekend, a public holiday or a non-working day recorded on the resource's calendar.
+ 
+   .. image:: /images/GUI/GANTT_ZONE_PLannedInterventionCalendar.png
+
+
+
+* **Dark Gray color**
+ 
+   The dark gray boxes indicate reality. It's work actually performed and informed on the timesheet.
+   
+   When real work is completed for half a day, the box is half gray.
+
+   If the full day is completed then the box is completely grayed out.
+   
+   .. image:: /images/GUI/GANTT_ZONE_PLannedInterventionReal.png   
+   
+   
+   
+   
+* **Blue color**
+ 
+   The blue boxes indicate absences.
+
+   .. image:: /images/GUI/GANTT_ZONE_PLannedInterventionAbsence.png
+
+
+* **Striped box**
+
+   The striped boxes indicates that the working time recorded by the resource has been validated.
+   
+   .. image:: /images/GUI/GANTT_ZONE_PLannedInterventionValid.png
+   
+   
+   
+      
+.. note:: 
+
+   The workload can be recorded as a planned load or as a real load.   
+
+   This option can be set in the :ref:`global settings<GP-manualplan-workas>`. 
+   
+
+
+.. _view-interventions:
+   
+View interventions
+==================
+
+This screen allows you to see your planned interventions.
+
+You cannot modify these interventions or plan another half day on this screen.
+
+It is a bit the equivalent of planning by resource but in manual planning mode
+
+
+.. figure:: /images/GUI/GANTT_SCR_ViewInterventions.png
+   :alt: View interventions screen
+   
+   View interventions screen     
+   
+   
+   
+   
+   
+   
+  
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+.. _minimumthreshold:
+
+Minimum threshold & not splitted work
+*************************************
+   
+When this value is set, the activity will only be scheduled on the day when the daily availability is greater than or equal to this threshold.
+
+You also have the option to add a new property to a “cannot be split” task.
+
+This will require defining the minimum work to be allocated each day and therefore filling in the minimum threshold field.
+
+Be careful with this mode, planning will require finding consecutive days with at least the given value possible, which may never happen.
+
+
+:ref:`|Back to planning modes|<planningmodeGantt>` 
+
+
+.. _planningmodesscreen:
+
+Planning Modes screen
+#####################
+
+
+You can disable planning modes via the dedicated screen.
+
+In the detail of the selected mode in the list box, check the "closed" box to disable the selected mode.
+
+.. figure:: /images/GUI/GANTT_SCREEN_PlanningMode.png
+   :alt: Planning modes screen
+   
+   Planning modes screen
+
+
+
+
+.. _plan-overuse:
+
+Overuse
+#######
+
+By défault, the planning calculation is done without overuse, when multiple activities are assigned to the same resource, ProjeQtOr planned them sequentially.
+
+A resource cannot work more than one full day per day, and the planning engine enforces this constraint.
+
+As shown in the example below, since the same resource is assigned to several activities, these tasks are automatically spread out over time. 
+
+They are planned one after the other, allowing the resource to complete them at their own pace and within their capacity.
+
+
+.. figure:: /images/GUI/GANTT_ZONE_WithoutOverusePlan.png
+   :alt: Plan without overuse
+   
+   Plan without overuse
+   
+
+Overuse With the Calculate capacity planning
+********************************************
+
+Click on |Plan| and check the box "Plan with overuse (infinite overbooking capacity)" to calculate the planning 
+   
+.. figure:: /images/GUI/PLANNING_BOX_CalculatePlanning.png
+   :alt: Calculate planning with overuse
+      
+   Calculate planning with overuse
+      
+The resource is then allowed to exceed their daily work capacity.
+   
+In this case, the same resource can be planned on multiple activities at the same time, even if the total workload exceeds one day.
+   
+In other words, ProjeQtOr permits the resource to “work two days in one,” which can be useful for simulations or intentional overbooking scenarios or to identify the criticality of a resource.
+
+This method allows for inter-project overuse.
+   
+.. figure:: /images/GUI/GANTT_ZONE_WithOverusePlan.png   
+   :alt: Plan with overuse
+   
+   Plan with overuse
+
+
+.. _overuse:
+
+Overuse With the planning mode
+******************************
+
+Duration driven planning mode
+-----------------------------
+
+Some planning methods allow for calculations with overuse directly included.
+
+The :ref:`duration-driven<mode-durationdriven>` planning mode allows for intra- and inter-project overuse.
+
+.. figure:: /images/GUI/PLANNING_ZONE_DurationDriven-Overuse.png
+   :alt: Plan with overuse with duration driven planning mode
+   
+   Plan with overuse with duration driven planning mode
+
+   
+Constraint Duration planning mode
+---------------------------------
+
+Some planning methods allow for calculations with overuse directly included.
+
+The :ref:`duration-driven<mode-durationdriven>` planning mode allows for inter-project overuse.
+
+.. figure:: /images/GUI/PLANNING_ZONE_ConstraintDuration-Overuse.png
+   :alt: Plan with overuse with constrained duration planning mode
+   
+   Plan with overuse with constrained duration planning mode
+   
+   
+   
+.. _proportionalwork:   
+   
+Proportional work
+#################
+
+This option allows you to define the workload calculation proportionally to the task duration.
+
+The rate is then used not to limit the workload distribution for the resource, but to calculate it.
+
+This option is available in assignments for scheduling modes that use duration as the primary lever for workload distribution.
+
+* Fixed duration mode
+* Duration-driven mode
+* Constrained duration mode
+* Regular modes
+
+.. figure:: /images/GUI/PLANNING_BOX_ProportionalWork.png
+   :alt: option proportional work
+   
+   Plan with propotional work
+      
+
+.. note:: 
+   
+   A mechanism will allow this mode to be defined at the planning mode level using a "load proportional to duration" parameter.
+   
+   If this option is enabled, when creating an assignment for this type of activity, the option will be automatically selected on the assignment.
+   
+   This setting applies to new assignments only; it will not affect assignment modifications or existing assignments when the activity's scheduling mode is changed.
+   
+   .. image:: /images/GUI/PLANNING_ZONE_OptionProportionalWork.png 
+   
+   
+   
+When you select proportional work, an icon is displayed in the table to indicate that the option is enabled.
+   
+.. figure:: /images/GUI/PLANNING_ZONE_AssignmentProportionalWork.png
+   :alt: Assignment with proportional work
+   
+   Assignment with proportional work
+   
+   
+In this case, the resource workload is calculated by the software based on the duration of the activity.
+
+* A resource with a 50% workload on a 20-day activity will be scheduled for 10 days.
+
+* A resource with a 40% workload on a 20-day activity will be scheduled for 8 days.
+
+* A resource with a 30% workload on a 20-day activity will be scheduled for 6 days.
+
+And so on.
+
+The work is then distributed over the duration of the task
+
+.. figure:: /images/GUI/PLANNING_ZONE_DetailAssignmentProportional.png
+   :alt: Details assignment with proportional work
+   
+   Assignment with proportional work is 
+   
+   
+   
+   
+Remaining Workload Calculation Rule
+***********************************
+
+* The start date is determined. By default, the planned start date of the activity.
+
+   Otherwise, the validated start date.
+   
+   If no start date is found, or if this start date is earlier than today, the start date is today.
+
+* The end date is determined.By default, the latest end date of all assignments for the activity that are not in proportional mode.
+
+   If no other assignment is in non-proportional mode, the planned end date of the activity.
+
+   Otherwise, the validated end date of the activity.
+
+   If no end date is found, but the activity has a validated duration, the end date is established as the start date + duration (calculated in working days on the activity's project calendar).
+
+* The available time for the resource (according to its calendar) is calculated between the start date and the end date.
+
+* If no start or end date is specified, the duration is set to 1 by default.
+
+.. important:: 
+   
+   Periods of absence (actual for administrative projects) are deducted from the available time.
+
+**The remaining workload is calculated:**
+
+* For resource: [Remaining Workload] = [Available Time] x [Assignment Rate]
+
+* For pools: [Available Time] x [Assignment Rate] x [FTE]
+
+
+**Assigned Workload Calculation Rule**
+
+* For this type of assignment, as long as the activity is not in a started state (handled=0):
+
+   [Assigned Workload] = [Remaining Workload]
+
+   After (handled=1), the assigned workload is no longer updated.
+
+
+.. note:: 
+
+   The remaining workload calculation does not take into account resource usage on other activities and/or projects. 
+   
+   Therefore, scheduling this workload may result in an extension of the activity's duration.
+   
+Abacus
+######
+
+This option allows you to define the workload calculation proportionally to the task duration.
+
+The rate is then used not to limit the workload distribution for the resource, but to calculate it. 
+
+
+abacus definition
+*****************
+
+You create your allocation definition lines based on your criteria.
+
+.. figure:: /images/GUI/PLANNING_ZONE_AbacusDefinition.png
+   :alt: abacus definition
+   
+   Abacus definition
+   
+Click |Plus| to add a row
+
+Click |superPlus| to add 10 rows
+
+Name your lookup table and select the criteria to which it will apply.
+
+
+   
+Filling of abacus
+*****************
+You create your allocation definition lines based on your criteria.
+
+.. figure:: /images/GUI/PLANNING_ZONE_AbacusFilling.png
+   :alt: abacus definition
+   
+   Abacus definition
+   
+   
+   
+   
+Content of the phases
+*********************
+
+
+.. figure:: /images/GUI/PLANNING_ZONE_AbacusContentPhases.png
+   :alt: abacus definition
+   
+   Abacus definition

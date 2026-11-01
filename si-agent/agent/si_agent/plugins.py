@@ -195,6 +195,22 @@ class PluginStore(object):
         return True
 
 
+A_LA_DEMANDE_IDS = frozenset(["poste-charge"])
+A_LA_DEMANDE_S = 10 * 365 * 86400
+
+
+def a_la_demande(manifest):
+    """#925 : sonde exécutée UNIQUEMENT sur commande, jamais par l'ordonnanceur même activée : le test de charge
+    (processeur à 100 % plusieurs minutes), `on_demand: true`, ou un intervalle d'au moins 10 ans (convention des
+    sondes « à la demande » : sockets…). Avant : activée sur l'hôte, elle tournait à chaque démarrage de l'agent."""
+    if manifest.get("id") in A_LA_DEMANDE_IDS or manifest.get("on_demand"):
+        return True
+    try:
+        return float(manifest.get("interval_seconds") or 0) >= A_LA_DEMANDE_S
+    except (TypeError, ValueError):
+        return False
+
+
 def is_enabled(manifest, local_overrides=None):
     """Le manifeste décide, la configuration locale l'emporte."""
     local = (local_overrides or {}).get(manifest.get("id")) or {}
@@ -239,7 +255,9 @@ def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"
         except ValueError:
             data = {"raw": stdout[:MAX_RAW_OUTPUT], "truncated": len(stdout) > MAX_RAW_OUTPUT}
     ok = r.returncode == 0
-    error = None if ok else ("code %s : %s" % (r.returncode, (r.stderr or stdout or "")[:500].strip()))
+    # #923 : la FIN de la sortie d'erreur (une trace Python finit par la cause : « TypeError: ... »), pas son début
+    _err = (r.stderr or stdout or "").strip()
+    error = None if ok else ("code %s : %s" % (r.returncode, _err if len(_err) <= 600 else "…" + _err[-600:]))
     m = {"task": task, "at": at, "ok": ok, "data": data, "error": error}
     if data is not None:
         data.setdefault("_plugin", {"id": manifest["id"], "version": str(manifest.get("version", "")), "duration_seconds": duration,

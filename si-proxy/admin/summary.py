@@ -40,6 +40,8 @@ def build_summary(status, events, now=None, window_h=24):
     out = {
         "relay": "up" if status.get("_reachable", True) else "down",
         "host_connected": bool(status.get("host_connected")),
+        "hosts": status.get("hosts") or [],
+        "publications": status.get("publications") or [],  # #583
         "enabled": bool(status.get("enabled", True)),
         "sessions_active": len(status.get("sessions") or []),
         "active": status.get("sessions") or [],

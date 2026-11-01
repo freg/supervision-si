@@ -52,10 +52,13 @@
 
 services:
   keycloak:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     image: quay.io/keycloak/keycloak:26.0
     command: ["start-dev", "--import-realm"]
     environment:
       # Noms Keycloak >= 26 + anciens noms en tolérance de version.
+      # #734 : tas Java borné (la VM du hub swappait ; défaut Keycloak = 70 % de la limite du conteneur)
+      - JAVA_OPTS_KC_HEAP=${KEYCLOAK_HEAP_OPTS:--Xms256m -Xmx512m}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:-admin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER:-admin}
@@ -266,9 +269,14 @@ services:
       - ./gateway/ldap-seed:/container/service/slapd/assets/config/bootstrap/ldif/custom
 
   tls-proxy:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     image: nginx:1.27-alpine
     ports:
       - "${GATEWAY_PORT:-6443}:${GATEWAY_PORT:-6443}"
+      # #574 : relais HTTPS sur ports dédiés (RELAYn_PORT / RELAYn_TARGET dans
+      # .env ; port publié même sans cible, nginx n'y écoute alors pas)
+      - "${RELAY1_PORT:-6486}:${RELAY1_PORT:-6486}"
+      - "${RELAY2_PORT:-6487}:${RELAY2_PORT:-6487}"
     volumes:
       - ./tls-proxy/generated:/etc/nginx/conf.d:ro
       - ${PKI_DIR:-./pki}/server:/etc/nginx/tls:ro

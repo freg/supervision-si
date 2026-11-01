@@ -6,6 +6,7 @@ import {
   fetchStats,
 } from "./fileManagerClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Gestionnaire de fichiers" (livraison #396, backlog item 26).
 // Trois volets :
 //   1. Espace protégé du hub (répertoire hôte, navigation arborescente)
@@ -81,7 +82,7 @@ function FileTree({ apiBase, sourceId, groups, onNavigate }) {
         {node.path && <span className="muted" style={{ marginLeft: 8, fontSize: "0.9em" }}>{node.path}</span>}
       </div>
       {node.children && node.children.length > 0 && (
-        <table className="hub-table">
+        <AutoColumns id="FileManagerView.1"><table className="hub-table">
           <thead>
             <tr>
               <th>Nom</th>
@@ -129,7 +130,7 @@ function FileTree({ apiBase, sourceId, groups, onNavigate }) {
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       )}
       {node.truncated && (
         <p className="muted" style={{ marginTop: 8 }}>
@@ -146,7 +147,7 @@ function FlatList({ items, onItemClick, renderItem }) {
     return <p className="muted">Aucun élément.</p>;
   }
   return (
-    <table className="hub-table">
+    <AutoColumns id="FileManagerView.2"><table className="hub-table">
       <thead>
         <tr>
           <th>Nom</th>
@@ -175,7 +176,7 @@ function FlatList({ items, onItemClick, renderItem }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></AutoColumns>
   );
 }
 

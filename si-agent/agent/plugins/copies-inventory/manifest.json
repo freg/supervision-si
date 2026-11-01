@@ -1,0 +1,18 @@
+{
+  "id": "copies-inventory",
+  "version": "1",
+  "runner": "python",
+  "entry": "copies_inventory.py",
+  "interval_seconds": 3600,
+  "timeout_seconds": 3500,
+  "args": [
+    "--hosts",
+    "/etc/si-agent/copies-hosts.json",
+    "--remote",
+    "/etc/si-agent/pve-remote.json"
+  ],
+  "enabled": false,
+  "description": "Inventaire des copies (#856) -- sur l'hôte local et les hôtes de copies-hosts.json (à défaut : nœuds de pve-remote.json), un ssh par hôte, lecture seule, PVE 5.4 et PBS compris : pools ZFS (santé, redondance), jeux de données et instantanés (taille, date, octets écrits depuis), invités et réplications, sauvegardes vzdump et flux « zfs send » en fichiers (stockages + chemins supplémentaires, ex. disque USB), sauvegardes PBS, copies rsync (répertoires subvol-/vm-…-disk-…, volume par du mis en cache). Alimente Migration › Copies et sauvegardes (distance de chaque copie à sa source) et Migration › Risques. Privilégiée : root, clés ssh des hôtes.",
+  "source": "bundled",
+  "privileged": true
+}

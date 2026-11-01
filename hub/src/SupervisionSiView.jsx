@@ -3,13 +3,14 @@ import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "
 import "leaflet/dist/leaflet.css";
 import { fetchTargets, fetchLatestSamples, fetchAgents as fetchWifiAgents } from "./netprobeClient.js";
 import { fetchUpsList } from "./upsClient.js";
-import { fetchFleet, fetchNetviews } from "./siAgentClient.js";
+import { fetchFleet, fetchNetviews, fetchProxmox } from "./siAgentClient.js";
 import { fetchProxySummary } from "./siProxyClient.js";
 import { fetchSnmpTargets } from "./snmpClient.js";
 import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
 import { fetchSites, fetchDevices, fetchLinks } from "./networkAgentClient.js";
 import { fetchSuggestions } from "./netmapOrchestratorClient.js";
 import { fetchSignals } from "./vigilanceClient.js";
+import { fetchMikrotikRouters } from "./mikrotikClient.js";
 import {
   ITEM_TYPES, STATE_ORDER, aggregateSupervised, buildProposals, filterSupervised, prioritizeSupervised, movePriority, setPriority,
   buildLinks, knownPositions, deducePositions, describeChain, FRAME_KINDS, frameLayout, normalizeFrames, summarizeByState,
@@ -24,6 +25,7 @@ import {
 import { fetchItemHistory } from "./supervisedHistoryClient.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) -- « la
 // tuile actuelle était la maquette initiale de la dataviz du hub ; elle doit
 // changer radicalement ». Vit DANS le hub. Colonne de gauche à onglets
@@ -111,6 +113,7 @@ export default function SupervisionSiView({
   onBack, onNavigate, legacyFrontendUrl,
   netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
   netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, groups = [],
+  mikrotikApiBase, mikrotikUrl, ticketsApiBase, assistantUrl = "",
 }) {
   const [sources, setSources] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +149,7 @@ export default function SupervisionSiView({
     const safe = async (label, fn, fallback) => {
       try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
     };
-    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion] = await Promise.all([
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion, mikrotikRouters, proxmoxNodes] = await Promise.all([
       netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
@@ -162,6 +165,10 @@ export default function SupervisionSiView({
       siAgentApiBase ? safe("Agents hôtes (vue réseau)", () => fetchNetviews(siAgentApiBase), []) : [],
       // #454 : catégorie Bastion (réservée : le pont refuse les autres -> null, sans erreur affichée)
       siProxyApiBase && accessToken ? (async () => { const r = await fetchProxySummary(siProxyApiBase, accessToken, 24 * 7); return r && !r.error ? r : (r?.status === 401 || r?.status === 403 ? null : (r?.error ? { relay: "down", state: "critical", state_text: r.error } : null)); })() : null,
+      // #486 : routeurs MikroTik (registre + joignabilité mesurée par mikrotik-api)
+      mikrotikApiBase ? safe("Routeurs MikroTik", () => fetchMikrotikRouters(mikrotikApiBase), []) : [],
+      // #487 : hyperviseurs Proxmox (VM/CT, snapshots, backups, ZFS via le plugin si-agent)
+      siAgentApiBase ? safe("Proxmox", () => fetchProxmox(siAgentApiBase), []) : [],
     ]);
     // appareils et flux de chaque segment (exploration réseau)
     const naDevices = [], naLinks = [];
@@ -178,11 +185,11 @@ export default function SupervisionSiView({
       }
     }
     const hubHost = (() => { try { return new URL(siProxyApiBase || siAgentApiBase || window.location.href).hostname || "hub"; } catch { return "hub"; } })();
-    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost });
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost, mikrotikRouters, proxmoxNodes });
     setErrors(errs);
     setLoading(false);
     setNow(Date.now());
-  }, [netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase]);
+  }, [netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, mikrotikApiBase]);
 
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
 
@@ -253,7 +260,38 @@ export default function SupervisionSiView({
     const r = await addAlias(pixelGridApiBase, aliasForm.alias, aliasForm.localisation, groups);
     if (r?.error) setMatchesError(r.error); else { setAliasForm({ alias: "", localisation: "" }); await refreshMatches(); }
   };
-  const goto = (origin) => { if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin); };
+  const goto = (origin, originId) => {
+    // #486 : la tuile MikroTik est un front (SPA /mikrotik/), pas une
+    // vue du hub -- ouverture directe sur l'ancre du routeur concerné.
+    if (origin === "mikrotik") {
+      const base = (mikrotikUrl || mikrotikApiBase || "").replace(/\/+$/, "");
+      if (base) window.open(`${base}/#router=${encodeURIComponent(originId || "")}`, "_blank", "noopener");
+      return;
+    }
+    // #488 : la tuile Proxmox dédiée existe -- la fiche VM y mène.
+    if (origin === "proxmox") { if (onNavigate) onNavigate("proxmox"); return; }
+    if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin);
+  };
+  // #486 : création d'un ticket depuis la fiche équipement -- sourcé
+  // « mikrotik » quand l'équipement est un routeur déclaré (le portail
+  // tickets affiche alors un lien retour vers la tuile MikroTik).
+  const [ticketMsg, setTicketMsg] = useState(null);
+  useEffect(() => setTicketMsg(null), [selected]);
+  const createTicket = async (it) => {
+    const mt = it.origins.find((o) => o.origin === "mikrotik");
+    const subject = `[Supervision] ${it.name}${it.ip ? ` (${it.ip})` : ""}`;
+    const description = `Ticket créé depuis la supervision SI.\nÉtat : ${it.stateText || it.state}\nOrigines : ${it.origins.map((o) => o.origin).join(", ")}`;
+    setTicketMsg(null);
+    try {
+      const res = await fetch(`${ticketsApiBase}/tickets`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, description, source_type: mt ? "mikrotik" : "supervision", source_nom: mt ? mt.originId : it.name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.id) throw new Error(data?.error || `HTTP ${res.status}`);
+      setTicketMsg({ ok: true, text: `ticket #${data.id} créé — visible dans le portail tickets` });
+    } catch (e) { setTicketMsg({ ok: false, text: `échec : ${e.message}` }); }
+  };
 
   // --- Cadres ---
   const layout = frameLayout(frames.length);
@@ -297,7 +335,7 @@ export default function SupervisionSiView({
     } else if (f.kind === "table") {
       body = (
         <div className="hub-table-scroll ss-table">
-          <table>
+          <AutoColumns id="SupervisionSiView.1"><table>
             <thead><tr><th></th><th>Équipement</th><th>Adresse</th><th>Site</th><th>État</th><th>Dernier relevé</th><th>Origine(s)</th><th>Position</th></tr></thead>
             <tbody>{visible.map((it) => {
               const p = positions.get(it.identity);
@@ -309,12 +347,12 @@ export default function SupervisionSiView({
                   <td>{(() => { const d = displaySite(it, matches); return d.site ? <>{d.site}{d.resolved && <span className="muted ss-resolved" title={`localisation ${MATCH_STATUS[d.status]?.label} d'après le nom`}> ({MATCH_STATUS[d.status]?.label})</span>}</> : <span className="muted">—</span>; })()}</td>
                   <td><Tone state={it.state}>{STATE_LABELS[it.state]}</Tone> <span className="muted" style={{ fontSize: 11 }}>{it.stateText}</span></td>
                   <td className="muted">{when(it.lastSeen)}</td>
-                  <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin, o.originId)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
                   <td className="muted" style={{ fontSize: 11 }}>{p ? p.source : "—"}</td>
                 </tr>
               );
             })}</tbody>
-          </table>
+          </table></AutoColumns>
           {visible.length === 0 && <p className="muted" style={{ padding: 8 }}>{loading ? "Chargement…" : "Rien de supervisé pour ces critères."}</p>}
         </div>
       );
@@ -326,13 +364,19 @@ export default function SupervisionSiView({
             <>
               <p style={{ margin: "4px 0 4px" }}><strong>{selectedItem.name}</strong> — position : {describeChain(positions.get(selectedItem.identity))}</p>
               {pixelGridApiBase && <MatchLine item={selectedItem} match={matches[selectedItem.identity]} places={placeNames} onDecide={decide} onReset={undecide} />}
+              {ticketsApiBase && (
+                <p style={{ margin: "4px 0" }}>
+                  <button className="secondary" onClick={() => createTicket(selectedItem)}>Créer un ticket</button>
+                  {ticketMsg && <span className="muted" style={{ marginLeft: 8 }}>{ticketMsg.text}</span>}
+                </p>
+              )}
             </>
           ) : <p className="muted" style={{ margin: "4px 0 8px" }}>Sélectionner un équipement pour voir sa chaîne de déduction ; ci-dessous les {shown.length} premiers liens.</p>}
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SupervisionSiView.2"><table>
               <thead><tr><th>Type</th><th>Lien</th><th>Poids</th><th>Via</th></tr></thead>
               <tbody>{shown.map((l, k) => <tr key={k}><td>{l.kind}</td><td>{l.label}</td><td className="muted">{l.weight ? Math.round(l.weight / 1024) + " Ko" : "—"}</td><td className="muted">{l.via}</td></tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </div>
       );
@@ -416,7 +460,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
           {matchesError && <p className="hub-error" style={{ fontSize: 12 }}>{matchesError}</p>}
           {!pixelGridApiBase && <p className="muted">VITE_PIXEL_GRID_API_BASE_URL non configurée : pas de résolution par nom.</p>}
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SupervisionSiView.3"><table>
               <thead><tr><th>Équipement</th><th>Localisation</th><th>Statut</th><th></th></tr></thead>
               <tbody>{shownRows.map((r) => (
                 <tr key={r.item.identity} className={selected === r.item.identity ? "active" : ""} onClick={() => setSelected(r.item.identity)}>
@@ -426,7 +470,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
                   <td onClick={(e) => e.stopPropagation()}><MatchActions item={r.item} match={r.match} places={placeNames} onDecide={decide} onReset={undecide} /></td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
             {shownRows.length === 0 && <p className="muted" style={{ padding: 8 }}>Rien pour ce filtre.</p>}
           </div>
           <details className="ss-aliases">
@@ -552,7 +596,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
             </>
           )}
 
-          {tab === "proposals" && <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} onNavigate={onNavigate} />}
+          {tab === "proposals" && <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} onNavigate={onNavigate} assistantUrl={assistantUrl} onKeep={(keys) => setCheckedProposals((c) => { const n = { ...c }; keys.forEach((k) => { n[k] = true; }); return n; })} />}
 
           {tab === "links" && (
             <div className="ss-linkstab">
@@ -581,13 +625,72 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
   );
 }
 
-function ProposalList({ proposals, checked, onToggle, onNavigate, compact }) {
+// #573 : priorisation par l'IA interne -- test « prioriser et automatiser » : les
+// propositions partent au modèle local (assistant-api), qui renvoie un ordre,
+// une raison, des groupes de même cause et une action du catalogue ; on retient
+// les N premières d'un clic, rien n'est exécuté sans validation.
+function AiPriorities({ assistantUrl, proposals, onKeep, onNavigate, KIND }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [capacity, setCapacity] = useState(10);
+  const base = (assistantUrl || "").replace(/\/$/, "");
+  const run = async () => {
+    setBusy(true); setError(null); setResult(null);
+    const items = proposals.slice(0, 80).map((p) => ({ id: p.key, source: KIND[p.kind]?.label || p.kind, severity: p.severity, label: p.label, detail: p.detail, since: p.at ? new Date(p.at).toISOString() : null }));
+    try {
+      const r = await fetch(`${base}/prioritize`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, capacity, context: "supervision d'un SI : hôtes, réseau, sondes ; les constats de vigilance « croissance » sur des hôtes semblables ont souvent la même cause" }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || `${r.status}`);
+      const parsed = j.parsed || {};
+      if (!Array.isArray(parsed.ordre)) throw new Error("réponse sans ordre (" + String(j.text || "").slice(0, 160) + ")");
+      setResult({ ...parsed, ms: j.ms, model: j.model, sent: items.length });
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  };
+  if (!base) return null;
+  const byKey = new Map(proposals.map((p) => [p.key, p]));
+  const PRIO = { P1: "var(--danger)", P2: "var(--warning)", P3: "var(--text)", P4: "var(--muted)" };
+  return (
+    <div style={{ margin: "6px 0" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="secondary" disabled={busy || !proposals.length} onClick={run}>{busy ? "L'IA interne analyse…" : "✨ Prioriser par l'IA interne"}</button>
+        <label className="muted" style={{ fontSize: 12 }}>capacité du jour <input type="number" min="1" max="50" value={capacity} onChange={(e) => setCapacity(Number(e.target.value) || 10)} style={{ width: 50 }} /></label>
+        <span className="muted" style={{ fontSize: 12 }}>{proposals.length > 80 ? "les 80 premières partent au modèle" : `${proposals.length} propositions`} · traité sur le SI, rien ne sort</span>
+        {result && <span className="muted" style={{ fontSize: 12 }}>· {result.ordre.length} classées en {result.ms ? (result.ms / 1000).toFixed(0) : "?"} s {result.model ? `(${result.model})` : ""}</span>}
+      </div>
+      {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
+      {result && (
+        <div className="hub-card" style={{ padding: 8, marginTop: 6, fontSize: 13 }}>
+          {result.synthese && <p style={{ margin: "0 0 6px" }}>{result.synthese}</p>}
+          {(result.groupes || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Groupes de même cause : {result.groupes.map((g, i) => <span key={i}>{g.cause} ({(g.ids || []).length}){i < result.groupes.length - 1 ? " · " : ""}</span>)}</p>}
+          <button type="button" className="primary" style={{ fontSize: 12, marginBottom: 6 }} onClick={() => onKeep(result.ordre.slice(0, capacity).map((o) => o.id).filter((k) => byKey.has(k)))}>Retenir les {Math.min(capacity, result.ordre.length)} premières</button>
+          <AutoColumns id="SupervisionSiView.4"><table style={{ borderCollapse: "collapse", width: "100%", textAlign: "left" }}>
+            <thead><tr><th>#</th><th>Prio</th><th>Constat</th><th>Pourquoi</th><th>Action proposée</th></tr></thead>
+            <tbody>{result.ordre.map((o, i) => { const p = byKey.get(o.id); return (
+              <tr key={o.id + i}>
+                <td className="muted">{i + 1}</td>
+                <td style={{ color: PRIO[o.priorite] || "inherit", fontWeight: 600 }}>{o.priorite}</td>
+                <td>{p ? <>{p.label} <span className="muted">· {KIND[p.kind]?.label}</span></> : <span className="muted">{o.id}</span>}</td>
+                <td className="muted">{o.pourquoi}</td>
+                <td>{o.action}{o.params && Object.keys(o.params).length ? <span className="muted"> {JSON.stringify(o.params)}</span> : null}{o.automatisable ? <span title="l'action est dans le catalogue du hub ; exécution à valider" style={{ color: "var(--ok)" }}> ⚙ automatisable</span> : null}
+                  {p && onNavigate && o.action === "ouvrir_outil" && <button className="secondary" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => onNavigate(KIND[p.kind]?.tool)}>↗</button>}</td>
+              </tr>); })}</tbody>
+          </table></AutoColumns>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalList({ proposals, checked, onToggle, onNavigate, compact, assistantUrl = "", onKeep }) {
   const KIND = { orchestrateur: { label: "orchestrateur", tool: "network-cycle" }, vigilance: { label: "vigilance", tool: "vigilance" }, decouvert: { label: "découvert", tool: "network-agent" }, agent: { label: "vu par un agent", tool: "si-agent" } };
   if (!proposals.length) return <p className="muted" style={{ padding: 6 }}>Aucune proposition : rien de nouveau côté orchestrateur, vigilance ni exploration.</p>;
   const kept = proposals.filter((p) => checked[p.key]).length;
   return (
     <div className="ss-proposals">
       {!compact && <p className="muted" style={{ margin: "6px 0" }}>{kept} retenue(s) sur {proposals.length} — cocher = à traiter (retenue), décocher = écartée ; le traitement se fait dans la tuile d'origine.</p>}
+      {!compact && onKeep && <AiPriorities assistantUrl={assistantUrl} proposals={proposals} onKeep={onKeep} onNavigate={onNavigate} KIND={KIND} />}
       <ul className="ss-list">
         {proposals.map((p) => (
           <li key={p.key} className={checked[p.key] ? "active" : ""}>

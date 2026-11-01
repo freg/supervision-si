@@ -15,6 +15,7 @@ risque sans bénéfice réel avant un premier retour concret).
 **⚠️ Jamais testé contre une vraie API Nebula** -- voir
 nebula_client.py.
 """
+import json
 import logging
 import os
 import sqlite3
@@ -26,6 +27,13 @@ from flask_cors import CORS
 
 import nebula_client as nebula
 import csv_import
+import health as health_lib
+import vlanmap  # `health` est aussi la route /health
+import ssidmatrix  # #686
+import gwpolicy  # #712 : NAT et zones invité de la passerelle
+import topology as topology_lib
+import rules as rules_lib
+import campus as campus_lib
 
 try:
     from version_endpoint import register_version_route
@@ -152,6 +160,44 @@ CREATE TABLE IF NOT EXISTS nebula_import_batches (
     ged_archive_error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_nebula_batches_type ON nebula_import_batches(import_type);
+-- Santé du réseau (livraison #546) : état COURANT par appareil et
+-- TRANSITIONS seulement (jamais un relevé par minute).
+CREATE TABLE IF NOT EXISTS nebula_status_current (
+    site_id TEXT NOT NULL, dev_id TEXT NOT NULL, status TEXT NOT NULL,
+    since INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
+    PRIMARY KEY (site_id, dev_id)
+);
+CREATE TABLE IF NOT EXISTS nebula_status_transitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id TEXT NOT NULL, dev_id TEXT NOT NULL, from_status TEXT, to_status TEXT NOT NULL, at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nebula_tr_site_at ON nebula_status_transitions(site_id, at);
+-- #686 : résultats du test actif SSID x VLAN (ssid-vlan-check.sh, SSIDCHECK_CSV), un par import
+CREATE TABLE IF NOT EXISTS nebula_ssid_proofs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, imported_at INTEGER NOT NULL, imported_by TEXT, content TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS nebula_poll_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sites INTEGER, devices INTEGER, transitions INTEGER, error TEXT
+);
+-- #566 : fiches du campus (matériels, services/logiciels) importées des tableurs du site
+CREATE TABLE IF NOT EXISTS campus_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, collection TEXT NOT NULL, key TEXT NOT NULL, name TEXT, kind TEXT, lab TEXT, location TEXT,
+    data TEXT NOT NULL, imported_at INTEGER NOT NULL, imported_by TEXT, UNIQUE(collection, key)
+);
+CREATE INDEX IF NOT EXISTS idx_campus_coll ON campus_records(collection, lab);
+
+-- #555 : positions des appareils et clients sur le plan du site (fractions
+-- 0..1 de la largeur/hauteur de l'image ; clé = devId ou "client:<mac>").
+-- #556 : état des anomalies (masquée / validée) par site et identifiant stable.
+CREATE TABLE IF NOT EXISTS nebula_anomaly_state (
+    site_id TEXT NOT NULL, anomaly_id TEXT NOT NULL, state TEXT NOT NULL, by_who TEXT, at INTEGER NOT NULL,
+    note TEXT, result TEXT, PRIMARY KEY (site_id, anomaly_id)
+);
+
+CREATE TABLE IF NOT EXISTS nebula_placements (
+    site_id TEXT NOT NULL, key TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, updated_at INTEGER NOT NULL,
+    PRIMARY KEY (site_id, key)
+);
 """
 
 
@@ -174,6 +220,91 @@ try:
     ensure_schema()
 except Exception as exc:  # noqa: BLE001 -- la base peut ne pas être prête au tout premier démarrage
     app.logger.warning("Migration au démarrage reportée : %s", exc)
+
+
+# ------------------------------------------------ santé du réseau (#546)
+# Sondage périodique de `online-status` par site (NEBULA_POLL_SECONDS,
+# défaut 60 ; 0 = désactivé). Règle : un incident d'au moins T secondes
+# est vu par un relevé toutes les T secondes ; Nebula ne déclare un
+# appareil hors ligne qu'après quelques minutes, donc 60 s ne loupe rien
+# de ce que Nebula voit. Un seul sondeur pour les N workers gunicorn :
+# verrou fichier (fcntl) sur le volume de données.
+POLL_SECONDS = int(os.environ.get("NEBULA_POLL_SECONDS", "60") or 0)
+INVENTORY_SECONDS = int(os.environ.get("NEBULA_INVENTORY_SECONDS", "3600") or 3600)
+_inventory = {"at": 0, "sites": [], "devices": {}}  # cache de l'inventaire (sites, appareils par site)
+
+
+def _refresh_inventory(client, force=False):
+    now = int(time.time())
+    if not force and _inventory["sites"] and now - _inventory["at"] < INVENTORY_SECONDS:
+        return
+    sites, devices = [], {}
+    for org in client.list_organizations() or []:
+        if not isinstance(org, dict) or not org.get("orgId"):
+            continue
+        for s in client.list_sites(org["orgId"]) or []:
+            if isinstance(s, dict) and s.get("siteId"):
+                sites.append(dict(s, orgId=org["orgId"]))
+        for grp in client.list_devices_from_org(org["orgId"]) or []:
+            if isinstance(grp, dict) and grp.get("siteId"):
+                devices[grp["siteId"]] = [d for d in grp.get("devices") or [] if isinstance(d, dict)]
+    _inventory.update(at=now, sites=sites, devices=devices)
+
+
+def poll_once(client=None, now=None):
+    """Un relevé de tous les sites : transitions enregistrées, état courant
+    mis à jour. Retourne {sites, devices, transitions}."""
+    client = client or _connect()
+    now = now if now is not None else int(time.time())
+    _refresh_inventory(client)
+    conn = get_connection()
+    n_dev = n_tr = 0
+    try:
+        for site in _inventory["sites"]:
+            sid = site["siteId"]
+            statuses = client.get_online_status(sid)
+            prev = {r["dev_id"]: r["status"] for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (sid,))}
+            cur, transitions = health_lib.diff_statuses(prev, statuses, at=now)
+            for dev, st in cur.items():
+                if dev in prev and prev[dev] == st:
+                    conn.execute("UPDATE nebula_status_current SET last_seen_at = ? WHERE site_id = ? AND dev_id = ?", (now, sid, dev))
+                else:
+                    conn.execute("INSERT OR REPLACE INTO nebula_status_current (site_id, dev_id, status, since, last_seen_at) VALUES (?, ?, ?, ?, ?)", (sid, dev, st, now, now))
+            for t in transitions:
+                conn.execute("INSERT INTO nebula_status_transitions (site_id, dev_id, from_status, to_status, at) VALUES (?, ?, ?, ?, ?)", (sid, t["dev_id"], t["from"], t["to"], t["at"]))
+            n_dev += len(cur); n_tr += len(transitions)
+        conn.execute("INSERT INTO nebula_poll_runs (at, sites, devices, transitions, error) VALUES (?, ?, ?, ?, NULL)", (now, len(_inventory["sites"]), n_dev, n_tr))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"sites": len(_inventory["sites"]), "devices": n_dev, "transitions": n_tr}
+
+
+def _poll_loop():
+    import fcntl
+    lock_path = os.path.join(os.path.dirname(DB_PATH), "nebula-poll.lock")
+    try:
+        fh = open(lock_path, "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return  # un autre worker sonde déjà
+    app.logger.info("sondeur Nebula actif (toutes les %s s)", POLL_SECONDS)
+    while True:
+        try:
+            if NEBULA_API_KEY:
+                poll_once()
+        except Exception as exc:  # noqa: BLE001 -- le sondeur ne meurt jamais, l'erreur est journalisée
+            app.logger.warning("sondage Nebula en échec : %s", exc)
+            try:
+                conn = get_connection(); conn.execute("INSERT INTO nebula_poll_runs (at, sites, devices, transitions, error) VALUES (?, 0, 0, 0, ?)", (int(time.time()), str(exc)[:300])); conn.commit(); conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+        time.sleep(max(15, POLL_SECONDS))
+
+
+if POLL_SECONDS > 0 and os.environ.get("NEBULA_POLL_DISABLED") != "1":
+    import threading
+    threading.Thread(target=_poll_loop, name="nebula-poll", daemon=True).start()
 
 
 def _connect():
@@ -205,6 +336,270 @@ def test_connection():
         "status": "ok", "organizations": orgs,
         "warning": f"organisations SANS licence Pro Pack (API indisponible pour elles) : {', '.join(non_pro)}" if non_pro else None,
     }), 200
+
+
+@app.route("/poll/now", methods=["POST"])
+def poll_now():
+    """Relevé immédiat (test, ou après un changement d'inventaire)."""
+    try:
+        return jsonify(poll_once()), 200
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/poll/status", methods=["GET"])
+def poll_status():
+    conn = get_connection()
+    try:
+        runs = [dict(r) for r in conn.execute("SELECT at, sites, devices, transitions, error FROM nebula_poll_runs ORDER BY at DESC LIMIT 10")]
+    finally:
+        conn.close()
+    return jsonify({"poll_seconds": POLL_SECONDS, "inventory_seconds": INVENTORY_SECONDS, "inventory_at": _inventory["at"], "runs": runs}), 200
+
+
+def _board(site_id, hours):
+    now = int(time.time()); start = now - hours * 3600
+    conn = get_connection()
+    try:
+        statuses = {r["dev_id"]: {"status": r["status"], "since": r["since"]} for r in conn.execute("SELECT dev_id, status, since FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+        transitions = [{"dev_id": r["dev_id"], "from": r["from_status"], "to": r["to_status"], "at": r["at"]} for r in conn.execute("SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at", (site_id, start - 86400 * 30))]
+    finally:
+        conn.close()
+    devices = _inventory["devices"].get(site_id) or [{"devId": d} for d in statuses]
+    site = next((s for s in _inventory["sites"] if s.get("siteId") == site_id), {})
+    board = health_lib.health_board(devices, statuses, transitions, start, now, now=now)
+    board.update(site_id=site_id, site_name=site.get("name") or site_id, hours=hours, at=now)
+    return board
+
+
+@app.route("/health-board", methods=["GET"])
+def health_board_all():
+    """Tableau de santé de tous les sites (#546) ; `hours` = fenêtre de
+    disponibilité (défaut 24)."""
+    hours = request.args.get("hours", 24, type=int)
+    if not _inventory["sites"]:
+        try:
+            _refresh_inventory(_connect(), force=True)
+        except nebula.NebulaError as exc:
+            return jsonify({"error": str(exc)}), 502
+    return jsonify({"at": int(time.time()), "poll_seconds": POLL_SECONDS, "sites": [_board(s["siteId"], hours) for s in _inventory["sites"]]}), 200
+
+
+@app.route("/sites/<site_id>/health-board", methods=["GET"])
+def health_board_site(site_id):
+    return jsonify(_board(site_id, request.args.get("hours", 24, type=int))), 200
+
+
+@app.route("/sites/<site_id>/transitions", methods=["GET"])
+def site_transitions(site_id):
+    hours = request.args.get("hours", 24, type=int)
+    conn = get_connection()
+    try:
+        rows = [dict(r) for r in conn.execute("SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at DESC", (site_id, int(time.time()) - hours * 3600))]
+    finally:
+        conn.close()
+    names = {d.get("devId"): d.get("name") for d in _inventory["devices"].get(site_id) or []}
+    for r in rows:
+        r["name"] = names.get(r["dev_id"]) or r["dev_id"]
+    return jsonify({"transitions": rows}), 200
+
+
+# ------------------------------------------------ carte des VLAN (#548)
+_vlan_cache = {}  # site_id -> {"at", "map", "errors"}
+VLAN_CACHE_SECONDS = int(os.environ.get("NEBULA_VLAN_CACHE_SECONDS", "600") or 600)
+MAC_TABLE_ENABLED = os.environ.get("NEBULA_MAC_TABLE", "0").strip() in ("1", "true", "yes")
+
+
+def collect_vlan_map(client, site_id, with_clients=True):
+    """Tous les appels nécessaires, chacun tolérant : un échec laisse un trou
+    et une ligne dans `errors`, jamais une carte vide pour un seul appel raté."""
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    errors = []
+
+    def safe(label, fn, *a):
+        try:
+            return fn(*a)
+        except nebula.NebulaError as exc:
+            errors.append("%s : %s" % (label, str(exc)[:160]))
+            return None
+
+    sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")]
+    ports = {d: safe("ports %s" % d, client.sw_port_settings, site_id, d) for d in sw_ids}
+    lldp = {d: safe("lldp %s" % d, client.sw_lldp_neighbors, site_id, d) for d in sw_ids}
+    ip_status = {d: safe("ip %s" % d, client.sw_ip_status, site_id, d) for d in sw_ids}
+    # Table MAC : l'API Zyxel refuse la réponse de ses propres commutateurs
+    # (erreur de validation « portNum », constatée en réel sur 3 modèles) ->
+    # appel désactivé par défaut (NEBULA_MAC_TABLE=1 pour réessayer), #558.
+    macs = {d: safe("mac %s" % d, client.sw_mac_table, site_id, d) for d in sw_ids} if MAC_TABLE_ENABLED else {}
+    gw = safe("passerelle", client.gw_interface_settings, site_id, gw_ids[0]) if gw_ids else None
+    wlans = safe("ssid", client.ap_wlan_settings, site_id)
+    clients = safe("clients", client.sw_clients, site_id, "1d") if with_clients else None
+    vmap = vlanmap.build_vlan_map(devices, {k: v for k, v in ports.items() if v is not None}, {k: v for k, v in lldp.items() if v is not None},
+                                  gw, wlans, {k: v for k, v in ip_status.items() if v is not None}, {k: v for k, v in macs.items() if v is not None}, clients)
+    # #712 : exposition (NAT) et cohérence des zones invité -- les règles de sécurité ne sont pas publiées par l'OpenAPI
+    nat = safe("NAT", client.gw_nat_settings, site_id, gw_ids[0]) if gw_ids and hasattr(client, "gw_nat_settings") else None
+    vmap["nat"] = gwpolicy.parse_nat(nat) if nat else []
+    extra = gwpolicy.anomalies(vmap["nat"], vmap)
+    if extra:
+        import hashlib
+        known = set(vmap.get("anomalies") or [])
+        for f in extra:
+            if f["message"] in known:
+                continue
+            known.add(f["message"])
+            f["id"] = hashlib.sha1((f["kind"] + "|" + f["message"]).encode("utf-8")).hexdigest()[:12]
+            vmap.setdefault("anomalies_detail", []).append(f)
+            vmap.setdefault("anomalies", []).append(f["message"])
+    vmap["errors"] = errors
+    vmap["devices"] = [{"devId": d.get("devId"), "name": d.get("name"), "model": d.get("model"), "type": d.get("type")} for d in devices]
+    vmap["site_id"] = site_id
+    vmap["site_name"] = next((s.get("name") for s in _inventory["sites"] if s.get("siteId") == site_id), site_id)
+    return vmap
+
+
+@app.route("/sites/<site_id>/vlan-map", methods=["GET"])
+def vlan_map_route(site_id):
+    """Carte des VLAN du site : VLAN (SSID, sous-réseau, ports par
+    commutateur, MAC, clients), liaisons LLDP avec VLAN manquants, anomalies.
+    `?refresh=1` force le recalcul (cache 10 min) ; `?format=csv` exporte."""
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and request.args.get("refresh") != "1":
+        vmap = cached["map"]
+    else:
+        try:
+            vmap = collect_vlan_map(_connect(), site_id)
+        except nebula.NebulaError as exc:
+            return jsonify({"error": str(exc)}), 502
+        vmap["at"] = now
+        _vlan_cache[site_id] = {"at": now, "map": vmap}
+    if request.args.get("format") == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        w = csv.writer(buf, delimiter=";")
+        for row in vlanmap.to_csv_rows(vmap):
+            w.writerow(row)
+        w.writerow([]); w.writerow(["liaison", "a", "port_a", "b", "port_b", "vlan_a", "vlan_b", "manquants_a", "manquants_b"])
+        for l in vmap["links"]:
+            if not l.get("external"):
+                w.writerow(["", l["a_name"], l["a_port"], l["b_name"], l["b_port"], l["a_vlans"], l["b_vlans"], l["missing_on_a"], l["missing_on_b"]])
+        w.writerow([]); w.writerow(["anomalie"])
+        for a in vmap["anomalies"]:
+            w.writerow([a])
+        from flask import Response
+        return Response("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=vlan-map-%s.csv" % site_id[:8]})
+    return jsonify(vmap), 200
+
+
+def _vlan_map_cached(site_id, refresh=False):
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and not refresh:
+        return cached["map"]
+    vmap = collect_vlan_map(_connect(), site_id)
+    vmap["at"] = now
+    _vlan_cache[site_id] = {"at": now, "map": vmap}
+    return vmap
+
+
+def _mac_of(c):
+    return str(c.get("macAddress") or c.get("mac_address") or c.get("mac") or "").lower() or None
+
+
+@app.route("/sites/<site_id>/ssid-matrix", methods=["GET"])
+def ssid_matrix_route(site_id):
+    """#686 : matrice SSID x VLAN prévue (carte des VLAN) / observée (clients
+    sans fil de l'API, complétés par le dernier export CSV) / prouvée (dernier
+    test actif importé)."""
+    try:
+        vmap = _vlan_map_cached(site_id, request.args.get("refresh") == "1")
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    errors, clients, seen = [], [], set()
+    try:
+        api_clients = _connect().get_site_clients(site_id, period=request.args.get("period", "1d"))
+    except nebula.NebulaError as exc:
+        api_clients = []
+        errors.append("clients (API) : %s" % str(exc)[:160])
+    csv_clients = _latest_by("nebula_clients_import", "mac_address", CLIENTS_COLUMNS)
+    for c in list(api_clients or []) + list(csv_clients or []):
+        if not isinstance(c, dict):
+            continue
+        mac = _mac_of(c)
+        if mac and mac in seen:
+            continue
+        if mac:
+            seen.add(mac)
+        clients.append(c)
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT content, imported_at, imported_by FROM nebula_ssid_proofs WHERE site_id = ? ORDER BY id DESC LIMIT 1", (site_id,)).fetchone()
+    finally:
+        conn.close()
+    proof = ssidmatrix.parse_check_csv(row["content"]) if row else None
+    m = ssidmatrix.build_matrix(vmap, clients, proof)
+    m.update({"site_id": site_id, "vlan_map_at": vmap.get("at"), "errors": list(vmap.get("errors") or []) + errors,
+              "sources": {"api_clients": len(api_clients or []), "csv_clients": len(csv_clients or []),
+                          "with_ssid": sum(1 for c in clients if any(c.get(k) for k in ssidmatrix.SSID_KEYS))},
+              "proof_imported_at": row["imported_at"] if row else None, "proof_imported_by": row["imported_by"] if row else None})
+    return jsonify(m), 200
+
+
+@app.route("/sites/<site_id>/ssid-proof", methods=["POST", "PUT"])
+def ssid_proof_route(site_id):
+    """#686 : import du résultat de ssid-vlan-check.sh (fichier `SSIDCHECK_CSV`), corps texte ou champ `file`."""
+    if "file" in request.files:
+        text = request.files["file"].read().decode("utf-8", "replace")
+    else:
+        text = request.get_data(as_text=True) or ""
+    if len(text) > 200_000:
+        return jsonify({"error": "fichier trop volumineux"}), 413
+    parsed = ssidmatrix.parse_check_csv(text)
+    if not parsed["rows"]:
+        return jsonify({"error": "aucune ligne reconnue (attendu : ssid;vlan;adresse;association;cible=OK|KO,... -- lancer ssid-vlan-check.sh avec SSIDCHECK_CSV=<fichier>)"}), 400
+    conn = get_connection()
+    try:
+        conn.execute("INSERT INTO nebula_ssid_proofs (site_id, imported_at, imported_by, content) VALUES (?,?,?,?)",
+                     (site_id, int(time.time()), (request.headers.get("X-Forwarded-User") or "")[:80] or None, text))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "ssids": len(parsed["rows"]), "at": parsed["at"]}), 201
+
+
+@app.route("/sites/<site_id>/vlan-raw", methods=["GET"])
+def vlan_raw_route(site_id):
+    """Réponses brutes des appels VLAN (diagnostic quand un champ n'est pas
+    celui attendu) -- adresses MAC masquées."""
+    try:
+        client = _connect(); _refresh_inventory(client)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    devices = _inventory["devices"].get(site_id) or []
+    sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")][:1]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")][:1]
+    out = {"types": sorted({str(d.get("type")) for d in devices})}
+    def safe(label, fn, *a):
+        try:
+            out[label] = fn(*a)
+        except nebula.NebulaError as exc:
+            out[label] = {"error": str(exc)[:200]}
+    if sw_ids:
+        safe("port_settings", client.sw_port_settings, site_id, sw_ids[0]); safe("lldp", client.sw_lldp_neighbors, site_id, sw_ids[0]); safe("ip_status", client.sw_ip_status, site_id, sw_ids[0])
+    if gw_ids:
+        safe("gateway", client.gw_interface_settings, site_id, gw_ids[0])
+    safe("wlans", client.ap_wlan_settings, site_id)
+    safe("sw_clients", client.sw_clients, site_id, "1d")
+    if isinstance(out.get("sw_clients"), dict) and isinstance(out["sw_clients"].get("data"), list):
+        out["sw_clients"]["data"] = out["sw_clients"]["data"][:5]; out["sw_clients"]["total"] = len(out["sw_clients"]["data"])
+    import re as _re
+    raw = json.dumps(out, ensure_ascii=False)
+    raw = _re.sub(r"([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}", "xx:xx:xx:xx:xx:xx", raw)
+    raw = _re.sub(r'"wpaKey":\s*"[^"]*"', '"wpaKey": "***"', raw)
+    return app.response_class(raw, mimetype="application/json"), 200
 
 
 @app.route("/organizations", methods=["GET"])
@@ -261,6 +656,331 @@ def site_online_status(site_id):
         return jsonify(client.get_online_status(site_id, device_type=device_type)), 200
     except nebula.NebulaError as exc:
         return jsonify({"error": str(exc)}), 502
+
+
+# ------------------------------------------------ topologie et plan (#555)
+_topo_cache = {}
+TOPO_CACHE_SECONDS = int(os.environ.get("NEBULA_TOPO_CACHE_SECONDS", "120") or 120)
+PLAN_DIR = os.environ.get("NEBULA_PLAN_DIR", os.path.join(os.path.dirname(DB_PATH), "plans"))
+PLAN_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _statuses(site_id):
+    conn = get_connection()
+    try:
+        return {r["name"]: r["status"] for r in conn.execute("SELECT name, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    except sqlite3.Error:
+        return {}
+    finally:
+        conn.close()
+
+
+def collect_topology(client, site_id, period="1d"):
+    """Arbre du site : carte des VLAN (cache 10 min) + clients (période
+    `period`) + états courants. Chaque appel tolérant."""
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS:
+        vmap = cached["map"]
+    else:
+        vmap = collect_vlan_map(client, site_id)
+        vmap["at"] = now
+        _vlan_cache[site_id] = {"at": now, "map": vmap}
+    devices = _inventory["devices"].get(site_id) or []
+    errors = list(vmap.get("errors") or [])
+    try:
+        clients = client.get_site_clients(site_id, period=period)
+    except nebula.NebulaError as exc:
+        clients, _ = [], errors.append("clients : %s" % str(exc)[:160])
+    tree = topology_lib.build_tree(devices, vmap.get("links") or [], clients, _statuses(site_id))
+    tree.update({"site_id": site_id, "site_name": vmap.get("site_name", site_id), "at": now, "errors": errors, "period": period,
+                 "vlans": [{"vid": v["vid"], "ssids": [x.get("name") for x in v["ssids"]], "subnet": v.get("subnet")} for v in vmap.get("vlans") or []]})
+    return tree
+
+
+@app.route("/sites/<site_id>/topology", methods=["GET"])
+def topology_route(site_id):
+    """Arbre passerelle → commutateurs → bornes → clients (façon Nebula).
+    `?refresh=1` recalcule ; `?period=` (2h, 1d, 7d) pour les clients."""
+    now = int(time.time())
+    period = request.args.get("period", "1d")
+    cached = _topo_cache.get((site_id, period))
+    if cached and now - cached["at"] < TOPO_CACHE_SECONDS and request.args.get("refresh") != "1":
+        return jsonify(cached["tree"]), 200
+    try:
+        tree = collect_topology(_connect(), site_id, period)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    _topo_cache[(site_id, period)] = {"at": now, "tree": tree}
+    return jsonify(tree), 200
+
+
+@app.route("/sites/<site_id>/clients-raw", methods=["GET"])
+def clients_raw_route(site_id):
+    """Sonde : champs publiés par l'OpenAPI pour les clients (MAC et IP
+    masquées) -- pour ajuster le rattachement client → borne."""
+    try:
+        cl = _connect().get_site_clients(site_id, period=request.args.get("period", "1d"))
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    def mask(c):
+        return {k: ("…" if "mac" in k.lower() or "ip" in k.lower() or "bssid" in k.lower() else v) for k, v in c.items()} if isinstance(c, dict) else c
+    return jsonify({"count": len(cl), "fields": sorted({k for c in cl if isinstance(c, dict) for k in c}), "sample": [mask(c) for c in cl[:5]]}), 200
+
+
+def _safe_site(site_id):
+    return "".join(ch for ch in site_id if ch.isalnum() or ch in "-_")[:80] or "site"
+
+
+# #560 : plans LIVRÉS avec l'image (nebula/plans/, copiés dans /app/plans) --
+# fond par défaut quand aucun plan n'a été déposé pour le site : d'abord
+# `<site_id>.<ext>`, sinon `default.<ext>` (un seul site supervisé : le
+# plan vectorisé du campus). Un plan déposé (volume /data) prime toujours.
+DEFAULT_PLAN_DIR = os.environ.get("NEBULA_DEFAULT_PLAN_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "plans"))
+PLAN_EXTS = ("svg", "png", "jpg", "jpeg", "webp")
+
+
+def _plan_path(site_id):
+    safe = _safe_site(site_id)
+    for d, names in ((PLAN_DIR, (safe,)), (DEFAULT_PLAN_DIR, (safe, "default"))):
+        if not os.path.isdir(d):
+            continue
+        for n in names:
+            for ext in PLAN_EXTS:
+                p = os.path.join(d, "%s.%s" % (n, ext))
+                if os.path.exists(p):
+                    return p
+    return None
+
+
+@app.route("/sites/<site_id>/plan", methods=["GET"])
+def plan_get(site_id):
+    """Image du plan du site (déposée par PUT). 404 si aucune."""
+    from flask import send_file
+    p = _plan_path(site_id)
+    if not p:
+        return jsonify({"error": "aucun plan déposé pour ce site"}), 404
+    return send_file(p, max_age=0)
+
+
+@app.route("/sites/<site_id>/plan", methods=["PUT", "POST"])
+def plan_put(site_id):
+    """Dépôt du plan (multipart `file`, PNG/JPG/WebP/SVG, 8 Mo max). Un seul
+    plan par site ; le précédent est remplacé. Jamais dans le dépôt git :
+    le plan est une donnée du site (volume /data)."""
+    if "file" not in request.files:
+        return jsonify({"error": "fichier manquant (champ `file`)"}), 400
+    f = request.files["file"]
+    name = (f.filename or "").lower()
+    ext = name.rsplit(".", 1)[-1] if "." in name else ""
+    if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+        return jsonify({"error": "format accepté : PNG, JPG, WebP, SVG"}), 400
+    data = f.read()
+    if len(data) > PLAN_MAX_BYTES:
+        return jsonify({"error": "plan trop lourd (8 Mo max)"}), 413
+    os.makedirs(PLAN_DIR, exist_ok=True)
+    old = _plan_path(site_id)
+    if old:
+        os.remove(old)
+    with open(os.path.join(PLAN_DIR, "%s.%s" % (_safe_site(site_id), ext)), "wb") as fh:
+        fh.write(data)
+    return jsonify({"ok": True, "bytes": len(data), "ext": ext}), 200
+
+
+@app.route("/sites/<site_id>/plan", methods=["DELETE"])
+def plan_delete(site_id):
+    p = _plan_path(site_id)
+    removed = False
+    if p and os.path.abspath(p).startswith(os.path.abspath(PLAN_DIR) + os.sep):  # jamais un plan livré (#560)
+        os.remove(p)
+        removed = True
+    return jsonify({"ok": True, "removed": removed, "default_plan": bool(_plan_path(site_id))}), 200
+
+
+@app.route("/sites/<site_id>/placements", methods=["GET"])
+def placements_get(site_id):
+    """Positions sur le plan : {clé: {x, y}} (fractions 0..1)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, x, y, updated_at FROM nebula_placements WHERE site_id = ?", (site_id,)).fetchall()
+    finally:
+        conn.close()
+    return jsonify({"site_id": site_id, "placements": {r["key"]: {"x": r["x"], "y": r["y"], "updated_at": r["updated_at"]} for r in rows}}), 200
+
+
+@app.route("/sites/<site_id>/placements", methods=["PUT"])
+def placements_put(site_id):
+    """Fusion : {"placements": {clé: {x, y} | null}} -- null retire du plan.
+    x et y bornés à [0, 1]."""
+    body = request.get_json(silent=True) or {}
+    pl = body.get("placements")
+    if not isinstance(pl, dict):
+        return jsonify({"error": "placements attendu (objet)"}), 400
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        for key, val in pl.items():
+            key = str(key)[:200]
+            if val is None:
+                conn.execute("DELETE FROM nebula_placements WHERE site_id = ? AND key = ?", (site_id, key))
+                continue
+            try:
+                x, y = float(val.get("x")), float(val.get("y"))
+            except (TypeError, ValueError, AttributeError):
+                return jsonify({"error": "position invalide pour %s" % key}), 400
+            x, y = min(1.0, max(0.0, x)), min(1.0, max(0.0, y))
+            conn.execute("INSERT INTO nebula_placements (site_id, key, x, y, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(site_id, key) DO UPDATE SET x = excluded.x, y = excluded.y, updated_at = excluded.updated_at", (site_id, key, x, y, now))
+        conn.commit()
+    finally:
+        conn.close()
+    return placements_get(site_id)
+
+
+# ------------------------------------------------ anomalies et règles (#556)
+RULES_DIR = os.environ.get("RULES_DIR", "/rules")
+ALLOW_WRITE = os.environ.get("NEBULA_ALLOW_WRITE", "0").strip() in ("1", "true", "yes")
+
+
+def _vmap_cached(client, site_id, refresh=False):
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and not refresh:
+        return cached["map"]
+    vmap = collect_vlan_map(client, site_id)
+    vmap["at"] = now
+    _vlan_cache[site_id] = {"at": now, "map": vmap}
+    return vmap
+
+
+def _anomaly_states(site_id):
+    conn = get_connection()
+    try:
+        return {r["anomaly_id"]: dict(r) for r in conn.execute("SELECT * FROM nebula_anomaly_state WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+
+
+def _set_state(site_id, aid, state, who, note=None, result=None):
+    conn = get_connection()
+    try:
+        if state is None:
+            conn.execute("DELETE FROM nebula_anomaly_state WHERE site_id = ? AND anomaly_id = ?", (site_id, aid))
+        else:
+            conn.execute("INSERT INTO nebula_anomaly_state (site_id, anomaly_id, state, by_who, at, note, result) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                         "ON CONFLICT(site_id, anomaly_id) DO UPDATE SET state = excluded.state, by_who = excluded.by_who, at = excluded.at, note = excluded.note, result = excluded.result",
+                         (site_id, aid, state, who, int(time.time()), note, result))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _anomalies(site_id, refresh=False):
+    vmap = _vmap_cached(_connect(), site_id, refresh)
+    rules, errors = rules_lib.load_rules(RULES_DIR)
+    items = rules_lib.apply_rules(vmap.get("anomalies_detail") or [], rules)
+    states = _anomaly_states(site_id)
+    for a in items:
+        st = states.get(a["id"])
+        a["state"] = st["state"] if st else None
+        a["state_by"], a["state_at"], a["state_result"] = (st["by_who"], st["at"], st["result"]) if st else (None, None, None)
+        a["can_apply"] = bool(a["applicable"] and ALLOW_WRITE)
+    return items, errors, vmap
+
+
+@app.route("/sites/<site_id>/anomalies", methods=["GET"])
+def anomalies_route(site_id):
+    """Anomalies typées + règle (gravité, action proposée, applicable) + état
+    (masquée / validée). `?all=1` inclut les masquées ; `?refresh=1`."""
+    try:
+        items, errors, vmap = _anomalies(site_id, request.args.get("refresh") == "1")
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    hidden = [a for a in items if a["state"] == "hidden"]
+    shown = items if request.args.get("all") == "1" else [a for a in items if a["state"] != "hidden"]
+    return jsonify({"site_id": site_id, "at": vmap.get("at"), "anomalies": shown, "hidden_count": len(hidden), "total": len(items),
+                    "rules_errors": errors, "write_allowed": ALLOW_WRITE}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/hide", methods=["POST"])
+def anomaly_hide(site_id, aid):
+    body = request.get_json(silent=True) or {}
+    _set_state(site_id, aid, "hidden", (body.get("groups") or ["?"])[0] if not body.get("user") else body.get("user"), body.get("note"))
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/unhide", methods=["POST"])
+def anomaly_unhide(site_id, aid):
+    _set_state(site_id, aid, None, None)
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/unhide-all", methods=["POST"])
+def anomaly_unhide_all(site_id):
+    conn = get_connection()
+    try:
+        n = conn.execute("DELETE FROM nebula_anomaly_state WHERE site_id = ? AND state = 'hidden'", (site_id,)).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "unhidden": n}), 200
+
+
+def _apply_fix(client, site_id, anomaly):
+    """Exécute l'action d'une règle applicable. Seul cas aujourd'hui :
+    link_missing_vlan -> ajout des VLAN manquants (étiquetés) sur le port
+    qui ne les porte pas, par POST port-settings (objet complet relu juste
+    avant, jamais reconstruit de mémoire)."""
+    if anomaly["kind"] != "link_missing_vlan":
+        raise nebula.NebulaError("aucune correction automatique pour le type %s" % anomaly["kind"])
+    d = anomaly.get("details") or {}
+    dev, port_num, vlans = d.get("missing_dev"), d.get("missing_port"), d.get("vlans") or []
+    ports = client.sw_port_settings(site_id, dev)
+    port = next((p for p in ports or [] if isinstance(p, dict) and str(p.get("portNum")) == str(port_num)), None)
+    if not port:
+        raise nebula.NebulaError("port %s introuvable sur %s" % (port_num, d.get("missing_on")))
+    allowed = [str(v) for v in (port.get("allowedVLAN") or [])]
+    before = list(allowed)
+    for v in vlans:
+        if str(v) not in allowed:
+            allowed.append(str(v))
+    port = dict(port, trunk=True, allowedVLAN=allowed)
+    client.sw_set_port_settings(site_id, dev, port)
+    return "port %s de %s : VLAN autorisés %s -> %s" % (port_num, d.get("missing_on"), ", ".join(before) or "aucun", ", ".join(allowed))
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/validate", methods=["POST"])
+def anomaly_validate(site_id, aid):
+    """Valider = confirmer l'action proposée. Si la règle est applicable ET
+    que NEBULA_ALLOW_WRITE=1 ET que `confirm` est vrai : la correction est
+    exécutée sur Nebula (droit `manage` requis, résultat journalisé, carte
+    recalculée). Sinon : marquée « validée, à appliquer à la main »."""
+    body = request.get_json(silent=True) or {}
+    allowed, err = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": err}), 403
+    try:
+        items, _, _ = _anomalies(site_id)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    a = next((x for x in items if x["id"] == aid), None)
+    if not a:
+        return jsonify({"error": "anomalie introuvable (carte recalculée entre-temps ?)"}), 404
+    who = body.get("user") or (body.get("groups") or ["?"])[0]
+    if a["applicable"] and ALLOW_WRITE:
+        if not body.get("confirm"):
+            return jsonify({"error": "confirmation requise : cette validation ÉCRIT la configuration sur Nebula", "needs_confirm": True, "action": a["action"]}), 409
+        try:
+            result = _apply_fix(_connect(), site_id, a)
+        except nebula.NebulaError as exc:
+            _set_state(site_id, aid, "failed", who, a["action"], str(exc)[:300])
+            return jsonify({"error": "application échouée : %s" % exc}), 502
+        _set_state(site_id, aid, "applied", who, a["action"], result)
+        _vlan_cache.pop(site_id, None)
+        _topo_cache.clear()
+        app.logger.info("Anomalie %s appliquée sur %s par %s : %s", aid, site_id, who, result)
+        return jsonify({"ok": True, "state": "applied", "result": result}), 200
+    _set_state(site_id, aid, "validated", who, a["action"], "à appliquer à la main" if a["applicable"] else "action manuelle")
+    return jsonify({"ok": True, "state": "validated"}), 200
 
 
 @app.route("/sites/<site_id>/clients", methods=["GET"])
@@ -611,5 +1331,349 @@ def get_logs():
     return jsonify({"service": SERVICE_NAME, "entries": entries}), 200
 
 
+# #703 : rapports des anomalies (CSV / Excel / PDF) et alertes par courriel (récapitulatif, urgence)
+import report_routes  # noqa: E402
+
+
+def _report_sites():
+    _refresh_inventory(_connect())
+    return _inventory["sites"]
+
+
+def _occupancy_inputs(site_id):
+    """#747 : clients connectés (période 2h, filtrés « connectés » ensuite), appareils, états du sondeur, noms."""
+    client = _connect()
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    clients = client.get_site_clients(site_id, period="2h")
+    conn = get_connection()
+    try:
+        statuses = {r["dev_id"]: {"status": r["status"], "since": r["since"]} for r in conn.execute("SELECT dev_id, status, since FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+    names = {d["devId"]: d.get("name") or d["devId"] for d in devices if d.get("devId")}
+    return clients, devices, statuses, names
+
+
+def _infra_inputs(site_id):
+    """#759 : liaisons commutateur -> borne (carte VLAN en cache), réglages bruts des ports, inventaire, fiche de
+    l'organisation (licences), état en ligne -- chaque appel tolérant."""
+    client = _connect()
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    errors = []
+    try:
+        links = (_vlan_map_cached(site_id) or {}).get("links") or []
+    except nebula.NebulaError as exc:
+        links = []; errors.append("carte VLAN : %s" % str(exc)[:160])
+    ports = {}
+    for d in devices:
+        if str(d.get("type") or "").upper() in ("SW", "SWITCH") and d.get("devId"):
+            try:
+                ports[d["devId"]] = client.sw_port_settings(site_id, d["devId"]) or []
+            except nebula.NebulaError as exc:
+                errors.append("ports %s : %s" % (d.get("name") or d["devId"], str(exc)[:120]))
+    site = next((s for s in _inventory["sites"] if s.get("siteId") == site_id), {}) or {}
+    org, info = site.get("orgId"), None
+    if org:
+        try:
+            info = client.get_org_info(org)
+        except nebula.NebulaError as exc:
+            errors.append("organisation : %s" % str(exc)[:120])
+    conn = get_connection()
+    try:
+        online = {r["dev_id"]: r["status"] == "online" for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+    return {"links": links, "ports_by_sw": ports, "devices": devices, "org_id": org, "org_name": (info or {}).get("name") or org, "org_info": info,
+            "online": online, "names": {d["devId"]: d.get("name") or d["devId"] for d in devices if d.get("devId")}, "errors": errors}
+
+
+report_routes.register(app, {"conn": get_connection, "sites": _report_sites, "anomalies": _anomalies, "manage": _check_manage_right,
+                             "occupancy_inputs": _occupancy_inputs, "infra_inputs": _infra_inputs,
+                             "configured": lambda: bool(NEBULA_API_KEY), "lock_dir": os.path.dirname(DB_PATH)},
+                       start_loop=os.environ.get("NEBULA_REPORT_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
+
+# #847 : veille de santé du réseau du campus (Nebula + agents internes), voir veille.py / veille_routes.py
+def _veille_clients(site_id):
+    import occupancy
+    out = []
+    for c in _connect().get_site_clients(site_id, period="2h") or []:
+        st = str(c.get("status") or "").lower()
+        out.append({"mac": _mac_of(c), "ip": c.get("ipv4Address") or c.get("ipv4_address") or c.get("ipv4") or c.get("ip"),
+                    "status": "connected" if (not st or st in occupancy.CONNECTED) else "offline"})
+    return out
+
+
+# #851 : charge du réseau (clients et débits moyens par borne, SSID, VLAN, commutateur) et appareils névralgiques
+_charge_cache = {}
+GW_TYPES = ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")
+
+
+@app.route("/sites/<site_id>/charge", methods=["GET"])
+def charge_route(site_id):
+    import charge as charge_lib
+    period = request.args.get("period", "1d")
+    if period not in charge_lib.PERIODES:
+        return jsonify({"error": "période : 2h, 1d, 7d ou 30d"}), 400
+    key = (site_id, period)
+    c = _charge_cache.get(key)
+    if c and time.time() - c["at"] < 600 and request.args.get("refresh") != "1":
+        return jsonify(c["res"]), 200
+    errs = []
+
+    def essai(nom, f):
+        try:
+            r = f()
+            return r.get("data", r) if isinstance(r, dict) and isinstance(r.get("data"), list) else r
+        except Exception as e:  # noqa: BLE001 -- chaque source est facultative
+            errs.append("%s : %s" % (nom, str(e)[:160]))
+            return None
+    try:
+        client = _connect()
+        _refresh_inventory(client)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": "Nebula injoignable : %s" % str(e)[:200]}), 502
+    devices = _inventory["devices"].get(site_id) or []
+    p7 = period if period != "30d" else "7d"
+    apc = essai("clients des bornes", lambda: client.ap_clients_v2(site_id, period))
+    cl = essai("clients du site", lambda: client.get_site_clients(site_id, features=["mac_address", "vlan", "status"], period=period))
+    swc = essai("clients des commutateurs", lambda: client.sw_clients(site_id, p7))
+    sw_usage, gw_usage = {}, {}
+    for d in devices:
+        t = str(d.get("type") or "").upper()
+        if t in ("SW", "SWITCH"):
+            sw_usage[d["devId"]] = essai("liaison montante de %s" % (d.get("name") or d["devId"]), lambda d=d: client.sw_traffic_usage(site_id, d["devId"], p7)) or {"erreur": "non disponible"}
+        elif t in GW_TYPES:
+            try:
+                gw_usage[d["devId"]] = client.gw_traffic_usage(site_id, d["devId"], p7)
+            except Exception as e:  # noqa: BLE001 -- chemin non documenté : simplement « non disponible »
+                gw_usage[d["devId"]] = {"erreur": "non disponible par l'API (%s)" % str(e)[:80]}
+    ssid_vlan = {}
+    vm = essai("carte des VLAN", lambda: _vlan_map_cached(site_id))
+    for v in (vm or {}).get("vlans") or []:
+        for sd in v.get("ssids") or []:
+            if sd.get("name"):
+                ssid_vlan[sd["name"]] = v.get("vid")
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        lignes = [(r["dev_id"], r["at"], r["clients"]) for r in conn.execute("SELECT dev_id, at, clients FROM nebula_occupancy WHERE site_id = ? AND at >= ?",
+                                                                               (site_id, now - charge_lib.PERIODES[period]))]
+    except Exception:  # noqa: BLE001 -- table absente (occupation jamais relevée)
+        lignes = []
+    finally:
+        conn.close()
+    res = charge_lib.agreger(period, devices, apc if isinstance(apc, list) else None, cl if isinstance(cl, list) else None,
+                             swc if isinstance(swc, list) else None, sw_usage, gw_usage, ssid_vlan, charge_lib.occupation(lignes, now - charge_lib.PERIODES[period]))
+    res.update(site_id=site_id, at=now, erreurs=errs, periode_commutateurs=p7)
+    _charge_cache[key] = {"at": time.time(), "res": res}
+    return jsonify(res), 200
+
+
+@app.route("/sites/<site_id>/nevralgiques", methods=["GET"])
+def nevralgiques_get(site_id):
+    return jsonify({"nevralgiques": report_routes.kv_get("nevralgiques:%s" % site_id, {})}), 200
+
+
+@app.route("/sites/<site_id>/nevralgiques", methods=["PUT"])
+def nevralgiques_put(site_id):
+    """Marquer / démarquer un appareil névralgique : {mac, nom, raison, nevralgique: bool, user, groups}."""
+    body = request.get_json(silent=True) or {}
+    ok, err = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": err}), 403
+    import veille as veille_lib
+    mac = veille_lib.norm_mac(body.get("mac"))
+    if not mac:
+        return jsonify({"error": "adresse MAC requise"}), 400
+    d = report_routes.kv_get("nevralgiques:%s" % site_id, {})
+    if body.get("nevralgique", True):
+        d[mac] = {"nom": str(body.get("nom") or mac)[:60], "raison": str(body.get("raison") or "")[:200], "par": str(body.get("user") or "")[:60], "at": int(time.time())}
+    else:
+        d.pop(mac, None)
+    report_routes.kv_set("nevralgiques:%s" % site_id, d)
+    return jsonify({"nevralgiques": d}), 200
+
+
+# #852 : recherche sur tout le site, module d'action (plan, impact, exécution surveillée, retour arrière, journal)
+@app.route("/sites/<site_id>/recherche", methods=["GET"])
+def recherche_route(site_id):
+    import recherche as rech
+    q = (request.args.get("q") or "").strip()
+    if len(q) < 2:
+        return jsonify({"q": q, "resultats": []}), 200
+    errs, sources = [], []
+    try:
+        _refresh_inventory(_connect())
+    except Exception as e:  # noqa: BLE001
+        errs.append("inventaire : %s" % str(e)[:120])
+    devs = _inventory["devices"].get(site_id) or []
+    sources.append(("appareil", lambda o: o.get("name") or o.get("devId"), lambda o: {"tab": "vlan", "name": o.get("name")}, devs))
+    tree = None
+    for per in ("1d", "7d", "2h"):
+        c = _topo_cache.get((site_id, per))
+        if c:
+            tree = c["tree"]; break
+    if tree is None:
+        try:
+            tree = collect_topology(_connect(), site_id, "1d")
+            _topo_cache[(site_id, "1d")] = {"at": int(time.time()), "tree": tree}
+        except Exception as e:  # noqa: BLE001
+            errs.append("clients : %s" % str(e)[:120])
+    clients = [dict(cl, servi_par=n.get("name")) for n in (tree or {}).get("nodes") or [] for cl in n.get("clients") or []] + list((tree or {}).get("loose_clients") or [])
+    sources.append(("client", lambda o: o.get("name") or o.get("mac") or "?", lambda o: {"tab": "vlan", "mac": o.get("mac"), "name": o.get("name")}, clients))
+    try:
+        vm = _vlan_map_cached(site_id)
+        sources.append(("vlan", lambda o: "VLAN %s" % o.get("vid"), lambda o: {"tab": "vlan"}, vm.get("vlans") or []))
+        sources.append(("anomalie", lambda o: o.get("element") or o.get("kind"), lambda o: {"tab": "vlan", "anomalie": o.get("id")}, vm.get("anomalies_detail") or []))
+    except Exception as e:  # noqa: BLE001
+        errs.append("carte des VLAN : %s" % str(e)[:120])
+    try:
+        sources.append(("fiche", lambda o: o.get("name") or "?", lambda o: {"pane": "campus", "name": o.get("name")}, _veille_assets()))
+    except Exception as e:  # noqa: BLE001
+        errs.append("fiches du campus : %s" % str(e)[:120])
+    return jsonify({"q": q, "resultats": rech.chercher(q, sources, limite=int(request.args.get("limite", 100))), "erreurs": errs}), 200
+
+
+def _ssid_vlan(site_id):
+    out = {}
+    try:
+        for v in (_vlan_map_cached(site_id) or {}).get("vlans") or []:
+            for sd in v.get("ssids") or []:
+                if sd.get("name"):
+                    out[sd["name"]] = v.get("vid")
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _invalider():
+    _vlan_cache.clear()
+    _topo_cache.clear()
+
+
+import actions_routes  # noqa: E402
+actions_routes.register(app, {"conn": get_connection, "client": _connect, "anomalies": lambda sid, refresh=False: _anomalies(sid, refresh=refresh),
+                              "ssid_vlan": _ssid_vlan, "manage": _check_manage_right, "allow_write": lambda: ALLOW_WRITE,
+                              "set_state": _set_state, "invalidate": _invalider,
+                              "notify": lambda action, sujet, corps: report_routes._notify(action, sujet, corps, report_routes.settings(), severity="warning")})
+
+
+def _veille_assets():
+    conn = get_connection()
+    try:
+        return [json.loads(r["data"]) for r in conn.execute("SELECT data FROM campus_records WHERE collection = 'assets'")]
+    finally:
+        conn.close()
+
+
+import veille_routes  # noqa: E402
+veille_routes.register(app, {"sites": _report_sites, "board": lambda sid: _board(sid, 24)["devices"], "clients": _veille_clients,
+                             "vlanmap": lambda sid: _vlan_map_cached(sid), "assets": _veille_assets,
+                             "manage": _check_manage_right, "lock_dir": os.path.dirname(DB_PATH)},
+                       start_loop=os.environ.get("NEBULA_VEILLE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
+
+def _pilotage_charge(site_id):
+    """Charge Nebula des 2 dernières heures (même calcul et même cache que /sites/<id>/charge)."""
+    with app.test_request_context("/sites/%s/charge?period=2h" % site_id):
+        r = charge_route(site_id)
+        resp, code = (r if isinstance(r, tuple) else (r, 200))[:2]
+        return resp.get_json() if code == 200 else None
+
+
+import pilotage_routes  # noqa: E402  -- #855 : tableau de bord, boucles de rétroaction, bancs de test
+pilotage_routes.register(app, {"sites": _report_sites, "charge": _pilotage_charge, "veille": lambda: veille_routes.evaluer(),
+                               "conn": get_connection, "manage": _check_manage_right,
+                               "notify": lambda action, sujet, corps: report_routes._notify(action, sujet, corps, report_routes.settings(), severity="warning"),
+                               "lock_dir": os.path.dirname(DB_PATH)},
+                         start_loop=os.environ.get("NEBULA_PILOTAGE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+
+# ------------------------------------------------------------------
+# Fiches du campus (livraison #566) : matériels et services/logiciels,
+# importés des tableurs du site (xlsx / ods / csv), stockés dans /data --
+# jamais dans le dépôt. Voir campus.py (logique pure).
+@app.route("/campus/<collection>", methods=["GET"])
+def campus_list(collection):
+    if collection not in ("assets", "services"):
+        return jsonify({"error": "collection inconnue"}), 404
+    conn = get_connection()
+    try:
+        rows = [dict(r) for r in conn.execute("SELECT id, key, data, imported_at, imported_by FROM campus_records WHERE collection = ? ORDER BY lab, name", (collection,))]
+    finally:
+        conn.close()
+    items = []
+    for r in rows:
+        d = json.loads(r["data"]); d["id"] = r["id"]; d["imported_at"] = r["imported_at"]
+        items.append(d)
+    if collection == "assets" and request.args.get("site_id"):
+        # rapprochement avec les clients Nebula (arbre en cache, sinon calculé)
+        site_id = request.args["site_id"]; period = request.args.get("period", "1d")
+        cached = _topo_cache.get((site_id, period))
+        tree = cached["tree"] if cached else None
+        if tree is None:
+            try:
+                tree = collect_topology(_connect(), site_id, period)
+                _topo_cache[(site_id, period)] = {"at": int(time.time()), "tree": tree}
+            except nebula.NebulaError:
+                tree = None
+        if tree:
+            names = {n["id"]: n["name"] for n in tree.get("nodes") or []}
+            clients = []
+            for n in tree.get("nodes") or []:
+                for c in n.get("clients") or []:
+                    c = dict(c); c["parent_name"] = names.get(n["id"], n["id"]); c["connected_to"] = c.get("connected_to") or c["parent_name"]
+                    clients.append(c)
+            for c in tree.get("loose_clients") or []:
+                clients.append(dict(c))
+            campus_lib.match_assets(items, clients)
+    last = max([r["imported_at"] for r in rows] or [None])
+    return jsonify({"items": items, "count": len(items), "imported_at": last}), 200
+
+
+@app.route("/campus/<collection>/import", methods=["POST", "PUT"])
+def campus_import(collection):
+    """Multipart `file` (xlsx / ods / csv). `mode=replace` (défaut) vide la
+    collection avant ; `mode=merge` met à jour par clé et garde le reste."""
+    if collection not in ("assets", "services"):
+        return jsonify({"error": "collection inconnue"}), 404
+    if "file" not in request.files:
+        return jsonify({"error": "fichier manquant (champ `file`)"}), 400
+    f = request.files["file"]
+    try:
+        rows = campus_lib.read_table(f.read(), f.filename or "")
+        records = campus_lib.parse_records(rows, collection)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # fichier illisible
+        return jsonify({"error": "fichier illisible : %s" % exc}), 400
+    if not records:
+        return jsonify({"error": "aucune ligne reconnue (première ligne = en-têtes : Nom, Type… ou Parcours, Lab, Nom de l’atelier…)"}), 400
+    mode = request.form.get("mode", "replace")
+    by = request.form.get("user") or request.headers.get("X-User") or ""
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        if mode == "replace":
+            conn.execute("DELETE FROM campus_records WHERE collection = ?", (collection,))
+        for r in records:
+            conn.execute("""INSERT INTO campus_records (collection, key, name, kind, lab, location, data, imported_at, imported_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(collection, key) DO UPDATE SET name = excluded.name, kind = excluded.kind, lab = excluded.lab, location = excluded.location, data = excluded.data, imported_at = excluded.imported_at, imported_by = excluded.imported_by""",
+                         (collection, r["key"], r.get("name"), r.get("kind") or r.get("course"), r.get("lab"), r.get("location"), json.dumps(r, ensure_ascii=False), now, by))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "count": len(records), "mode": mode, "columns": rows[0] if rows else []}), 200
+
+
+# #872 : historique des clients (Nebula ne garde que 24 h) -- relève horaire + à la demande, requête filtrée et triée
+import client_history_routes  # noqa: E402
+client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
+                                     "configured": lambda: bool(NEBULA_API_KEY),
+                                     "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})

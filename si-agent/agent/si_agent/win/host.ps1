@@ -126,6 +126,13 @@ if ($mp) {
 $firewall = @()
 $fw = Get-NetFirewallProfile
 if ($fw) { foreach ($p in $fw) { $firewall += [ordered]@{ profile = $p.Name; enabled = [bool]$p.Enabled } } }
+# #520 : tout antivirus enregistré au Centre de sécurité (Defender, Bitdefender
+# GravityZone, ESET…) avec son état codé -- décodé côté agent (antivirus.py).
+$antivirus = @()
+try {
+  $avp = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -ErrorAction Stop
+  foreach ($a in @($avp)) { $antivirus += [ordered]@{ displayName = [string]$a.displayName; productState = [int]$a.productState; timestamp = [string]$a.timestamp } }
+} catch { $partial += "security-center" }
 $bl = Get-BitLockerVolume -MountPoint "C:"
 $bitlocker = $(if ($bl) { [string]$bl.ProtectionStatus } else { $null })
 
@@ -134,6 +141,7 @@ $out = [ordered]@{
   services = [ordered]@{ failed = $failed; running_count = $runningCount }
   ports = $ports; logs = $logs; accounts = $accounts
   windows = [ordered]@{ updates = $updates; defender = $defender; firewall = $firewall; bitlocker_c = $bitlocker }
+  antivirus = @($antivirus)
   partial = @($partial)
 }
 $out | ConvertTo-Json -Depth 6 -Compress

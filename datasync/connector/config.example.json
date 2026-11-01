@@ -1,0 +1,14 @@
+{
+  "central": "https://hub.exemple:6443/api/datasync",
+  "token": "jeton-affiche-a-la-creation-de-la-source",
+  "verify_tls": true,
+  "db": {"driver": "mysql", "host": "localhost", "port": 3306, "user": "lecture", "password": "", "name": "application", "charset": "latin1"},
+  "tables": [
+    {"name": "tickets", "pk": "id", "watermark": "last_update"},
+    {"name": "contacts", "pk": "id"},
+    {"name": "sites", "pk": "id"}
+  ],
+  "interval_s": 300,
+  "ping_s": 60,
+  "batch": 500
+}

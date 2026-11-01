@@ -1,0 +1,1745 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Gantt Chart &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Planning View" href="PlanningView.html" />
+    <link rel="prev" title="Manage the planning" href="Planning.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="PlanningView.html" title="Planning View"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Planning.html" title="Manage the planning"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Gantt Chart</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="gantt-chart">
+<span id="index-0"></span><span id="id1"></span><h1>Gantt Chart<a class="headerlink" href="#gantt-chart" title="Permalink to this heading">¶</a></h1>
+<p>Project planning is of paramount importance to ensure the success of your objective and allows you to estimate the necessary resources, establish a schedule and define the expected performance indicators.</p>
+<p>Projeqtor offers a wide choice of control levers to best plan your project and in precise conditions.</p>
+<p>The Gantt chart is a tool used in planning and project management to visualize the different tasks that make up a project over time.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For large projects, with many sub-projects and activities, the number of lines to be displayed is limited in order not to deteriorate performance, even if the project selector has already contextualized the display.</p>
+</div>
+<figure class="align-default" id="id9">
+<img alt="Five areas of Gantt Chart" src="_images/GANTT_ZONE_Planning.png" />
+<figcaption>
+<p><span class="caption-text">Six areas of Gantt Chart</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic">
+<p class="topic-title">The Gantt Chart is composed of six areas</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#toolbar-gantt"><span class="std std-ref">Toolbar</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#projecttimeline"><span class="std std-ref">Timeline</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a>  <a class="reference internal" href="#task-list"><span class="std std-ref">Task List: WBS struture</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#context-menu-gantt"><span class="std std-ref">Context menu</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a>  <a class="reference internal" href="#gantt-chart-view"><span class="std std-ref">Gantt chart view</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#gantt-details-area"><span class="std std-ref">Details area</span></a></p>
+</aside>
+<section id="toolbar">
+<span id="toolbar-gantt"></span><h2>Toolbar<a class="headerlink" href="#toolbar" title="Permalink to this heading">¶</a></h2>
+<figure class="align-default" id="id10">
+<img alt="Gantt chart's toolbar" src="_images/GANTT_ZONE_Toolbar.png" />
+<figcaption>
+<p><span class="caption-text">Gantt chart’s toolbar</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The tools are dedicated to the planning view.</p>
+<aside class="topic" id="toolbar-gantt-topic">
+<p class="topic-title"><strong>Gantchart Toolbar</strong></p>
+<p><a class="reference internal" href="_images/zero.png"><img alt="Zero" src="_images/zero.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#zoom-gantt"><span class="std std-ref">Zoom</span></a></p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#scroll-today"><span class="std std-ref">Scroll to today</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#predecessor-successor"><span class="std std-ref">Predecessor &amp; Successor</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#critical-path-option"><span class="std std-ref">Critical path</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#mode-block"><span class="std std-ref">Quick mode block</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#activityplanningcalculation"><span class="std std-ref">Planning calculation</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#auto-run"><span class="std std-ref">Automatic run plan</span></a></p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Seven" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#save-baseline"><span class="std std-ref">Baseline</span></a></p>
+<p><a class="reference internal" href="_images/eight.png"><img alt="Eight" src="_images/eight.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#new-element-gantt"><span class="std std-ref">New planning element</span></a></p>
+<p><a class="reference internal" href="_images/nine.png"><img alt="Nine" src="_images/nine.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#advanced-filter-gantt"><span class="std std-ref">Advanced filter</span></a></p>
+<p><a class="reference internal" href="_images/ten.png"><img alt="Ten" src="_images/ten.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#displayed-columns-gantt"><span class="std std-ref">Columns</span></a></p>
+<p><a class="reference internal" href="_images/eleven.png"><img alt="Eleven" src="_images/eleven.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#options-planning"><span class="std std-ref">Options</span></a></p>
+<p><a class="reference internal" href="_images/twelve.png"><img alt="Twelve" src="_images/twelve.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#options-layout"><span class="std std-ref">Layout mode</span></a></p>
+<p><a class="reference internal" href="_images/thirteen.png"><img alt="thirteen" src="_images/thirteen.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#display-from"><span class="std std-ref">Display</span></a></p>
+<p><a class="reference internal" href="_images/fourteen.png"><img alt="fourteen" src="_images/fourteen.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#checkbox-gantt"><span class="std std-ref">Display options</span></a></p>
+<p><a class="reference internal" href="_images/fifteen.png"><img alt="fifteen" src="_images/fifteen.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#planning-validation"><span class="std std-ref">Planning validation</span></a></p>
+<p><a class="reference internal" href="_images/sixteen.png"><img alt="sixteen" src="_images/sixteen.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#timeline-option"><span class="std std-ref">Timeline</span></a></p>
+<p><a class="reference internal" href="_images/seventeen.png"><img alt="seventeen" src="_images/seventeen.png" style="width: 17.7px; height: 17.7px;" /></a> <a class="reference internal" href="#print-export-gantt"><span class="std std-ref">Print and Export</span></a></p>
+</aside>
+<section id="zoom-on-the-gantt">
+<span id="zoom-gantt"></span><h3>Zoom on the Gantt<a class="headerlink" href="#zoom-on-the-gantt" title="Permalink to this heading">¶</a></h3>
+<p>You can select a zoom level of 75%, 100%, or 125% for the Gantt planning view using the selector.</p>
+<p>The zoom setting will be reapplied each time the view is displayed.</p>
+</section>
+<section id="scroll-to-today">
+<span id="scroll-today"></span><h3>Scroll to today<a class="headerlink" href="#scroll-to-today" title="Permalink to this heading">¶</a></h3>
+<p>By clicking this button, you force the Gantt display to return to the current day.</p>
+</section>
+<section id="predecessor-and-successor">
+<span id="predecessor-successor"></span><h3>Predecessor and Successor<a class="headerlink" href="#predecessor-and-successor" title="Permalink to this heading">¶</a></h3>
+<p>This functionality allows you to display the predecessors and/or successors of a plannable element (project, activity, milestone, etc.)</p>
+<p>Click once on <a class="reference internal" href="_images/iconPredecessor1.png"><img alt="Icon predecessor level one" src="_images/iconPredecessor1.png" style="width: 40.0px; height: 32.0px;" /></a> to display the first level of predecessors of the selected element</p>
+<p>Double-click <a class="reference internal" href="_images/iconPredecessor8.png"><img alt="Icon all predecessors" src="_images/iconPredecessor8.png" style="width: 40.0px; height: 32.0px;" /></a> to display all predecessors of the selected element</p>
+<p>Click once on <a class="reference internal" href="_images/iconSuccessor1.png"><img alt="Icon successor level one" src="_images/iconSuccessor1.png" style="width: 41.25px; height: 32.0px;" /></a> to display the first level of successors of the selected element</p>
+<p>Double-click <a class="reference internal" href="_images/iconSuccessor8.png"><img alt="Icon all successor" src="_images/iconSuccessor8.png" style="width: 41.25px; height: 32.0px;" /></a> to display all successors of the selected element.</p>
+<p>Click on <a class="reference internal" href="_images/iconMark.png"><img alt="clear" src="_images/iconMark.png" style="width: 19.2px; height: 19.2px;" /></a> to clear the selection of the predecessor or successor</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="critical-path-option">
+<span id="id2"></span><h3>Critical path option<a class="headerlink" href="#critical-path-option" title="Permalink to this heading">¶</a></h3>
+<p>This option allows you to hide all elements that are not part of the critical path.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#critical-path"><span class="std std-ref">Critical path</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="quick-mode-block">
+<span id="mode-block"></span><h3>Quick mode block<a class="headerlink" href="#quick-mode-block" title="Permalink to this heading">¶</a></h3>
+<p>In automatic calculation mode, changing most fields causes the schedule calculation to be refreshed.</p>
+<p>This specific blocking mode allows you to not update the schedule automatically each time you make changes.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Some displays may not reflect the correct values</p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="planning-calculation">
+<span id="activityplanningcalculation"></span><h3>Planning calculation<a class="headerlink" href="#planning-calculation" title="Permalink to this heading">¶</a></h3>
+<p>When you make a modification on an element of your project, the project must then be recalculated to take it into account.</p>
+<p>You have the option of using the automatic calculation function, which, if you make a modification on the planning screen, and only on this screen, will immediately take this modification into account.</p>
+<p>If the modification is made on another screen, even if you have selected automatic calculation then, you will have to restart the calculation on the planning screen.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconPlan.png"><img alt="calculate planning button" src="_images/iconPlan.png" style="width: 19.2px; height: 19.2px;" /></a> to start the activity planning calculation.</p></li>
+<li><p>A popup window appears with the list of projects.</p></li>
+<li><p>The check boxes in the list area allow you to select one or more projects to recalculate.</p></li>
+</ul>
+<figure class="align-default" id="id11">
+<img alt="Project selection popUp for project calculation" src="_images/GANTT_BOX_Calculation.png" />
+<figcaption>
+<p><span class="caption-text">Project selection popUp for project calculation</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>If you have selected one or more projects with <a class="reference internal" href="Gui.html#project-selector"><span class="std std-ref">Project Selector</span></a> then the selected projects will be automatically checked.</p>
+<p>Choose the date on which you want to recalculate the project.</p>
+<p>By checking the “Hide unselected projects” box, you will only have the projects selected in the project selector and they will be automatically checked.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>When the schedule calculation takes a long time, with thousands of activities to be scheduled, the existing scheduled work is deleted, then the calculation is performed, and then the new scheduled work is saved.</p>
+<p>During the calculation, users who right-click on the activity do not see the data (the scheduled work is deleted).
+The idea is to delay the deletion of the scheduled work as long as possible, until just before new values are created.</p>
+</div>
+</section>
+<section id="automatic-run-plan">
+<span id="auto-run"></span><h3>Automatic run plan<a class="headerlink" href="#automatic-run-plan" title="Permalink to this heading">¶</a></h3>
+<p>Swith the button to activate automatic calculation on each change.</p>
+<p>Only works on the Gantt Planning view.</p>
+<p>If the modification of an element is carried out on the dedicated screen of the element, then it is necessary to click again on BUTTON to restart the computation</p>
+<p>All modifications about assignement (rate, name or numbers of resources, dates…) done are not displayed on the new planning screen until having, for this purpose, activited the planning calculation, either in an automatic run plan or not.</p>
+<p>On the contrary, the screen planning will not change even if modifications have been loaded yet.</p>
+<blockquote>
+<div><p><strong>Automatic calculation</strong></p>
+<ul class="simple">
+<li><p><strong>Differential calculation =</strong> calculation of projects requiring recalculation after being modified.</p></li>
+<li><p><strong>Complete calculation =</strong> calculation of all projects</p></li>
+</ul>
+</div></blockquote>
+<p>The calculations are programmed according to a frequency of CRON type (every minute, every hour, at a given hour every day, at a given time on a given week day, …)</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>Global Parameters into the chapter <a class="reference internal" href="GlobalParameters.html#automatic-planning-calcul"><span class="std std-ref">Automatic planning Calculation</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="quick-planning">
+<span id="index-1"></span><span id="id3"></span><h3>Quick planning<a class="headerlink" href="#quick-planning" title="Permalink to this heading">¶</a></h3>
+<p>The objective is to be able to perform a quick schedule calculation when the automatic schedule calculation function is deactivated in order to obtain an initial result directly on the modified tasks without having to recalculate the capacity</p>
+<figure class="align-default" id="id12">
+<img alt="Quick planning activate" src="_images/GANTT_ZONE_QuickPlanning.png" />
+<figcaption>
+<p><span class="caption-text">Quick planning activate</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>After modifying an activity, the schedule is recalculated locally to redisplay it without having to call the server.</p>
+<p>A call to the server is made in the background to save the modified data and the schedule position of each impacted activity.</p>
+<p>Only the activity details are refreshed from the server; the schedule is not refreshed using the server’s data.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Some modifications will necessarily lead to the recalculation of the capacity (from the server).</p>
+<p>Consult the impact table.</p>
+</div>
+<section id="quick-planning-impacts">
+<h4>Quick planning impacts<a class="headerlink" href="#quick-planning-impacts" title="Permalink to this heading">¶</a></h4>
+<table class="docutils align-default" id="id13">
+<caption><span class="caption-text">Triggers</span><a class="headerlink" href="#id13" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Trigger</p></th>
+<th class="head"><p>NEW</p></th>
+<th class="head"><p>Refresh</p></th>
+<th class="head"><p>OK</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Add a line</p></td>
+<td><p>NEW</p></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Delete a line</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Move a line</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Indent a line</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Split a line (cut in two)</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Copy a line</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Change dates “graphically”</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Modify a line - inline</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Modify a line - detailed</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Modify a line - in pop-up</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Add a dependency - inline</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Delete a dependency - inline</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Modify a dependency - inline</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Add a dependency - in Gantt (drag &amp; drop)</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Modify a dependency - in Gantt (pop-up)</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Add a dependency - in table (pop-up detail)</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Delete a dependency - in table (detail)</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Modify a dependency - in table (detail)</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Add an assignment</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Modify an assignment</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Delete an assignment</p></td>
+<td></td>
+<td><p>Refresh</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Recalculate</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Take dependencies into account</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Take parents into account for dependencies</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Calculate start dates - end of elementary activities</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Calculate start dates - end of parent activities</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Calculate milestones</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Take Finish-to-Start dependencies into account</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Take Start-to-Start dependencies into account</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Take Start-to-Finish dependencies into account</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Take Finish-to-Finish dependencies into account</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Save quick calculation dates</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Calculate planning dates</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Load planning, not started</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Load planning, started</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>Manage bar display</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>Planning modes</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>ASAP - as soon as possible</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>GROUP - common work</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>ALAP - finish as late as possible</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>FIXED - fixed duration</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>DURATION - duration in hours</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>WORK - work in hours</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>DDUR - duration by resource</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>FDUR - duration by deliverable</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>FULL | HALF | QUARTER - regular</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>RECW - recurring work</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>RECR - recurring resource</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>REGU - regular work</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>NRES - cannot start before validated date</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>STAR - must start at validated date</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-odd"><td><p>FIXED - fixed milestone</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+<tr class="row-even"><td><p>FLOAT - floating milestone</p></td>
+<td></td>
+<td></td>
+<td><p>OK</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="overuse-infinite-overbooking-capacity">
+<span id="overuse-calculation"></span><span id="index-2"></span><h4>Overuse (infinite overbooking capacity)<a class="headerlink" href="#overuse-infinite-overbooking-capacity" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>The overuse option allows you to allocate to all the resources and this, on the projects of your choice, maximum overbooking.</p>
+<p>This allows you to see the amount of work that is overused for the resources assigned to the task for each period of time.</p>
+<p>The overuse option allows you to allocate to all the resources and this, on the projects of your choice, maximum overbooking.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This function is dangerous, it does not reflect reality.</p>
+<p>For this reason, by default, it is not activated, even for the administrator.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="AccessRights.html#specific-access"><span class="std std-ref">Specific access</span></a> in the Planning access rights section</p>
+<p><a class="reference internal" href="Planning.html#plan-overuse"><span class="std std-ref">Overuse</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="calculate-with-the-critical-path">
+<h4>Calculate with the critical path<a class="headerlink" href="#calculate-with-the-critical-path" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Check the box to enable critical path calculation.</p>
+<p>If this box was not checked during the last calculation then the critical path display option in the Gant chart options will not display anything.</p>
+<p><a class="reference internal" href="#toolbar-gantt"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+</section>
+<section id="baseline">
+<span id="save-baseline"></span><h3>Baseline<a class="headerlink" href="#baseline" title="Permalink to this heading">¶</a></h3>
+<p>The baseline is a record of the planning state at a time T.</p>
+<p>Saved a baseline with the button <a class="reference internal" href="_images/iconBaseline.png"><img alt="saved baseline" src="_images/iconBaseline.png" style="width: 19.2px; height: 19.2px;" /></a>.</p>
+<figure class="align-default" id="id14">
+<img alt="Baseline management" src="_images/GANTT_BOX_Baseline.png" />
+<figcaption>
+<p><span class="caption-text">Baseline management</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Enter the project on which to create the baseline.</p></li>
+<li><p>You have possibility to save baselines on all projects.</p></li>
+<li><p>The list of existing baselines, already registered, is available via this window.</p></li>
+<li><p>You can display two baselines on the Gantt chart. Above and below the bars of the Gantt chart.</p></li>
+<li><p>You can create as many baselines as you want per day, but you can only save one baseline per day. Each new baseline must replace the previous one.</p></li>
+<li><p>You can modify your baseline or delete it to save another one.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Error message on baseline management" src="_images/GANTT_BOX_BaselineError.png" />
+<figcaption>
+<p><span class="caption-text">Error message on baseline management</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>An alert message notifies you when a baseline has already been performed on the current day.</p>
+<figure class="align-default" id="id16">
+<img alt="Display two baselines" src="_images/GANTT_BOX_ShowBaseline.png" />
+<figcaption>
+<p><span class="caption-text">Display two baselines</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can display two baselines at the same time. The one above the current activity bars of your project. The other below.</p>
+<p>Each of them can be personalized with a different color.</p>
+<p>This option will be very useful for you to compare possible drifts and explain them.</p>
+<figure class="align-default" id="id17">
+<img alt="Baseline display on Gantt chart" src="_images/GANTT_ZONE_Baseline.png" />
+<figcaption>
+<p><span class="caption-text">Baseline display on Gantt chart</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="add-a-new-planning-element">
+<span id="new-element-gantt"></span><h3>Add a new planning element<a class="headerlink" href="#add-a-new-planning-element" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Allows you to create a new planning element.</p></li>
+<li><p>The element is then added under the previously selected element and with the same level of incrementation</p></li>
+<li><p>The element is added to the Gantt chart and the detail area adapts to the content created.</p></li>
+<li><p>The details area allows you to complete the entry.</p></li>
+</ul>
+<figure class="align-center" id="id18">
+<img alt="Popup menu - Create a new item" src="_images/GANTT_TIP_CreateNewItem.png" />
+<figcaption>
+<p><span class="caption-text">Popup menu - Create a new item</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can create several elements on the planning view and more on to the <a class="reference internal" href="PlanningView.html#gantt-planning"><span class="std std-ref">Global planning</span></a>.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="advanced-filter">
+<span id="advanced-filter-gantt"></span><h3>Advanced Filter<a class="headerlink" href="#advanced-filter" title="Permalink to this heading">¶</a></h3>
+<p>Activate the switch buttons for the quick filters “search by id” and “search by name” to display them permanently in the screen’s title bar.</p>
+<p>The advanced filter allows to define clause to filter and sort.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#filters"><span class="std std-ref">filters</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="displayed-columns">
+<span id="displayed-columns-gantt"></span><h3>Displayed columns<a class="headerlink" href="#displayed-columns" title="Permalink to this heading">¶</a></h3>
+<p>This functionality allows to define columns displayed in the progress data view.</p>
+<p>More details: <a class="reference internal" href="Gui.html#columns"><span class="std std-ref">Display and organize the columns</span></a>.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+<blockquote>
+<div></div></blockquote>
+</section>
+<section id="change-layout-of-the-screen">
+<span id="options-layout"></span><h3>Change layout of the screen<a class="headerlink" href="#change-layout-of-the-screen" title="Permalink to this heading">¶</a></h3>
+<p>You can modify the display of the Planning screen independently of the other screens.</p>
+<p>If you choose a vertical display mode globally, you can display the planning view horizontally without modifying the general display.</p>
+<p>More details: <a class="reference internal" href="Gui.html#menu-display"><span class="std std-ref">Change the layout mode</span></a></p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="display-other-options">
+<span id="options-planning"></span><h3>Display other options<a class="headerlink" href="#display-other-options" title="Permalink to this heading">¶</a></h3>
+<p>Clicking the icon will bring up the additional options window with the specific tools for the Gantt.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+<section id="display-from-to">
+<span id="display-from"></span><h4>Display from… to…<a class="headerlink" href="#display-from-to" title="Permalink to this heading">¶</a></h4>
+<p>Change the start and / or end date to limit or extend the display of a Gantt Chart.</p>
+<p>If the display is truncated because the project is too long, think to change the display scale.</p>
+<blockquote>
+<div><p><strong>All the projet</strong></p>
+<p>Check All the project for the Gantt chart to show all project tasks when possible.</p>
+<p><strong>Saving dates</strong></p>
+<p>Save your dates of display to retrieve them on every connection.</p>
+</div></blockquote>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="other-options-checkbox-for-display">
+<span id="checkbox-gantt"></span><h4>Other options: checkbox for display<a class="headerlink" href="#other-options-checkbox-for-display" title="Permalink to this heading">¶</a></h4>
+<p>You can display or not, certain information on the Gantt chart.</p>
+<section id="show-wbs">
+<h5>Show WBS<a class="headerlink" href="#show-wbs" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>Click on “Show WBS” to display the <a class="reference internal" href="Glossary.html#term-WBS"><span class="xref std std-term">WBS</span></a> number before the names.</p>
+<figure class="align-default" id="id19">
+<img alt="Task list with WBS display" src="_images/GANTT_ZONE_TaskWBS.png" />
+<figcaption>
+<p><span class="caption-text">Task list without and with WBS Display</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="color-on-left-part">
+<span id="color-left"></span><h5>Color on left part<a class="headerlink" href="#color-on-left-part" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>You can apply the color of the project or the plannable element on the list (representing the <a class="reference internal" href="Glossary.html#term-WBS"><span class="xref std std-term">wbs</span></a>) and the Gantt’s bars.</p>
+<figure class="align-default" id="id20">
+<img alt="color applied to the left part of the gantt chart" src="_images/GANTT_ZONE_ColorCustomLeft.png" />
+<figcaption>
+<p><span class="caption-text">color applied to the left part of the gantt chart</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#custom-color"><span class="std std-ref">Custom color</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="activity-colors-by-type">
+<span id="activity-color-type"></span><h5>Activity colors by type<a class="headerlink" href="#activity-colors-by-type" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>You can apply the color defined for the <a class="reference internal" href="ListsOfTypes.html#activity-type"><span class="std std-ref">activity types</span></a> directly on the Gantt exactly as when you define it in the management section of your activity.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="resource">
+<h5>Resource<a class="headerlink" href="#resource" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>The Resource checkbox allows you to directly display the resources assigned to each activity on the Gantt chart.</p>
+<figure class="align-default" id="id21">
+<img alt="Display of initials" src="_images/GANTT_ZONE_ShowResourceInitials.png" />
+<figcaption>
+<p><span class="caption-text">Display of initials</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id22">
+<img alt="Display of initials" src="_images/GANTT_ZONE_ShowResourceName.png" />
+<figcaption>
+<p><span class="caption-text">Display of name</span><a class="headerlink" href="#id22" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A user parameter allows you to choose between displaying names or initials.</p>
+<p>Choose if you want names, initials or nothing to appear on the Gantt chart.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="UserParameter.html#display-parameters"><span class="std std-ref">Tab Display</span></a></p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="name-on-bars">
+<span id="name-bars"></span><h5>Name on bars<a class="headerlink" href="#name-on-bars" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>You can display the item name directly on the milestone bars including.</p>
+<p>A bar that is too small will truncate the name</p>
+<figure class="align-default" id="id23">
+<img alt="Bars names" src="_images/GANTT_ZONE_BarName.png" />
+<figcaption>
+<p><span class="caption-text">Bar name</span><a class="headerlink" href="#id23" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="critical-path">
+<span id="id4"></span><h5>Critical path<a class="headerlink" href="#critical-path" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><blockquote>
+<div><p>This is the longest sequence of tasks that must be completed for the project to be completed on time.</p>
+<p>This is a technique for planning and monitoring deadlines</p>
+<p>This Take into account the constraints to determine the duration of the project.</p>
+<p>The critical tasks that may impact this duration.</p>
+<figure class="align-default" id="id24">
+<img alt="Critical Path" src="_images/GANTT_ZONE_CriticalPath.png" />
+<figcaption>
+<p><span class="caption-text">Display critical Path on the bar</span><a class="headerlink" href="#id24" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The red net represents the critical path of the project.</p>
+<p>ProjeQtOr offers you a critical chain rather than a critical path.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><a class="reference internal" href="#activityplanningcalculation"><span class="std std-ref">Calculate your planning</span></a> with the critical path checkbox enabled if you want to display it on your Gantt chart.</p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="technical-progress">
+<span id="technicalprogress"></span><h5>Technical progress<a class="headerlink" href="#technical-progress" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>When this option is activated, you display the production progress of your work units on the Gantt bar in the same way as the actual work.</p>
+<p>You can display both progress bars at the same time on the same activity bar.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="template-project">
+<h5>Template project<a class="headerlink" href="#template-project" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>You can display or hide the template type projects in the area list.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="closed-element">
+<h5>Closed element<a class="headerlink" href="#closed-element" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>Allows to list closed items on the projects.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="assignment-without-left-work">
+<h5>Assignment without left work<a class="headerlink" href="#assignment-without-left-work" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>Assignments that have no more to do will no longer be visible on the detail.</p>
+<figure class="align-default" id="id25">
+<img alt="hide assignment without left work." src="_images/GANTT_ZONE_HideDetails.png" />
+<figcaption>
+<p><span class="caption-text">Hide assignment without left work.</span><a class="headerlink" href="#id25" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="lock-bar-detail">
+<span id="lockdetail"></span><h5>Lock bar detail<a class="headerlink" href="#lock-bar-detail" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>The detail of the bars is visible with a right click directly on the bars.</p>
+<p>By default, this detail showing the dispatch of the planned work for the resources, does not remain displayed when you no longer hover over the bar after the right click.</p>
+<p>Activate this option so that the detail remains displayed</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="detail-on-simply-click">
+<span id="simpleclick"></span><h5>Detail on simply click<a class="headerlink" href="#detail-on-simply-click" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>Single-click detail allows you to click on the lines of the WBS without triggering online editing and display the task detail with a single click.</p>
+<p>In this mode, you can double-click on a line to activate inline editing.</p>
+<p>When this option is disabled, inline editing is active.</p>
+<p>When you click on a line in the WBS structure the icon <a class="reference internal" href="_images/iconView.png"><img alt="button icon Follow up" src="_images/iconView.png" style="width: 19.2px; height: 19.2px;" /></a> appears at the end of the line. Click on it to see the details.</p>
+<p>Click on <a class="reference internal" href="_images/iconNoView.png"><img alt="No View" src="_images/iconNoView.png" style="width: 19.2px; height: 19.2px;" /></a> to close the detail</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#progress-data-view"><span class="std std-ref">Progress data</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+<section id="auto-scroll-to-planning-bar">
+<span id="autoscroll"></span><h5>Auto scroll to planning bar<a class="headerlink" href="#auto-scroll-to-planning-bar" title="Permalink to this heading">¶</a></h5>
+<blockquote>
+<div><p>When you click on an item in the list box (WBS) and this item is not displayed/visible directly on the Gantt chart then an auto scroll is executed to this item to visualize it on the chart.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</div></blockquote>
+</section>
+</section>
+</section>
+<section id="planning-validation">
+<span id="id5"></span><h3>Planning validation<a class="headerlink" href="#planning-validation" title="Permalink to this heading">¶</a></h3>
+<p>Allows you to replace the validated dates with the planned dates.</p>
+<p>Activate the right in <a class="reference internal" href="AccessRights.html#specific-access"><span class="std std-ref">specific access</span></a>&gt; <a class="reference internal" href="AccessRights.html#planning-acces-right"><span class="std std-ref">Planning access right</span></a> to see this option.</p>
+<figure class="align-center" id="id26">
+<img alt="Dialog box - Store planned dates" src="_images/GANTT_BOX_StorePlannedDates.png" />
+<figcaption>
+<p><span class="caption-text">Store planned dates</span><a class="headerlink" href="#id26" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>With this approach, you validate in a way any possible delay on the activities of your project.</p>
+<p>Two actions are available: <strong>Always</strong> or <strong>If empty</strong>.</p>
+<p class="rubric">Always</p>
+<p>Will overwrite existing values.</p>
+<p>If values are entered in the “validated” fields then, they will all be replaced by the planned dates (calculated by the software)</p>
+<p class="rubric">If empty</p>
+<p>Will not overwrite existing values.</p>
+<p>If the “validated” fields are not completed, then these dates will be replaced by the planned dates.</p>
+<p>If the “validated” fields are completed then they will be kept.</p>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="timeline-options">
+<span id="timeline-option"></span><h3>Timeline options<a class="headerlink" href="#timeline-options" title="Permalink to this heading">¶</a></h3>
+<p>Show or hide the timeline and set the maximum number of lines the timeline should be composed of</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#projecttimeline"><span class="std std-ref">project Timeline</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="print-and-export-the-gantt-chart">
+<span id="print-export-gantt"></span><h3>Print and Export the Gantt chart<a class="headerlink" href="#print-and-export-the-gantt-chart" title="Permalink to this heading">¶</a></h3>
+<p>You can print directly on your printer or export in PDF format or in MS Project format</p>
+<section id="print-planning">
+<h4>Print planning<a class="headerlink" href="#print-planning" title="Permalink to this heading">¶</a></h4>
+<p>Click on the button <a class="reference internal" href="_images/iconPrint.png"><img alt="Print" src="_images/iconPrint.png" style="width: 19.2px; height: 19.2px;" /></a> to print the Gantt chart in A4 and / or A3 format.</p>
+<p>The print quality, despite printing or exporting on a reduced scale, remains very qualitative and offers very little loss of detail in the diagram.</p>
+</section>
+<section id="export-planning-to-pdf">
+<h4>Export planning to PDF<a class="headerlink" href="#export-planning-to-pdf" title="Permalink to this heading">¶</a></h4>
+<p>Allows to export planning to PDF format.</p>
+<p>Export can be done horizontally (landscape) or vertically (portrait) in A4 and / or A3 format</p>
+<p>with great detail even with a zoom</p>
+<p>Export contains all details and links between tasks and also include a pagination.</p>
+<p>And the option <strong>Repeat Headers</strong> allow you to print or export your planning in multiple pages</p>
+<figure class="align-default" id="id27">
+<img alt="Dialog box - Export planning to PDF" src="_images/GANTT_BOX_ExportPlanningPDF.png" />
+<figcaption>
+<p><span class="caption-text">Export planning to PDF</span><a class="headerlink" href="#id27" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>This feature will execute export on client side, in your browser. Thus the server will not be heavy loaded like standard PDF export does.</p>
+<p>It is highly faster than standard PDF export.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This technically complex feature is highly dependent on the browser and is not compatible with all of them.
+It is compatible with the latest versions of IE (v11), Firefox, Edge and Chrome. Otherwise, the old export function will be used.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Forced feature activation/deactivation</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>To enable this feature for all browsers, add the parameter <strong>$pdfPlanningBeta=’true’;</strong> in parameters.php file.</p></li>
+<li><p>To disable if for all browsers, add the parameter <strong>$pdfPlanningBeta=’false’;</strong>
+Default (when <strong>$pdfPlanningBeta</strong> parameter is not set) is <em>enabled with Chrome, disabled with other browsers</em></p></li>
+</ul>
+</div></blockquote>
+</div>
+</section>
+<section id="export-planning-to-ms-project">
+<span id="index-3"></span><h4>Export planning to MS Project<a class="headerlink" href="#export-planning-to-ms-project" title="Permalink to this heading">¶</a></h4>
+<p>You have the option of exporting XML for MS Project.</p>
+<p>Click on the button <a class="reference internal" href="_images/iconMSProject.png"><img alt="MS Project" src="_images/iconMSProject.png" style="width: 19.2px; height: 19.2px;" /></a> to start the export.</p>
+<p>A <strong>user parameter</strong> allows you to enter if you want to add the assignments when exporting the project to MS-Project format.</p>
+<p>If not, the name of the resources will not be available in the MS-Project application</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="UserParameter.html#user-parameters"><span class="std std-ref">User Parameters</span></a></p>
+</div>
+<p><a class="reference internal" href="#toolbar-gantt-topic"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="planning-history">
+<span id="id6"></span><h4>Planning History<a class="headerlink" href="#planning-history" title="Permalink to this heading">¶</a></h4>
+<p>When you perform a calculation on the schedule, you can consult its dedicated history.</p>
+<p>In parallel with the history of the elements, you can find the names of the projects that you have recalculated, the duration of the calculation and whether it was completed successfully.</p>
+<figure class="align-default" id="id28">
+<img alt="Timeline" src="_images/GANTT_BOX_PlanningHistory.png" />
+<figcaption>
+<p><span class="caption-text">Timeline</span><a class="headerlink" href="#id28" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In case of a calculation error, the term incomplete is indicated and the cause of the error is displayed on mouse hover.</p>
+</section>
+</section>
+</section>
+<section id="project-timeline">
+<span id="projecttimeline"></span><h2>Project Timeline<a class="headerlink" href="#project-timeline" title="Permalink to this heading">¶</a></h2>
+<p>You can view the timeline of your projects in the timeline.</p>
+<p>The timeline allows you to have a faster visibility on the progress in time of your projects.</p>
+<figure class="align-default" id="id29">
+<img alt="Timeline" src="_images/GANTT_ZONE_Timeline.png" />
+<figcaption>
+<p><span class="caption-text">Timeline</span><a class="headerlink" href="#id29" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The timeline offers a linear view of some selected tasks.</p>
+<p>You can add/remove tasks to the Timeline with a single right click.</p>
+<figure class="align-default" id="id30">
+<img alt="Add to timeline" src="_images/GANTT_BOX_AddTimeline.png" />
+<figcaption>
+<p><span class="caption-text">Add to timeline</span><a class="headerlink" href="#id30" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Timeline scale automatically adapts to selected tasks.</p></li>
+<li><p>You can hide the Timeline in the Gantt planning view options.</p></li>
+<li><p>You can add milestones.</p></li>
+</ul>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+<span class="target" id="index-4"></span></section>
+<section id="task-list-wbs-struture">
+<span id="task-list"></span><span id="index-5"></span><h2>Task List: WBS struture<a class="headerlink" href="#task-list-wbs-struture" title="Permalink to this heading">¶</a></h2>
+<p>The task list displays the planning elements in hierarchical form by dividing the <a class="reference internal" href="Glossary.html#term-WBS"><span class="xref std std-term">WBS</span></a>.</p>
+<p>Tasks are regrouped by projects and activities.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>The projects displayed depend on the selection made with the <a class="reference internal" href="Gui.html#project-selector"><span class="std std-ref">Project selector</span></a></p>
+</div>
+<figure class="align-center" id="id31">
+<img alt="Task list &amp; progress data view" src="_images/GANTT_ZONE_TaskList.png" />
+<figcaption>
+<p><span class="caption-text">Task list &amp; progress data view</span><a class="headerlink" href="#id31" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic" id="wbs-gantt">
+<p class="topic-title">Interface areas:</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#hide-activity"><span class="std std-ref">Show or Hide element</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#icon-element"><span class="std std-ref">Icon of element</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#reorderplanning"><span class="std std-ref">Reorder Planning elements</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#item-name"><span class="std std-ref">WBS</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#details-online"><span class="std std-ref">Edit online</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#context-menu-gantt"><span class="std std-ref">Context menu</span></a></p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Seven" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#progress-data-view"><span class="std std-ref">Progress data</span></a></p>
+</aside>
+<section id="show-hide-items">
+<span id="hide-activity"></span><h3>Show/Hide items<a class="headerlink" href="#show-hide-items" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Click on the plus or minus of the header area to close and open the groups in the list area.</p></li>
+<li><p>Click on the icons at the top of the list to expand or collapse all project groups at the same time</p></li>
+<li><p>Click on the group row to expand or collapse the group only</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#scale-gantt"><span class="std std-ref">Scale</span></a></p>
+</div>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="icon-of-element">
+<span id="icon-element"></span><h3>Icon of element<a class="headerlink" href="#icon-of-element" title="Permalink to this heading">¶</a></h3>
+<p>A specific icon appears to the left of each item type for faster identification.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconProject.png"><img alt="Button icon project" src="_images/iconProject.png" style="width: 19.2px; height: 19.2px;" /></a> Project</p></li>
+<li><p><a class="reference internal" href="_images/iconReplan.png"><img alt="Replanning schedule" src="_images/iconReplan.png" style="width: 19.2px; height: 19.2px;" /></a> Project to recalculate (the Gant diagramm to display with the latest settings)</p></li>
+<li><p><a class="reference internal" href="_images/iconConstruction.png"><img alt="under construction" src="_images/iconConstruction.png" style="width: 19.2px; height: 19.2px;" /></a> Project under construction</p></li>
+<li><p><a class="reference internal" href="_images/iconFixed.png"><img alt="Fixed planning" src="_images/iconFixed.png" style="width: 19.2px; height: 19.2px;" /></a> Projet fixed in the planning</p></li>
+<li><p><a class="reference internal" href="_images/iconActivity.png"><img alt="Activity" src="_images/iconActivity.png" style="width: 19.2px; height: 19.2px;" /></a> Activity</p></li>
+<li><p><a class="reference internal" href="_images/iconMilestone.png"><img alt="Milestone" src="_images/iconMilestone.png" style="width: 19.2px; height: 19.2px;" /></a> Milestone</p></li>
+<li><p><a class="reference internal" href="_images/iconMeeting.png"><img alt="Meeting" src="_images/iconMeeting.png" style="width: 19.2px; height: 19.2px;" /></a> Meeting</p></li>
+<li><p><a class="reference internal" href="_images/iconTestSession.png"><img alt="Test session" src="_images/iconTestSession.png" style="width: 19.2px; height: 19.2px;" /></a> Test session</p></li>
+</ul>
+<p>Other items can be displayed in the <a class="reference internal" href="#gantt-chart"><span class="std std-ref">Gantt Chart</span></a> (action, decision, delivery…)</p>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="reorder-and-copy">
+<span id="reorderplanning"></span><h3>Reorder and copy<a class="headerlink" href="#reorder-and-copy" title="Permalink to this heading">¶</a></h3>
+<section id="reorder-the-planning">
+<h4>Reorder the planning<a class="headerlink" href="#reorder-the-planning" title="Permalink to this heading">¶</a></h4>
+<p>The selector <a class="reference internal" href="_images/iconDrag.png"><img alt="Drag" src="_images/iconDrag.png" style="width: 19.2px; height: 19.2px;" /></a> allows to reorder the planning elements.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Ability to move multiple tasks at one time from one location to another using the key control to select the lines and then dragging and dropping them.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If you move an activity to a new project, the assigned resource must be allocated to the new project to allow this move.</p>
+</div>
+</section>
+<section id="copy-lines">
+<h4>copy lines<a class="headerlink" href="#copy-lines" title="Permalink to this heading">¶</a></h4>
+<p>You can click on one or more lines to copy them.</p>
+<p>Use the Shift key to select consecutive lines and the Control key to select independent lines.</p>
+<p>Right-click the selection and choose where you want to copy these lines.</p>
+<figure class="align-default" id="id32">
+<img alt="copy lines from wbs" src="_images/GANTT_ZONE_CopyLines.png" />
+<figcaption>
+<p><span class="caption-text">copy lines from wbs</span><a class="headerlink" href="#id32" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The lines will then be copied after this location.</p>
+<p>If any of the copied elements have successors, then the dependencies will be copied as well.</p>
+<figure class="align-default" id="id33">
+<img alt="Paste lines from wbs" src="_images/GANTT_BOX_CopyLines.png" />
+<figcaption>
+<p><span class="caption-text">Past lines from wbs</span><a class="headerlink" href="#id33" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can choose to copy assignments to schedulable items as well as copy items to a saved state.</p>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back]</span></a></p>
+</section>
+</section>
+<section id="wbs">
+<span id="item-name"></span><h3>WBS<a class="headerlink" href="#wbs" title="Permalink to this heading">¶</a></h3>
+<p>Each line corresponds to an element of your project.</p>
+<p>This is the structure of your project with all the steps, activities and actions to be carried out to complete it.</p>
+<p>In front of each name given to your schedulable element, a dynamic number is assigned.</p>
+<p>This number is representative of the level of your element.</p>
+<p>If you change the order of the lines by moving elements then these numbers will be automatically updated with all its successors.</p>
+<figure class="align-default" id="id34">
+<img alt="Structure list of WBS" src="_images/GANTT_ZONE_WBS.png" />
+<figcaption>
+<p><span class="caption-text">Structure list of WBS</span><a class="headerlink" href="#id34" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The colored blocks in front of the WBS task names reflect the colors of the bars.</p>
+<ul class="simple">
+<li><p>They are red/light red when a task is late.</p></li>
+<li><p>They are green/light green when the task is on schedule.</p></li>
+<li><p>They are purple when a resource is unavailable for the task.</p></li>
+<li><p>They are gray when the item is closed or canceled.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ul class="simple">
+<li><p>If the <strong>Detail on simply click</strong> option is enabled, click on a line to display the detail area</p></li>
+<li><p>If the <strong>Detail on simply click</strong> option is not enabled, then click on <a class="reference internal" href="_images/iconView.png"><img alt="button icon Follow up" src="_images/iconView.png" style="width: 19.2px; height: 19.2px;" /></a> to view the detail.</p></li>
+</ul>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#gantt-details-area"><span class="std std-ref">detail area</span></a>.</p>
+</div>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back]</span></a></p>
+<section id="edit-on-line">
+<span id="details-online"></span><h4>Edit on line<a class="headerlink" href="#edit-on-line" title="Permalink to this heading">¶</a></h4>
+<p>Most rows and fields in the displayed columns can be edited from this view.</p>
+<p>Click the field once if the Single Click Details option is disabled, double-click if the option is enabled.</p>
+<p>You can edit these lines directly on the list.</p>
+<p>Each row and each column field can be edited from this view.</p>
+<figure class="align-default" id="id35">
+<img alt="Edit on line" src="_images/GANTT_ZONE_EditOnline.png" />
+<figcaption>
+<p><span class="caption-text">Edit on line</span><a class="headerlink" href="#id35" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click the field once if the <strong>Simple click on details</strong> option is disabled, double-click if the option is enabled.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconSave.png"><img alt="Save" src="_images/iconSave.png" style="width: 19.2px; height: 19.2px;" /></a> to recorded the modification</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconCancel.png"><img alt="Cancel" src="_images/iconCancel.png" style="width: 19.2px; height: 19.2px;" /></a> to cancel the modification</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconView.png"><img alt="button icon Follow up" src="_images/iconView.png" style="width: 19.2px; height: 19.2px;" /></a> to display the detail</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit the line</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconNoView.png"><img alt="No View" src="_images/iconNoView.png" style="width: 19.2px; height: 19.2px;" /></a> to close the detail</p></li>
+</ul>
+<p>The controls relating to the choice of certain fields, such as for the planning modes, are well executed even in free edit mode.</p>
+<p>Either with a single click if the “detail on single click” option is deactivated, or by double clicking if the option is activated.</p>
+<p>You can use your keyboard to move around and confirm your changes.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Tab</span></code> to move within the row.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">↑</span></code>, <code class="docutils literal notranslate"><span class="pre">↓</span></code>, <code class="docutils literal notranslate"><span class="pre">←</span></code>, <code class="docutils literal notranslate"><span class="pre">→</span></code> keyboard navigation arrows to move between rows and lists.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Enter</span></code> to confirm the change, like Ctrl + S.</p></li>
+<li><p>Double click on the ID to copy it and paste it into the predecessor column</p></li>
+</ul>
+<figure class="align-default" id="id36">
+<img alt="Double click for copy" src="_images/GANTT_ZONE_CopiedID.png" />
+<figcaption>
+<p><span class="caption-text">Double click for copy</span><a class="headerlink" href="#id36" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="dependancies">
+<h5>Dependancies<a class="headerlink" href="#dependancies" title="Permalink to this heading">¶</a></h5>
+<p>Predecessor type dependencies can be displayed in the displayed columns and can be edited online directly.</p>
+<p>You just need to fill in the type of predecessor, the ID of the predecessors so that they are taken into account.</p>
+<ul class="simple">
+<li><p>A1 for Activity #1</p></li>
+<li><p>P1 for project #1</p></li>
+<li><p>M1 for Milestone #1</p></li>
+<li><p>TS1 for TestSession #1</p></li>
+<li><p>MG1 for Meeting #1</p></li>
+<li><p>PM1 for Periodic Meeting #1</p></li>
+</ul>
+<figure class="align-default" id="id37">
+<img alt="example display for ID and dependencies" src="_images/GANTT_ZONE_PredecesseurColumn.png" />
+<figcaption>
+<p><span class="caption-text">example display for ID and dependencies</span><a class="headerlink" href="#id37" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To add multiple predecessors at once, separate the items with a semicolon or comma.</p>
+<p>For example A1;A2 or A1,A2.</p>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>If user enters just ID, without letter, consider it is an Activity.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For all the rest of the elements that could serve as predecessors, you can enter the full name directly</p>
+<p>For example to create a dependency with an Action as predecessor then enter Action#ID.</p>
+</div>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back to WBS]</span></a> - <a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back to Chart view]</span></a></p>
+</section>
+</section>
+<section id="context-menu">
+<span id="context-menu-gantt"></span><h4>Context menu<a class="headerlink" href="#context-menu" title="Permalink to this heading">¶</a></h4>
+<p>By right clicking on each of the lines you have access to the Gantt submenu which allows you to access certain actions by going through the main menu of the screen.</p>
+<figure class="align-default" id="id38">
+<img alt="Right click menu" src="_images/GANTT_RightMenu.png" />
+<figcaption>
+<p><span class="caption-text">Right click menu</span><a class="headerlink" href="#id38" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back to WBS]</span></a> - <a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back to Chart view]</span></a></p>
+</section>
+<section id="progress-data">
+<span id="progress-data-view"></span><h4>Progress data<a class="headerlink" href="#progress-data" title="Permalink to this heading">¶</a></h4>
+<p>The progress data view allows you to visualize the progress of all the elements of one or more projects with their consolidation. Each line corresponds to an element.</p>
+<p>To display this information, drag the splitter between the list box and the Gantt chart.</p>
+<p>These lines can be edited directly on this view.</p>
+<figure class="align-center" id="id39">
+<img alt="Progress data view" src="_images/GANTT_ZONE_ProjectDATAView.png" />
+<figcaption>
+<p><span class="caption-text">Progress data view</span><a class="headerlink" href="#id39" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>For each planning element, the progress data are displayed at them right.</p>
+<p>The columns are customizable as on all the other screens of the application.</p>
+<p>you can add or remove the columns you are interested in using column management.</p>
+<p>Click on <a class="reference internal" href="_images/iconColumns.png"><img alt="Columns organizer" src="_images/iconColumns.png" style="width: 19.2px; height: 19.2px;" /></a> to manage them.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#columns"><span class="std std-ref">Display and organize the columns</span></a></p>
+</div>
+<figure class="align-default" id="id40">
+<img alt="Move column" src="_images/GANTT_ZONE_ProjectDATAView_MoveColumns.png" />
+<figcaption>
+<p><span class="caption-text">Move column</span><a class="headerlink" href="#id40" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can change the order of columns and resize them from this view without going through the column management menu.</p>
+<p>Drag and drop the column to the right or the left. Click on the splitter between two column to resize the column.</p>
+<p><a class="reference internal" href="#wbs-gantt"><span class="std std-ref">[back]</span></a></p>
+</section>
+</section>
+</section>
+<section id="gantt-chart-view">
+<span id="id7"></span><h2>Gantt chart view<a class="headerlink" href="#gantt-chart-view" title="Permalink to this heading">¶</a></h2>
+<p>The Gantt chart view is a graphical representation of the progress data of a project.</p>
+<p>For each planning element, a bar is associated with it</p>
+<figure class="align-center" id="id41">
+<img alt="Gantt chart view" src="_images/GANTT_ZONE_ChartView.png" />
+<figcaption>
+<p><span class="caption-text">Gantt chart view</span><a class="headerlink" href="#id41" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic" id="gantt-chart-view-menu">
+<p class="topic-title">Interface areas</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#scale-gantt"><span class="std std-ref">Scale</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#gantt-bars"><span class="std std-ref">The Gantt chart’s Bars</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#dependencylinks"><span class="std std-ref">Dependencies</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#milestonesgantt"><span class="std std-ref">Milestone</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#detail-work"><span class="std std-ref">Detail of the work</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#projecttimeline"><span class="std std-ref">Project Timeline</span></a></p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Seven" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#details-online"><span class="std std-ref">Edit details on line</span></a></p>
+<p><a class="reference internal" href="_images/eight.png"><img alt="Eight" src="_images/eight.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#context-menu-gantt"><span class="std std-ref">Context menu</span></a></p>
+</aside>
+<section id="scale">
+<span id="scale-gantt"></span><h3>Scale<a class="headerlink" href="#scale" title="Permalink to this heading">¶</a></h3>
+<p>Scale available: daily, weekly, monthly and quarter.</p>
+<p>The Gantt chart view will be adjusted according to scale selected.</p>
+<p>When you are in the planning view on the wbs and gantt area and details area, you can move from one scale to another using the wheel control on your mouse.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Mouse wheel up to increase the scale*.</p></li>
+<li><p>Mouse wheel down to decrease the scale.</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>When you continue to increase after the semester, then we loop and return to the day scale, the smallest.</p></li>
+<li><p>Outside of these areas, the mouse wheel will increase the zoom of your browser.</p></li>
+</ul>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="gantt-chart-s-bars">
+<span id="gantt-bars"></span><h3>Gantt chart’s bars<a class="headerlink" href="#gantt-chart-s-bars" title="Permalink to this heading">¶</a></h3>
+<p>The bars in the gantt chart graphically represent a line of your <a class="reference internal" href="Glossary.html#term-WBS"><span class="xref std std-term">WBS</span></a> structure.</p>
+<p>We visualize the start and end dates and therefore the duration of the task.</p>
+<p>The bars displayed in the gantt chart can appear with different colors. Each color has a meaning.</p>
+<p class="rubric">Current date bar</p>
+<figure class="align-left" id="id42" style="width: 100%">
+<img alt="Current date bar" src="_images/GANTT_BAR_YellowBar.png" />
+<figcaption>
+<p><span class="caption-text">Current date bar</span><a class="headerlink" href="#id42" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Yellow column indicates the current day, week, month or quarter, according to scale selected.</p>
+<p>The red line in yellow collumn display the current day and time.</p>
+<p class="rubric">Pale green bar</p>
+<figure class="align-left" id="id43" style="width: 100%">
+<img alt="Without assigned work" src="_images/GANTT_BAR_PaleGreen.png" />
+<figcaption>
+<p><span class="caption-text">no charge</span><a class="headerlink" href="#id43" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Activities without assigned work - Planned end date &lt; or = Validated end date</p>
+<p class="rubric">Green bar</p>
+<figure class="align-left" id="id44" style="width: 100%">
+<img alt="all is well" src="_images/GANTT_BAR_Green.png" />
+<figcaption>
+<p><span class="caption-text">all is well</span><a class="headerlink" href="#id44" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Assigned resources are available and meet workload - Planned end date &lt; or = Validated end date</p>
+<p class="rubric">Pale mauve bar</p>
+<figure class="align-left" id="id45" style="width: 100%">
+<img alt="Without calcul and assigned work and all is well" src="_images/GANTT_BAR_Mauve.png" />
+<figcaption>
+<p><span class="caption-text">no charge</span><a class="headerlink" href="#id45" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Fast calculation - no calculations between projects were carried out - graphical representation - without load - modifications to the task without taking into account the steering levers - Planned end date &lt; or = Validated end date</p>
+<p class="rubric">Mauve bar</p>
+<figure class="align-left" id="id46" style="width: 100%">
+<img alt="Without calcul with charge and all is well" src="_images/GANTT_BAR_Lila.png" />
+<figcaption>
+<p><span class="caption-text">all is well</span><a class="headerlink" href="#id46" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Fast calculation - no calculations between projects were carried out - graphical representation - with load - modifications to the task without taking into account the steering levers - Planned end date &lt; or = Validated end date</p>
+<p class="rubric">Pale red bar</p>
+<figure class="align-left" id="id47" style="width: 100%">
+<img alt="Without assigned work and don't respect the validated date" src="_images/GANTT_BAR_RedPale.png" />
+<figcaption>
+<p><span class="caption-text">no charge and date planned is superior to validated date</span><a class="headerlink" href="#id47" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Activities without assigned work - Planned end date &gt; Validated end date</p>
+<p class="rubric">Red bar</p>
+<figure class="align-left" id="id48" style="width: 100%">
+<img alt="Overdue tasks" src="_images/GANTT_BAR_Red.png" />
+<figcaption>
+<p><span class="caption-text">Overdue tasks</span><a class="headerlink" href="#id48" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Planned end date &gt; Validated end date - Real end date if completed task &gt; Valited end date</p>
+<p class="rubric">Purple bar</p>
+<figure class="align-left" id="id49" style="width: 100%">
+<img alt="Impossible to calculate" src="_images/GANTT_BAR_Purple.png" />
+<figcaption>
+<p><span class="caption-text">Impossible to calculate the remaining work</span><a class="headerlink" href="#id49" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> If a resource is not or is no longer available on an activity.</p>
+<p>The calculator is trying to plan the workload.</p>
+<p>The resource assigned to the activity is unable to be planned for this task (absence, calendar, assignment or assignment periods, etc.); then the bar turns purple.</p>
+<p class="rubric">Pink bar</p>
+<p>Thanks to the setting on the management of inherited dates, you will be able to display the pink color to indicate that the end date of this task was recovered from a successor element.</p>
+<figure class="align-left" id="id50" style="width: 100%">
+<img alt="Impossible to calculate" src="_images/GANTT_BAR_PalePink.png" />
+<figcaption>
+<p><span class="caption-text">Impossible to calculate the remaining work</span><a class="headerlink" href="#id50" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Planning can take into account validated end dates of activities as a priority using a global parameter.</p>
+<p>When this option is activated, the validated end date, if it is not provided, is automatically inherited from the successor or parent.</p>
+<figure class="align-left" style="width: 100%">
+<img alt="Impossible to calculate" src="_images/GANTT_BAR_Pink.png" />
+</figure>
+<p>In the case of an inheritance and the Planned end date &gt; Validated end date, the bar turns pink.</p>
+<p>Pale pink without workload and bright pink with workload.</p>
+<figure class="align-default" id="id51">
+<img alt="Inherited date" src="_images/GANTT_ZONE_InheritedDates.png" />
+<figcaption>
+<p><span class="caption-text">Inherited date</span><a class="headerlink" href="#id51" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When the validated dates are inherited then they are displayed in italics and grayed out whether in the list area or the detail area.</p>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+<section id="special-bars">
+<span id="id8"></span><h4>Special bars<a class="headerlink" href="#special-bars" title="Permalink to this heading">¶</a></h4>
+<p>Some features offer different color codes.</p>
+<section id="surbooking-and-overuse-bar">
+<h5>Surbooking and overuse bar<a class="headerlink" href="#surbooking-and-overuse-bar" title="Permalink to this heading">¶</a></h5>
+<figure class="align-left" id="id52" style="width: 100%">
+<img alt="Surbooking" src="_images/GANTT_BAR_Yellow.png" />
+<figcaption>
+<p><span class="caption-text">Capacity overbooking</span><a class="headerlink" href="#id52" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> Add extra work time on the standard capabilities of your resources to plan more projects that you will not process.</p>
+<figure class="align-left" id="id53" style="width: 100%">
+<img alt="Surbooking or orveruse view on Gantt chart" src="_images/GANTT_BAR_SurbookingView.png" />
+<figcaption>
+<p><span class="caption-text">Surbooking or orveruse view on Gantt chart</span><a class="headerlink" href="#id53" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Resource.html#surbooking"><span class="std std-ref">Managment of surbooking periods</span></a> and <a class="reference internal" href="#overuse-calculation"><span class="std std-ref">overuse</span></a></p>
+</div>
+</section>
+<section id="surcapacity">
+<h5>Surcapacity<a class="headerlink" href="#surcapacity" title="Permalink to this heading">¶</a></h5>
+<figure class="align-default" id="id54">
+<img alt="Surcapacity" src="_images/GANTT_BAR_Surcapacity.png" />
+<figcaption>
+<p><span class="caption-text">Overcapacity of resources</span><a class="headerlink" href="#id54" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> The capacity of the resource has been changed. It can be under capacity or over capacity. That is to say, it does less or more than its FTE.</p>
+<figure class="align-default" id="id55">
+<img alt="Surcapacity view on Gantt chart" src="_images/GANTT_ZONE_SurcapacityDetails.png" />
+<figcaption>
+<p><span class="caption-text">Surcapacity view on Gantt chart</span><a class="headerlink" href="#id55" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Resource.html#variation-capacity"><span class="std std-ref">Variations in resource capacity</span></a></p>
+</div>
+<p class="rubric">Real work</p>
+<figure class="align-left" id="id56" style="width: 100%">
+<img alt="Work in progress" src="_images/GANTT_BAR_GreenWork.png" />
+<figcaption>
+<p><span class="caption-text">Work in progress</span><a class="headerlink" href="#id56" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> the length represents the percentage of completion based on the actual progress (Assigned - Real work) versus the length of the Gantt bar.</p>
+<p class="rubric">Technical progress</p>
+<figure class="align-left" id="id57" style="width: 100%">
+<img alt="Technical progress" src="_images/GANTT_BAR_TechnicalProgress.png" />
+<figcaption>
+<p><span class="caption-text">Technical progress</span><a class="headerlink" href="#id57" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> the length represents the percentage of completion of the units of work that you enter manually (Delivered - completed) in relation to the length of the Gantt bar.</p>
+<p>The technical progress bar is automatically set to 100% if the activity that carries the production has moved to the done state.</p>
+<p>You can display both progress bars at the same time on the Gantt chart bar.</p>
+<figure class="align-default" id="id58">
+<img alt="Progress bars for actual work and work units" src="_images/GANTT_BAR_Real&amp;TechnicalProgress.png" />
+<figcaption>
+<p><span class="caption-text">Progress bars for actual work and work units</span><a class="headerlink" href="#id58" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Consolidation bar</p>
+<figure class="align-left" id="id59" style="width: 100%">
+<img alt="consolidation bar" src="_images/GANTT_BAR_Consolidation.png" />
+<figcaption>
+<p><span class="caption-text">Consolidation Bar</span><a class="headerlink" href="#id59" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition:</strong> graphical display of the dates consolidated by the group of planning elements for a project</p>
+</section>
+</section>
+</section>
+<section id="custom-colors">
+<span id="custom-color"></span><h3>Custom colors<a class="headerlink" href="#custom-colors" title="Permalink to this heading">¶</a></h3>
+<p>You can apply the color of your choice on the bars of the Gantt chart representing activities, milestones and meetings.</p>
+<p>If the Planned end date&gt; Validated end date then the bar should be colored red.</p>
+<p>In case you have set a custom color, this state will still be indicated by a thin line at the bottom of the bar.</p>
+<figure class="align-left" id="id60">
+<img alt="Custom colors n the gantt chart bars" src="_images/GANTT_ZONE_CustomBars.png" />
+<figcaption>
+<p><span class="caption-text">Custom colors on the gantt chart bars</span><a class="headerlink" href="#id60" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>And in the task list, where the indicators remain the original color.</p>
+<p>A parameter in the tools box allow to apply the color on the left part of the Gantt chart. See: <a class="reference internal" href="#color-left"><span class="std std-ref">Apply color on left part</span></a></p>
+<figure class="align-default" id="id61">
+<img alt="color applied to the left part of the gantt chart" src="_images/GANTT_ZONE_ColorCustomLeft.png" />
+<figcaption>
+<p><span class="caption-text">color applied to the left part of the gantt chart</span><a class="headerlink" href="#id61" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click on the reset button to come back to original colors.</p>
+<p>You can also set a default color based on the <a class="reference internal" href="ListsOfTypes.html#activity-type"><span class="std std-ref">activity type</span></a>.</p>
+<section id="bars-with-hatching">
+<h4>Bars with hatching<a class="headerlink" href="#bars-with-hatching" title="Permalink to this heading">¶</a></h4>
+<p>You can also add hatching in addition to colors to your bars.</p>
+<img alt="_images/GANTT_BAR_HachuresList.png" src="_images/GANTT_BAR_HachuresList.png" />
+<p>The hatching is added on top of the color.</p>
+<figure class="align-default" id="id62">
+<img alt="Gantt bars with hatching" src="_images/GANTT_ZONE_HatchingBars.png" />
+<figcaption>
+<p><span class="caption-text">Gantt bars with hatching</span><a class="headerlink" href="#id62" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="bars-for-color-blind">
+<h4>Bars for color blind<a class="headerlink" href="#bars-for-color-blind" title="Permalink to this heading">¶</a></h4>
+<p>With the help of options, whether in the general settings or in the calculation settings, you can change the colors or have new ones.</p>
+<p>The color of the bar adapts to color blind people if you have activated the option.</p>
+<p class="rubric">GREEN BAR</p>
+<p>the green color of the bar changed to fluorescent green.</p>
+<img alt="_images/GANTT_BAR_GreenColorblind.png" src="_images/GANTT_BAR_GreenColorblind.png" />
+<p>Enable this option in  <a class="reference internal" href="UserParameter.html#display-parameters"><span class="std std-ref">user parameters</span></a></p>
+<p class="rubric">RED BAR</p>
+<p>the red color of the bar changed to striped purple to clearly mark the difference.</p>
+<img alt="_images/GANTT_BAR_RedColorblind.png" src="_images/GANTT_BAR_RedColorblind.png" />
+<p>Enable this option in  <a class="reference internal" href="UserParameter.html#display-parameters"><span class="std std-ref">user parameters</span></a></p>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="item-name-display">
+<h4>Item name display<a class="headerlink" href="#item-name-display" title="Permalink to this heading">¶</a></h4>
+<figure class="align-default" id="id63">
+<img alt="View the item name and planned dates on the selected bar" src="_images/GANTT_ZONE_DisplayDates.png" />
+<figcaption>
+<p><span class="caption-text">Item name and planned dates on the selected bar</span><a class="headerlink" href="#id63" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Move the cursor over the bar to display item name and planned dates.</p>
+<p>or activate the “<a class="reference internal" href="#name-bars"><span class="std std-ref">show bar name</span></a>” check box directly on the Gantt view in the planning screen options.</p>
+</section>
+<section id="dependency">
+<span id="dependencylinks"></span><span id="index-6"></span><h4>Dependency<a class="headerlink" href="#dependency" title="Permalink to this heading">¶</a></h4>
+<aside class="sidebar">
+<p class="sidebar-title">Others sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#predsuces-element-section"><span class="std std-ref">Predecessor and successor</span></a></p></li>
+<li><p><a class="reference internal" href="#milestonesgantt"><span class="std std-ref">Milestones</span></a></p></li>
+</ul>
+</aside>
+<p>Dependencies allow to define the execution order of tasks (sequential or concurrent).</p>
+<p>All planning elements can be linked to others.</p>
+<p>Dependencies can be managed in the Gantt chart and in screen of planning element.</p>
+<p>Dependencies between planning elements are displayed with an arrow.</p>
+<p>When an element involved in a dependency is closed, the dependency linking it is no longer displayed.</p>
+<div class="admonition important" id="strict-mode">
+<p class="admonition-title">Important</p>
+<p><strong>Strict mode for dependencies</strong></p>
+<p>The strict dependency mode forces the successor planning element not to start on the same day as the same predecessor but the next day. Even if the task is finished before the end of the day.</p>
+<p>To have the successor start on the same day or before the end of the predecessor task, select NO for strict mode or you can also put a negative delay.</p>
+<p>The strict dependency mode is a <a class="reference internal" href="GlobalParameters.html#gp-planning-section"><span class="std std-ref">global parameter</span></a>. By default, the strict dependency mode is set to YES.</p>
+</div>
+<section id="create-a-dependency">
+<h5>Create a dependency<a class="headerlink" href="#create-a-dependency" title="Permalink to this heading">¶</a></h5>
+<p><strong>To create a dependency, left click on a bar of the gantt (the predecessor) and slide towards the successor.</strong></p>
+<p>You can also create dependencies with the predecessor and successor tables at the bottom of the details area.</p>
+<p>Remember than the first task always drives the second.</p>
+<figure class="align-default" id="id64">
+<img alt="Predecessor and Successor section" src="_images/COMMON_ZONE_Success&amp;Predecessor.png" />
+<figcaption>
+<p><span class="caption-text">Predecessor and Successor section - In the NAME field, icons are displayed to indicate the type of dependencies</span><a class="headerlink" href="#id64" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> on the corresponding section to add a dependency link.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit the dependency link.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the corresponding dependency link.</p></li>
+</ul>
+<figure class="align-default" id="id65">
+<a class="reference internal image-reference" href="_images/COMMON_BOX_Success&amp;Predecessor.png"><img alt="Dialog box - Predecessor or Successor element" src="_images/COMMON_BOX_Success&amp;Predecessor.png" style="width: 511.20000000000005px; height: 418.40000000000003px;" /></a>
+<figcaption>
+<p><span class="caption-text">Dialog box - Predecessor or Successor element</span><a class="headerlink" href="#id65" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="modify-a-dependency">
+<h5>Modify a dependency<a class="headerlink" href="#modify-a-dependency" title="Permalink to this heading">¶</a></h5>
+<p>Click on the arrow which turns orange, a pop up is displayed allowing you to modify the type and one to add a possible delay.</p>
+<p>The predecessor and successor elements of the dependencies are displayed at the top of the popup.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Multi-line selection is possible using <kbd class="kbd docutils literal notranslate">Control</kbd> or <kbd class="kbd docutils literal notranslate">Shift</kbd> key while clicking.</p>
+</div>
+<figure class="align-default" id="id66">
+<img alt="update dependency pop-up" src="_images/GANTT_BOX_dependencies.png" />
+<figcaption>
+<p><span class="caption-text">Dependencies dialog box</span><a class="headerlink" href="#id66" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can change the type of the dependancy. An image accompanies the types to make your choice easier.</p>
+<p>You can add a delay on the dependancies. The delay can be positive or negative. Negative delay allows overlapping of certain tasks.</p>
+<p>The delay is shown on the Gantt chart and the bubble indicating the delay adapts according to the length of the delay.</p>
+<figure class="align-default" id="id67">
+<img alt="delays on dependencies" src="_images/GANTT_ZONE_DelaysDependency.png" />
+<figcaption>
+<p><span class="caption-text">Delays on dependencies</span><a class="headerlink" href="#id67" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The dependency line will be extended by as many days as the deadline entered. Otherwise it will start the next day by default.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#strict-mode"><span class="std std-ref">the strict mode of dependencies</span></a></p>
+</div>
+</section>
+<section id="dependency-types">
+<h5>Dependency types<a class="headerlink" href="#dependency-types" title="Permalink to this heading">¶</a></h5>
+<p>ProjeQtOr offers three types of dependency. The fourth type <strong>start-End</strong> is not represented.</p>
+<blockquote>
+<div><p><a class="reference internal" href="_images/iconDependencyES.png"><img alt="End Start dependency" src="_images/iconDependencyES.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>End-Start</strong></p>
+<p>The second activity can not start before the end of the first activity.</p>
+<p><a class="reference internal" href="_images/iconDependencySS.png"><img alt="Start start dependency" src="_images/iconDependencySS.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Start-Start</strong></p>
+<p>The successor can not begin before the beginning of the predecessor. Anyway, the successor can begin after the beginning of the predecessor.</p>
+<p><a class="reference internal" href="_images/iconDependencyEE.png"><img alt="End End dependency" src="_images/iconDependencyEE.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>End-End</strong></p>
+<p>The successor should not end after the end of the predecessor, which leads to planning “as late as possible”.</p>
+</div></blockquote>
+<p>Anyway, the successor can end before the predecessor. Note that the successor “should” not end after the end of predecessor, but in some cases this will not be respected:</p>
+<ul class="simple">
+<li><p>if the resource is already 100% used until the end of the successor</p></li>
+<li><p>if the successor has another predecessor of type “End-Start” or “Start-Start” and the remaining time is not enough to complete the task</p></li>
+<li><p>if the delay from the planning start date does not allow to complete the task</p></li>
+</ul>
+</section>
+<section id="hidden-dependencies">
+<h5>Hidden dependencies<a class="headerlink" href="#hidden-dependencies" title="Permalink to this heading">¶</a></h5>
+<p>When dependencies are hidden, project folded or parent activity folded on the planning view for example, then a pale orange arrow is displayed in front of the selected element</p>
+<p>It means that this element has a constraint that is not currently displayed on the planning view.</p>
+<figure class="align-default" id="id68">
+<img alt="hidden dependencies" src="_images/GANTT_ZONE_Hidden-dependencies.png" />
+<figcaption>
+<p><span class="caption-text">Hidden dependencies</span><a class="headerlink" href="#id68" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The direction of the arrow tells you if it is a successor or a predecessor.</p>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+</section>
+</section>
+<section id="milestone">
+<span id="milestonesgantt"></span><span id="index-7"></span><h4>Milestone<a class="headerlink" href="#milestone" title="Permalink to this heading">¶</a></h4>
+<p>Milestones appear as small diamonds. Filled if completed, empty otherwise.</p>
+<p>Color of  diamond depends on milestone progress.</p>
+<p class="rubric">Ongoing milestone and in times</p>
+<p>Planned end date &lt; Validate end date and the task is not done</p>
+<img alt="_images/GANTT_ZONE_GreenMilestone.png" src="_images/GANTT_ZONE_GreenMilestone.png" />
+<p class="rubric">Completed milestone and in times</p>
+<p>Planned end date &lt; Validate end date and the task is done</p>
+<img alt="_images/GANTT_ZONE_FilledGreenMilestone.png" src="_images/GANTT_ZONE_FilledGreenMilestone.png" />
+<p class="rubric">Ongoing milestone and delayed</p>
+<p>Planned end date &gt; Validate end date end date and the task is not done</p>
+<img alt="_images/GANTT_ZONE_RedMilestone.png" src="_images/GANTT_ZONE_RedMilestone.png" />
+<p class="rubric">Completed milestone and delayed</p>
+<p>Real end date &gt; Validated end date and the task is done</p>
+<img alt="_images/GANTT_ZONE_FilledRedMilestone.png" src="_images/GANTT_ZONE_FilledRedMilestone.png" />
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+</section>
+<section id="detail-of-the-work">
+<span id="detail-work"></span><h4>Detail of the work<a class="headerlink" href="#detail-of-the-work" title="Permalink to this heading">¶</a></h4>
+<p>ProjeQtOr also allows you to see the distribution of the workload assigned to the resources.</p>
+<p>Right click on a bar to see the detail.</p>
+<p>An <a class="reference internal" href="#lockdetail"><span class="std std-ref">option</span></a> allows you to display the details of a bar rather than only seeing it on hover.</p>
+<figure class="align-default" id="id69">
+<img alt="Display details of the work" src="_images/GANTT_ZONE_Resources.png" />
+<figcaption>
+<p><span class="caption-text">Display details of the work</span><a class="headerlink" href="#id69" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The lines are sorted by resource name.</p>
+<p class="rubric">Colors code</p>
+<p><a class="reference internal" href="_images/BoxDetail_green.png"><img alt="Planned workload" src="_images/BoxDetail_green.png" style="width: 18.0px; height: 21.0px;" /></a> Planned workload</p>
+<p><a class="reference internal" href="_images/BoxDetail_Realwork.png"><img alt="Real work" src="_images/BoxDetail_Realwork.png" style="width: 18.0px; height: 21.0px;" /></a> Real work - charged to the timesheet</p>
+<p><a class="reference internal" href="_images/BoxDetail_red.png"><img alt="Excess workload" src="_images/BoxDetail_red.png" style="width: 18.0px; height: 21.0px;" /></a> Excess workload over dates</p>
+<p><a class="reference internal" href="_images/BoxDetail_redReal.png"><img alt="Real work with Excess workload" src="_images/BoxDetail_redReal.png" style="width: 18.0px; height: 21.0px;" /></a> Real work with Excess workload over dates</p>
+<p><a class="reference internal" href="_images/BoxDetail_Absence.png"><img alt="Absence" src="_images/BoxDetail_Absence.png" style="width: 18.0px; height: 21.0px;" /></a> Absence of the resource</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You have to selected day, week or month scale to display detail or a message will ask you to switch to smaller scale.</p>
+<p>Quarter is not available for th detail.</p>
+</div>
+<p><a class="reference internal" href="#gantt-chart-view-menu"><span class="std std-ref">[back]</span></a></p>
+</section>
+</section>
+</section>
+<section id="details-area">
+<span id="gantt-details-area"></span><h2>Details area<a class="headerlink" href="#details-area" title="Permalink to this heading">¶</a></h2>
+<p>The details area is the same as on all the ProjeQtOr element screens and adapts according to the selected element.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="CommonSections.html#common-sections"><span class="std std-ref">Details area in common section</span></a></p>
+</div>
+<section id="steering">
+<h3>Steering<a class="headerlink" href="#steering" title="Permalink to this heading">¶</a></h3>
+<p>The management section is tailored to each plannable element.</p>
+<p>For an activity, this section allows you to customize the progress bars, both for display and for calculating the assigned workload.</p>
+<figure class="align-default" id="id70">
+<img alt="Sterring section" src="_images/GANTT_ZONE_DetailsSteering.png" />
+<figcaption>
+<p><span class="caption-text">Steering section</span><a class="headerlink" href="#id70" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>efjhezlf</p>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gantt Chart</a><ul>
+<li><a class="reference internal" href="#toolbar">Toolbar</a><ul>
+<li><a class="reference internal" href="#zoom-on-the-gantt">Zoom on the Gantt</a></li>
+<li><a class="reference internal" href="#scroll-to-today">Scroll to today</a></li>
+<li><a class="reference internal" href="#predecessor-and-successor">Predecessor and Successor</a></li>
+<li><a class="reference internal" href="#critical-path-option">Critical path option</a></li>
+<li><a class="reference internal" href="#quick-mode-block">Quick mode block</a></li>
+<li><a class="reference internal" href="#planning-calculation">Planning calculation</a></li>
+<li><a class="reference internal" href="#automatic-run-plan">Automatic run plan</a></li>
+<li><a class="reference internal" href="#quick-planning">Quick planning</a><ul>
+<li><a class="reference internal" href="#quick-planning-impacts">Quick planning impacts</a></li>
+<li><a class="reference internal" href="#overuse-infinite-overbooking-capacity">Overuse (infinite overbooking capacity)</a></li>
+<li><a class="reference internal" href="#calculate-with-the-critical-path">Calculate with the critical path</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#baseline">Baseline</a></li>
+<li><a class="reference internal" href="#add-a-new-planning-element">Add a new planning element</a></li>
+<li><a class="reference internal" href="#advanced-filter">Advanced Filter</a></li>
+<li><a class="reference internal" href="#displayed-columns">Displayed columns</a></li>
+<li><a class="reference internal" href="#change-layout-of-the-screen">Change layout of the screen</a></li>
+<li><a class="reference internal" href="#display-other-options">Display other options</a><ul>
+<li><a class="reference internal" href="#display-from-to">Display from… to…</a></li>
+<li><a class="reference internal" href="#other-options-checkbox-for-display">Other options: checkbox for display</a><ul>
+<li><a class="reference internal" href="#show-wbs">Show WBS</a></li>
+<li><a class="reference internal" href="#color-on-left-part">Color on left part</a></li>
+<li><a class="reference internal" href="#activity-colors-by-type">Activity colors by type</a></li>
+<li><a class="reference internal" href="#resource">Resource</a></li>
+<li><a class="reference internal" href="#name-on-bars">Name on bars</a></li>
+<li><a class="reference internal" href="#critical-path">Critical path</a></li>
+<li><a class="reference internal" href="#technical-progress">Technical progress</a></li>
+<li><a class="reference internal" href="#template-project">Template project</a></li>
+<li><a class="reference internal" href="#closed-element">Closed element</a></li>
+<li><a class="reference internal" href="#assignment-without-left-work">Assignment without left work</a></li>
+<li><a class="reference internal" href="#lock-bar-detail">Lock bar detail</a></li>
+<li><a class="reference internal" href="#detail-on-simply-click">Detail on simply click</a></li>
+<li><a class="reference internal" href="#auto-scroll-to-planning-bar">Auto scroll to planning bar</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-validation">Planning validation</a></li>
+<li><a class="reference internal" href="#timeline-options">Timeline options</a></li>
+<li><a class="reference internal" href="#print-and-export-the-gantt-chart">Print and Export the Gantt chart</a><ul>
+<li><a class="reference internal" href="#print-planning">Print planning</a></li>
+<li><a class="reference internal" href="#export-planning-to-pdf">Export planning to PDF</a></li>
+<li><a class="reference internal" href="#export-planning-to-ms-project">Export planning to MS Project</a></li>
+<li><a class="reference internal" href="#planning-history">Planning History</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#project-timeline">Project Timeline</a></li>
+<li><a class="reference internal" href="#task-list-wbs-struture">Task List: WBS struture</a><ul>
+<li><a class="reference internal" href="#show-hide-items">Show/Hide items</a></li>
+<li><a class="reference internal" href="#icon-of-element">Icon of element</a></li>
+<li><a class="reference internal" href="#reorder-and-copy">Reorder and copy</a><ul>
+<li><a class="reference internal" href="#reorder-the-planning">Reorder the planning</a></li>
+<li><a class="reference internal" href="#copy-lines">copy lines</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#wbs">WBS</a><ul>
+<li><a class="reference internal" href="#edit-on-line">Edit on line</a><ul>
+<li><a class="reference internal" href="#dependancies">Dependancies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#context-menu">Context menu</a></li>
+<li><a class="reference internal" href="#progress-data">Progress data</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#gantt-chart-view">Gantt chart view</a><ul>
+<li><a class="reference internal" href="#scale">Scale</a></li>
+<li><a class="reference internal" href="#gantt-chart-s-bars">Gantt chart’s bars</a><ul>
+<li><a class="reference internal" href="#special-bars">Special bars</a><ul>
+<li><a class="reference internal" href="#surbooking-and-overuse-bar">Surbooking and overuse bar</a></li>
+<li><a class="reference internal" href="#surcapacity">Surcapacity</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#custom-colors">Custom colors</a><ul>
+<li><a class="reference internal" href="#bars-with-hatching">Bars with hatching</a></li>
+<li><a class="reference internal" href="#bars-for-color-blind">Bars for color blind</a></li>
+<li><a class="reference internal" href="#item-name-display">Item name display</a></li>
+<li><a class="reference internal" href="#dependency">Dependency</a><ul>
+<li><a class="reference internal" href="#create-a-dependency">Create a dependency</a></li>
+<li><a class="reference internal" href="#modify-a-dependency">Modify a dependency</a></li>
+<li><a class="reference internal" href="#dependency-types">Dependency types</a></li>
+<li><a class="reference internal" href="#hidden-dependencies">Hidden dependencies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#milestone">Milestone</a></li>
+<li><a class="reference internal" href="#detail-of-the-work">Detail of the work</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#details-area">Details area</a><ul>
+<li><a class="reference internal" href="#steering">Steering</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="Planning.html"
+                          title="previous chapter">Manage the planning</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="PlanningView.html"
+                          title="next chapter">Planning View</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="PlanningView.html" title="Planning View"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Planning.html" title="Manage the planning"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Gantt Chart</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

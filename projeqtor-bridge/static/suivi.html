@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!-- Espace « Simple » (livraison #541) : « Où en est ma demande ? ». Un
+numéro, un état en trois mots, la date du dernier mouvement, un conseil.
+Jamais le contenu de la demande ni le nom d'un autre demandeur. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Où en est ma demande ?</title>
+<link rel="stylesheet" href="simple.css">
+</head>
+<body>
+<main>
+  <p class="kicker"><a href="accueil">Support informatique</a></p>
+  <h1>Où en est ma demande ?</h1>
+  <p class="lead">Le numéro de suivi vous a été donné juste après l'envoi de votre demande (il ressemble à <em>D-…</em>).</p>
+  <form id="f" class="row" autocomplete="off">
+    <div class="field"><label for="ref">Numéro de suivi</label><input id="ref" name="ref" required placeholder="D-…" autofocus></div>
+    <button id="go" type="submit">Voir</button>
+  </form>
+  <div id="msg"></div>
+  <section id="card" class="card" hidden>
+    <p class="kicker">Votre demande</p>
+    <p class="big"><span id="etat" class="etat"></span></p>
+    <dl>
+      <dt>Sujet</dt><dd id="sujet"></dd>
+      <dt>Déposée</dt><dd id="depuis"></dd>
+      <dt>Dernier mouvement</dt><dd id="mouv"></dd>
+      <dt>Étape</dt><dd id="statut"></dd>
+    </dl>
+    <p class="advice" id="conseil"></p>
+  </section>
+  <footer><a href="rapide">Signaler un autre problème</a> · <a href="etat">Est-ce que ça marche ?</a></footer>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const when = (ts) => ts ? new Date(ts * 1000).toLocaleString("fr-FR", {dateStyle: "long", timeStyle: "short"}) : "—";
+const params = new URLSearchParams(location.search);
+if (params.get("ref")) { $("#ref").value = params.get("ref"); }
+$("#f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ref = $("#ref").value.trim(); const msg = $("#msg"); msg.className = ""; $("#card").hidden = true; $("#go").disabled = true;
+  try {
+    const r = await fetch("suivi/" + encodeURIComponent(ref));
+    const b = await r.json();
+    if (!r.ok) throw new Error(b.error || "Numéro inconnu : vérifiez-le, il commence par D-.");
+    $("#etat").textContent = b.mot; $("#etat").className = "etat " + (b.etat === "resolue" ? "ok" : b.etat === "en_cours" ? "degrade" : "");
+    $("#sujet").textContent = b.sujet || "—"; $("#depuis").textContent = when(b.depuis); $("#mouv").textContent = when(b.dernier_mouvement);
+    $("#statut").textContent = b.statut || "—"; $("#conseil").textContent = b.conseil; $("#card").hidden = false;
+    history.replaceState(null, "", "?ref=" + encodeURIComponent(ref));
+  } catch (err) { msg.className = "err"; msg.textContent = err.message; }
+  finally { $("#go").disabled = false; }
+});
+if ($("#ref").value) $("#f").requestSubmit();
+</script>
+</body>
+</html>

@@ -181,6 +181,18 @@ ceux qu'il ne peut pas mesurer, avec la raison :
   `docker restart si-agent`).
 - **NFS « périmé »** : serveur injoignable (stale file handle).
 
+## Vue locale de transparence (#819)
+
+Page **en lecture seule** servie par l'agent sur le poste, pour l'administrateur du poste. Elle montre ce qui
+remonte au central (contenu exact), les sondes (état, cadence, dernier passage), le journal et la configuration
+(secrets masqués). Aucune action n'est possible depuis la page.
+
+- **Fermée par défaut.** On l'ouvre dans `agent.json` avec `"local_view": {"enabled": true}`, puis on redémarre
+  l'agent. Elle s'ouvre aussi par le central : central local `--local-view 8090`.
+- Adresse : `http://127.0.0.1:8090/`, depuis le poste lui-même (sous Windows : session console ou RDP).
+- Pour l'ouvrir au réseau, il faut `"bind": "0.0.0.0"` **et** `"allow": ["172.16.51.0/24"]` (IP ou réseaux).
+  Sans liste, seule la boucle locale est admise. Il faut aussi ouvrir le port dans le pare-feu du poste.
+
 ## Réseau
 
 L'hôte doit joindre le central en sortie sur le port de la passerelle TLS
@@ -195,3 +207,24 @@ pairs).
 `PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once -v`) montre la
 requête et la réponse : 401 = secret ou identifiant ; erreur TLS =
 empreinte / certificat ; délai = filtrage réseau vers le port 6443.
+
+## Sans hub : central local de test
+
+Pour essayer un agent depuis un poste de travail sans le hub (Mac, Linux) :
+`si-agent/local-central/local_central.py` (voir `si-agent/local-central/README.md`) —
+PKI auto-signée épinglée, archive, jeton, ligne d'amorçage et interface de pilotage.
+
+
+## Commandes à distance (analyse technique, #919)
+
+Depuis le hub (Postes Windows › un poste › **Analyse à distance**), des scripts PowerShell passent par l'agent et
+leurs résultats reviennent interprétés (triage matériel / système / viral, intégrité DISM / SFC / CHKDSK, processus,
+veille, journal de l'agent, réseau, ownCloud et Excel, ou commande libre).
+
+- **Désactivé par défaut.** Réglage par agent dans le hub (fiche de l'agent › Réglages › « Commandes à distance ») :
+  `off`, `lecture` (le poste vérifie AVANT d'exécuter que le script ne modifie rien : `si_agent/garde.ps1`) ou
+  `intervention` (tout script, confirmé dans le hub).
+- **Plafond local** : l'administrateur du poste peut limiter ce que le central autorise, dans `agent.json` :
+  `"remote_shell_max": "lecture"` (ou `"off"`). Le plafond n'élargit jamais le réglage du central.
+- Chaque commande est journalisée sur le poste (journal de l'agent, vue locale) et au central (qui, quand, quoi,
+  empreinte du script). Délai maximal 1 h ; arrêt possible depuis le hub ; 3 commandes simultanées au plus.

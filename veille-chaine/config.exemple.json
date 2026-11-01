@@ -1,0 +1,17 @@
+{
+  "intervalle_s": 120,
+  "rappel_min": 5,
+  "seuil_echecs": 2,
+  "mail_retabli": false,
+  "mail": {"hote": "smtp.exemple.fr", "port": 587, "starttls": true, "utilisateur": "alice@exemple.fr", "de": "alice@exemple.fr", "a": "alice@exemple.fr"},
+  "verifs": [
+    {"id": "dns", "nom": "DNS du frontal", "type": "dns", "nom_hote": "hub.exemple.fr", "attendu": "203.0.113.10"},
+    {"id": "tls", "nom": "Certificat du frontal", "type": "tls", "hote": "hub.exemple.fr", "port": 443, "jours_min": 14, "depend_de": ["dns"]},
+    {"id": "frontal", "nom": "Frontal https", "type": "http", "url": "https://hub.exemple.fr/", "depend_de": ["tls"]},
+    {"id": "ssh", "nom": "SSH vers l'hôte du hub", "type": "commande", "commande": "ssh -o BatchMode=yes -o ConnectTimeout=8 hote-du-hub true"},
+    {"id": "hub", "nom": "Conteneur hub", "type": "commande", "depend_de": ["ssh"],
+     "commande": "ssh -o BatchMode=yes hote-du-hub \"docker ps --format '{{.Names}}' | grep -qx supervision-si-hub-1\""},
+    {"id": "bastion", "nom": "Canal de contrôle du bastion", "type": "commande", "depend_de": ["ssh"],
+     "commande": "ssh -o BatchMode=yes hote-du-hub \"systemctl is-active -q si-proxy-host && ! journalctl -u si-proxy-host --since -5min --no-pager | grep -qE 'canal de contrôle perdu|CERTIFICATE_VERIFY_FAILED'\""}
+  ]
+}

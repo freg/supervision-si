@@ -44,6 +44,10 @@ prefs-api/log-files/*
 !prefs-api/log-files/README.md
 docker-monitor/analysis/*
 !docker-monitor/analysis/README.md
+# Données d'exécution du fork ProjeQtOr (livraison #476) -- config
+# générée (mot de passe BD en clair), pièces jointes, documents, logs.
+projeqtor/data/*
+!projeqtor/data/README.md
 
 # Archives de livraison
 *.zip
@@ -92,3 +96,75 @@ cortex/data/*
 keycloak/.last-imported-realm.json
 pki/scripts/.srl
 *.log.txt
+
+# projeqtor-bridge : etat de synchronisation (regenerable, dedup cote tickets-api)
+projeqtor-bridge/data/*
+# #541 : exemples fictifs du référentiel de services et des états (espace Simple)
+!projeqtor-bridge/data/services.json
+!projeqtor-bridge/data/etats.json
+!projeqtor-bridge/data/README.md
+
+# credentials (#498) : base SQLite + sel de chiffrement, jamais versionnés
+credentials/data/*
+!credentials/data/.gitkeep
+deploy/generated/
+deploy/nodes.json
+deploy/instances.json
+instances/
+si-agent/standalone/generated/
+# #523 : exports réels (DNS, OVH, IPAM) et synthèse générée -- jamais dans le dépôt
+synthese/data/
+synthese/generated/
+si-agent/standalone/ui/dist/
+
+# service-watch (#531) : base SQLite hors dépôt
+service-watch/data/*
+
+# assistant (#532) : données du PoC et poids des modèles hors dépôt
+assistant/data/*
+assistant/models/*
+
+# #585 : registres locaux des équipements (hors dépôt)
+cisco/switches.local.json
+mikrotik/routers.local.json
+# #586 : données de la tour de contrôle (jobs, livraisons reçues, réglages, journal)
+services/data/
+# #590 : base des notifications (file, groupes, jetons hachés)
+notify/data/
+# #595 : base des licences (contrats, attributions, actions)
+licenses/data/
+si-agent/local-central/data/
+
+# portage (#650) : projets importés et checkout local de portage-kit, jamais versionnés
+portage/data/
+portage/kit/
+# qa (#651) : scénarios, exécutions et captures
+qa/data/
+# datasync (#652) : base centrale et états des connecteurs
+datasync/data/
+vuln/data/
+# dns (#656) : zones, cache, journal
+dns/data/
+datasync/connector/*.state.json
+datasync/connector/config.json
+deploy/mirror.local.json
+
+# groupware (#664) : base du noyau, droits Radicale générés, collections CalDAV/CardDAV
+groupware/data/
+groupware/dav-config/
+groupware/dav-data/
+
+# #745 : suspension locale du chien de garde
+.watchdog-pause
+
+# #830 : mise à jour en cours (scripts/run.sh)
+.maj-en-cours.json
+
+rsyslog-listener/data/*
+!rsyslog-listener/data/.gitkeep
+
+messages/data/*
+!messages/data/.gitkeep
+# #942 : registre de déploiement et historique des durées (tour de contrôle)
+.deploye.json
+.maj-historique.jsonl

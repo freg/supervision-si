@@ -1,0 +1,481 @@
+# -*- coding: utf-8 -*-
+"""Rapports et alertes des anomalies réseau (livraison #703) -- routes et
+boucle de contrôle, branchées sur nebula-api par `register(app, hooks)`.
+
+- GET  /report/settings            réglages + état (prochain récapitulatif, anomalies suivies, journal)
+- PUT  /report/settings            {settings, groups, user} (droit `manage`)
+- GET  /report/anomalies?format=csv|xlsx|pdf|json&site=<id>|all&hidden=1
+- POST /report/send                {kind: daily|test, groups, user} (droit `manage`) : envoi immédiat
+- boucle (un seul worker, verrou fichier) : toutes les `check_minutes`, suivi des
+  anomalies, alertes d'urgence après le délai, retour à la normale,
+  récapitulatif à l'heure et aux jours choisis. Envoi par notify-api
+  (destinataires du réglage + groupes de l'action ; pièces jointes)."""
+import json
+import os
+import threading
+import time
+from datetime import datetime, timedelta
+
+from flask import Response, jsonify, request
+
+import alerting
+import occupancy
+import report
+
+try:
+    import notify_client
+except ImportError:  # pragma: no cover
+    notify_client = None
+
+ACTIONS = [{"id": "nebula.anomalie-urgente", "label": "Anomalie réseau persistante (alerte d'urgence)", "severity": "critical"},
+           {"id": "nebula.retour-normale", "label": "Anomalie réseau résolue après alerte", "severity": "info"},
+           {"id": "nebula.recapitulatif", "label": "Récapitulatif quotidien des anomalies réseau", "severity": "info"},
+           # #747 : occupation des bornes Wi-Fi et alertes Nebula
+           {"id": "nebula.occupation-seuil", "label": "Borne Wi-Fi : seuil d'occupation ou de signal dépassé", "severity": "warning"},
+           {"id": "nebula.alerte-nebula", "label": "Alerte Nebula : appareil hors ligne ou en alerte", "severity": "critical"},
+           {"id": "nebula.occupation-recap", "label": "Récapitulatif de l'occupation des bornes Wi-Fi", "severity": "info"},
+           {"id": "nebula.action-reseau", "label": "Action sur le réseau : appliquée et vérifiée, ou annulée par le chien de garde (#852)", "severity": "warning"},
+           {"id": "nebula.anticipation", "label": "Wi-Fi : pic attendu, affluence inhabituelle, borne instable, étendue DHCP presque pleine", "severity": "warning"}]   # #758
+OCC_TRACK = {"enabled": True, "min_severity": "moyenne", "delay_minutes": 0, "repeat_hours": 0, "notify_recovery": True}
+MIME = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "pdf": "application/pdf"}
+
+_hooks = {}
+
+
+def kv_get(key, default=None):
+    conn = _hooks["conn"]()
+    try:
+        r = conn.execute("SELECT value FROM nebula_report_kv WHERE key = ?", (key,)).fetchone()
+        return json.loads(r["value"]) if r else default
+    finally:
+        conn.close()
+
+
+def kv_set(key, value):
+    conn = _hooks["conn"]()
+    try:
+        conn.execute("INSERT INTO nebula_report_kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                     (key, json.dumps(value, ensure_ascii=False)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def settings():
+    return alerting.normalize(kv_get("settings", {}))
+
+
+def log(event, text):
+    entries = kv_get("log", [])
+    entries.append({"at": int(time.time()), "event": event, "text": str(text)[:400]})
+    kv_set("log", entries[-50:])
+
+
+def collect(cfg, site=None, refresh=False, include_hidden=False):
+    """-> (lignes, erreurs par site) pour tous les sites (ou ceux du réglage, ou `site`)."""
+    sites = _hooks["sites"]()
+    names = {s.get("siteId"): s.get("name") or s.get("siteId") for s in sites}
+    wanted = [site] if site and site != "all" else ([s for s in cfg["sites"] if s in names] or list(names))
+    items, errors = {}, {}
+    for sid in wanted:
+        try:
+            items[sid], _e, _m = _hooks["anomalies"](sid, refresh)
+        except Exception as exc:  # noqa: BLE001 -- un site en erreur n'empêche pas les autres
+            errors[names.get(sid, sid)] = str(exc)[:200]
+    state = kv_get("state", {})
+    return report.rows_from(items, names, alerting.first_seen_map(state), include_hidden), errors
+
+
+def _files(rows, formats, title, now):
+    stamp = now.strftime("%Y-%m-%d")
+    out = []
+    for f in formats:
+        data = report.to_csv(rows) if f == "csv" else report.to_xlsx(rows, title, now) if f == "xlsx" else report.to_pdf(rows, title, now)
+        out.append(("anomalies-reseau-%s.%s" % (stamp, f), MIME[f], data))
+    return out
+
+
+def send_daily(cfg, now=None, test=False):
+    now = now or datetime.now()
+    rows, errors = collect(cfg, refresh=True)
+    rows = [r for r in rows if alerting.severity_ok(r["severity"], cfg["daily"]["min_severity"])]
+    if cfg["daily"]["only_if_anomalies"] and not rows and not test:
+        log("daily-skip", "récapitulatif non envoyé : aucune anomalie")
+        return {"status": "skipped"}
+    title = "Récapitulatif réseau du %s" % now.strftime("%d/%m/%Y")
+    body = report.text_summary(rows, title)
+    resolved = alerting.resolved_since(kv_get("state", {}), time.time() - 86400)
+    if resolved:
+        body += "\n\nRésolues depuis 24 h :\n" + "\n".join("  ✓ %s — %s" % (e.get("site"), e.get("message")) for e in resolved[:30])
+    if errors:
+        body += "\n\nSites non relus : " + "; ".join("%s (%s)" % kv for kv in errors.items())
+    res = _notify("nebula.recapitulatif", "%s%s : %d anomalie(s)" % ("[TEST] " if test else "", title, len(rows)), body, cfg,
+                  attachments=_files(rows, cfg["daily"]["formats"], title, now), severity="info")
+    log("daily-test" if test else "daily", "%d anomalie(s), %s" % (len(rows), _res_text(res)))
+    return res
+
+
+def _res_text(res):
+    if not res:
+        return "notify-api injoignable ou non configuré (NOTIFY_API_URL / NOTIFY_INTERNAL_TOKEN)"
+    return "%s, %s destinataire(s)%s" % (res.get("status"), res.get("recipients"), (" : " + res["reason"]) if res.get("reason") else "")
+
+
+def _notify(action, subject, body, cfg, attachments=None, severity=None):
+    if notify_client is None:
+        return None
+    return notify_client.notify(action, subject, body, context={"module": "nebula"}, severity=severity, wait=True,
+                                to=cfg["recipients"], attachments=attachments)
+
+
+def _ant_inputs(conn, now_ts, site_id=None):
+    """#758 : profil habituel (35 jours de relevés) et transitions Nebula des dernières 24 h (ou 30 j pour la disponibilité)."""
+    import anticipation
+    q = "SELECT dev_id, at, clients, name, site_id FROM nebula_occupancy WHERE at >= ?" + (" AND site_id = ?" if site_id else "")
+    rs = conn.execute(q, (int(now_ts) - 35 * 86400,) + ((site_id,) if site_id else ())).fetchall()
+    names = {r["dev_id"]: r["name"] for r in rs}
+    return anticipation.profile([(r["dev_id"], r["at"], r["clients"]) for r in rs]), names
+
+
+def _transitions(conn, site_id, since):
+    try:
+        return [(r["dev_id"], r["from_status"], r["to_status"], r["at"]) for r in conn.execute(
+            "SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at", (site_id, int(since))).fetchall()]
+    except Exception:  # noqa: BLE001 -- base sans sondeur d'état (table absente) : pas de battements
+        return []
+
+
+INFRA_SECONDS = 3600
+
+
+def _infra_rows(sid, sname, now_ts, ant, infra):
+    """#759 : ports vers les bornes, micrologiciels, licences -- relevés au plus une fois par heure (appels OpenAPI plus
+    lourds) ; les constats du dernier relevé sont rejoués à chaque passage pour que le suivi ne les croie pas résolus."""
+    import anticipation
+    cur = infra.get(sid) or {}
+    if now_ts - (cur.get("at") or 0) >= INFRA_SECONDS and "infra_inputs" in _hooks:
+        try:
+            inp = _hooks["infra_inputs"](sid)
+            ptable, apmap, prows = anticipation.ap_ports(inp["links"], inp["ports_by_sw"], inp["names"], cur.get("apmap") or {}, inp["online"])
+            ftable, frows = anticipation.firmware(inp["devices"])
+            ltable, lrows = anticipation.licenses(inp["org_name"] or "organisation", inp["org_info"], now_ts) if inp.get("org_info") else ([], [])
+            cur = {"at": int(now_ts), "apmap": apmap, "ports": ptable, "firmware": ftable, "licenses": ltable, "errors": inp.get("errors") or [],
+                   "rows": prows + frows + lrows}
+        except Exception as exc:  # noqa: BLE001 -- un relevé raté garde le précédent (pas de log() ici : base occupée)
+            cur = dict(cur, at=int(now_ts), errors=["%s : %s" % (sname, str(exc)[:200])])
+        infra[sid] = cur                          # écrit par l'appelant, base libérée (sqlite : un seul écrivain)
+    return cur.get("rows") or []
+
+
+def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
+    """#747 : relevé d'occupation (si dû), seuils et alertes Nebula, récapitulatif si dû."""
+    occ = cfg["occupancy"]
+    out = {"sampled": 0, "alerts": 0, "recovered": 0, "recap": None}
+    if not occ["enabled"]:
+        return out
+    last = kv_get("occ_last_sample") or 0
+    if force_sample or now_ts - last >= occ["sample_minutes"] * 60 - 30:
+        kv_set("occ_last_sample", now_ts)
+        sites = _hooks["sites"]()
+        wanted = [s for s in sites if not cfg["sites"] or s.get("siteId") in cfg["sites"]]
+        rows, snaps = [], {}
+        weak, band, infra = kv_get("ant_weak", {}) or {}, kv_get("ant_band", {}) or {}, kv_get("ant_infra", {}) or {}   # #759
+        conn = _hooks["conn"]()
+        try:
+            for s in wanted:
+                sid, sname = s.get("siteId"), s.get("name") or s.get("siteId")
+                try:
+                    clients, devices, statuses, names = _hooks["occupancy_inputs"](sid)
+                except Exception as exc:  # noqa: BLE001
+                    log("occ-error", "%s : %s" % (sname, str(exc)[:200]))
+                    continue
+                snap = occupancy.snapshot(clients, devices, occ["weak_dbm"])
+                snaps[sid] = snap
+                for ap in snap["aps"]:
+                    conn.execute("INSERT INTO nebula_occupancy (site_id, dev_id, name, at, clients, weak) VALUES (?, ?, ?, ?, ?, ?)",
+                                 (sid, ap["dev_id"], ap["name"], int(now_ts), ap["clients"], ap["weak"]))
+                    out["sampled"] += 1
+                rows += occupancy.breaches(sid, sname, snap, statuses, names, occ, now_ts)
+                ant = occ["anticipation"]
+                if ant["enabled"]:                    # #758 : pic attendu, affluence inhabituelle, battements d'état
+                    import anticipation
+                    prof, pnames = _ant_inputs(conn, now_ts, sid)
+                    nm = dict(pnames, **(names or {}))
+                    rows += anticipation.forecast(prof, nm, sid, sname, now_dt, occ, ant)
+                    rows += anticipation.unusual(prof, snap["aps"], nm, sid, sname, now_dt, ant)
+                    rows += anticipation.flapping(_transitions(conn, sid, now_ts - 86400), nm, sid, sname, now_ts, ant)
+                    # #759 : bandes et signal (clients rattachés à leur borne, mémoire des signaux faibles d'un relevé à l'autre)
+                    import topology
+                    att, _loose, _f = topology.attach_clients(clients, devices)
+                    ap_ids = {a["dev_id"] for a in snap["aps"]}
+                    att = {k: [c for c in v if (c.get("status") or "") in occupancy.CONNECTED or not c.get("status")] for k, v in att.items() if k in ap_ids}
+                    btable, weak[sid], brows = anticipation.band_signal(att, nm, occ["weak_dbm"], weak.get(sid) or {})
+                    band[sid] = {"at": int(now_ts), "aps": btable}
+                    rows += [dict(r, site_id=sid, site=sname) for r in brows]
+                    rows += [dict(r, site_id=sid, site=sname) for r in _infra_rows(sid, sname, now_ts, ant, infra)]
+            if occ["anticipation"]["enabled"] and occ["anticipation"]["dhcp_pools"]:
+                import anticipation
+                rows += anticipation.dhcp(snaps, occ["anticipation"])[1]
+            conn.execute("DELETE FROM nebula_occupancy WHERE at < ?", (int(now_ts) - 35 * 86400,))
+            conn.commit()
+        finally:
+            conn.close()
+        kv_set("occ_current", {"at": int(now_ts), "sites": snaps})
+        if occ["anticipation"]["enabled"]:
+            kv_set("ant_weak", weak); kv_set("ant_band", band); kv_set("ant_infra", infra)
+        state, raised, recovered = alerting.track(kv_get("occ_state", {}), rows, now_ts, OCC_TRACK)
+        kv_set("occ_state", state)
+        for kind, action, sev, label in (("occupation", "nebula.occupation-seuil", "warning", "Occupation Wi-Fi"),
+                                         ("nebula", "nebula.alerte-nebula", "critical", "Alerte Nebula"),
+                                         ("anticipation", "nebula.anticipation", "warning", "Anticipation Wi-Fi")):
+            sel = [r for r in raised if r.get("kind") == kind]
+            if sel:
+                body = report.text_summary(sel, "%s : %d constat(s)" % (label, len(sel)))
+                res = _notify(action, "%s : %s" % (label, ", ".join(sorted({r["element"] or "?" for r in sel}))[:150]), body, cfg, severity=sev)
+                log("occ-" + kind, "%d constat(s) : %s" % (len(sel), _res_text(res)))
+                out["alerts"] += len(sel)
+        if recovered:
+            body = "Retour à la normale :\n\n" + "\n".join("  ✓ %s — %s (%s)" % (e.get("site"), e.get("element"), e.get("message")) for e in recovered)
+            res = _notify("nebula.retour-normale", "Wi-Fi / Nebula : %d constat(s) résolu(s)" % len(recovered), body, cfg, severity="info")
+            log("occ-recovered", "%d : %s" % (len(recovered), _res_text(res)))
+            out["recovered"] = len(recovered)
+    if alerting.daily_due(occ["recap"], kv_get("occ_recap_last"), now_dt):
+        kv_set("occ_recap_last", now_dt.timestamp())
+        out["recap"] = send_occupancy_recap(cfg, now_dt)
+    return out
+
+
+def occupancy_recap(cfg, hours, now_ts=None):
+    now_ts = now_ts or time.time()
+    conn = _hooks["conn"]()
+    try:
+        rs = conn.execute("SELECT dev_id, at, clients, site_id, name FROM nebula_occupancy WHERE at >= ?", (int(now_ts - hours * 3600),)).fetchall()
+    finally:
+        conn.close()
+    names = {r["dev_id"]: r["name"] for r in rs}
+    return occupancy.recap([(r["dev_id"], r["at"], r["clients"], r["site_id"]) for r in rs], now_ts - hours * 3600, names)
+
+
+def send_occupancy_recap(cfg, now=None, test=False):
+    now = now or datetime.now()
+    hours = cfg["occupancy"]["recap"]["hours"]
+    rec = occupancy_recap(cfg, hours, now.timestamp())
+    title = "Occupation des bornes Wi-Fi — %d h au %s" % (hours, now.strftime("%d/%m/%Y %H:%M"))
+    body = occupancy.recap_text(rec, title, hours)
+    opened = [e for e in (kv_get("occ_state", {}).get("open") or {}).values()]
+    if opened:
+        body += "\n\nConstats en cours :\n" + "\n".join("  • %s — %s" % (e.get("element"), e.get("message")) for e in opened[:30])
+    csv = "borne;moyenne;p95;max;heure_max;releves\n" + "".join("%s;%s;%s;%s;%s;%s\n" % (r["name"], r["avg"], r["p95"], r["max"],
+                                                                 datetime.fromtimestamp(r["max_at"]).strftime("%Y-%m-%d %H:%M"), r["n"]) for r in rec["aps"])
+    res = _notify("nebula.occupation-recap", "%s%s" % ("[TEST] " if test else "", title), body, cfg,
+                  attachments=[("occupation-wifi-%s.csv" % now.strftime("%Y-%m-%d"), "text/csv", csv.encode("utf-8"))], severity="info")
+    log("occ-recap-test" if test else "occ-recap", "%d borne(s), %s" % (len(rec["aps"]), _res_text(res)))
+    return res
+
+
+def check_once(now_ts=None, now_dt=None):
+    """Un passage : suivi, alertes d'urgence, retour à la normale, récapitulatif si dû."""
+    cfg = settings()
+    now_ts = now_ts or time.time()
+    now_dt = now_dt or datetime.now()
+    out = {"urgent": 0, "recovered": 0, "daily": None}
+    if cfg["urgent"]["enabled"] or cfg["daily"]["enabled"]:
+        rows, errors = collect(cfg, refresh=True)
+        state, urgent, recovered = alerting.track(kv_get("state", {}), rows, now_ts, cfg["urgent"])
+        kv_set("state", state)
+        if urgent:
+            sites = sorted({u["site"] for u in urgent})
+            body = report.text_summary([dict(u, since=datetime.fromtimestamp(u["first_seen"]).strftime("%d/%m/%Y %H:%M")) for u in urgent],
+                                       "Anomalie(s) réseau persistante(s) depuis au moins %d min" % cfg["urgent"]["delay_minutes"])
+            res = _notify("nebula.anomalie-urgente", "Anomalie réseau : %d anomalie(s) %s — %s" % (len(urgent), cfg["urgent"]["min_severity"] + " ou plus", ", ".join(sites)),
+                          body, cfg, severity="critical")
+            log("urgent", "%d anomalie(s) : %s" % (len(urgent), _res_text(res)))
+            out["urgent"] = len(urgent)
+        if recovered:
+            body = "Retour à la normale :\n\n" + "\n".join("  ✓ %s — %s (alerte du %s)" % (e.get("site"), e.get("message"), datetime.fromtimestamp(e["notified_at"]).strftime("%d/%m %H:%M"))
+                                                        for e in recovered)
+            res = _notify("nebula.retour-normale", "Réseau : %d anomalie(s) résolue(s)" % len(recovered), body, cfg, severity="info")
+            log("recovered", "%d anomalie(s) : %s" % (len(recovered), _res_text(res)))
+            out["recovered"] = len(recovered)
+        if errors:
+            log("error", "sites non relus : %s" % "; ".join("%s (%s)" % kv for kv in errors.items()))
+    if "occupancy_inputs" in _hooks:
+        try:
+            out["occupancy"] = occupancy_pass(cfg, now_ts, now_dt)
+        except Exception as exc:  # noqa: BLE001 -- l'occupation ne bloque pas le reste
+            log("occ-error", "passage occupation en échec : %s" % str(exc)[:200])
+    if alerting.daily_due(cfg["daily"], kv_get("daily_last"), now_dt):
+        kv_set("daily_last", now_dt.timestamp())          # avant l'envoi : jamais deux récapitulatifs pour un créneau
+        out["daily"] = send_daily(cfg, now_dt)
+    return out
+
+
+def _loop(lock_dir):
+    import fcntl
+    try:
+        fh = open(os.path.join(lock_dir, "nebula-report.lock"), "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    time.sleep(30)
+    while True:
+        try:
+            if _hooks["configured"]():
+                check_once()
+        except Exception as exc:  # noqa: BLE001 -- la boucle ne meurt jamais
+            try:
+                log("error", "contrôle en échec : %s" % exc)
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            minutes = settings()["check_minutes"]
+        except Exception:  # noqa: BLE001
+            minutes = 10
+        time.sleep(minutes * 60)
+
+
+def register(app, hooks, start_loop=True):
+    """hooks : conn() -> sqlite ; sites() -> inventaire ; anomalies(site, refresh) -> (items, errors, vmap) ;
+    manage(body) -> (ok, err) ; configured() -> bool ; lock_dir."""
+    _hooks.clear(); _hooks.update(hooks)          # #759 : pas de crochet hérité d'un enregistrement précédent
+    conn = hooks["conn"]()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS nebula_report_kv (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("CREATE TABLE IF NOT EXISTS nebula_occupancy (site_id TEXT, dev_id TEXT, name TEXT, at INTEGER, clients INTEGER, weak INTEGER)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_nebula_occupancy_at ON nebula_occupancy (at)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    @app.route("/report/settings", methods=["GET"])
+    def report_settings_get():
+        cfg = settings()
+        state = kv_get("state", {})
+        nd = alerting.next_daily(cfg["daily"], datetime.now())
+        tracked = sorted((state.get("open") or {}).values(), key=lambda e: (alerting.SEV_ORDER.get(e.get("severity"), 9), e.get("first_seen", 0)))
+        return jsonify({"settings": cfg, "next_daily": nd.isoformat(timespec="minutes") if nd else None, "daily_last": kv_get("daily_last"),
+                        "tracked": tracked[:200], "resolved_24h": alerting.resolved_since(state, time.time() - 86400)[-50:], "log": list(reversed(kv_get("log", [])))[:30],
+                        "notify_configured": bool(os.environ.get("NOTIFY_API_URL") and os.environ.get("NOTIFY_INTERNAL_TOKEN"))}), 200
+
+    @app.route("/report/settings", methods=["PUT"])
+    def report_settings_put():
+        body = request.get_json(silent=True) or {}
+        ok, err = hooks["manage"](body)
+        if not ok:
+            return jsonify({"error": err}), 403
+        raw = body.get("settings") or {}
+        bad = alerting.invalid_recipients(raw.get("recipients"))
+        if bad:
+            return jsonify({"error": "adresse(s) invalide(s) : %s" % ", ".join(bad[:5])}), 400
+        cfg = alerting.normalize(raw)
+        kv_set("settings", cfg)
+        log("settings", "réglages modifiés par %s" % (body.get("user") or "?"))
+        return jsonify({"settings": cfg}), 200
+
+    @app.route("/report/anomalies", methods=["GET"])
+    def report_anomalies():
+        fmt = request.args.get("format", "json")
+        try:
+            rows, errors = collect(settings(), site=request.args.get("site"), refresh=request.args.get("refresh") == "1",
+                                   include_hidden=request.args.get("hidden") == "1")
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"error": str(exc)[:300]}), 502
+        now = datetime.now()
+        title = "Anomalies réseau — %s" % now.strftime("%d/%m/%Y %H:%M")
+        if fmt in MIME:
+            name, mime, data = _files(rows, [fmt], title, now)[0]
+            return Response(data, mimetype=mime, headers={"Content-Disposition": "attachment; filename=%s" % name})
+        return jsonify({"rows": rows, "counts": report.counts(rows), "errors": errors}), 200
+
+    @app.route("/report/send", methods=["POST"])
+    def report_send():
+        body = request.get_json(silent=True) or {}
+        ok, err = hooks["manage"](body)
+        if not ok:
+            return jsonify({"error": err}), 403
+        cfg = settings()
+        if not cfg["recipients"]:
+            return jsonify({"error": "aucun destinataire dans les réglages"}), 400
+        res = send_daily(cfg, test=body.get("kind") != "daily")
+        if not res:
+            return jsonify({"error": _res_text(res)}), 502
+        return jsonify(res), 200
+
+    @app.route("/report/occupancy", methods=["GET"])
+    def report_occupancy():
+        """#747 : dernier relevé par borne, récapitulatif des `hours` dernières heures, constats en cours."""
+        cfg = settings()
+        try:
+            hours = max(1, min(168, int(request.args.get("hours") or cfg["occupancy"]["recap"]["hours"])))
+        except ValueError:
+            hours = 24
+        state = kv_get("occ_state", {})
+        nr = alerting.next_daily(cfg["occupancy"]["recap"], datetime.now())
+        return jsonify({"current": kv_get("occ_current", {}), "recap": occupancy_recap(cfg, hours), "hours": hours,
+                        "open": list((state.get("open") or {}).values())[:200], "resolved_24h": alerting.resolved_since(state, time.time() - 86400)[-50:],
+                        "next_recap": nr.isoformat(timespec="minutes") if nr else None}), 200
+
+    @app.route("/report/anticipation", methods=["GET"])
+    def report_anticipation():
+        """#758 : prochaines heures attendues par borne, affluence inhabituelle, battements 24 h, disponibilité 7 / 30 j,
+        étendues DHCP -- calculé à la demande sur les relevés et transitions enregistrés."""
+        import anticipation
+        cfg = settings(); occ = cfg["occupancy"]; ant = occ["anticipation"]
+        now_ts, now_dt = time.time(), datetime.now()
+        cur = kv_get("occ_current", {}) or {}
+        conn = _hooks["conn"]()
+        try:
+            prof, names = _ant_inputs(conn, now_ts)
+            sites = {}
+            for sid, snap in (cur.get("sites") or {}).items():
+                for ap in snap.get("aps") or []:
+                    names.setdefault(ap["dev_id"], ap.get("name"))
+                tr30 = _transitions(conn, sid, now_ts - 30 * 86400)
+                try:
+                    cur_status = {r["dev_id"]: r["status"] for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (sid,)).fetchall()}
+                except Exception:  # noqa: BLE001
+                    cur_status = {}
+                sites[sid] = {"flapping": anticipation.flapping(tr30, names, sid, sid, now_ts, ant),
+                              "unusual": anticipation.unusual(prof, snap.get("aps"), names, sid, sid, now_dt, ant),
+                              "availability_7": anticipation.availability(tr30, cur_status, now_ts, 7),
+                              "availability_30": anticipation.availability(tr30, cur_status, now_ts, 30)}
+        finally:
+            conn.close()
+        base = now_dt.replace(minute=0, second=0, microsecond=0)
+        hours = [(base + timedelta(hours=h)) for h in range(1, ant["horizon_hours"] + 4)]
+        nexts = []
+        for dev in sorted(prof, key=lambda d: names.get(d) or d):
+            exp = [anticipation.expected(prof, dev, t, ant["min_weeks"]) for t in hours]
+            if any(exp):
+                nexts.append({"dev_id": dev, "name": names.get(dev) or dev, "hours": [{"at": t.strftime("%H:%M"), "p50": e and e["p50"], "p90": e and e["p90"], "weeks": e and e["weeks"]} for t, e in zip(hours, exp)]})
+        table, _rows = anticipation.dhcp(cur.get("sites") or {}, ant)
+        forecast = [r for sid in (cur.get("sites") or {}) for r in anticipation.forecast(_site_prof(prof, cur, sid), names, sid, sid, now_dt, occ, ant)]
+        infra = kv_get("ant_infra", {}) or {}
+        return jsonify({"settings": ant, "thresholds": {"ap_warn": occ["ap_warn"], "ap_crit": occ["ap_crit"]}, "next_hours": nexts, "forecast": forecast,
+                        "sites": sites, "dhcp": table, "names": names, "band": kv_get("ant_band", {}) or {},
+                        "infra": {sid: {k: v for k, v in i.items() if k != "apmap"} for sid, i in infra.items()}}), 200
+
+    def _site_prof(prof, cur, sid):
+        devs = {ap["dev_id"] for ap in ((cur.get("sites") or {}).get(sid) or {}).get("aps") or []}
+        return {d: v for d, v in prof.items() if d in devs}
+
+    @app.route("/report/occupancy/send", methods=["POST"])
+    def report_occupancy_send():
+        body = request.get_json(silent=True) or {}
+        ok, err = hooks["manage"](body)
+        if not ok:
+            return jsonify({"error": err}), 403
+        cfg = settings()
+        if body.get("sample"):
+            occupancy_pass(dict(cfg, occupancy=dict(cfg["occupancy"], enabled=True)), time.time(), datetime.now(), force_sample=True)
+        if not cfg["recipients"]:
+            return jsonify({"error": "aucun destinataire dans les réglages"}), 400
+        res = send_occupancy_recap(cfg, test=True)
+        if not res:
+            return jsonify({"error": _res_text(res)}), 502
+        return jsonify(res), 200
+
+    if notify_client is not None:
+        notify_client.register_actions(ACTIONS)
+    if start_loop:
+        threading.Thread(target=_loop, args=(hooks["lock_dir"],), name="nebula-report", daemon=True).start()

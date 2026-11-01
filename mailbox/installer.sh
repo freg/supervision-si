@@ -1,0 +1,70 @@
+#!/bin/sh
+# si-mailbox (#840) : installation dans la SESSION de l'utilisateur (sans root). Linux (systemd --user) ou macOS (LaunchAgent).
+# Usage : sh mailbox/installer.sh            (installe ou met à jour, démarre, affiche l'adresse de l'écran)
+#         sh mailbox/installer.sh --retirer   (arrête et retire le service ; configuration et journal gardés)
+set -eu
+ICI="$(cd "$(dirname "$0")" && pwd)"
+APP="$HOME/.local/share/si-mailbox/app"
+command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
+if [ "${1:-}" = "--retirer" ]; then
+  if [ "$(uname)" = Darwin ]; then launchctl unload "$HOME/Library/LaunchAgents/fr.exemple.si-mailbox.plist" 2>/dev/null || true; rm -f "$HOME/Library/LaunchAgents/fr.exemple.si-mailbox.plist"
+  else systemctl --user disable --now si-mailbox.service 2>/dev/null || true; rm -f "$HOME/.config/systemd/user/si-mailbox.service"; systemctl --user daemon-reload 2>/dev/null || true; fi
+  rm -rf "$HOME/.local/share/gnome-shell/extensions/si-mailbox@exemple.fr"; command -v gnome-extensions >/dev/null && gnome-extensions disable si-mailbox@exemple.fr 2>/dev/null || true
+  rm -f "$HOME/.local/bin/si-mailbox"; echo "si-mailbox retiré (configuration ~/.config/si-mailbox et journal ~/.local/share/si-mailbox gardés)"; exit 0
+fi
+mkdir -p "$APP" "$HOME/.local/bin" "$HOME/.config/si-mailbox/scripts"
+chmod 700 "$HOME/.config/si-mailbox" "$HOME/.local/share/si-mailbox"
+install -m 0755 "$ICI/mailbox_agent.py" "$APP/mailbox_agent.py"
+install -m 0644 "$ICI/ecran.html" "$APP/ecran.html"
+for s in "$ICI"/scripts-exemples/*; do [ -f "$s" ] && [ ! -e "$HOME/.config/si-mailbox/scripts/$(basename "$s")" ] && install -m 0700 "$s" "$HOME/.config/si-mailbox/scripts/"; done
+printf '#!/bin/sh\nexec python3 "%s/mailbox_agent.py" "$@"\n' "$APP" > "$HOME/.local/bin/si-mailbox"; chmod 755 "$HOME/.local/bin/si-mailbox"
+if [ "$(uname)" = Darwin ]; then
+  P="$HOME/Library/LaunchAgents/fr.exemple.si-mailbox.plist"; mkdir -p "$(dirname "$P")"
+  cat > "$P" <<PL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Label</key><string>fr.exemple.si-mailbox</string>
+<key>ProgramArguments</key><array><string>$(command -v python3)</string><string>$APP/mailbox_agent.py</string></array>
+<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+<key>StandardOutPath</key><string>$HOME/.local/share/si-mailbox/service.log</string><key>StandardErrorPath</key><string>$HOME/.local/share/si-mailbox/service.log</string>
+</dict></plist>
+PL
+  launchctl unload "$P" 2>/dev/null || true; launchctl load "$P"
+else
+  mkdir -p "$HOME/.config/systemd/user"
+  cat > "$HOME/.config/systemd/user/si-mailbox.service" <<UN
+[Unit]
+# démarre avec la session graphique (GNOME y transmet affichage et bus de session), s'arrête avec elle
+PartOf=graphical-session.target
+After=graphical-session.target
+Description=si-mailbox -- agent de messagerie de la session (écran local 127.0.0.1:8095)
+[Service]
+ExecStart=$(command -v python3) $APP/mailbox_agent.py
+Restart=on-failure
+RestartSec=10
+[Install]
+WantedBy=graphical-session.target
+UN
+  # notifications du bureau et trousseau (bus de session) pour le service utilisateur
+  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+  command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mots de passe IMAP) : sudo apt install -y libsecret-tools"
+  systemctl --user daemon-reload && systemctl --user disable si-mailbox.service 2>/dev/null || true; systemctl --user enable --now si-mailbox.service >/dev/null && systemctl --user restart si-mailbox.service
+fi
+# #843 : widget de la barre du haut (GNOME 45+) -- icône + non lus à côté de la date
+if [ "$(uname)" != Darwin ] && command -v gnome-shell >/dev/null; then
+  X="$HOME/.local/share/gnome-shell/extensions/si-mailbox@exemple.fr"; mkdir -p "$X"
+  cp "$ICI"/gnome/si-mailbox@exemple.fr/* "$X"/
+  python3 - <<'PY'
+import ast, subprocess
+u = "si-mailbox@exemple.fr"
+v = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True).stdout.strip()
+l = ast.literal_eval(v.replace("@as ", "")) if v.startswith(("[", "@as")) else []
+if u not in l:
+    subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(l + [u])])
+PY
+  echo "Widget GNOME installé : fermer puis rouvrir la session pour l'afficher (onglet Widget de l'écran pour les filtres)."
+  [ "$(gsettings get org.gnome.shell disable-user-extensions 2>/dev/null)" = true ] && echo "ATTENTION extensions utilisateur désactivées : gsettings set org.gnome.shell disable-user-extensions false" || true
+fi
+sleep 2
+echo "si-mailbox installé (mode discret par défaut : aucune liaison avec le hub)."
+echo "Écran : $(python3 "$APP/mailbox_agent.py" --ouvrir)"

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="128px"
+	 height="128px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve">
+<g id="Calque_1" display="none">
+	<path display="inline" fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="
+		M41.742,17.433c20.812-9.967,46.5-4.983,61.928,13.568c14.576,17.519,15.584,41.835,4.199,60.194"/>
+	<path display="inline" fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="
+		M86.26,110.568c-20.813,9.966-46.5,4.98-61.93-13.567C9.755,79.48,8.744,55.166,20.128,36.807"/>
+	
+		<polyline display="inline" fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" points="
+		2.754,42.027 20.816,36.005 25.52,54.629 	"/>
+	
+		<polyline display="inline" fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" points="
+		124.596,86.964 106.535,92.984 101.831,74.363 	"/>
+</g>
+<g id="Calque_2">
+	<path fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+		M101.127,105.652c0,0-13.032,12.783-31.378,12.783c-18.351,0-55.601-9.723-55.601-55.88H4.72L21.378,35.91l15.564,26.369h-8.338
+		c0,0-2.22,51.438,40.869,51.438C90.49,113.717,101.127,105.652,101.127,105.652z"/>
+	<path fill="none" stroke="#FF0000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="
+		M30.644,25.981c0,0,13.029-12.788,31.375-12.788c18.346,0,55.6,9.728,55.6,55.87h9.424l-16.655,26.659L94.825,69.335h8.342
+		c0,0,2.215-51.418-40.872-51.418C41.276,17.927,30.644,25.981,30.644,25.981z"/>
+	<g>
+		<path fill="#FF0000" d="M87.59,83.121c0,0.65-0.234,1.211-0.701,1.678c-0.468,0.468-1.027,0.701-1.678,0.701
+			c-1.058,0-1.81-0.488-2.257-1.464l-4.087-9.882H55.26l-4.087,9.882c-0.326,0.976-1.058,1.464-2.196,1.464
+			c-0.692,0-1.25-0.233-1.678-0.701c-0.427-0.467-0.64-1.027-0.64-1.678c0-0.406,0.061-0.752,0.183-1.037l17.935-42.578
+			c0.446-1.098,1.22-1.647,2.317-1.647c1.099,0,1.851,0.549,2.257,1.647l17.995,42.639C87.508,82.43,87.59,82.755,87.59,83.121z
+			 M56.968,70.066H77.22l-10.126-24.46L56.968,70.066z"/>
+	</g>
+</g>
+</svg>

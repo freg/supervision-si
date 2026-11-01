@@ -1,8 +1,20 @@
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
+import BarreEtatHub, { nettoyerAdresse } from "./BarreEtatHub.jsx";   // #830 : pied de page permanent
+nettoyerAdresse();
+import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
+import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
+import PrioritesPanel from "./PrioritesPanel.jsx";   // #818 : priorités de la page d'accueil
+import { setViewParams } from "./hubLinks.js";   // #790
+import { vueInitiale, memoriserVue, usePositionMemorisee, restaurerPosition } from "./navContext.js";   // #874
+import { preloadSequential } from "./lazyViews.js";   // #735
+import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
-import { buildFrontsList, formatUserRoles, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
+import Accueil from "./Accueil.jsx";   // #899 : accueil sans authentification
+import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
+import HubIcon from "./HubIcon.jsx";
 import TabShell from "./TabShell.jsx";
 import {
   fetchAppSettings, saveAppSettings, mergeTicketsAppSettings,
@@ -13,52 +25,152 @@ import {
   fetchExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink,
   provisionKeycloakClient, deprovisionKeycloakClient,
   fetchHubLayout, saveHubLayout,
+  fetchHubTree, saveHubTree,
   fetchInfraStatus,
 } from "./settingsClient.js";
 import { applyHubLayout } from "./hubLayoutLib.js";
-import LogsManagerView from "./LogsManagerView.jsx";
-import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
-import RetroView from "./RetroView.jsx";
-import BackupRestoreView from "./BackupRestoreView.jsx";
-import ArchitectureView from "./ArchitectureView.jsx";
-import MemoryView from "./MemoryView.jsx";
-import ClassifierView from "./ClassifierView.jsx";
-import VigilanceView from "./VigilanceView.jsx";
-import EntView from "./EntView.jsx";
-import RightsView from "./RightsView.jsx";
-import NetprobeView from "./NetprobeView.jsx";
-import UpsView from "./UpsView.jsx";
-import SiAgentView from "./SiAgentView.jsx";
-import BastionView from "./BastionView.jsx";
-import CortexView from "./CortexView.jsx";
-import ThemeView from "./ThemeView.jsx";
-import { buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
+import { installApiAuth, setApiToken, setSiteScope, resolveSiteScope } from "./apiAuth.js";  // A0 #615 : jeton sur tous les appels d'API ; A1 #620 : périmètre de site
+installApiAuth();
+installNetActivity();   // #735 : indicateur d'activité, GET d'API suspendus quand l'onglet est caché
+// #516 : disposition du hub en arborescence (menus, tuiles, outils, options).
+// #735 : vues chargées à la demande (un fichier JS par vue au lieu d'un bloc de 2 Mo), puis préchargées en tâche
+// de fond quand le navigateur est inactif -- le changement de tuile reste instantané après le premier affichage.
+const VIEW_IMPORTS = [];
+function lazyView(load) { VIEW_IMPORTS.push(load); return lazy(load); }
+function ViewLoading() {
+  return <div className="hub-view-loading" role="status" aria-live="polite"><span className="hub-spinner" aria-hidden="true" /> Chargement…</div>;
+}
+const HubTreeView = lazyView(() => import("./HubTreeView.jsx"));
+// #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
+const SyntheseView = lazyView(() => import("./SyntheseView.jsx"));
+const TodayView = lazyView(() => import("./TodayView.jsx"));
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl, parseAliases, looksLikeAddress } from "./hubTree.js";
+const LogsManagerView = lazyView(() => import("./LogsManagerView.jsx"));
+const SchemaAnalyzerView = lazyView(() => import("./SchemaAnalyzerView.jsx"));
+const PortageView = lazyView(() => import("./PortageView.jsx"));
+const QaView = lazyView(() => import("./QaView.jsx"));
+const DataSyncView = lazyView(() => import("./DataSyncView.jsx"));
+const VulnView = lazyView(() => import("./VulnView.jsx"));   // #688
+const VeilleView = lazyView(() => import("./VeilleView.jsx"));   // #814 : veille cyber (dans vuln-api)
+const MailServerView = lazyView(() => import("./MailServerView.jsx"));  // #697
+const MailboxView = lazyView(() => import("./MailboxView.jsx"));  // #840
+import { configureTablePrefs } from "./tableLayout.js";  // #698
+const GroupwareView = lazyView(() => import("./GroupwareView.jsx"));   // #664
+import GroupwareReminders from "./GroupwareReminders.jsx";   // #670
+const PveOpsView = lazyView(() => import("./PveOpsView.jsx"));
+const PveMaintView = lazyView(() => import("./PveMaintView.jsx"));
+const InfraView = lazyView(() => import("./InfraView.jsx"));   // #749
+const GuestUsageView = lazyView(() => import("./GuestUsageView.jsx"));   // #769
+const EdgePairView = lazyView(() => import("./EdgePairView.jsx"));   // #776 : proxys d'entrée interchangeables
+const LatencyView = lazyView(() => import("./LatencyView.jsx"));   // #775 : latence des IP publiques
+const JournalView = lazyView(() => import("./JournalView.jsx"));   // #795 : journal des chantiers
+const NavigateurView = lazyView(() => import("./NavigateurView.jsx"));   // #798 : navigateur des hôtes
+const MessagesView = lazyView(() => import("./MessagesView.jsx"));   // #903 : blog du hub
+const SocketsView = lazyView(() => import("./SocketsView.jsx"));   // #906 : sockets (netstat) des hôtes agentés
+const PosteWindowsView = lazyView(() => import("./PosteWindowsView.jsx"));   // #896 : postes Windows
+const VpnView = lazyView(() => import("./VpnView.jsx"));   // #884 : VPN WireGuard
+const NasView = lazyView(() => import("./NasView.jsx"));   // #883 : NAS (SNMP, lecture seule)
+const SauvegardesView = lazyView(() => import("./SauvegardesView.jsx"));   // #937 : tuile « Sauvegardes » (aperçu central)
+const HtopView = lazyView(() => import("./HtopView.jsx"));   // #800 : htop en direct (relais UDP si-htop)
+const DataRfView = lazyView(() => import("./DataRfView.jsx"));   // #806 : sondes radio des sites
+const UrgenceView = lazyView(() => import("./UrgenceView.jsx"));   // #796 : écran Urgence (application installée)
+const MigrationView = lazyView(() => import("./MigrationView.jsx"));   // #774 : tuile « Migration 2026-2027 »
+const FleetViewsView = lazyView(() => import("./FleetViewsView.jsx"));   // #753
+const IaParkView = lazyView(() => import("./IaParkView.jsx"));   // #756
+const HermesView = lazyView(() => import("./HermesView.jsx"));   // #912 : tuile Hermes (hermes-web, lecture seule)
+const BancView = lazyView(() => import("./BancView.jsx"));   // #826
+const EmulationView = lazyView(() => import("./EmulationView.jsx"));   // #831
+const OrchestrationView = lazyView(() => import("./OrchestrationView.jsx"));   // #832
+const RepatriationView = lazyView(() => import("./RepatriationView.jsx"));   // #761
+const RetroView = lazyView(() => import("./RetroView.jsx"));
+const BackupRestoreView = lazyView(() => import("./BackupRestoreView.jsx"));
+const ArchitectureView = lazyView(() => import("./ArchitectureView.jsx"));
+const MemoryView = lazyView(() => import("./MemoryView.jsx"));
+const ClassifierView = lazyView(() => import("./ClassifierView.jsx"));
+const VigilanceView = lazyView(() => import("./VigilanceView.jsx"));
+const EntView = lazyView(() => import("./EntView.jsx"));
+const RightsView = lazyView(() => import("./RightsView.jsx"));
+const AccountsView = lazyView(() => import("./AccountsView.jsx"));
+const PersonalDataView = lazyView(() => import("./PersonalDataView.jsx"));  // #638
+const NetprobeView = lazyView(() => import("./NetprobeView.jsx"));
+const UpsView = lazyView(() => import("./UpsView.jsx"));
+const SiAgentView = lazyView(() => import("./SiAgentView.jsx"));
+const ProxmoxView = lazyView(() => import("./ProxmoxView.jsx"));
+const NetworkEquipmentView = lazyView(() => import("./NetworkEquipmentView.jsx"));
+const BastionView = lazyView(() => import("./BastionView.jsx"));
+const ControlTowerView = lazyView(() => import("./ControlTowerView.jsx"));  // #586
+const NotificationsView = lazyView(() => import("./NotificationsView.jsx"));  // #590
+const LicensesView = lazyView(() => import("./LicensesView.jsx"));  // #595
+const NatMapView = lazyView(() => import("./NatMapView.jsx"));  // #606
+import HostHealthBanner from "./HostHealthBanner.jsx";  // #593
+const CortexView = lazyView(() => import("./CortexView.jsx"));
+const ThemeView = lazyView(() => import("./ThemeView.jsx"));
+import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
+import { fetchVisible } from "./rightsClient.js";
+const AgentPageView = lazyView(() => import("./AgentPageView.jsx"));
+const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
+import { businessTree, filterBusinessTree, pathsOfLeaf } from "./hubBusiness.js";  // #599 : menu principal en graphe métier
+import HomeTree from "./HomeTree.jsx";  // #603 : accueil en arbre dépliable
+import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
+import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
-import SupervisionSiView from "./SupervisionSiView.jsx";
-import ExternalBasesView from "./ExternalBasesView.jsx";
-import GeoCatalogView from "./GeoCatalogView.jsx";
-import FusionView from "./FusionView.jsx";
-import GedView from "./GedView.jsx";
-import SshTunnelsView from "./SshTunnelsView.jsx";
-import SnmpView from "./SnmpView.jsx";
-import NetmapOrchestratorView from "./NetmapOrchestratorView.jsx";
-import NebulaView from "./NebulaView.jsx";
-import ImapView from "./ImapView.jsx";
-import GlpiInventoryView from "./GlpiInventoryView.jsx";
-import NetworkAgentView from "./NetworkAgentView.jsx";
-import NetworkCycleView from "./NetworkCycleView.jsx";
-import CyberView from "./CyberView.jsx";
-import PersonalizeHomeView from "./PersonalizeHomeView.jsx";
-import FileManagerView from "./FileManagerView.jsx";
+const SupervisionSiView = lazyView(() => import("./SupervisionSiView.jsx"));
+const ExternalBasesView = lazyView(() => import("./ExternalBasesView.jsx"));
+const GeoCatalogView = lazyView(() => import("./GeoCatalogView.jsx"));
+const FusionView = lazyView(() => import("./FusionView.jsx"));
+const GedView = lazyView(() => import("./GedView.jsx"));
+const SshTunnelsView = lazyView(() => import("./SshTunnelsView.jsx"));
+const SnmpView = lazyView(() => import("./SnmpView.jsx"));
+const NetmapOrchestratorView = lazyView(() => import("./NetmapOrchestratorView.jsx"));
+const NebulaView = lazyView(() => import("./NebulaView.jsx"));
+const ImapView = lazyView(() => import("./ImapView.jsx"));
+const ImapConnectorsView = lazyView(() => import("./ImapConnectorsView.jsx"));
+import NotifBell from "./NotifBell.jsx";
+const GlpiInventoryView = lazyView(() => import("./GlpiInventoryView.jsx"));
+const NetworkAgentView = lazyView(() => import("./NetworkAgentView.jsx"));
+const NetworkCycleView = lazyView(() => import("./NetworkCycleView.jsx"));
+const CyberView = lazyView(() => import("./CyberView.jsx"));
+const PersonalizeHomeView = lazyView(() => import("./PersonalizeHomeView.jsx"));
+const FileManagerView = lazyView(() => import("./FileManagerView.jsx"));
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
+import { useNavState } from "./navContext.js";   // #874
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
+import VersionBadge from "./VersionBadge.jsx";  // #700
 
 const FRONTEND_URL = import.meta.env.VITE_SUPERVISION_FRONTEND_URL || "";
 const PORTAL_URL = import.meta.env.VITE_TICKETS_PORTAL_URL || "";
 const DBA_URL = import.meta.env.VITE_DBA_PORTAL_URL || "";
 const LDAP_ADMIN_URL = import.meta.env.VITE_LDAP_ADMIN_PORTAL_URL || "";
+// ProjeQtOr (fork, livraison #476) — tuile visible de tous, embarquable
+// en onglet de la coquille (même origine via tls-proxy, /projeqtor/).
+const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
+// MikroTik (livraison #485) — supervision/commande des routeurs,
+// tuile de la thématique Réseau, même origine via tls-proxy.
+// #486 : la SPA et l'API partagent le même préfixe (/mikrotik/) --
+// la base API est l'URL de la tuile sans sa barre finale.
+const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
+// Équipements Cisco (livraison #508) -- page autonome de cisco-api sous /cisco/.
+const CISCO_URL = import.meta.env.VITE_CISCO_URL || "";
+// Entrées de services (livraison #531) -- page autonome de service-watch-api sous /service-watch/.
+const SERVICE_WATCH_URL = import.meta.env.VITE_SERVICE_WATCH_URL || "";
+// Assistant IA PoC (livraison #532) -- page autonome d'assistant-api sous /assistant/.
+const ASSISTANT_URL = import.meta.env.VITE_ASSISTANT_URL || "";
+// #846 : l'Univers cherche aussi le titre réel des tuiles (« Nebula@<site> » du .env) et des mots-clés (.env VITE_HUB_ALIASES)
+const NEBULA_TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";
+const UNIVERSE_ALIASES = (() => {
+  const a = parseAliases(import.meta.env.VITE_HUB_ALIASES);
+  a["view:nebula"] = [NEBULA_TILE_TITLE, "campus", "wifi", "bornes", "vlan", "santé du réseau", ...(a["view:nebula"] || [])];
+  return a;
+})();
+const UNIVERSE_LABELS = { "view:nebula": NEBULA_TILE_TITLE };
+const CREDENTIALS_URL = import.meta.env.VITE_CREDENTIALS_URL || "";
+const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
+// Pont « suivi » (#484) — page d'administration (import/export Excel,
+// synchro) ; tuile « Demandes (suivi) » de la thématique ProjeQtOr (#489).
+const DEMANDE_URL = import.meta.env.VITE_DEMANDE_URL || "";
 const VAULT_URL = import.meta.env.VITE_VAULT_PORTAL_URL || "";
 // Portail d'administration du coffre-fort (rôles) -- JAMAIS routé par
 // la passerelle publique (voir vault-standalone/README.md/docker-
@@ -78,6 +190,12 @@ const TICKETS_API_BASE_URL = import.meta.env.VITE_TICKETS_API_BASE_URL || "";
 const DBA_API_BASE_URL = import.meta.env.VITE_DBA_API_BASE_URL || "";
 const SCHEMA_ANALYZER_API_BASE_URL = import.meta.env.VITE_SCHEMA_ANALYZER_API_BASE_URL || "";
 const RETRO_API_BASE_URL = import.meta.env.VITE_RETRO_API_BASE_URL || "";
+const PORTAGE_API_BASE_URL = import.meta.env.VITE_PORTAGE_API_BASE_URL || "";  // #650
+const QA_API_BASE_URL = import.meta.env.VITE_QA_API_BASE_URL || "";  // #651
+const DATASYNC_API_BASE_URL = import.meta.env.VITE_DATASYNC_API_BASE_URL || "";  // #652
+const VULN_API_BASE_URL = import.meta.env.VITE_VULN_API_BASE_URL || "";  // #688
+const GROUPWARE_API_BASE_URL = import.meta.env.VITE_GROUPWARE_API_BASE_URL || "";  // #664
+const DNS_API_BASE_URL = import.meta.env.VITE_DNS_API_BASE_URL || "";  // #656
 const BACKUP_RESTORE_API_BASE_URL = import.meta.env.VITE_BACKUP_RESTORE_API_BASE_URL || "";
 const ARCHITECTURE_API_BASE_URL = import.meta.env.VITE_ARCHITECTURE_API_BASE_URL || "";
 const MEMORY_API_BASE_URL = import.meta.env.VITE_MEMORY_API_BASE_URL || "";
@@ -85,14 +203,25 @@ const CLASSIFIER_API_BASE_URL = import.meta.env.VITE_CLASSIFIER_API_BASE_URL || 
 const VIGILANCE_API_BASE_URL = import.meta.env.VITE_VIGILANCE_API_BASE_URL || "";
 const TASKS_API_BASE_URL = import.meta.env.VITE_TASKS_API_BASE_URL || "";
 const RIGHTS_API_BASE_URL = import.meta.env.VITE_RIGHTS_API_BASE_URL || "";
+const ACCOUNTS_API_BASE_URL = import.meta.env.VITE_ACCOUNTS_API_BASE_URL || "";  // #557
 const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 // Tuile UPS (livraison #415) -- ups-monitor-api.
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 // Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
 const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
+// Équipements réseau (livraison #506) -- network-equipment-api : identification
+// constructeur/modèle/génération, import Zenoss, profils de supervision SNMP.
+const NETWORK_EQUIPMENT_API_BASE_URL = import.meta.env.VITE_NETWORK_EQUIPMENT_API_BASE_URL || "";
+// #505 : pages ouvertes sans connexion (liste à plat sur l'accueil)
+const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEND_URL });
 // Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
 // preferred_username de VITE_SI_PROXY_ADMIN_USERS (le pont vérifie le jeton).
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
+const SERVICES_API_BASE_URL = import.meta.env.VITE_SERVICES_API_BASE_URL || "";  // #584
+const NOTIFY_API_BASE_URL = import.meta.env.VITE_NOTIFY_API_BASE_URL || "";  // #590
+const LICENSES_API_BASE_URL = import.meta.env.VITE_LICENSES_API_BASE_URL || "";  // #595
+const SERVICES_ADMIN_USERS = (import.meta.env.VITE_SERVICES_ADMIN_USERS || "freg").split(",").map((u) => u.trim().toLowerCase()).filter(Boolean);
+const SERVICES_ADMIN_GROUPS = (import.meta.env.VITE_SERVICES_ADMIN_GROUPS || "administrateurs").split(",").map((g) => g.trim()).filter(Boolean);  // #589
 // Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
 const CORTEX_API_BASE_URL = import.meta.env.VITE_CORTEX_API_BASE_URL || "";
 const SI_PROXY_ADMIN_USERS = import.meta.env.VITE_SI_PROXY_ADMIN_USERS || "freg";
@@ -130,6 +259,7 @@ const SNMP_API_BASE_URL = import.meta.env.VITE_SNMP_API_BASE_URL || "";
 const NETMAP_ORCHESTRATOR_API_BASE_URL = import.meta.env.VITE_NETMAP_ORCHESTRATOR_API_BASE_URL || "";
 const NEBULA_API_BASE_URL = import.meta.env.VITE_NEBULA_API_BASE_URL || "";
 const IMAP_CLIENT_API_BASE_URL = import.meta.env.VITE_IMAP_CLIENT_API_BASE_URL || "";
+const IMAP_CONNECTORS_API_BASE_URL = import.meta.env.VITE_IMAP_CONNECTORS_API_BASE_URL || "";
 const GLPI_API_BASE_URL = import.meta.env.VITE_GLPI_API_BASE_URL || "";
 const NETWORK_AGENT_API_BASE_URL = import.meta.env.VITE_NETWORK_AGENT_API_BASE_URL || "";
 // Console SCOPÉE au realm supervision-si, pas la console master --
@@ -158,6 +288,7 @@ const themeStore = createAccountThemeStore({ apiBase: PREFS_API_BASE_URL });
 // par défaut (comportement inchangé tant que la personne n'a jamais
 // touché au bouton).
 const FOOTER_NOTE_VISIBLE_STORAGE_KEY = "supervision-si:hub:footer-note-visible";
+const FOOTER_UPDATES_STORAGE_KEY = "supervision-si:hub:footer-updates-visible";   // #762
 
 function loadStoredFooterNoteVisible() {
   try {
@@ -174,7 +305,7 @@ function loadStoredFooterNoteVisible() {
 // "Mes préférences" (personnel, tout le monde). Fondation prévue pour
 // accueillir d'autres applications/préférences plus tard -- premier
 // cas d'usage concret : le rappel d'activité technicien.
-function SettingsView({ groups, login, apiBase, onBack }) {
+function SettingsView({ groups, login, apiBase, onBack, servicesAllowed = false, onNavigate }) {
   const isAdminUser = isAdmin(groups);
   const isTech = isTechnicien(groups);
 
@@ -236,6 +367,17 @@ function SettingsView({ groups, login, apiBase, onBack }) {
       </div>
 
       <div className="hub-settings-grid">
+      {servicesAllowed && (
+        <div className="hub-card hub-settings-section">
+          <h2>🗼 Tour de contrôle</h2>
+          <p className="muted">
+            Feu tricolore de toutes les API, fronts et bases ; redémarrer, reconstruire ; déposer une livraison (zip) :
+            analyse, plan de reconstruction et application automatiques ; registres JSON (Cisco, MikroTik) éditables et
+            importables ; auto-réparation des services en panne ; journal — livraisons #584/#586.
+          </p>
+          <button type="button" className="primary" onClick={() => onNavigate?.("control")}>Ouvrir la tour de contrôle</button>
+        </div>
+      )}
       {isAdminUser && (
         <div className="hub-card hub-settings-section">
           <h2>🌐 Général</h2>
@@ -397,7 +539,7 @@ function MarkdownDocument({ blocks }) {
 // réellement (jamais une copie figée), avec un rendu markdown de
 // base (titres/gras/code/listes -- voir markdown.js).
 function HistoryView({ apiBase, onBack }) {
-  const [subTab, setSubTab] = useState("changelog");
+  const [subTab, setSubTab] = useNavState("App", "subTab", "changelog");   // #874 : gardé au rechargement
   const [changelogBlocks, setChangelogBlocks] = useState(null);
   const [backlogBlocks, setBacklogBlocks] = useState(null);
   const [error, setError] = useState(null);
@@ -804,7 +946,7 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
           {loading && <p className="muted">Chargement…</p>}
           {!loading && links.length === 0 && <p className="muted">Aucun lien externe pour l'instant.</p>}
           {!loading && links.length > 0 && (
-            <table className="hub-external-links-table">
+            <AutoColumns id="App.1"><table className="hub-external-links-table">
               <thead>
                 <tr>
                   <th>Nom</th><th>URL</th><th>Visible par</th><th>Intégré</th><th>Keycloak</th><th></th>
@@ -919,7 +1061,7 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
                   </Fragment>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       </div>
@@ -928,7 +1070,23 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
 }
 
 export default function App() {
+  // #735 : précharge le code des vues en tâche de fond, 3 s après l'ouverture (une vue à la fois, au repos)
+  useEffect(() => { let stop = null; const t = setTimeout(() => { stop = preloadSequential(VIEW_IMPORTS); }, 3000); return () => { clearTimeout(t); if (stop) stop(); }; }, []);
   const auth = useAuth();
+  useEffect(() => { setApiToken(auth.user?.access_token || ""); }, [auth.user?.access_token]);  // A0 #615
+  // A1 (#620) : périmètre de site par groupe -- réglage lu sur si-agent-api, même règle que la garde des API
+  const [siteScope, setSiteScopeState] = useState(null);
+  useEffect(() => {
+    const grp = Array.isArray(auth.user?.profile?.groups) ? auth.user.profile.groups : [];
+    if (!auth.user?.access_token || !SI_AGENT_API_BASE_URL) { setSiteScope(null); setSiteScopeState(null); return; }
+    let cancelled = false;
+    fetch(`${SI_AGENT_API_BASE_URL}/site-scopes`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (cancelled) return;
+      const scope = d ? resolveSiteScope(grp, d.groups, d.full_groups) : null;
+      setSiteScope(scope); setSiteScopeState(scope);
+    }).catch(() => { if (!cancelled) { setSiteScope(null); setSiteScopeState(null); } });
+    return () => { cancelled = true; };
+  }, [auth.user?.access_token]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [showDebug, setShowDebug] = useState(false);
   // Menu de navigation regroupé (livraison #236, réorganisation de
   // l'en-tête demandée explicitement -- "trop d'outils maintenant")
@@ -940,14 +1098,58 @@ export default function App() {
   // (livraison #173) -- même mécanique, juste généralisée aux trois
   // nouveaux menus plutôt que dupliquée quatre fois.
   const [openNavMenu, setOpenNavMenu] = useState(null);
+  const [agentPageId, setAgentPageId] = useState(null);  // #562 : site publié par un agent, en cadre
+  // #560 : un menu ouvert se ferme dès qu'on clique ailleurs (ou Échap) --
+  // sinon il masque la page tant qu'on ne recliquait pas son bouton.
+  useEffect(() => {
+    if (!openNavMenu) return;
+    const onDown = (e) => { if (!e.target.closest || !e.target.closest(".hub-nav-dropdown")) setOpenNavMenu(null); };
+    const onKey = (e) => { if (e.key === "Escape") setOpenNavMenu(null); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [openNavMenu]);
+  // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
+  const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
+  const [universeQuery, setUniverseQuery] = useState("");
+  // #846 : une adresse IP ou MAC saisie dans l'Univers est cherchée dans les sources du hub (assistant, sans modèle)
+  const [universeLocate, setUniverseLocate] = useState(null);
+  useEffect(() => {
+    const q = universeQuery.trim();
+    if (!ASSISTANT_URL || !looksLikeAddress(q)) { setUniverseLocate(null); return undefined; }
+    let fini = false;
+    setUniverseLocate({ q, enCours: true });
+    const t = setTimeout(() => {
+      fetch(ASSISTANT_URL.replace(/\/?$/, "/") + "hub/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+        .then((d) => { if (!fini) setUniverseLocate({ q, data: d.data || { found: [], absent: [] } }); })
+        .catch((e) => { if (!fini) setUniverseLocate({ q, erreur: e.message }); });
+    }, 350);
+    return () => { fini = true; clearTimeout(t); };
+  }, [universeQuery]);
+  // #554 : pages publiées par les agents (menu « Pages ouvertes »)
+  const [publishedAgents, setPublishedAgents] = useState([]);
+  useEffect(() => {
+    if (!SI_AGENT_API_BASE_URL) return undefined;
+    let alive = true;
+    const load = () => fetch(`${SI_AGENT_API_BASE_URL}/fleet`, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive && d) setPublishedAgents(d.agents || []); }).catch(() => {});
+    load();
+    const id = setInterval(load, 300000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   // #457 : accueil par thématiques (super-tuiles). `themeEntry` = outil
   // ouvert dans la thématique courante ; `homeMode` = "themes" (défaut) ou
   // "tiles" (toutes les tuiles, avec la personnalisation d'origine).
   const [themeEntry, setThemeEntry] = useState(null);
-  const [homeMode, setHomeMode] = useState(() => { try { return normalizeHomeMode(localStorage.getItem("hub.home.mode")); } catch { return "themes"; } });
+  const [homeMode, setHomeMode] = useState(() => { try { return normalizeHomeMode(localStorage.getItem("hub.home.mode")); } catch { return "tree"; } });  // #605 : arbre par défaut
   useEffect(() => { try { localStorage.setItem("hub.home.mode", homeMode); } catch { /* ignoré */ } }, [homeMode]);
   // Personnalisation de l'accueil, étape 1 (livraison #132).
   const [showFooterNote, setShowFooterNote] = useState(() => loadStoredFooterNoteVisible());
+  // #762 : mises à jour en pied de page, avec un bouton vers chaque écran nouveau ou modifié
+  const [showUpdates, setShowUpdates] = useState(() => { try { return localStorage.getItem(FOOTER_UPDATES_STORAGE_KEY) === "1"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem(FOOTER_UPDATES_STORAGE_KEY, showUpdates ? "1" : "0"); } catch { /* stockage indisponible */ } }, [showUpdates]);
+  const hubUpdates = useMemo(() => updatesWithLinks(HUB_UPDATES), []);
+  const [failCount, setFailCount] = useState(0);   // #816
   useEffect(() => {
     try {
       localStorage.setItem(FOOTER_NOTE_VISIBLE_STORAGE_KEY, JSON.stringify(showFooterNote));
@@ -958,20 +1160,33 @@ export default function App() {
     }
   }, [showFooterNote]);
   const [theme, setThemeState] = useState(themeStore.get() || "light");
-  const [viewMode, setViewMode] = useState(() => {
-    // Lien profond depuis un autre front (ex. "⚙️ Paramètres" du
-    // portail tickets, voir tickets/portal/src/App.jsx) -- ouvre
-    // directement la page de paramètres plutôt que d'ajouter un clic
-    // supplémentaire une fois arrivé sur le hub.
-    const params = new URLSearchParams(window.location.search);
-    const requestedView = params.get("view");
-    return ["settings", "history", "tabs", "external-links"].includes(requestedView) ? requestedView : "grid";
-  }); // "grid" | "settings"
+  // #874 : lien profond `?view=` (#559), sinon la dernière vue de cet onglet du navigateur (rechargement, retour de
+  // Keycloak, rechargement sans cache d'une livraison) : on ne retombe plus sur l'accueil.
+  const [viewMode, setViewMode] = useState(() => vueInitiale("grid")); // "grid" | "settings" | vue
+  useEffect(() => { memoriserVue(viewMode); }, [viewMode]);
+  usePositionMemorisee(viewMode);
+  useEffect(() => { restaurerPosition(viewMode); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const username = auth.user?.profile?.preferred_username;
   useEffect(() => {
     if (!username) return;
     themeStore.load(username);
+    configureTablePrefs({ apiBase: PREFS_API_BASE_URL, user: username });  // #698 : colonnes des tableaux mémorisées par compte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+  // #559 : tuiles visibles pour cette personne selon la matrice des droits --
+  // null = aucune restriction (sujet non restreint, ou rights-api absent /
+  // injoignable : le hub reste ouvert comme avant) ; un Set = seules ces tuiles.
+  const [visibleTiles, setVisibleTiles] = useState(null);
+  useEffect(() => {
+    if (!RIGHTS_API_BASE_URL || !username) return;
+    const prof = auth.user?.profile || {};
+    const grps = Array.isArray(prof.groups) ? prof.groups : [];
+    let alive = true;
+    fetchVisible(RIGHTS_API_BASE_URL, grps, username, buildRightsCatalog().map((c) => c.identifier)).then((r) => {
+      if (alive) setVisibleTiles(r && r.restricted ? new Set(r.ids || []) : null);
+    });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
   useEffect(() => themeStore.onChange(setThemeState), []);
@@ -1083,10 +1298,32 @@ export default function App() {
     if (!loginForLayout) return;
     fetchHubLayout(PREFS_API_BASE_URL, loginForLayout).then(setHubLayout);
   };
+  // #516 : arbre de disposition -- personnel (préférences, clé hubTree) et
+  // du site (app-settings « hub », posé par un administrateur). Mémorisé :
+  // l'éditeur repart de `tree` à chaque changement de référence, il ne doit
+  // donc changer QUE quand une des deux sources change.
+  const [hubTreeUser, setHubTreeUser] = useState(undefined);
+  const [hubTreeSite, setHubTreeSite] = useState(undefined);
+  useEffect(() => {
+    if (!loginForLayout) return;
+    fetchHubTree(PREFS_API_BASE_URL, loginForLayout).then(setHubTreeUser);
+    fetchAppSettings(PREFS_API_BASE_URL, "hub").then((d) => setHubTreeSite(d && d.hubTree ? d.hubTree : null));
+  }, [loginForLayout]);
+  const hubTreeSiteNorm = useMemo(() => normalizeTree(hubTreeSite), [hubTreeSite]);
+  const hubTree = useMemo(() => normalizeTree(hubTreeUser) || hubTreeSiteNorm || defaultTree(THEMES), [hubTreeUser, hubTreeSiteNorm]);
+
   useEffect(() => {
     loadHubLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loginForLayout]);
+
+  // #599 : menu principal en GRAPHE MÉTIER déployé -- cinq racines, une tuile
+  // sous chacun de ses chemins, « aussi sous … », filtre début de mot ;
+  // l'arbre de disposition (#516) reste l'autre porte. Hooks ici, avant tout
+  // retour anticipé.
+  const [menuMode, setMenuMode] = useState(() => { try { return localStorage.getItem("hub.menu.mode") === "layout" ? "layout" : "business"; } catch { return "business"; } });
+  useEffect(() => { try { localStorage.setItem("hub.menu.mode", menuMode); } catch { /* ignoré */ } }, [menuMode]);
+  const [menuQuery, setMenuQuery] = useState("");
 
   useEffect(() => {
     if (auth.isLoading || auth.isAuthenticated || auth.activeNavigator || silentCheckDone) return;
@@ -1107,34 +1344,10 @@ export default function App() {
     );
   }
 
-  if (auth.error) {
-    return (
-      <div className="hub-shell hub-center">
-        <div className="hub-card hub-error-card">
-          <h2>⚠️ Erreur de connexion</h2>
-          <p>{auth.error.message}</p>
-          <button className="primary" onClick={() => auth.signinRedirect()}>
-            Réessayer
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!auth.isAuthenticated) {
-    return (
-      <div className="hub-shell hub-center">
-        <div className="hub-card">
-          <h1>Hub SI</h1>
-          <p className="muted">
-            Portail d'accès — connexion via l'annuaire de l'entreprise (Keycloak / LDAP).
-          </p>
-          <button className="primary" onClick={() => auth.signinRedirect()}>
-            🔐 Se connecter
-          </button>
-        </div>
-      </div>
-    );
+  // #899 : visite non authentifiée (ou reconnexion silencieuse en échec) -> accueil à deux entrées, jamais une erreur seule
+  if (auth.error || !auth.isAuthenticated) {
+    return <Accueil apiBase={SI_AGENT_API_BASE_URL || "/api/si-agent"} onConnexion={() => auth.signinRedirect()}
+      erreur={auth.error && !/login[_ ]required|interaction[_ ]required|consent[_ ]required/i.test(String(auth.error.message)) ? auth.error.message : null} />;
   }
 
   const profile = auth.user?.profile || {};
@@ -1142,7 +1355,7 @@ export default function App() {
   const rawRoles = auth.user?.profile?.realm_access?.roles;
   const groups = Array.isArray(profile.groups) ? profile.groups : [];
   const roles = formatUserRoles(groups);
-  const fronts = buildFrontsList({
+  const frontsRaw = buildFrontsList({
     frontendUrl: FRONTEND_URL,
     portalUrl: PORTAL_URL,
     keycloakConsoleUrl: KEYCLOAK_CONSOLE_URL,
@@ -1150,9 +1363,17 @@ export default function App() {
     vaultUrl: VAULT_URL,
     vaultAdminUrl: VAULT_ADMIN_URL,
     ldapAdminUrl: LDAP_ADMIN_URL,
+    projeqtorUrl: PROJEQTOR_URL,
+    mikrotikUrl: MIKROTIK_URL,
+    ciscoUrl: CISCO_URL,
+    serviceWatchUrl: SERVICE_WATCH_URL,
+    assistantUrl: ASSISTANT_URL,
+    credentialsUrl: CREDENTIALS_URL,
+    demandeUrl: DEMANDE_URL,
     groups,
     externalLinks,
   });
+  const fronts = visibleTiles ? frontsRaw.filter((f) => visibleTiles.has(f.id)) : frontsRaw;  // #559
   // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) : la
   // tuile « maquette initiale » (front externe, lib.js) devient une VUE
   // INTERNE du hub -- même identifiant et même rôle (`supervision`) pour
@@ -1320,22 +1541,82 @@ export default function App() {
   const { ungrouped: ungroupedFronts, groups: frontGroups } = applyHubLayout(fronts, hubLayout);
   // #457 : ce qui est disponible pour CETTE personne / ce déploiement --
   // mêmes conditions que les tuiles et menus d'origine.
-  const availableViews = new Set([
+  const availableViewsRaw = new Set([
     CORTEX_API_BASE_URL && "cortex",
     fronts.some((f) => f.id === "supervision") && "supervision-si",
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
-    VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory",
-    NETWORK_AGENT_API_BASE_URL && "network-agent", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
+    VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory", "synthese", "aujourdhui",
+    NETWORK_AGENT_API_BASE_URL && "network-agent", NETWORK_EQUIPMENT_API_BASE_URL && "network-equipment", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
-    FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap", bastionAllowed && "si-proxy",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", SI_AGENT_API_BASE_URL && "mailbox", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "nas", SI_AGENT_API_BASE_URL && "sauvegardes", SI_AGENT_API_BASE_URL && "vpn", SI_AGENT_API_BASE_URL && "postes-windows", SI_AGENT_API_BASE_URL && "sockets", "messages", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", SI_AGENT_API_BASE_URL && "hermes", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "orchestration", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
+    IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
+    ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
+    ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "personal",  // #638
+    NOTIFY_API_BASE_URL && isAdmin(groups) && "notifications",  // #590
+    LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
+    MIKROTIK_API_BASE && "nat-map",  // #606
   ].filter(Boolean));
-  const { themes: visibleThemes, leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
+  const availableViews = visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw;  // #559
+  const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
+  // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
+  // disposition (hubTree.js) résolu contre le catalogue des feuilles
+  // disponibles ici (mêmes conditions que les tuiles d'origine) ; les
+  // groupes de premier niveau sont les « thématiques » de #457 (menus +
+  // super-tuiles), les feuilles de premier niveau des boutons/tuiles seuls.
+  const runAction = (a) => {
+    setOpenNavMenu(null);
+    const toggle = (name) => setViewMode((v) => (v === name ? "grid" : name));
+    if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : m === "tiles" ? "tree" : "themes"));  // #603 : trois modes
+    else if (a === "debug") setShowDebug((v) => !v);
+    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "control"].includes(a)) toggle(a);
+  };
+  const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
+  const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
+  const resolvedTree = resolveTree(hubTree, hubCatalog, { leftover: leftoverFronts });
+  const visibleThemes = themesOf(resolvedTree).map((t) => ({ ...t, entries: t.entries.map(decorateLeaf) }));
+  // #599 : graphe métier déployé (item 94, étape 1) -- calcul simple à chaque
+  // rendu (catalogue de quelques dizaines de feuilles) ; les hooks du menu
+  // (menuMode, menuQuery) sont déclarés plus haut, AVANT les retours
+  // anticipés de connexion (règle des hooks : ordre constant).
+  const businessFull = businessTree(hubCatalog, { themeOf: (ref) => { const t = themeOfView(visibleThemes, ref.replace(/^(view|front):/, "")); return t || null; } });
+  const businessShown = filterBusinessTree(businessFull, menuQuery);
+  // #603 : l'arbre de disposition (#516) sous la même forme générique que le graphe métier
+  const layoutRoots = (() => {  // calcul simple (pas de hook : nous sommes après les retours anticipés)
+    const q = menuQuery.trim().toLowerCase();
+    const conv = (n) => {
+      const leaves = n.children.filter((c) => c.type === "ref").map((c) => c.leaf).filter((l) => !q || l.label.toLowerCase().includes(q));
+      const children = n.children.filter((c) => c.type === "group").map(conv).filter(Boolean);
+      const count = leaves.length + children.reduce((s, c) => s + c.count, 0);
+      return count || (!q && n.children.length === 0) ? { id: n.id, label: n.label, icon: n.icon, children, leaves, count } : null;
+    };
+    return resolvedTree.children.map((n) => (n.type === "group" ? conv(n) : (!q || n.leaf.label.toLowerCase().includes(q)) ? { id: n.id, label: n.leaf.label, children: [], leaves: [n.leaf], count: 1 } : null)).filter(Boolean);
+  })();
+  const currentLeafId = viewMode ? `view:${viewMode}` : null;
+  const openBusinessPaths = new Set(currentLeafId ? pathsOfLeaf(businessFull, currentLeafId).flatMap((p) => p.split("/").map((_, i, a) => a.slice(0, i + 1).join("/"))) : []);
+  const hubRootOrder = resolvedTree.children.map((n) => (n.type === "ref" ? { ...n, leaf: decorateLeaf(n.leaf) } : n));
   const currentTheme = isThemeViewMode(viewMode) ? findTheme(visibleThemes, themeIdOf(viewMode)) : null;
-  const openInTheme = (themeId, view) => { setThemeEntry(view); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };
+  const openInTheme = (themeId, entryId) => { setThemeEntry(entryId); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };
+  const openLeaf = (leaf, themeId) => {
+    setOpenNavMenu(null);
+    if (leaf.kind === "action") { runAction(leaf.action); return; }
+    if (leaf.kind === "view") { if (themeId) openInTheme(themeId, leaf.id); else { setThemeEntry(null); setViewMode(leaf.view); } return; }
+    if (leaf.onClick) { leaf.onClick(); return; }
+    window.open(leaf.url, "_blank", "noopener");
+  };
+  const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
+  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: UNIVERSE_ALIASES, labels: UNIVERSE_LABELS });
+  const headerParts = splitHeader(hubRootOrder);  // #554
+  const openPages = [...PUBLIC_LINKS, ...agentPublishedLinks(publishedAgents)];  // #554
+  const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
+  const renderMenuItems = (g, themeId) => g.children.map((c) => (c.type === "ref" ? (
+    <button key={c.id} type="button" onClick={() => openLeaf(decorateLeaf(c.leaf), themeId)}>{c.leaf.label}{c.leaf.kind === "link" && !c.leaf.embeddable ? " ↗" : ""}</button>
+  ) : (
+    <div key={c.id} className="hub-nav-section"><span className="hub-nav-section-title"><HubIcon icon={c.icon} size={14} />{c.label}</span>{renderMenuItems(c, themeId)}</div>
+  )));
 
   // Horloge permanente -- calcul dérivé de browserNow/serverTimeInfo
   // ci-dessus, à chaque rendu (pas besoin d'un state séparé, c'est une
@@ -1387,15 +1668,28 @@ export default function App() {
   const goBack = () => { if (isThemeViewMode(viewMode)) setThemeEntry(null); else setViewMode("grid"); };
   // Chaîne de routage (inchangée) devenue une fonction : ThemeView la
   // réutilise pour rendre l'outil choisi -- jamais deux routages.
+  // #735 : frontière de chargement autour de chaque vue -- retour visuel immédiat au clic, en-tête conservé.
   function renderRoute(vm) {
+    return <Suspense fallback={<ViewLoading />}>{renderRouteInner(vm)}</Suspense>;
+  }
+  function renderRouteInner(vm) {
+    // #559 : une tuile non accordée n'est pas ouvrable, même par ?view= ou un lien
+    if (visibleTiles && !visibleTiles.has(vm) && RIGHTS_CATALOG_IDS.has(vm)) vm = "grid";
     return (
-vm === "settings" ? (
+vm === "agent-page" ? (
+        <AgentPageView pages={agentPublishedLinks(publishedAgents)} initialId={agentPageId} siAgentApiBase={SI_AGENT_API_BASE_URL} onBack={goBack} />
+      ) : vm === "settings" ? (
         <SettingsView
           groups={groups}
           login={profile.preferred_username}
           apiBase={PREFS_API_BASE_URL}
           onBack={goBack}
+          servicesAllowed={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((g) => SERVICES_ADMIN_GROUPS.includes(String(g).replace(/^\//, ""))))}
+          onNavigate={(t) => setViewMode(t)}
         />
+      ) : vm === "services" || vm === "control" || vm === "app-instances" ? (
+        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} initialTab={vm === "app-instances" ? "instances" : undefined}
+          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL, dnsApiBase: DNS_API_BASE_URL, ciscoApiBase: CISCO_URL.replace(/\/+$/, "") }} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (
@@ -1411,6 +1705,72 @@ vm === "settings" ? (
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
           login={profile.preferred_username}
         />
+      ) : vm === "pve-ops" ? (
+        <PveOpsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} login={profile.preferred_username} />
+      ) : vm === "infra" ? (
+        <InfraView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "edge" ? (
+        <EdgePairView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "latency" ? (
+        <LatencyView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "datarf" ? (
+        <DataRfView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "htop" ? (
+        <HtopView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "messages" ? (
+        <MessagesView onBack={goBack} />
+      ) : vm === "sockets" ? (
+        <SocketsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "postes-windows" ? (
+        <PosteWindowsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} actor={loginForLayout} />
+      ) : vm === "vpn" ? (
+        <VpnView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "nas" ? (
+        <NasView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "sauvegardes" ? (
+        <SauvegardesView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} actor={loginForLayout} />
+      ) : vm === "navigateur" ? (
+        <NavigateurView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "urgence" ? (
+        <UrgenceView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} notifyApiBase={NOTIFY_API_BASE_URL} accessToken={auth.user?.access_token} />
+      ) : vm === "journal" ? (
+        <JournalView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "migration" ? (
+        <MigrationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "guest-usage" ? (
+        <GuestUsageView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "fleetviews" ? (
+        <FleetViewsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "iapark" ? (
+        <IaParkView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "hermes" ? (
+        <HermesView onBack={goBack} />
+      ) : vm === "banc" ? (
+        <BancView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "orchestration" ? (
+        <OrchestrationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "emulation" ? (
+        <EmulationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "repatriation" ? (
+        <RepatriationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
+      ) : vm === "pve-maint" ? (
+        <PveMaintView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} login={profile.preferred_username} />
+      ) : vm === "mailbox" ? (
+        <MailboxView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "mailserver" ? (
+        <MailServerView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={profile.preferred_username} isAdmin={canMail(groups)} />
+      ) : vm === "vuln" ? (
+        <VulnView onBack={goBack} vulnApiBase={VULN_API_BASE_URL} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "veille" ? (
+        <VeilleView onBack={goBack} vulnApiBase={VULN_API_BASE_URL} username={username} />
+      ) : vm === "datasync" ? (
+        <DataSyncView onBack={goBack} datasyncApiBase={DATASYNC_API_BASE_URL} login={profile.preferred_username} />
+      ) : vm === "groupware" ? (
+        <GroupwareView onBack={goBack} groupwareApiBase={GROUPWARE_API_BASE_URL} login={profile.preferred_username} groups={groups.map((g) => String(g).replace(/^\//, ""))} isAdmin={isAdmin(groups)} />
+      ) : vm === "qa" ? (
+        <QaView onBack={goBack} qaApiBase={QA_API_BASE_URL} login={profile.preferred_username} />
+      ) : vm === "portage" ? (
+        <PortageView onBack={goBack} portageApiBase={PORTAGE_API_BASE_URL} />
       ) : vm === "retro" ? (
         <RetroView
           onBack={goBack}
@@ -1461,11 +1821,21 @@ vm === "settings" ? (
           onBack={goBack}
           nebulaApiBase={NEBULA_API_BASE_URL}
           glpiApiBase={GLPI_API_BASE_URL}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
+          agentSite={import.meta.env.VITE_NEBULA_AGENT_SITE || ""}
+          assistantUrl={ASSISTANT_URL}
+          groups={groups}
+          login={profile.preferred_username}
         />
       ) : vm === "imap" ? (
         <ImapView
           onBack={goBack}
           imapApiBase={IMAP_CLIENT_API_BASE_URL}
+        />
+      ) : vm === "imap-connectors" ? (
+        <ImapConnectorsView
+          onBack={goBack}
+          imapConnectorsApiBase={IMAP_CONNECTORS_API_BASE_URL}
         />
       ) : vm === "glpi-inventory" ? (
         <GlpiInventoryView
@@ -1508,7 +1878,19 @@ vm === "settings" ? (
           onBack={goBack}
           rightsApiBase={RIGHTS_API_BASE_URL}
           groups={groups}
+          accountsApiBase={ACCOUNTS_API_BASE_URL}
+          login={profile.preferred_username}
         />
+      ) : vm === "notifications" ? (
+        <NotificationsView apiBase={NOTIFY_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+      ) : vm === "nat-map" ? (
+        <NatMapView apiBase={MIKROTIK_API_BASE} siAgentApiBase={SI_AGENT_API_BASE_URL} mikrotikUrl={MIKROTIK_URL} onBack={goBack} />
+      ) : vm === "licenses" ? (
+        <LicensesView apiBase={LICENSES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+      ) : vm === "accounts" ? (
+        <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} keycloakConsoleUrl={KEYCLOAK_CONSOLE_URL} />
+      ) : vm === "personal" ? (
+        <PersonalDataView apiBase={ACCOUNTS_API_BASE_URL} me={{ groups, user: profile.preferred_username }} onBack={goBack} />
       ) : vm === "file-manager" ? (
         <FileManagerView
           onBack={goBack}
@@ -1548,10 +1930,22 @@ vm === "settings" ? (
           netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
           vigilanceApiBase={VIGILANCE_API_BASE_URL}
           pixelGridApiBase={PIXEL_GRID_API_BASE_URL}
+          mikrotikApiBase={MIKROTIK_API_BASE}
+          mikrotikUrl={MIKROTIK_URL}
+          ticketsApiBase={TICKETS_API_BASE_URL}
+          assistantUrl={ASSISTANT_URL}
           groups={groups}
         />
       ) : vm === "si-agent" ? (
         <SiAgentView
+          actor={loginForLayout}
+          onBack={goBack}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
+        />
+      ) : vm === "network-equipment" ? (
+        <NetworkEquipmentView onBack={goBack} networkEquipmentApiBase={NETWORK_EQUIPMENT_API_BASE_URL} />
+      ) : vm === "proxmox" ? (
+        <ProxmoxView
           onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
@@ -1575,6 +1969,36 @@ vm === "settings" ? (
           prefsApiBase={PREFS_API_BASE_URL}
           login={profile.preferred_username}
         />
+      ) : vm === "layout" ? (
+        <HubTreeView
+          tree={hubTree}
+          siteTree={hubTreeSiteNorm}
+          themes={THEMES}
+          catalog={hubCatalog}
+          isAdmin={isAdmin(groups)}
+          login={profile.preferred_username}
+          onBack={goBack}
+          onSave={async (t, scope) => {
+            if (scope === "site") {
+              const r = await saveAppSettings(PREFS_API_BASE_URL, "hub", { hubTree: t }, profile.preferred_username);
+              if (r.ok) setHubTreeSite(t);
+              return r;
+            }
+            const r = await saveHubTree(PREFS_API_BASE_URL, profile.preferred_username, t);
+            if (r.ok) setHubTreeUser(t);
+            return r;
+          }}
+          onReset={async (scope) => {
+            if (scope === "site") {
+              const r = await saveAppSettings(PREFS_API_BASE_URL, "hub", { hubTree: null }, profile.preferred_username);
+              if (r.ok) setHubTreeSite(null);
+              return r;
+            }
+            const r = await saveHubTree(PREFS_API_BASE_URL, profile.preferred_username, null);
+            if (r.ok) setHubTreeUser(null);
+            return r;
+          }}
+        />
       ) : vm === "personalize" ? (
         <PersonalizeHomeView
           fronts={fronts}
@@ -1584,6 +2008,10 @@ vm === "settings" ? (
           login={profile.preferred_username}
           onBack={goBack}
         />
+      ) : vm === "aujourdhui" ? (
+        <TodayView onBack={goBack} onNavigate={(t) => { setThemeEntry(null); setViewMode(t); }} demandeUrl={DEMANDE_URL} ticketsApiBase={TICKETS_API_BASE_URL} cortexApiBase={CORTEX_API_BASE_URL} portalUrl={PORTAL_URL} />
+      ) : vm === "synthese" ? (
+        <SyntheseView onBack={goBack} prefsApiBase={PREFS_API_BASE_URL} onNavigate={(t) => { setThemeEntry(null); setViewMode(t); }} />
       ) : vm === "external-links" ? (
         <ExternalLinksAdminView
           apiBase={PREFS_API_BASE_URL}
@@ -1626,6 +2054,9 @@ vm === "settings" ? (
           )}
 
           <main className="hub-main">
+            {GROUPWARE_API_BASE_URL && profile.preferred_username && (
+              <GroupwareReminders base={GROUPWARE_API_BASE_URL} login={profile.preferred_username} groups={groups.map((g) => String(g).replace(/^\//, ""))} onOpen={() => setViewMode("groupware")} />
+            )}
             {SI_AGENT_API_BASE_URL && (
               <SiAgentEventsBanner siAgentApiBase={SI_AGENT_API_BASE_URL} onOpen={() => setViewMode("si-agent")} />
             )}
@@ -1635,70 +2066,83 @@ vm === "settings" ? (
                 VITE_TICKETS_PORTAL_URL côté déploiement.
               </p>
             )}
-            {homeMode === "themes" ? (
+            {/* #603 : sélecteur Tuiles / Arbre en tête de l'accueil (l'arbre reprend le
+                contenu du menu déroulant -- vue métier ou disposition -- en vue dépliable) */}
+            {homeMode !== "tree" && (
+              <div className="hub-home-tree-bar" style={{ marginBottom: 8 }}>
+                <div className="hub-home-switch" role="group" aria-label="mode d'accueil">
+                  <button type="button" className="active" title="accueil en tuiles">Tuiles</button>
+                  <button type="button" onClick={() => setHomeMode("tree")} title="accueil en arbre dépliable">Arbre</button>
+                </div>
+                <span className="muted" style={{ fontSize: 12 }}>{homeMode === "themes" ? "par thématiques" : "toutes les tuiles"} · <button type="button" className="secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setHomeMode(homeMode === "themes" ? "tiles" : "themes")}>{homeMode === "themes" ? "toutes les tuiles" : "par thématiques"}</button></span>
+              </div>
+            )}
+            {homeMode === "tree" ? (
+              <>
+                <div className="hub-home-tree-bar" style={{ marginBottom: 4 }}>
+                  <span className="muted" style={{ fontSize: 12 }}>source :</span>
+                  <button type="button" className={`secondary${menuMode === "business" ? " active" : ""}`} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setMenuMode("business")}>Vue métier</button>
+                  <button type="button" className={`secondary${menuMode === "layout" ? " active" : ""}`} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setMenuMode("layout")}>Disposition</button>
+                </div>
+                <HomeTree
+                  mode="tree" onMode={(m) => setHomeMode(m === "tiles" ? "themes" : m)}
+                  query={menuQuery} onQuery={setMenuQuery}
+                  roots={menuMode === "business" ? businessShown.roots : layoutRoots}
+                  onOpenLeaf={(l) => openLeaf(decorateLeaf(l), null)} leafActive={leafActive}
+                  emptyText={menuQuery ? `rien ne commence par « ${menuQuery} »` : "menu vide"}
+                />
+              </>
+            ) : homeMode === "themes" ? (
               <>
                 {/* #457 : cinq super-tuiles thématiques (hubThemes.js) ;
                     les liens externes déclarés par les administrateurs
                     restent des tuiles à part, en dessous. */}
+                {/* #516 : dans l'ordre de l'arbre -- un groupe = une super-tuile,
+                    une feuille = une tuile seule (les actions du hub restent
+                    dans l'en-tête) ; les liens externes des administrateurs
+                    arrivent par la feuille automatique auto:external-links. */}
                 <div className="hub-grid hub-grid-themes">
-                  {visibleThemes.map((t) => (
-                    <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
-                      <h2>{t.icon} {t.name}</h2>
-                      <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
-                    </button>
-                  ))}
+                  {hubRootOrder.map((n) => {
+                    if (n.type === "group") {
+                      const t = visibleThemes.find((x) => x.id === n.id);
+                      return t ? (
+                        <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
+                          <h2><HubIcon icon={t.icon} size={22} />{t.name}</h2>
+                          <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
+                        </button>
+                      ) : null;
+                    }
+                    if (n.leaf.kind === "action") return null;
+                    return renderFrontTile({
+                      id: n.id, name: n.leaf.label, description: n.leaf.description || n.leaf.id,
+                      url: n.leaf.kind === "link" ? n.leaf.url : null,
+                      onClick: n.leaf.kind === "view" ? () => { setThemeEntry(null); setViewMode(n.leaf.view); } : n.leaf.onClick,
+                    });
+                  })}
                 </div>
-                {leftoverFronts.length > 0 && (
-                  <div className="hub-frame">
-                    <h3 className="hub-frame-title">Liens externes</h3>
-                    <div className="hub-grid">{leftoverFronts.map(renderFrontTile)}</div>
-                  </div>
-                )}
               </>
             ) : (
               <>
+                {/* #554 : tuiles en ordre alphabétique */}
                 <div className="hub-grid">
-                  {ungroupedFronts.map(renderFrontTile)}
+                  {sortTiles(ungroupedFronts).map(renderFrontTile)}
                 </div>
                 {frontGroups.map((g) => (
                   <div key={g.id} className="hub-frame">
                     <h3 className="hub-frame-title">{g.title}</h3>
                     <div className="hub-grid">
-                      {g.tiles.map(renderFrontTile)}
+                      {sortTiles(g.tiles).map(renderFrontTile)}
                     </div>
                   </div>
                 ))}
               </>
             )}
+            {/* #505 : pages ouvertes sans connexion -- depuis #554 dans le
+                menu « Pages ouvertes » de l'en-tête (PublicLinks.jsx conservé
+                pour l'aide). */}
           </main>
         </div>
 
-        <footer className="hub-footer">
-          <button
-            className="hub-footer-toggle"
-            onClick={() => setShowFooterNote((v) => !v)}
-            title={showFooterNote ? "Masquer les informations" : "Afficher les informations"}
-          >
-            {showFooterNote ? "▾ Informations" : "▸ Informations"}
-          </button>
-          {showFooterNote && (
-            <p className="hub-footer-text">
-              Cette page vérifie votre identité. Le portail tickets a lui aussi sa
-              propre connexion Keycloak (retour silencieux si vous êtes déjà
-              connecté ici, même realm) — Supervision SI, elle, reste entièrement
-              ouverte, sans aucune vérification. Et côté API : ni l'une ni
-              l'autre ne vérifie encore de jeton, quel que soit le front.
-              {fronts.some((f) => f.id === "keycloak-admin") && (
-                <>
-                  {" "}La carte "Administration Keycloak" est un lien, pas une garantie
-                  d'accès : elle apparaît parce que vous avez le rôle applicatif "admin"
-                  ou "technicien" dans ce realm, mais la console Keycloak elle-même
-                  exige des droits de gestion de realm accordés séparément.
-                </>
-              )}
-            </p>
-          )}
-        </footer>
       </div>
       </>
       )
@@ -1707,6 +2151,7 @@ vm === "settings" ? (
 
   return (
     <div className="hub-shell">
+      <HostHealthBanner apiBase={SERVICES_API_BASE_URL} />
       <ReminderWidget
         login={profile.preferred_username}
         groups={groups}
@@ -1717,115 +2162,134 @@ vm === "settings" ? (
       <header className="hub-header">
         <h1>Hub SI</h1>
         <nav className="hub-nav">
-          <button
-            type="button"
-            className={viewMode === "aide" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "aide" ? "grid" : "aide"))}
-          >
-            Aide
-          </button>
-          <button
-            type="button"
-            className={viewMode === "tabs" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "tabs" ? "grid" : "tabs"))}
-          >
-            Onglets
-          </button>
-
-          {/* #457 : les menus Général / Réseau / Data (livraison #236) sont
-              remplacés par UNE entrée par thématique (hubThemes.js, même
-              source que les tuiles de l'accueil) : un choix ouvre l'outil
-              DANS sa thématique (onglets) et ferme le menu. */}
-          {visibleThemes.map((t) => (
-            <div key={t.id} className="hub-nav-dropdown">
-              <button
-                type="button"
-                className={openNavMenu === t.id || themeIdOf(viewMode) === t.id || themeOfView(visibleThemes, viewMode) === t.id ? "active" : ""}
-                onClick={() => setOpenNavMenu((v) => (v === t.id ? null : t.id))}
-              >
-                {t.name} ▾
-              </button>
-              {openNavMenu === t.id && (
-                <div className="hub-nav-dropdown-panel">
-                  {t.entries.map((e) => (
-                    <button key={e.id} type="button" onClick={() => {
-                      if (e.kind === "view") openInTheme(t.id, e.view);
-                      else if (e.onClick) { e.onClick(); setOpenNavMenu(null); }
-                      else { window.open(e.url, "_blank", "noopener"); setOpenNavMenu(null); }
-                    }}>
-                      {e.label}{e.kind === "link" ? " ↗" : ""}
-                    </button>
+          {/* #516 : en-tête construit depuis l'arbre de disposition : une
+              feuille sous la racine = un bouton, un groupe = un menu
+              déroulant (sous-groupes = sections). Avant : Aide, Onglets,
+              une entrée par thématique (#457) et Paramètres codés en dur --
+              l'arbre par défaut (hubTree.js) les reproduit à l'identique. */}
+          {/* #554 : Aide et Onglets restent des boutons ; TOUT le reste de
+              l'arbre (thématiques, liens externes, feuilles) tient dans un
+              seul menu ARBORESCENT ; Paramètres garde son menu. */}
+          {headerParts.pinned.map((n) => (
+            <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}</button>
+          ))}
+          <div className="hub-nav-dropdown">
+            <button type="button" className={openNavMenu === "tree" || headerParts.tree.some((n) => n.type === "group" && (themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id)) ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "tree" ? null : "tree"))}>
+              Menu ▾
+            </button>
+            {openNavMenu === "tree" && (
+              <div className="hub-nav-dropdown-panel hub-nav-tree">
+                <div className="hub-nav-menu-bar">
+                  <button type="button" className={`secondary${menuMode === "business" ? " active" : ""}`} onClick={() => setMenuMode("business")} title="cinq racines métier : équipements, services, droits, états, Cortex -- une tuile apparaît sous chacun de ses chemins">Vue métier</button>
+                  <button type="button" className={`secondary${menuMode === "layout" ? " active" : ""}`} onClick={() => setMenuMode("layout")} title="arbre de disposition (thématiques, personnalisable)">Disposition</button>
+                  {menuMode === "business" && <input type="search" placeholder="filtrer (début de mot)" value={menuQuery} onChange={(e) => setMenuQuery(e.target.value)} autoFocus />}
+                </div>
+                {menuMode === "business" && businessShown.roots.map((r) => {
+                  const renderNode = (n, depth) => (
+                    <details key={n.id} open={!!menuQuery || openBusinessPaths.has(n.id) || (depth === 0 && false)}>
+                      <summary><HubIcon icon={n.icon} size={16} />{n.label} <span className="muted">({n.count})</span>{depth === 0 && n.description && <span className="muted hub-nav-desc"> — {n.description}</span>}</summary>
+                      <div className="hub-nav-tree-children">
+                        {n.leaves.map((l) => (
+                          <button key={`${n.id}:${l.id}`} type="button" className={leafActive(l) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(l), null)} title={l.also.length ? `aussi sous : ${l.also.join(" ; ")}` : ""}>
+                            {l.label}{l.kind === "link" && !l.embeddable ? " ↗" : ""}{l.also.length > 0 && <span className="muted hub-nav-also"> · aussi {l.also.length === 1 ? `sous ${l.also[0]}` : `sous ${l.also.length} autres`}</span>}
+                          </button>
+                        ))}
+                        {n.children.map((c) => renderNode(c, depth + 1))}
+                      </div>
+                    </details>
+                  );
+                  return renderNode(r, 0);
+                })}
+                {menuMode === "business" && !businessShown.roots.length && <p className="muted" style={{ padding: 10 }}>rien ne commence par « {menuQuery} »</p>}
+                {menuMode === "layout" && headerParts.tree.map((n) => (n.type === "ref" ? (
+                  <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}</button>
+                ) : (
+                  <details key={n.id} open={themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id}>
+                    <summary><HubIcon icon={n.icon} size={16} />{n.label} <span className="muted">({n.children.length})</span></summary>
+                    <div className="hub-nav-tree-children">
+                      <button type="button" className="hub-nav-tree-all" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(n.id)); setOpenNavMenu(null); }}>Ouvrir la thématique</button>
+                      {renderMenuItems(n, n.id)}
+                    </div>
+                  </details>
+                )))}
+              </div>
+            )}
+          </div>
+          {/* #554 : pages ouvertes sans connexion + pages publiées par les agents, en menu */}
+          {openPages.length > 0 && (
+            <div className="hub-nav-dropdown">
+              <button type="button" className={openNavMenu === "public" ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "public" ? null : "public"))}>Pages ouvertes ▾</button>
+              {openNavMenu === "public" && (
+                <div className="hub-nav-dropdown-panel hub-nav-public">
+                  <span className="hub-nav-section-title">Sans connexion — adresses à transmettre</span>
+                  {openPages.map((l) => (
+                    <div key={l.id} className="hub-nav-public-row">
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" title={l.description}>{l.name} ↗</a>
+                      <code>{displayUrl(l.url)}{l.id.startsWith("agent-") && <> <button type="button" className="secondary" title="aperçu calculé par le hub et page réelle du site, en cadre" onClick={() => { setAgentPageId(l.id); setViewMode("agent-page"); setOpenNavMenu(null); }}>voir</button></>}</code>
+                      <button type="button" className="secondary" onClick={() => { try { navigator.clipboard.writeText(l.url); } catch { /* presse-papiers indisponible */ } }}>Copier</button>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          ))}
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={
-                openNavMenu === "settings" || ["settings", "personalize", "external-links"].includes(viewMode)
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setOpenNavMenu((v) => (v === "settings" ? null : "settings"))}
-            >
-              Paramètres ▾
+          )}
+          {headerParts.settings && (
+            <div className="hub-nav-dropdown">
+              <button type="button" className={openNavMenu === headerParts.settings.id ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === headerParts.settings.id ? null : headerParts.settings.id))}>{headerParts.settings.label} ▾</button>
+              {openNavMenu === headerParts.settings.id && <div className="hub-nav-dropdown-panel">{renderMenuItems(headerParts.settings, headerParts.settings.id)}</div>}
+            </div>
+          )}
+          {/* #538 : « Univers du hub » -- menu INVARIANT, hors de l'arbre de
+              disposition : toutes les vues, fronts et actions du catalogue de
+              cette personne, par ordre alphabétique ou d'ajout au hub (numéro
+              de livraison), avec un filtre. Quoi qu'on fasse de la disposition,
+              tout reste atteignable ici. */}
+          <div className="hub-nav-dropdown hub-universe">
+            <button type="button" className={openNavMenu === "universe" ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "universe" ? null : "universe"))} title="Tous les outils, tuiles, onglets et fonctions du hub">
+              Univers du hub ▾
             </button>
-            {openNavMenu === "settings" && (
-              <div className="hub-nav-dropdown-panel">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "settings" ? "grid" : "settings"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Paramètres généraux
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "personalize" ? "grid" : "personalize"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Personnaliser l'accueil
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setHomeMode((m) => (m === "themes" ? "tiles" : "themes")); setOpenNavMenu(null); }}
-                  title="#457 : accueil par thématiques (cinq super-tuiles) ou toutes les tuiles (personnalisation d'origine)"
-                >
-                  Accueil : {HOME_MODES[homeMode]} → {HOME_MODES[homeMode === "themes" ? "tiles" : "themes"]}
-                </button>
-                {isAdmin(groups) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode((v) => (v === "external-links" ? "grid" : "external-links"));
-                      setOpenNavMenu(null);
-                    }}
-                  >
-                    Liens externes
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDebug((v) => !v);
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Diagnostic (jeton Keycloak)
-                </button>
+            {openNavMenu === "universe" && (
+              <div className="hub-nav-dropdown-panel hub-universe-panel">
+                <div className="hub-universe-bar">
+                  <input type="search" autoFocus placeholder="Filtrer…" value={universeQuery} onChange={(e) => setUniverseQuery(e.target.value)} aria-label="Filtrer l'univers du hub" />
+                  <button type="button" className={universeSort === "alpha" ? "active" : ""} onClick={() => setUniverseSortPersist("alpha")} title="Ordre alphabétique">A→Z</button>
+                  <button type="button" className={universeSort === "added" ? "active" : ""} onClick={() => setUniverseSortPersist("added")} title="Ordre d'ajout dans le hub (numéro de livraison)">Ajout</button>
+                  <span className="muted">{universe.length}</span>
+                </div>
+                <div className="hub-universe-list">
+                  {universe.map((leaf) => (
+                    <button key={leaf.id} type="button" className={leafActive(leaf) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(leaf), null)}>
+                      <span className="hub-universe-label">{leaf.label}{leaf.kind === "link" && !leaf.embeddable ? " ↗" : ""}</span>
+                      <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
+                    </button>
+                  ))}
+                  {universeLocate && (
+                    <div className="hub-universe-locate">
+                      {universeLocate.enCours ? <span className="muted">Recherche de {universeLocate.q} dans les sources du hub…</span>
+                        : universeLocate.erreur ? <span className="muted">Recherche d'adresse indisponible ({universeLocate.erreur})</span>
+                        : !(universeLocate.data.found || []).length ? <span className="muted">{universeLocate.q} : absente des {(universeLocate.data.absent || []).length} sources consultées</span>
+                        : universeLocate.data.found.map((f, i) => (
+                          <a key={i} className="hub-universe-item" href={f.link || undefined} title={(f.hits || []).map((h) => `${h.context || h.value} (${h.path})`).join("\n")}>
+                            <span className="hub-universe-label">📍 {f.source}</span>
+                            <span className="muted hub-universe-meta">{(f.hits || []).slice(0, 2).map((h) => h.context || h.value).join(" ; ")}</span>
+                          </a>
+                        ))}
+                    </div>
+                  )}
+                  {universe.length === 0 && !universeLocate && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
+                  {hubCatalog.has("front:assistant") && assistantAskUrl(ASSISTANT_URL, universeQuery) && (
+                    <a className="hub-universe-ask" href={assistantAskUrl(ASSISTANT_URL, universeQuery)} target="_blank" rel="noreferrer" title="Questions sur le hub : vues, API, adresse IP ou MAC, dernier redémarrage d'un poste (#715)">
+                      💬 Demander à l'assistant : « {universeQuery.trim()} »
+                    </a>)}
+                </div>
               </div>
             )}
           </div>
         </nav>
         <div className="hub-user">
           <span>👤 {displayName}</span>
-          {roles.length > 0 && <span className="muted">({roles.join(", ")})</span>}
+          {roles.length > 0 && <span className="muted" title={roles.join(", ")}>({roleInitials(roles).join(" ")})</span>}
+          {siteScope && <span className="np-tone warn" title={`Périmètre de site imposé par vos groupes : ${siteScope.join(", ")} (les API refusent les autres sites)`}>site : {siteScope.join(", ")}</span>}
           <button onClick={toggleTheme} title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
@@ -1833,6 +2297,10 @@ vm === "settings" ? (
         </div>
       </header>
 
+      {/* #562 : gabarit de page -- en-tête et pied fixes, seule la zone
+          centrale (ou les cadres/tbody qu'elle contient) défile. */}
+      <main className="hub-main">
+      {viewMode === "grid" && <PrioritesPanel siAgentApiBase={SI_AGENT_API_BASE_URL} />}
       {isThemeViewMode(viewMode) && currentTheme ? (
         <ThemeView
           theme={currentTheme}
@@ -1842,6 +2310,63 @@ vm === "settings" ? (
           onBack={() => { setThemeEntry(null); setViewMode("grid"); }}
         />
       ) : renderRoute(viewMode)}
+      </main>
+
+      <footer className="hub-footer">
+        <button className="hub-footer-toggle" style={{ marginRight: 18 }} onClick={() => setShowUpdates((v) => !v)} title="Dernières livraisons et liens vers les écrans nouveaux ou modifiés">
+          {showUpdates ? "▾" : "▸"} Mises à jour{HUB_UPDATES[0] ? ` (dernière : #${HUB_UPDATES[0].n} du ${shortDate(HUB_UPDATES[0].date)})` : ""}{failCount > 0 ? ` · ⚠ ${failCount} tentative(s) en échec` : ""}
+        </button>
+        <button
+          className="hub-footer-toggle"
+          onClick={() => setShowFooterNote((v) => !v)}
+          title={showFooterNote ? "Masquer les informations" : "Afficher les informations"}
+        >
+          {showFooterNote ? "▾ Informations" : "▸ Informations"}
+        </button>
+        <div className="hub-updates" style={showUpdates ? undefined : { display: "none" }}>
+          <HubUpdateFailures apiBase={SERVICES_API_BASE_URL} token={auth.user?.access_token} onCount={setFailCount}
+            enabled={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((gr) => SERVICES_ADMIN_GROUPS.includes(String(gr).replace(/^\//, ""))))} />
+        </div>
+        {showUpdates && (
+          <div className="hub-updates">
+            {hubUpdates.map((u) => (
+              <div key={u.n} className="hub-update-row">
+                <span className="hub-update-n">#{u.from && u.from !== u.n ? `${u.from}-${u.n}` : u.n}</span>
+                <span className="hub-update-date">{shortDate(u.date)}</span>
+                <span className="hub-update-title">{u.title}</span>
+                {u.links.map((l) => {
+                  const front = l.front ? fronts.find((f) => f.id === l.front) : null;
+                  const ok = l.view ? availableViews.has(l.view) : !!front;
+                  return (
+                    <button key={(l.view || l.front) + (l.hint || "") + JSON.stringify(l.params || {})} type="button" className="secondary hub-update-link" disabled={!ok}
+                      title={ok ? (l.hint ? `${l.label} › ${l.hint}` : l.label) : "écran non disponible pour vous ou sur ce déploiement"}
+                      onClick={() => { if (l.view) { setViewParams({ view: l.view, ...(l.params || {}) }); setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
+                      {l.isNew && <b>Nouveau · </b>}{l.label}{l.hint ? ` › ${l.hint}` : ""} →
+                    </button>);
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+        {showFooterNote && (
+          <p className="hub-footer-text">
+            Cette page vérifie votre identité. Le portail tickets a lui aussi sa
+            propre connexion Keycloak (retour silencieux si vous êtes déjà
+            connecté ici, même realm) — Supervision SI, elle, reste entièrement
+            ouverte, sans aucune vérification. Et côté API : ni l'une ni
+            l'autre ne vérifie encore de jeton, quel que soit le front.
+            {fronts.some((f) => f.id === "keycloak-admin") && (
+              <>
+                {" "}La carte "Administration Keycloak" est un lien, pas une garantie
+                d'accès : elle apparaît parce que vous avez le rôle applicatif "admin"
+                ou "technicien" dans ce realm, mais la console Keycloak elle-même
+                exige des droits de gestion de realm accordés séparément.
+              </>
+            )}
+          </p>
+        )}
+      </footer>
+      <BarreEtatHub charge={HUB_UPDATES[0]?.n} servicesBase={SERVICES_API_BASE_URL} siAgentBase={SI_AGENT_API_BASE_URL} vulnBase={VULN_API_BASE_URL} />
       <div className="status-badges">
         <div
           className="clock-badge"
@@ -1879,9 +2404,16 @@ vm === "settings" ? (
             </>
           )}
         </div>
-        <div className="version-badge" title={`hash contenu : ${versionInfo.content_hash} · hash git : ${versionInfo.git_hash} · dernière vérification : ${versionInfo.last_checked_at}`}>
-          #{versionInfo.delivery_number || "?"}
-        </div>
+        {IMAP_CONNECTORS_API_BASE_URL && (
+          <NotifBell
+            apiBase={IMAP_CONNECTORS_API_BASE_URL}
+            onOpenConnectors={() => setViewMode("imap-connectors")}
+            onOpenSupervision={availableViews.has("supervision-si") ? () => setViewMode("supervision-si") : null}
+          />
+        )}
+        <VersionBadge info={versionInfo} apiBase={SERVICES_API_BASE_URL} token={auth.user?.access_token}
+          enabled={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((g) => SERVICES_ADMIN_GROUPS.includes(String(g).replace(/^\//, ""))))}
+          onOpenTower={() => setViewMode("control")} />
       </div>
     </div>
   );

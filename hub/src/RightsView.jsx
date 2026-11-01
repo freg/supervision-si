@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { fetchFiles, fetchPermissions, grantPermission, revokePermission, fetchResourceTypes } from "./rightsClient.js";
+import RightsMatrix from "./RightsMatrix.jsx";
 
+import { useNavState } from "./navContext.js";   // #874
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Droits" (hub), livraison #283 -- demandé explicitement :
 // "une gestion de droit incluant la visibilité en listing" + "un
 // nouveau groupe admin_hub donnera les tous les droits à ses
@@ -19,13 +22,13 @@ import { fetchFiles, fetchPermissions, grantPermission, revokePermission, fetchR
 // manuellement si de nouveaux groupes sont créés.
 const KNOWN_GROUPS = [
   "administrateurs", "demandeurs", "techniciens", "direction",
-  "supervision", "service", "maitre_clefs", "admin_hub",
+  "supervision", "service", "maitre_clefs", "admin_hub", "messagerie",
 ];
 
 const CATEGORY_LABELS = { configuration: "Configuration", genere: "Généré", secret: "Secret", importe: "Importé" };
 
-export default function RightsView({ onBack, rightsApiBase, groups }) {
-  const [tab, setTab] = useState("fichiers");
+export default function RightsView({ onBack, rightsApiBase, groups, accountsApiBase = "", login = "" }) {
+  const [tab, setTab] = useNavState("RightsView", "tab", "matrice");   // #874 : gardé au rechargement
   const [files, setFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [permissions, setPermissions] = useState([]);
@@ -79,11 +82,14 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
         <h1>🔐 Droits</h1>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button className={tab === "matrice" ? "" : "secondary"} onClick={() => setTab("matrice")}>Matrice des droits</button>
         <button className={tab === "fichiers" ? "" : "secondary"} onClick={() => setTab("fichiers")}>📁 Fichiers</button>
         <button className={tab === "permissions" ? "" : "secondary"} onClick={() => setTab("permissions")}>🔑 Permissions</button>
       </div>
 
-      {tab === "fichiers" ? (
+      {tab === "matrice" ? (
+        <div className="hub-card"><RightsMatrix rightsApiBase={rightsApiBase} accountsApiBase={accountsApiBase} groups={groups} login={login} /></div>
+      ) : tab === "fichiers" ? (
         <div className="hub-card">
           <p className="muted" style={{ marginTop: 0 }}>
             Inventaire des fichiers importés, de configuration, générés ou secrets du hub — jamais leur
@@ -94,7 +100,7 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
           ) : files.length === 0 ? (
             <p className="muted">Aucun fichier visible.</p>
           ) : (
-            <table>
+            <AutoColumns id="RightsView.1"><table>
               <thead><tr><th>Chemin</th><th>Catégorie</th><th>Taille</th><th>Modifié</th><th>Présent</th></tr></thead>
               <tbody>
                 {files.map((f) => (
@@ -107,7 +113,7 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       ) : (
@@ -147,7 +153,7 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
           ) : permissions.length === 0 ? (
             <p className="muted">Aucun droit octroyé pour l'instant (admin_hub voit tout indépendamment de cette liste).</p>
           ) : (
-            <table>
+            <AutoColumns id="RightsView.2"><table>
               <thead><tr><th>Type</th><th>Ressource</th><th>Groupe</th><th>Action</th><th>Octroyé par</th><th></th></tr></thead>
               <tbody>
                 {permissions.map((p) => (
@@ -161,7 +167,7 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}

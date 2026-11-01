@@ -38,6 +38,63 @@ par un menu par thématique. L'ancien accueil (toutes les tuiles, avec la
 personnalisation de #133) reste disponible : Réglages → « Accueil :
 par thématiques → toutes les tuiles » (mémorisé dans le navigateur).
 
+## « Univers du hub » — menu invariant (livraison #538)
+
+Demandé : « un menu invariant qui donne accès à tous les outils, tuiles,
+onglets, fonctions… un menu déroulant "Univers du hub" qui liste tout par
+ordre alphabétique ou par ordre d'ajout dans le hub ». Dernier menu de
+l'en-tête, **hors de l'arbre de disposition** (#516) : quelle que soit la
+disposition personnelle ou du site, tout reste atteignable ici. Contenu =
+le catalogue de la personne (`buildCatalog`, mêmes conditions que les
+tuiles : vues disponibles, fronts configurés, actions -- les actions
+d'administration seulement pour les administrateurs), sans la feuille
+automatique des liens externes. Chaque ligne : libellé, nature (vue /
+front / fonction) et livraison d'apparition ; un filtre (sans accents ni
+casse) et deux tris, **A→Z** (ordre français) ou **Ajout** (numéro de
+livraison croissant, inconnus à la fin), le tri retenu mémorisé dans le
+navigateur (`hub.universe.sort`). Logique pure `universeEntries` dans
+`src/hubTree.js` (testée) ; la table `SINCE` de `src/hubThemes.js` porte
+la livraison d'apparition de chaque vue, front et action (première mention
+dans l'historique ; 105 = « au plus tard #105 ») -- **une nouvelle tuile
+ajoute sa ligne dans `SINCE`**, sinon elle se classe en fin d'ordre
+d'ajout.
+
+## Vue « Aujourd'hui » pour un responsable non technicien (livraison #544)
+
+Première entrée de la thématique Supervision : trois questions en phrases
+(« Est-ce que ça marche ? », « Où en sont les demandes ? », « Y a-t-il des
+incidents ? ») et un mot du jour (la pire des trois), dans la charte
+Simple posée à l'intérieur du hub (`.today-*`, docs/ergonomie-redesign.md).
+Sources : `/demande/etat.json` du pont (#541), `/queue` de tickets-api
+(en cours, en attente de prise en charge, sans réponse depuis plus de
+deux jours, reçues / résolues sur 24 h), `/incidents?state=open` de Cortex
+(titres, critiques, pris en charge). Une source absente donne une phrase
+honnête (« n'est pas disponible »), jamais une erreur brute ; une action
+par bloc (état des services, demandes, Cortex). Logique pure `src/today.js`
+(testée), rafraîchie chaque minute.
+
+## En-tête resserré : menu arborescent, pages ouvertes, tuiles triées (livraison #554)
+
+Demandé : « remplace les menus Supervision… jusqu'à Passerelle SMS par un
+menu arborescent ; remplace Pages ouvertes par une ligne de menu déroulant
+et ajoute les liens vers les sites web des agents ; mets les tuiles en
+ordre alphabétique ; agrandis Hub SI qui est plié et réduis aux initiales
+la parenthèse des groupes ». L'en-tête est désormais : **Aide · Onglets ·
+Menu ▾ · Pages ouvertes ▾ · Paramètres ▾ · Univers du hub ▾**. Le menu
+arborescent reprend l'arbre de disposition (#516) tel quel : chaque
+thématique est un nœud dépliable (« Ouvrir la thématique » + ses outils,
+sous-groupes en sections), les feuilles de la racine (liens externes,
+Agents hôtes…) sont des lignes ; la thématique courante est dépliée.
+« Pages ouvertes » liste les pages sans connexion (#505) et les pages
+publiées par les agents hôtes (#547, `publish` actif : titre, agent,
+adresse `http://<hôte>:<port>/`), avec Ouvrir et Copier ; la section de
+l'accueil disparaît. Les tuiles de l'accueil (mode « toutes les tuiles »)
+sont triées par nom (ordre français) ; le mode thématiques garde l'ordre de
+l'arbre. Le titre ne se plie plus ; les rôles s'affichent en initiales
+uniques (« A De Di M Se Su T »), la liste complète en info-bulle.
+Logique pure : `splitHeader`, `sortTiles` (hubTree.js), `roleInitials`
+(lib.js), `agentPublishedLinks` (publicLinks.js), testées.
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :
@@ -2484,3 +2541,56 @@ valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
 Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
 `grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
 considérer un module terminé.
+
+## Tuile ProjeQtOr — fork intégré au hub (livraison #476)
+
+Nouvelle tuile d'accueil **ProjeQtOr**, visible de TOUT LE MONDE
+(décision explicite de la personne : « visibilité à tous, il y aura une
+page publique »), `embeddable: true` (onglet de la coquille, même
+origine via tls-proxy sous `/projeqtor/`). Ajoutée dans
+`buildFrontsList` (`lib.js`, paramètre `projeqtorUrl` ←
+`VITE_PROJEQTOR_URL`), JAMAIS en lien externe : c'est un service du
+stack (`projeqtor-app`, voir `projeqtor/README.md`), pas un site
+distant. L'accès réel reste protégé par l'écran de connexion de
+ProjeQtOr lui-même (LDAP du hub configuré par défaut).
+
+Groupe Keycloak **`projeqtor`** créé dans le realm (+ rôle éponyme,
+mapping `GROUP_TO_ROLE` dans `lib.js` ET libellé `ROLE_LABELS`) mais ne
+filtrant encore RIEN — réservé aux filtrages futurs, demandé dès cette
+livraison par la personne. Pas de mapping côté `tickets/portal` : comme
+`supervision`/`service`, ce groupe ne concerne pas le portail.
+
+Tests : 7 cas Node sur `buildFrontsList`/`groupsToRoles` (tuile sans
+aucun groupe, absente si URL vide, mapping du groupe) + non-régression
+des 29 fichiers de tests du hub. Embarquabilité iframe réelle à
+confirmer en conditions réelles (aucun `X-Frame-Options` attendu, ni
+Apache par défaut ni tls-proxy — jamais vérifié ici, pas de
+navigateur).
+
+## Pages ouvertes sans connexion sur l'accueil (livraison #505)
+
+Section en bas de l'accueil (les deux modes), volontairement pas des
+tuiles : ces adresses sont faites pour être transmises à des personnes
+qui ne se connectent pas au hub. `publicLinks.js` (pur, testé) déduit
+la racine publique `/demande/` de `VITE_DEMANDE_URL` (qui vise
+`/demande/admin`) et y ajoute `rapide` et `tableau` (#500), plus
+l'application Supervision SI historique (`VITE_SUPERVISION_FRONTEND_URL`).
+`PublicLinks.jsx` rend le tableau nom / description / adresse / Ouvrir /
+Copier (presse-papier, repli `execCommand`). Aucune icône, variables de
+thème seulement (`.hub-public-links*` dans `hub.css`).
+
+
+## Pastilles d'icônes (livraison #649)
+
+`HubIcon.jsx` + `hubIconSet.js` : jeu Lucide sur disques colorés par le thème, remplaçant les emoji des titres de
+thèmes, sections de menu et groupes de l'arbre (les données gardent leurs emoji). Voir `docs/charte-icones-hub.md`.
+
+
+## Mode de service (#681)
+
+Par défaut (`HUB_MODE=prod`), le conteneur compile le hub au démarrage (`vite build`, les `VITE_*` du compose sont
+figés dans le JavaScript) puis le sert avec `serve.mjs` : `index.html` et les routes de l'application sans cache
+(une mise à jour est vue au rechargement suivant), `assets/*` (noms à empreinte) en cache immuable, aucune
+compression (le frontal public réécrit l'origine dans les corps). Compter une à deux minutes de compilation au
+démarrage. Si la compilation échoue, repli automatique sur le serveur de développement. `HUB_MODE=dev` dans `.env`
+retrouve le serveur Vite (rechargement à chaud) pour développer.

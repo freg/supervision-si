@@ -1,0 +1,58 @@
+# Agents hôtes en mode AUTONOME (livraison #517) -- à lancer sur une VM
+# légère, SANS le hub : le central des agents (si-agent-api, même image,
+# MÊMES données que sous le hub), son memcached (journal partagé) et un
+# front nginx qui sert l'interface en statique et remplace Keycloak par une
+# auth basique locale. Projet compose distinct (si-agent-standalone),
+# piloté par si-agent/standalone/run.sh, qui lit le .env de la racine.
+#
+# Compatibilité : les agents continuent d'appeler
+# https://<super>:6443/api/si-agent/… -- sur super, l'AIGUILLAGE
+# (si-agent/standalone/edge) renvoie vers cette VM tant que le hub est
+# arrêté ; quand le hub revient en mode réparti (#513, cohorte `agents`
+# sur cette VM), on arrête cette pile et compose relance si-agent-api sur
+# le même dossier de données.
+services:
+  memcached:
+    image: memcached:1.6-alpine
+    command: ["-m", "64"]
+    restart: unless-stopped
+
+  si-agent-api:
+    build:
+      context: ../..
+      dockerfile: si-agent/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${SI_AGENT_DATA_DIR:-../data}:/data
+      - ${PKI_DIR:-../../pki}/ca/ca.crt:/ca/ca.crt:ro
+    environment:
+      - MEMCACHED_HOST=memcached
+      - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
+      - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
+      - SI_AGENT_CA_FILE=/ca/ca.crt
+      - NETWORK_AGENT_API_URL=${NETWORK_AGENT_API_URL:-http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}}
+      - SI_AGENT_LOG_LEVEL=${SI_AGENT_LOG_LEVEL:-INFO}
+      - SI_AGENT_EVENTS_RETENTION_DAYS=${SI_AGENT_EVENTS_RETENTION_DAYS:-365}
+      - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}
+      - SI_AGENT_NOTIFY_COOLDOWN_SECONDS=${SI_AGENT_NOTIFY_COOLDOWN_SECONDS:-900}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_TO=${SECRETS_ALERT_SMS_TO:-}
+      - SECRETS_ALERT_MAIL_TO=${SECRETS_ALERT_MAIL_TO:-}
+      - SI_AGENT_NOTIFY_WEBHOOK_URL=${SI_AGENT_NOTIFY_WEBHOOK_URL:-}
+    depends_on:
+      - memcached
+
+  front:
+    build:
+      context: ../..
+      dockerfile: si-agent/standalone/Dockerfile.front
+    restart: unless-stopped
+    ports:
+      - "${SI_STANDALONE_HTTP_PORT:-6480}:${SI_STANDALONE_HTTP_PORT:-6480}"
+    environment:
+      - SI_STANDALONE_HTTP_PORT=${SI_STANDALONE_HTTP_PORT:-6480}
+    volumes:
+      - ./generated/htpasswd:/etc/nginx/htpasswd:ro
+    depends_on:
+      - si-agent-api

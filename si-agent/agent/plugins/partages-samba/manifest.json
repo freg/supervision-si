@@ -1,0 +1,13 @@
+{
+  "id": "partages-samba",
+  "version": "1",
+  "runner": "python",
+  "entry": "partages_samba.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 120,
+  "args": [],
+  "enabled": false,
+  "description": "Serveur Samba en lecture seule (#902, backlog 140) : partages déclarés (net conf list / testparm / smb.conf) avec invité, lecture seule, utilisateurs valides -- repère les partages ouverts à tous et inscriptibles ; sessions ouvertes et fichiers verrouillés (smbstatus : qui, machine, IP, partage, chiffrement). Le hub reconstitue l'historique des connexions. Aucune écriture ni mot de passe lu. À installer sur un serveur Samba (vieux serveur de fichiers, NAS Linux). smbstatus exige root. Désactivée par défaut.",
+  "source": "bundled",
+  "privileged": true
+}

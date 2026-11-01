@@ -1,3 +1,8227 @@
+## 2026-10-30 — BackupPC : lancer / arrêter une sauvegarde aussi en mode relais (livraison #948)
+
+- Les boutons Incrémentale / Complète / Arrêter de l'onglet BackupPC fonctionnent maintenant quand le serveur est
+  **relayé par SSH** (serveur « fichiers » en Debian 7) : la commande `backuppc-ctl` lit `/etc/si-agent/backuppc.json`
+  de l'agent relais et exécute `BackupPC_serverMesg` sur le serveur sous l'utilisateur backuppc (même compte `si-bk`,
+  même sudoers que la sonde). Toujours gardé par « intervention » ; `status` reste en lecture.
+- Agent **0.6.40**. Vérifié : tests agent (backuppcctl 4, agent 4, si_agent). Non vérifié : exécution réelle (relais
+  à poser lundi).
+
+## 2026-10-30 — Sauvegarde de poste : par profil utilisateur (archives vides corrigées) (livraison #947)
+
+- Première vraie sauvegarde de pc-paul : « 6 applications, 3 clés, dossiers 0 o, archive 151 ko » -- l'agent tourne en
+  SYSTEM, donc `%APPDATA%` et `HKCU` désignaient le profil SYSTEM, pas celui de l'utilisateur. La capture parcourt
+  maintenant **tous les profils utilisateurs** (ProfileList : SID + chemin), remplace `%APPDATA%` / `%LOCALAPPDATA%` /
+  `%USERPROFILE%` par le profil, exporte `HKCU\…` depuis `HKU\<SID>` (ruche NTUSER.DAT chargée au besoin pour un
+  utilisateur non connecté) et **normalise les .reg en HKEY_CURRENT_USER** ; caches de navigateur exclus. Archive :
+  `confs/<utilisateur>/…`, `appdata/<utilisateur>/<app>/<n>/…` ; le résultat liste les profils et les dossiers par
+  utilisateur (tailles, absents).
+- **Restauration** (#934) par profil : chaque utilisateur de l'archive retrouve son profil (ou un **utilisateur cible**
+  choisi, utile après réinstallation sous un autre nom) ; les .reg sont réimportés dans la ruche du bon utilisateur ;
+  les archives anciennes (sans sous-dossier utilisateur) restent restaurables. Simulation : liste récursive.
+- Accès coffre indisponible : la raison exacte est affichée (nom d'accès inconnu, jeton CREDENTIALS_INTERNAL_TOKEN…).
+- Agent **0.6.39**. Vérifié : tests agent (sauvegarde / restauration 17, si_agent), hub (498), lint JSX. Non vérifié :
+  rendu ; exécution réelle sur pc-paul -- relancer une sauvegarde après mise à jour de l'agent et vérifier les tailles.
+
+## 2026-10-30 — Gestion à distance : lien direct vers l'autorisation manquante (livraison #946)
+
+- « Refus » en essayant une commande sur le NAS : le refus (commandes à distance désactivées / intervention requise)
+  renvoie maintenant **directement** vers l'onglet Commandes à distance de l'agent relais (NAS QNAP et BackupPC), avec
+  le niveau à choisir (« lecture » pour les essais, « intervention » pour exécuter).
+- Flotte : le NAS relayé affiche son modèle sans le mot « noyau ».
+- Vérifié : hub (498), lint JSX. Non vérifié : rendu.
+
+## 2026-10-30 — NAS QNAP dans la Flotte, premier relevé SSH corrigé (livraison #945)
+
+- « Toujours pas d'agent QNAP » : le NAS apparaît maintenant dans la **Flotte sous son agent relais** (« ↳ relevé par
+  super-hub : nas-grpi-1 · QTS 5.2.9 · TS-883XU-RP · SSH + SNMP · lien NAS / sauvegardes »), comme les serveurs anciens
+  relevés par `systemes` ; le serveur BackupPC relayé y figurera de la même façon. La fiche vide « NAS-GRPi » (un agent
+  qui ne tournera jamais sur le NAS) peut être supprimée.
+- Corrections d'après le premier relevé réel (sonde nas-qnap **v3**) : bundles Time Machine **dédoublonnés** (un même
+  bundle était vu par /share/<partage> et /share/CACHEDEVn_DATA/<partage> : 3 conseils identiques) et datés sur
+  SnapshotHistory / bands (plus fiable que MachineID.plist) ; grappes **système QTS** (md9, md13, md256, md321, md322)
+  plus comptées comme RAID dégradé (leurs « _ » sont des baies vides) -- le NAS n'est plus « critique » à tort ;
+  volumes SNMP (Volume-1, TimeMachineX…) **rapprochés des montages SSH** (CACHEDEVn_DATA) par la taille, pour la colonne
+  Snapshots ; snapshots cherchés aussi sous /mnt/snapshot et @Recently-Snapshot, sortie de `qcli_snapshot -l` relevée et
+  affichée (étude) ; journaux : /mnt/HDA_ROOT/.logs (cible du lien /etc/logs) et `log_tool -q` ; aide des outils
+  (`qcli_* -h`, `log_tool -h`, …) admise dans l'essai en lecture.
+- Agent **0.6.38**. Vérifié : tests agent (nas-qnap 9, nasqnapctl, agent), API (13 + relais 6), hub (498), lint JSX.
+  Non vérifié : rendu ; chemins réels des snapshots QTS 5 -- à lire au prochain relevé.
+
+## 2026-10-30 — NAS QNAP : propositions et conseils (livraison #944)
+
+- Comme pour les postes (#935/#938), le NAS a ses **« Propositions et conseils »** : disques âgés (≥ 7 ans : à remplacer
+  un par un, info dès 5 ans), SMART dégradé (secteurs réalloués, critique si illisibles), disque en défaut ou chaud, RAID
+  dégradé, **groupe sans redondance** (le SSD seul en baie 8 : cache ou données ?), volumes à 80 / 90 % (cas Time
+  Machine : quota côté Mac), snapshots absents ou en retard, Time Machine qui ne sauvegarde plus, applications à mettre
+  à jour (inactives : désinstaller). Chaque conseil nomme l'élément (baie, modèle, heures, volume) et donne la
+  procédure : chemin dans QTS et commandes de LECTURE par SSH -- rien n'est modifié sur le NAS.
+- Affiché dans la tuile NAS (relevé SNMP) et dans Sauvegardes › NAS QNAP (SNMP + SSH : snapshots, Time Machine).
+  Rendu commun `ConseilsListe` (procédures dépliables, commandes copiables, export ⌘), module pur `conseilsNas.js`.
+- Vérifié : tests hub (498 dont conseilsNas 2), API (7), lint JSX. Non vérifié : rendu.
+
+## 2026-10-30 — Diagnostic pc-paul : plan de remise en état en 2 étapes, conseils NTFS / graphique / mémoire nommés, encodage du journal, BackupPC relayé (livraison #943)
+
+- **Plan de remise en état** (« je vois 2 étapes ») en tête des conseils, partagé entre utilisateurs du hub
+  (`/agents/<id>/plan-remise`) : **étape 1** appliquer les conseils (case « fait » par conseil, qui l'a fait, quand) et
+  retester -- bilan automatique des tests de charge avant / depuis le début de l'étape (au moins 3 tests pour juger :
+  amélioration / pas d'amélioration certaine) ; **étape 2** si pas d'amélioration certaine : réinstallation système
+  native puis redescente de la sauvegarde applications / confs (liens Sauvegarde données / image, Inventaire JSON,
+  Réinstallation, Restaurer). Bouton « Passer à l'étape 2 » qui note la décision.
+- Conseils : **système de fichiers** (NTFS 55/98/140) avec le **volume nommé** (lettre ou HarddiskVolumeN, disque) et
+  `chkdsk <lettre> /scan` puis `/f` ; **pilote graphique** (Display 4101) avec la **carte et son pilote** (version, date ;
+  critique à partir de 5 relances, « plus d'un an » signalé) ; **mémoire virtuelle épuisée** avec les **processus
+  cités** par le détecteur (Mo, fois), le fichier d'échange et la mémoire du poste ; **carte Wi-Fi** nommée depuis le
+  relevé réel (plus seulement le texte des journaux) ; pilotes réseau de plus de 3 ans (info). Onglet Diagnostic :
+  tableau « Cartes (graphique, réseau) et pilotes ».
+- Sonde poste-windows **v5** : cartes graphiques, cartes réseau physiques (pilote, date, état, vitesse), fichier
+  d'échange, évènements NTFS rattachés au volume, processus des évènements 2004.
+- **Encodage** (« LÃ¢â‚¬â„¢horloge » dans Erreurs du journal 24 h, noté) : la sortie de host.ps1 est lue en octets et
+  décodée UTF-8 / OEM (comme les sondes #920) ; les messages déjà abîmés (une ou deux couches) sont réparés.
+- **BackupPC relayé** : le serveur BackupPC (« fichiers », Debian 7) est trop ancien pour l'agent -- la sonde backuppc
+  v2 sait relever **par SSH depuis un agent du LAN** (`/etc/si-agent/backuppc.json`, compte `si-bk`, sudoers
+  `si-bk ALL=(backuppc) NOPASSWD: /bin/sh`), même résultat que le relevé local.
+- Agent **0.6.37**. Vérifié : tests agent (poste-windows 8, backuppc 7, winhost 9, si_agent), API, hub (496), lint
+  JSX. Non vérifié : rendu ; collecte.ps1 v5 et le relais BackupPC sur machines réelles.
+
+## 2026-10-30 — Tour de contrôle : reconstruire seulement ce qui a changé, durée attendue des mises à jour (livraison #942)
+
+- « À chaque fois que je passe par la tour, ça reconstruit tout et ça dure longtemps » : après un `git pull` fait à la
+  main (hors tour), la tour ne connaissait plus l'écart et proposait la cascade (tous les services en marche, par lots
+  de 6 -- 40 services, charge 72 sur 4 CPU). `scripts/run.sh` tient maintenant un **registre de déploiement**
+  (`.deploye.json` : par service, hash et numéro de la dernière construction réussie) ; la tour en déduit un **plan de
+  rattrapage ciblé** (seuls les services dont les fichiers de construction ont changé depuis leur hash déployé ; ceux à
+  redémarrer ; ceux sans entrée au registre, à part) et un bouton **« ⬆️ Reconstruire seulement ce qui a changé (N) »**
+  (`POST /git/rattraper`, sans git pull ni cascade). La cascade reste disponible, marquée « (long) ».
+- **Durée des mises à jour** (demandée) : `run.sh` journalise chaque construction (`.maj-historique.jsonl` : services,
+  durée, code) ; le pied de page affiche « ≈ N min restantes (habituellement M min, mêmes services / x s par service) »
+  pendant une mise à jour, et `/version-hub` expose les 5 dernières durées. Fichiers jamais versionnés (.gitignore),
+  exclus de l'empreinte de contenu.
+- Vérifié : tests services-api (tower 15, app 25), hub (494), lint JSX. Non vérifié : rendu ; le registre se remplit à
+  partir de la PROCHAINE construction par run.sh (avant : tous les services « sans entrée au registre » -- un passage
+  par « + N sans entrée au registre » ou une cascade les inscrit).
+
+## 2026-10-30 — Inventaire JSON des éléments de configuration par application (livraison #941)
+
+- Demande : « un inventaire détaillé des éléments de configuration détectés : clés de registre, chemins / fichiers… pas
+  les valeurs secrètes mais l'inventaire dans un format compacté façon JSON (ex. firefox : cache, conf, export mots de
+  passe, favoris, historique) ». Bouton **{ } Inventaire JSON** dans la sauvegarde d'un poste (fiche agent › Sauvegardes
+  et Postes Windows › Sauvegarde) : fenêtre copiable + téléchargement. Par application : clés et dossiers de la liste
+  envoyée à l'agent, **éléments connus** (Firefox, Thunderbird, Chrome, Edge, Office/Outlook, PuTTY, WinSCP, OpenVPN :
+  profil, conf, mots de passe -- fichiers, procédure d'export, **portable ou non** (DPAPI) --, favoris, historique,
+  extensions, sessions, cache à ne pas sauvegarder, synchro de compte), et le **relevé** de la dernière sauvegarde
+  (clés exportées, dossiers trouvés / absents, tailles). Aucune valeur n'est lue : l'inventaire décrit où sont les choses.
+- API : `GET /agents/<id>/sauvegarde/inventaire` (`sauvegarde_conf.EXPORTS`, `inventaire()`).
+- Vérifié : tests API (15), hub (493), lint JSX. Non vérifié : rendu.
+
+## 2026-10-30 — NAS QNAP : connexions, journaux, étude et gestion à distance par SSH (livraison #940)
+
+- « Continue sur QNAP » : sonde **nas-qnap v2** (toujours lecture seule) -- **connexions en cours** (sessions SMB et
+  partages ouverts via smbstatus, connexions établies par service : SMB, AFP, SSH, NFS, rsync, QTS), **journaux**
+  (QTS 4 : conn.log / event.log lus en sqlite -- dernières connexions, accès refusés, évènements ; QTS 5 : emplacements
+  QuLog et outils découverts, à brancher au premier relevé), constat « accès refusés » (≥ 5), et l'**aide (--help) des
+  outils de snapshot / HBS trouvés** : c'est l'étude préalable à toute action.
+- **Gestion à distance** (règle de production respectée : rien ne se modifie sans étude ni autorisation) : commande
+  `nas-qnap-ctl` sur l'agent relais -- `essai` = lecture (commande de lecture en liste blanche : ls, cat, df, getcfg,
+  smbstatus, qcli_* -l… ou action déclarée « lecture ») ; `executer` = INTERVENTION, uniquement une **action déclarée
+  par l'administrateur** dans `/etc/si-agent/nas-qnap.json` (section `actions`, arguments `{volume}` validés), jamais une
+  commande composée par le hub ; 403 / refus agent sans « intervention ». Onglet NAS QNAP : bloc « Connexions et accès »
+  (détail dépliable), bloc « Gestion à distance » (essai, action, exécuter, résultats copiables).
+- Agent **0.6.36**. Vérifié : tests agent (nas-qnap 8, nasqnapctl 3, agent 2, si_agent), API (7), hub (493), lint JSX.
+  Non vérifié : rendu ; sortie réelle de QTS 5.2 (smbstatus, journaux) -- à lire au premier relevé pour ajuster.
+
+## 2026-10-30 — Thématique « Sauvegardes » à l'accueil, gestion à distance de BackupPC et du NAS QNAP (livraison #939)
+
+- « Une tuile principale (accueil) Sauvegardes qui recouvre toute la thématique » : nouvelle **thématique 💾 Sauvegardes**
+  (super-tuile et menu), avec la vue d'ensemble (#937) et les sauvegardes du hub ; retirées de « Sécurité & accès ».
+- **BackupPC** : nouvelle sonde **backuppc** (agent du serveur BackupPC 3.x/4.x, lecture seule : `BackupPC_serverMesg
+  status`, hosts, config.pl, `pc/<hôte>/backups`, df) -> version, pool (taille, remplissage, nettoyage), chaque hôte
+  (état, dernière réussie / pleine / incrémentale, dernière erreur, erreurs de transfert), **échecs à traiter** avec un
+  conseil et des commandes de lecture copiables (ex. « No files dumped for share / » -> XferLOG + réglages de l'hôte),
+  files d'attente. Constats : serveur injoignable, pool 85/95 %, hôte sans réussite depuis 48 h (critique > 7 j), échec.
+  **Gestion à distance** : commande `backuppc-ctl` (`status` = lecture ; `backup-full` / `backup-incr` / `stop` =
+  INTERVENTION, autorisation « intervention » des commandes à distance exigée côté API (403) et côté agent), boutons
+  Incrémentale / Complète / Arrêter par hôte dans l'onglet BackupPC, journalisées.
+- **NAS QNAP** : nouvelle sonde **nas-qnap** (SSH depuis un agent du LAN, clé sans mot de passe, script `sh` de lecture
+  seule ; le SNMP du NAS n'est pas touché) -> snapshots par volume (nombre, dernier, ancienneté), **Time Machine**
+  (bundles, dernière écriture, taille), partages (dont Time Machine), RAID (`mdstat`, dégradé), volumes, et découverte
+  des outils de sauvegarde présents (HBS, RTRR, qpkg, commandes) pour brancher la gestion à distance ensuite. Fusionnée
+  avec le relevé SNMP dans l'onglet NAS QNAP de la tuile. Réglages : `/etc/si-agent/nas-qnap.json`.
+- Vue d'ensemble : compteurs et « à traiter » incluent BackupPC (échecs, pool) et les alertes SSH du NAS.
+- **Règle générale notée** (demande du jour) : un bouton d'action passe visiblement « en cours » dès le clic, même si
+  un message s'affiche par ailleurs -- appliqué à Lancer la sauvegarde (⏳ envoi… puis « en cours sur le poste » jusqu'au
+  résultat), Pousser PBS, Préflight, Simuler / Appliquer la restauration, Lancer le test d'accès, Lancer un test de charge.
+- Agent **0.6.35** (sondes backuppc, nas-qnap ; commande backuppc-ctl).
+- Vérifié : tests agent (backuppc 5, nas-qnap 6, backuppcctl 3, agent 3, si_agent 41), API (6), hub (493), lint JSX,
+  pastille d'icône. Non vérifié : rendu ; sondes non exécutées sur un vrai BackupPC / QTS (parsing testé sur des sorties
+  reconstituées -- à vérifier au premier relevé, en particulier les chemins de snapshots QTS). Signalé : 2 tests agent (test_migctl source vide, test_p2v_direct) et 3 tests API
+  (test_ping port, apprentissage / modèles en suite complète) échouent déjà sur #938 dans ce bac à sable (chemins /tmp,
+  ports, ordre de suite) -- hors périmètre, à regarder à part.
+
+## 2026-10-30 — Conseils de diagnostic : éléments nommés et procédures précises (livraison #938)
+
+- Retour sur « Propositions et conseils » : « les éléments demandés devraient être identifiés par le diag et présentés
+  ici » et « les actions devraient être plus précises, en commandes ou procédure ». Chaque conseil a maintenant une
+  liste **Éléments concernés** et une **procédure** dépliable (étapes numérotées, commandes PowerShell copiables d'un
+  clic), plus un mini bouton par conseil (texte complet copiable), un export de **toutes les commandes** (⌘ et
+  ⇩ Commandes, lecture seule sauf lignes marquées [MODIFIE]) ; l'impression déplie les procédures.
+- **Erreurs disque / contrôleur** : le conseil **nomme le disque visé** par les évènements (`\Device\HarddiskN`,
+  « Disk N ») -- modèle, bus, interne / externe, lettres -- et conclut : « seul un disque EXTERNE est visé, le disque
+  interne n'est pas en cause » / « le disque INTERNE est visé » / « interne et externe » / « disque plus présent
+  (débranché) » ; les réinitialisations de contrôleur (stornvme/storahci 129) sont comptées à part. Étapes ciblées
+  (`chkdsk E: /scan` sur la lettre du disque visé, compteurs de fiabilité par n° de disque, câble/port USB si externe).
+- Autres conseils nommés : dates des arrêts brutaux + BIOS en place, **carte Wi-Fi** extraite des journaux NDIS, **mise à
+  jour en échec** (titre + code, avec le cas 0x80070103 = rien à faire sur le poste), modules et dernier plantage par
+  application (Explorer/ntshrui → `net use`, DllHost/combase → `sfc`/`DISM`, SupportAssist → réinstaller), BSOD/WHEA/
+  mémoire (commandes de lecture), tests de charge (dates, volume testé, gel).
+- Agent **0.6.34**, sonde poste-windows **v4** : `numero` Windows et lettres de volume par disque, `disque` par volume,
+  BIOS (version, date), `diagnostic.disques_evenements` (évènements disque rattachés au disque visé, interne/externe
+  d'après le bus : USB, SD, VHD monté, iSCSI…). Un relevé d'un agent plus ancien donne le repli « le disque visé n'est
+  pas nommé (agent 0.6.34+) ».
+- Vérifié : tests agent (poste-windows 7, si_agent), tests hub (491 dont conseils 8), lint JSX, pas de couleur en dur.
+  Non vérifié : rendu ; collecte.ps1 v4 non exécutée ici (PowerShell) -- à vérifier sur pc-paul après mise à jour.
+
+## 2026-10-30 — Tuile « Sauvegardes » : vue d'ensemble des sauvegardes du SI (livraison #937)
+
+- Nouvelle tuile **Sauvegardes** (thème Sécurité & accès ; l'ancienne entrée devient « Sauvegardes du hub »), en
+  lecture seule : rien n'est lancé d'ici, chaque ligne renvoie vers l'endroit qui agit. Onglets : **Vue d'ensemble**
+  (verdict global, compteurs cliquables, « à traiter en premier », tableau des espaces de sauvegarde), **Postes**
+  (dernière sauvegarde de conf de chaque poste Windows + poussée PBS : état à jour / à surveiller / critique / jamais,
+  filtre « à traiter », export CSV, lien fiche › Sauvegardes), **PBS (pbs10)** (datastores, groupes en retard, alertes
+  de la sonde pbs), **Copies host / VM** (hôtes de secours de la sonde pulled-backups + verdicts de l'inventaire des
+  copies), **BackupPC** et **NAS QNAP** (volumes nas-snmp ; snapshots / TimeMachine « à venir »).
+- API : `GET /sauvegardes/apercu` (module pur `sauvegardes_apercu.py`, assemblé depuis les mesures déjà remontées ;
+  aucun secret). Règles : conf de poste fraîche < 7 j, critique > 30 j ou archive sans destination écrite.
+- Les textes importants ont leur mini bouton (fenêtre copiable) : détail d'un poste, alertes PBS, liste des points.
+- **À différer (noté)** : la liaison avec les services externes (connecteur BackupPC, SSH/API QNAP pour snapshots et
+  TimeMachine) -- sections posées « non relevé », rien ne les contacte.
+- Vérifié : tests API (5), tests hub (lib 5 + suite), lint JSX. Non vérifié : rendu.
+
+## 2026-10-30 — Fiche agent : onglet Sauvegardes, boutons « Poste Windows » lisibles, Sauvegarde données / image, Boot USB urgence (livraison #936)
+
+- « Je verrais bien une section sauvegardes ici » : nouvel onglet **Sauvegardes** dans la fiche d'un agent (groupe
+  « Agir sur le poste »), qui reprend la gestion de sauvegarde par poste (#930 données confs + montages, #931 poussée
+  PBS, #934 restauration) sans passer par la tuile Postes Windows. Pour un agent non Windows : renvoi vers la tuile
+  Sauvegardes et Migration › Copies.
+- Les liens « Poste Windows : Diagnostic · Analyse à distance · Tests de charge » étaient à peine visibles : ce sont
+  maintenant des **boutons rouges, texte blanc** (lisibles sur fond sombre). Sur la même ligne, deux boutons
+  **Sauvegarde · données** / **Sauvegarde · image** et un bouton **Boot USB urgence** (croix blanche) ouvrent l'onglet
+  Sauvegardes sur la bonne section.
+- **Sauvegarde image du disque** et **Boot USB d'urgence** : sections posées dans l'onglet (périmètre expliqué,
+  marquées « à venir ») — la capture d'image par l'agent et le préparateur de clé de secours arrivent dans une
+  livraison suivante, sans changer le reste. Hub seul (agent 0.6.33 inchangé).
+- Vérifié : onglets et liens profonds (section « sauvegardes »), analyse CSS, suite hub (482). Non vérifié : rendu.
+
+## 2026-10-30 — Propositions et conseils sur les points critiques (livraison #935)
+
+- Demande (« prévoir rapidement les propositions et conseils sur les points critiques et inquiétants relevés par les
+  tests et diagnostics ») : en tête de l'onglet Diagnostic d'un poste, une section **« Propositions et conseils »** qui
+  synthétise les points critiques et donne une **action concrète** pour chacun, classés critique / à surveiller / info.
+- Déduits automatiquement du diagnostic poste-windows (antivirus, santé/SMART/température/usure des disques, volumes
+  pleins, écrans bleus, WHEA, mémoire, erreurs disque/contrôleur, arrêts brutaux, indice de stabilité, applications qui
+  plantent avec le module en cause) et des **tests de charge** (défaut disque reproduit, poste figé, et **défaut
+  intermittent** = reproduit sur une partie seulement des runs — croisé avec l'historique #932). Exemples d'actions :
+  réactiver Defender, mettre à jour le BIOS (HAL/ACPI), le pilote Wi-Fi (NDIS), installer le pilote en échec, suspecter
+  câble/contrôleur pour un défaut disque intermittent.
+- **Impression** : la section a son propre bouton « Imprimer » (noir sur blanc, seule la section sort). Au passage,
+  **correction d'une régression de #933** : l'impression est désormais CIBLÉE par bouton (une classe posée sur le
+  <body> le temps de l'impression) — l'« Imprimer » du Diagnostic ou de la Réinstallation réimprime de nouveau la vue,
+  et celui des tests de charge n'imprime que l'historique. Hub seul (agent 0.6.33 inchangé).
+- Vérifié : tests du moteur de conseils (couverture pc-paul, classement par gravité, antivirus/disque/volumes,
+  intermittence vs défaut permanent), analyse CSS, suite hub (482). Non vérifié : rendu à l'écran et à l'impression.
+
+## 2026-10-30 — Restauration d'une sauvegarde de poste (intervention) (livraison #934)
+
+- Contrepartie de #930/#931 : restaurer une archive de sauvegarde sur un poste, en vue d'une réinstallation. Section
+  « Restaurer » de l'onglet Sauvegarde : chemin de l'archive (clé USB ou partage accessible du poste), choix de ce
+  qu'on restaure (registre, dossiers AppData, montages).
+- Deux modes, clairement séparés : **Simuler** (LECTURE SEULE : liste les clés .reg, les dossiers et la présence de
+  remonter.cmd dans l'archive, n'écrit rien) et **Appliquer** (INTERVENTION : réimport des clés de registre après un
+  REPLI de l'état courant des clés écrasées, remise des dossiers de config à leur emplacement d'origine, puis
+  remontage des lecteurs/partages via remonter.cmd). L'application exige l'autorisation « intervention » des commandes
+  à distance (fiche de l'agent, #929) — refusée sinon, côté hub (403) et côté agent.
+- L'agent lit la liste des applications dans le manifeste de l'archive ; chaque dossier AppData est restauré à son
+  chemin exact (format d'archive #930 affiné : un sous-dossier par dossier source). La restauration tourne en tâche de
+  fond. Agent **0.6.33**.
+- Vérifié : tests des scripts (simulation sans aucune écriture ; application avec repli reg export avant reg import,
+  robocopy des dossiers, remontage ; options respectées), de l'agent (gate off/lecture/intervention, simulation,
+  application lisant le manifeste), du hub (gate 403, caviardage des identifiants de source) ; suites agent / API /
+  hub (478). Non vérifié : restauration réelle sur un poste Windows.
+
+## 2026-10-30 — Tests de charge : impression dédiée, export CSV, rétention longue (livraison #933)
+
+- Suite de #932, les trois compléments demandés pour l'historique des tests de charge :
+  - **Impression dédiée** : à l'impression (bouton « Imprimer »), seule la zone de l'historique et de la comparaison
+    sort — menu, pied de page et autres panneaux masqués —, en noir sur blanc, tableaux pleine page, sans les boutons,
+    avec un en-tête « Tests de charge — <poste> — imprimé le … » (feuille de style @media print).
+  - **Export CSV** (bouton « ⤓ CSV ») : l'historique complet en CSV pour Excel (séparateur « ; », virgule décimale,
+    BOM UTF-8) — date, verdict, épreuves, cœurs finis/cœurs, gel, erreurs de calcul, mémoire, débits disque, relecture,
+    température, alertes.
+  - **Rétention longue** : les résultats de tests de charge sont conservés **730 jours** (2 ans) au lieu des 90 j des
+    relevés courants, pour la comparaison dans le temps (réglable par `SI_AGENT_RETENTION_TASKS_LONG`). La purge
+    exclut ces tâches de l'échéance globale et applique leur propre (longue) échéance. Hub + API seuls (agent 0.6.32).
+- Vérifié : tests de la purge (poste-charge gardé au-delà de 90 j, exclu du global, purgé à sa longue échéance ; les
+  autres tâches purgées normalement), de l'export CSV (colonnes, virgule décimale, BOM), analyse CSS (hub 478), API.
+  Non vérifié : rendu de l'impression et ouverture du CSV dans Excel.
+
+## 2026-10-30 — Historique des tests de charge : consultation, comparaison, impression (livraison #932)
+
+- Demande (« il me faut absolument un stockage et une consultation facile des résultats pour impression et
+  comparaison ») : l'onglet Tests de charge ne montrait que le dernier test, alors que les relevés successifs sont
+  conservés en base (90 j). L'onglet affiche désormais, sous le dernier résultat, l'**historique des tests de charge**
+  du poste : liste datée avec verdict (coloré), épreuves, processeur (cœurs finis, gel, erreurs de calcul), mémoire,
+  disque (débits, relecture), température et nombre d'alertes.
+- **Comparaison** : cocher plusieurs tests les met côte à côte (une colonne par test, une ligne par mesure) — utile
+  pour un défaut intermittent (la relecture « DIFFÉRENTE » et le gel ressortent d'une colonne à l'autre). Clic sur une
+  ligne : détail complet du test.
+- **Impression** : bouton « Imprimer » (impression ou PDF de l'historique et de la comparaison affichés).
+- Rien n'est perdu : les tests déjà lancés sur pc-paul sont visibles dans cette liste. Route de consultation
+  `GET /postes/charge/historique` (exclut la courbe de tension en direct). Hub + API seuls (agent 0.6.32 inchangé).
+- Vérifié : tests du résumé et de la comparaison (verdict, cœurs/gel, relecture différente), de la route (ordre
+  antéchronologique, exclusion de -live, limite) ; suites API et hub (477). Non vérifié : rendu navigateur et sortie
+  imprimée.
+
+## 2026-10-30 — Sauvegarde : poussée vers Proxmox Backup Server (pbs10) (livraison #931)
+
+- Suite de #930 : la remontée d'une sauvegarde de poste « combine et redirige vers pbs1 » (= pbs10). L'archive écrite
+  sur un partage de pbs10 (destination « partage » de #930) est poussée dans le datastore par l'AGENT DU SERVEUR PBS
+  (proxmox-backup-client y est déjà présent, cf. sonde pbs), en un snapshot host/<poste>, espace de noms « postes » :
+  confs + AppData + montages regroupés et dédupliqués par PBS. Aucune donnée ne transite par le hub.
+- Section « Pousser vers PBS » dans l'onglet Sauvegarde : réglage partagé (agent pousseur, dépôt, espace de noms,
+  empreinte, chemin du partage côté PBS, et NOM d'un accès du coffre pour le jeton d'API), un bouton Préflight
+  (lecture seule : vérifie client + authentification + accès au dépôt sans rien écrire) et un bouton de poussée de la
+  dernière archive du poste.
+- Sécurité : le secret du jeton d'API reste au coffre ; au lancement le hub le révèle et le passe à
+  proxmox-backup-client par variable d'environnement (PBS_PASSWORD) — jamais en argument de ligne de commande
+  (invisible en `ps`), ni en réponse d'API (commande caviardée), ni en trace. Le dépôt ne contient que le NOM du
+  jeton. Agent **0.6.32**.
+- Préparation côté PBS (à ta main, lecture seule puis création d'un jeton dédié) documentée ; la poussée est une
+  opération explicite et séparée (rien n'est écrit sur PBS sans configuration + clic).
+- Vérifié : tests du module (argv de proxmox-backup-client, secret hors argv, interprétation), de l'agent (préflight
+  lecture / push avec extraction de l'archive, secret en env, archive absente, mesure sans secret), du hub (réglage
+  sans secret, poussée de la dernière archive, préflight, caviardage du jeton) ; suites agent / API / hub. Non
+  vérifié : poussée réelle vers pbs10.
+
+## 2026-10-30 — Sauvegarde des confs logicielles et des montages d'un poste (livraison #930)
+
+- Étape suivante de la sonde sauvegarde/restauration : la SAUVEGARDE (lecture) des configurations logicielles et des
+  montages, en vue d'une réinstallation. Nouvel onglet « Sauvegarde » de la fiche poste : produit une archive ZIP
+  contenant les clés de registre exportées (reg export) et les dossiers de config (%APPDATA%/%LOCALAPPDATA%) des
+  applications, un remonter.cmd qui reconstruit les lecteurs réseau / partages servis / imprimantes, et un manifeste.
+- Sélection des confs (côté hub) : catalogue par défaut (Thunderbird, Firefox, Chrome, Edge, Office, PuTTY, WinSCP,
+  OpenVPN) + déduction des logiciels relevés par poste-windows + liste éditable par application (clés + dossiers). Les
+  montages viennent du dernier relevé poste-windows (lance-le d'abord pour les inclure).
+- Destinations : clé USB (lettre/dossier) et/ou partage réseau UNC. Les identifiants du partage ne sont pas saisis
+  dans la liste : seulement le NOM d'un accès du coffre « Accès d'équipements » ; au lancement le hub le révèle et
+  l'injecte dans la commande. Le secret ne vit qu'en mémoire (côté hub, puis passé à PowerShell par variable
+  d'environnement — jamais sur une ligne de commande, ni en réponse d'API caviardée, ni en trace, ni dans la mesure).
+  La capture tourne en tâche de fond sur l'agent. Agent **0.6.31**.
+- La RESTAURATION (réimport du registre, recréation des partages) est une opération d'INTERVENTION, livrée séparément.
+- Vérifié : tests de la génération (remonter.cmd : net use / New-SmbShare / droits ; script de capture : reg export,
+  robocopy, Compress-Archive, destinations USB/UNC, identifiants par environnement, aucun secret dans le script), de
+  l'agent (tâche de fond, secret via env, mesure sans secret, refus concurrent), du hub (catalogue + déduction + liste
+  éditée, montages depuis poste-windows, caviardage du mot de passe du partage, routes) ; suites agent / API / hub
+  (474). Non vérifié : capture réelle sur un poste Windows, rendu navigateur.
+
+## 2026-10-30 — Fiche agent : « Commandes à distance » (un seul endroit), l'ancien « Commandes » devient « Historique » (livraison #929)
+
+- Confusion signalée : on se perd dans les commandes à distance. L'onglet « Commandes » de la fiche agent n'était pas
+  celui qui exécute les commandes à distance (c'était une console générique + un historique), et l'autorisation
+  (lecture seule / intervention) était noyée dans « Réglages » ; l'exécution réelle était ailleurs (Postes Windows ›
+  Analyse à distance). Onglets rangés par intention (observer / agir / configurer), pensés pour un utilisateur seul ou
+  l'IA interne, sans jargon. « Maintenance » n'est pas un onglet : c'est le rôle de tous les agents.
+- Nouvel onglet **« Commandes à distance »** : l'autorisation en choix clairs (Désactivées · Lecture seule ·
+  Intervention) EN HAUT, puis l'exécution (analyses en un clic + commande libre) juste dessous — tout au même endroit,
+  avec une phrase d'explication. En « désactivées », l'exécution est masquée.
+- L'ancien onglet « Commandes » devient **« Historique »** (ce qui a été envoyé et le résultat, en lecture) ; la console
+  générique passe en « Actions avancées » repliée pour ne pas la perdre. « Lancer une sonde » depuis l'onglet
+  **Sondes** s'exécute désormais directement (plus de détour par la console).
+- Le **Journal** montre aussi les dernières commandes (vue d'ensemble « ce qui s'est passé sur ce poste »), avec un
+  lien vers l'Historique complet. L'autorisation des commandes à distance quitte **Réglages** (qui pointe vers le
+  nouvel onglet). Hub seul, aucun changement d'agent (0.6.30).
+- Vérifié : onglets et liens profonds (ancienne section « commands » → onglet Historique, section « distance » →
+  Commandes à distance) ; suite hub (472). Non vérifié : rendu navigateur.
+
+## 2026-10-30 — Analyse de poste : temps d'accès aux services de l'entreprise (brut + authentifié) (livraison #928)
+
+- Demande : dans l'analyse d'un poste, mesurer le temps d'accès aux sites de service (GED, cloud, annuaire, tickets…) :
+  temps bruts, puis temps de chargement en passant l'authentification. Pour les identifiants, le cache de mots de
+  passe du navigateur est ÉCARTÉ (lecture du magasin du navigateur = geste de logiciel malveillant, fragile, exposant
+  tous les mots de passe) : on utilise un compte de supervision dédié dont le secret reste au coffre.
+- Nouvel onglet « Accès services » de la fiche poste : pour chaque site, temps d'accès BRUT décomposé (DNS, connexion,
+  TLS, premier octet, total, code, sans suivre les redirections ni s'authentifier) et, si un accès du coffre est
+  configuré, temps de chargement en PASSANT l'authentification (formulaire avec jeton anti-CSRF, HTTP Basic, ou en-tête
+  de jeton) jusqu'à la page connectée, avec « connecté oui/non ». Éditeur de la liste des sites intégré (type d'auth,
+  nom de l'accès au coffre, champs du formulaire).
+- Sécurité : la liste configurée ne contient AUCUN secret, seulement le nom d'un accès du coffre « Accès d'équipements ».
+  Au lancement, le hub révèle l'accès (credentials-api) et compose la commande ; le secret ne vit qu'en mémoire (côté
+  hub puis côté agent : pas de sous-processus, pas de fichier, pas de ligne de commande), n'apparaît jamais dans les
+  réponses d'API (commande caviardée) ni dans les traces/événements, et jamais dans la mesure remontée. La mesure
+  tourne en tâche de fond sur l'agent (la boucle reste libre). Agent **0.6.30**.
+- Vérifié : tests de la mesure (brut, formulaire CSRF succès/échec, Basic, jeton, aucun secret en sortie, erreur sans
+  chaîne de requête — serveur HTTP local), de l'agent (tâche de fond, refus concurrent, secret transmis en mémoire),
+  du hub (validation refusant tout secret dans la config, injection coffre + signalement des accès indisponibles,
+  caviardage, routes), helpers hub ; suites agent / API / hub (472). Non vérifié : rendu navigateur, flot réel sur un
+  vrai site (optick3 / owncloud) — à essayer sur pc-paul.
+
+## 2026-10-30 — Tuile NAS : potentiel d'évolution des volumes (livraison #927)
+
+- Demande : « ajouter à la tuile une vision du potentiel d'évolution pour accroître / étendre les volumes : nombre
+  d'emplacements et conseil d'évolution ». Nouvelle section « Potentiel d'évolution » par NAS : baies dessinées
+  (disque dur, SSD, libre), nombre de baies déduit du modèle QNAP (TS-883XU -> 8 ; ou réglage `baies` dans
+  /etc/si-agent/nas-snmp.json), réserve et espace non alloué, colonne « Extensible jusqu'à » dans les volumes.
+- Conseils chiffrés, du moins coûteux au plus lourd : étendre un volume sans matériel (espace libre de la réserve) ;
+  ajouter des disques dans les baies libres (capacité utile avant / après selon le RAID, gain par disque ; RAID 1
+  migré en RAID 5) ; RAID 6 conseillé à partir de 6 disques de 8 To et plus ; remplacer les disques un par un par
+  des 16 / 20 To ; SSD seul dans une baie 3,5" (carte M.2 pour libérer la baie) ; baies pleines -> unité
+  d'extension ; volumes légers plus grands que la réserve. Capacités théoriques, à valider avec la liste de
+  compatibilité QNAP. Sonde nas-snmp v2 (réglage `baies`), rien ne change côté NAS (lecture SNMP seule).
+- Vérifié : tests du calcul (modèles QNAP, RAID 1 / 5 / 6 / 10, relevé d'exemple 3 × 12 To + SSD : 4 baies libres,
+  24 -> 72 To, RAID 6 à 7 disques, remplacement 20 To -> 40 To), sonde, hub 470. Non vérifié : rendu dans le
+  navigateur.
+
+## 2026-10-30 — Analyses à distance en file d'attente, commandes perdues signalées, test processeur interprétable (livraison #926)
+
+- Analyse à distance : quatre analyses lancées d'un coup, la quatrième était refusée (trois au plus en même temps sur
+  un poste). Au-delà de trois, elles attendent désormais **en file sur le poste** (« en file sur le poste », position
+  dans le motif) et démarrent dès qu'une place se libère ; une commande en file peut être retirée (Interrompre) ; si
+  le réglage du poste change pendant l'attente, elle est refusée au démarrage.
+- Commandes restées « reçue par l'agent » pour toujours (pc-paul, 29/10 : agent redémarré par la mise à jour pendant
+  l'exécution) : le central les marque **« perdue (agent redémarré ?) »** quand l'agent n'en donne plus de nouvelles
+  15 min après leur délai (file : 4 h de plus). Une commande jamais relevée (poste éteint) reste « en attente ».
+- Test de charge, épreuve processeur : le « défaut reproduit » de pc-paul (30/10 04:01) venait d'une épreuve processeur
+  « calée » sans erreur de calcul, la mémoire et le disque ayant tourné normalement juste après -- le message accusait
+  pourtant le disque. L'épreuve compte maintenant les cœurs qui ont rendu leur calcul, l'heure de démarrage du plus
+  tardif et le plus long gel de la surveillance : poste figé ≥ 10 s = défaut (critique) ; sinon « non concluant »
+  avec la cause probable (cœurs perdus ou bloqués, pas un signe matériel). Affiché dans Postes Windows (« N ont fini »,
+  « poste figé jusqu'à N s »), verdict « non concluant » en orange. Sonde poste-charge v3, agent **0.6.29**.
+- Vérifié : tests agent (file, retrait, réglage changé, exécution PowerShell réelle), central (file, perdue, longue
+  silencieuse non perdue, jamais relevée), sonde (cœurs finis, calage non matériel, gel), hub 466. Échecs déjà
+  présents avant : test_z_apprentissage, test_z_modeles, test_migctl, test_p2v_direct ; test_ping et test_z_xfer
+  instables selon l'ordre (verts isolés).
+
+## 2026-10-29 — Agent : le test de charge ne part plus tout seul, les sondes longues ne bloquent plus l'agent (livraison #925)
+
+- Constat sur pc-paul après la mise à jour manuelle en 0.6.27 : plus aucun relevé après 17:39, commandes et
+  configuration « en attente ». Cause : poste-charge et poste-windows avaient été activées sur l'hôte ; l'agent
+  exécute ses sondes actives dès son démarrage, l'une après l'autre et en bloquant tout le reste (test de charge de
+  plusieurs minutes à 100 %, puis relevé poste-windows jusqu'à 10 min). Le « aucun défaut reproduit » de l'après-midi
+  venait du même mécanisme.
+- poste-charge ne tourne plus jamais sans commande, même activée, ni les sondes « à la demande » (intervalle d'au moins
+  10 ans comme sockets, ou `on_demand: true`).
+- Sous Windows, une sonde dont le délai dépasse 2 min (poste-windows, windows-probe…) tourne en tâche de fond : l'agent
+  continue de relever, de prendre les commandes et la configuration ; deux sondes longues au plus en même temps, pas
+  de doublon. La commande « Exécuter une sonde » répond aussitôt « lancée » ; le résultat arrive dans la mesure de la
+  sonde. Sous Linux, rien ne change (confinement incompatible avec les threads).
+- La file locale (SQLite) est protégée par un verrou, la boucle et les sondes en tâche de fond y écrivant en même
+  temps (copie commune avec netprobe). Agent **0.6.28**.
+- Vérifié : tests agent (sondes à la demande jamais ordonnancées, sonde longue en fond sans doublon, commande, Linux
+  inchangé, file écrite par 4 threads) et netprobe au vert. Non vérifié sur un vrai poste Windows : à voir sur pc-paul
+  après la mise à jour par le bouton (premier essai réel du lancement par tâche planifiée de #921).
+
+## 2026-10-29 — Info-bulles importantes copiables (mini bouton + fenêtre) ; poste-windows : panne Thunderbird corrigée (livraison #924)
+
+- Demande : « une info-bulle potentiellement importante doit avoir son équivalent sur un mini bouton rouge ou autre
+  selon l'urgence, qui ouvre une fenêtre qu'on peut copier et faire défiler, sur la ligne où on passe la souris ».
+  Composant réutilisable `FenetreTexte.jsx` : mini bouton (rouge critique, orange alerte, bleu info) visible au survol
+  de la ligne (toujours sur écran tactile) ; fenêtre défilante, texte sélectionnable, bouton Copier, Échap ou clic
+  hors de la fenêtre pour fermer. Appliqué aux résultats de commandes (remplace le dépliage de #923), à la pastille de
+  collecte, au dernier résultat des sondes, aux hôtes relayés et aux motifs de l'analyse à distance. Règle notée au
+  BACKLOG pour les autres vues.
+- poste-windows (cause lue sur pc-paul grâce à la trace) : plantage dans l'analyse des profils Thunderbird. Windows
+  PowerShell 5.1 sérialise chaque ligne lue par Get-Content en objet {value, PSPath, ReadCount…} et non en texte ;
+  collecte.ps1 renvoie désormais du texte brut et la sonde (v3) tolère les deux formes. Agent **0.6.27**.
+- Vérifié : test de la forme réelle des lignes (objet PowerShell 5.1), collecte.ps1 analysé par PowerShell, tests
+  agent / sonde / hub (465) au vert. Non vérifié : rendu de la fenêtre dans le navigateur (essai arrêté à ta demande).
+
+## 2026-10-29 — Postes Windows : accès direct depuis la fiche, résultats complets, sonde poste-windows qui ne plante plus (livraison #923)
+
+- « Où est le diagnostic ? » : la fiche d'un agent Windows mène directement à son poste (Diagnostic, Analyse à
+  distance, Tests de charge) ; la vue Postes Windows accepte `?view=postes-windows&agent=<id>&onglet=diagnostic|charge|
+  distance|reinstallation` et renvoie à la fiche de l'agent.
+- Résultat d'une commande : un clic le déplie en entier, sélectionnable et copiable (l'info-bulle ne se copiait pas).
+- La sonde poste-windows a échoué sur pc-paul (première exécution réelle, PowerShell réparé par #920) avec une trace
+  Python dont le hub ne montrait que le DÉBUT. L'agent garde désormais la FIN de la sortie d'erreur (là où est la
+  cause) ; la sonde (v2) transforme un délai dépassé ou une erreur inattendue en constat lisible du Diagnostic (type,
+  message, ligne) au lieu de planter. Agent **0.6.26**. Cause de l'échec de pc-paul : à lire dans ce constat.
+- Vérifié : tests agent (fin de trace gardée), sonde (erreur et délai -> constats), hub 465 ; rendu Chromium (liens
+  de la fiche, poste ouvert sur l'onglet demandé, résultat déplié et sélectionnable).
+
+## 2026-10-29 — Fiche agent en onglets, tableau des agents résumé (livraison #922)
+
+- Retour d'usage : « l'ergonomie de la fiche poste/agent est non fonctionnelle, faire tout défiler tout en contrôlant
+  les sections visibles, c'est pas possible, je passe trop de temps à chercher » ; et le lien direct vers les réglages
+  de pc-paul arrivait sur le tableau (la fiche s'ouvrait SOUS le tableau).
+- Fiche de l'agent : onglets (Résumé, Réseau, Matériel, Activité, Disques et stockage, Ports et services, Journal,
+  Poste, Sondes, Commandes, Réglages) -- une section à l'écran, toutes à un clic ; la fiche s'ouvre à la place du
+  tableau, avec « ◀ Agents », un sélecteur pour passer à un autre agent et la version de l'agent en tête. Sans mesure,
+  Sondes / Commandes / Réglages restent accessibles. Lien profond `?view=si-agent&agent=<id>&section=settings`
+  (utilisé par l'onglet Analyse à distance) : arrive directement sur l'onglet.
+- Tableau des agents : colonne **Version** (orange quand le central sert une version plus récente) ; colonne
+  **Collecte** = une pastille vert (relevés à jour) / jaune (pas de relevé récent) / orange (collecte partielle,
+  sondes bloquées, TLS non vérifié) / rouge (hors ligne, jamais vu, désactivé), détail au survol ; les quatre boutons
+  deviennent des micro-symboles (⤓ installation, ⛔ / 🔓 blocage, ⏸ / ▶ activation, 🗑 suppression) avec info-bulle ;
+  localisation raccourcie, complète au survol (aussi dans Mises à jour).
+- Vérifié : module pur `agentFiche.js` testé (onglets, pastille, comparaison numérique des versions), 465 tests du hub,
+  rendu de la vraie vue dans Chromium en thème sombre (tableau, fiche, onglet Réglages, lien profond), sans erreur.
+
+## 2026-10-29 — Mise à jour automatique des agents Windows : cause trouvée et corrigée (livraison #921)
+
+- Constat (pc-paul) : aucune mise à jour automatique n'a jamais abouti (0.6.15 → 0.6.17, puis 0.6.21 → 0.6.22, 0.6.23,
+  0.6.24) ; journaux update-*.log VIDES, tâche de relance #918 jamais créée, agent jamais arrêté.
+- Cause CONFIRMÉE sur le poste : l'agent lançait powershell.exe en processus « détaché » (DETACHED_PROCESS, sans
+  console) ; ainsi lancé, PowerShell ne démarre pas (0 octet de sortie), alors qu'avec une console cachée
+  (CREATE_NO_WINDOW) il répond normalement. Les correctifs #914 (arrêt avant copie) et #918 (relance hors de la tâche)
+  visaient des causes secondaires : l'installeur ne démarrait même pas.
+- Correctif : l'agent fait lancer l'installeur par une TÂCHE PLANIFIÉE ponctuelle `si-agent-update` (SYSTEM) via un
+  petit `update-run.cmd` qui redirige toute la sortie, erreurs comprises, dans le journal update-*.log -- console cachée
+  normale et tâche indépendante de celle de l'agent ; repli : lancement direct en console cachée (plus jamais
+  « détaché »). L'installeur reçoit -Relance (déjà hors de la tâche de l'agent). Agent **0.6.25**.
+- Limite : le correctif est dans le code de l'agent qui LANCE la mise à jour ; les agents déjà déployés (pc-paul en
+  0.6.24, pc-willy en 0.4.3) passent encore une fois à la main ou par l'analyse à distance en mode intervention.
+- Vérifié : test du lancement par tâche planifiée (enveloppe .cmd, redirection, schtasks /Create puis /Run, échec
+  remonté), tests agent au vert ; cause confirmée par un essai sur pc-paul. Non vérifié : cycle complet sur Windows.
+
+## 2026-10-29 — Agents Windows : les sondes PowerShell démarrent enfin (environnement) et les accents sont lisibles (livraison #920)
+
+- Constat (pc-paul, sonde poste-windows) : « relevÃ© PowerShell illisible : Erreur Windows PowerShell interne. Le
+  chargement de Windows PowerShell managï¿½ a ï¿½chouï¿½ avec l'erreur 8009001d ».
+- Cause 1 (toute la flotte Windows) : l'environnement minimal des sondes (#440) gardait les variables système par
+  comparaison EXACTE de leur nom, alors que Python présente sous Windows les clés en MAJUSCULES : SystemRoot, windir,
+  ProgramFiles, PSModulePath… n'étaient jamais transmises, et PowerShell sans SystemRoot ne démarre pas (8009001d).
+  Comparaison désormais sans casse, plus quelques chemins système (ProgramFiles(x86), ALLUSERSPROFILE, APPDATA…),
+  toujours sans aucune autre variable du service.
+- Cause 2 : l'agent lisait la sortie des sondes avec la page ANSI du poste alors que poste-windows écrit en UTF-8
+  (« relevÃ© ») ; la sonde lisait en UTF-8 le message natif de powershell.exe, écrit en page OEM (« ï¿½ »). Sondes
+  Python forcées en UTF-8 (PYTHONIOENCODING) ; sortie décodée UTF-8 puis OEM, côté agent comme côté sonde.
+- Analyse à distance (#919) : la garde écrit sa sortie en octets UTF-8 et laisse la console en page OEM, pour que
+  PowerShell décode correctement la sortie des outils natifs français (chkdsk, powercfg, ipconfig…).
+- Agent **0.6.24**. Vérifié : nouveau test reproduisant l'environnement Windows en majuscules (SystemRoot gardé,
+  variables du service écartées), décodage UTF-8 / OEM / BOM, garde rejouée sous PowerShell 7 ; tests agent, sonde
+  poste-windows, central et hub au vert. Non vérifié : Windows réel (pc-paul après mise à jour).
+
+## 2026-10-29 — Analyse technique à distance : commandes PowerShell par l'agent, résultats interprétés dans le hub (livraison #919)
+
+- Demande : ne plus taper de commandes sur le poste ; les faire passer par l'agent, récupérer et interpréter les
+  résultats dans le hub. Nouvel onglet **Postes Windows › Analyse à distance** : 7 analyses en un clic (triage
+  matériel / système / viral avec verdict par axe, intégrité DISM / SFC / CHKDSK sans réparation, processus de l'agent
+  et des sondes, veille et alimentation, journal de l'agent, réseau et lecteurs réseau, ownCloud et Excel), commande
+  libre, sortie suivie en direct, interruption, relance, script envoyé consultable.
+- Sécurité : **désactivé par défaut**, réglé par agent (fiche › Réglages › « Commandes à distance » : désactivées /
+  lecture seule / intervention). En lecture seule, **le poste vérifie lui-même** le script avant de l'exécuter
+  (`garde.ps1`, arbre syntaxique PowerShell : cmdlets Get-* et de mise en forme, exécutables de diagnostic aux
+  arguments contrôlés, ni écriture de fichier, ni appel dynamique, ni méthode qui agit, ni affectation de propriété) ;
+  intervention confirmée dans le hub ; plafond local `remote_shell_max` dans agent.json ; tout est journalisé au poste
+  et au central (qui, quoi, empreinte). Une seule mesure gardée par commande au central.
+- Interprétation (central) : triage → constats et niveau par axe, disque amovible distingué du disque système,
+  arrêts brutaux sans écran bleu, Explorateur / ownCloud / Excel / userinit instables, antivirus actif et à jour,
+  éléments non signés dans les dossiers utilisateur ; synthèse classée par nombre d'indices. Intégrité → DISM, SFC et
+  CHKDSK reconnus en français et en anglais.
+- Au passage : `/postes/charge/lancer` et `/stop` (#913) renvoyaient 200 sans rien créer pour un agent inconnu → 404 ;
+  leurs tests (jamais exécutés faute de Flask sur le poste de dev) corrigés.
+- Agent **0.6.23**. Vérifié : garde testée sous PowerShell 7 réel (refus de 23 cas qui modifient, dont ADSI,
+  `chkdsk /f`, `net user /add`, `${C:\x}=`, méthodes .Kill()/.Delete() ; exécution, accents, délai, interruption) ;
+  les 7 scripts du catalogue passent la garde ; tests agent 46 (+ 9 exécutions réelles), central (routes, mode,
+  conservation, interprétation sur un triage réel anonymisé), hub 462 ; rendu de l'onglet vérifié dans Chromium en
+  thème sombre et sur mobile. Non vérifié : Windows PowerShell 5.1 réel (premier essai : pc-paul) ;
+  préexistant hors sujet : `test_z_apprentissage` (500 sur /priorites/decision).
+
+## 2026-10-29 — MAJ auto des agents Windows : l'installeur ne se tue plus avec l'agent (livraison #918)
+
+- Constat (pc-paul, 0.6.17 → 0.6.21) : « installeur lancé, sans effet ». L'agent lance l'installeur depuis sa tâche
+  planifiée, donc dans le même « job » Windows ; l'arrêt de la tâche ajouté en #914 tuait l'installeur en même temps
+  que l'agent. Les postes Linux (pc-numeria, pcia) sont passés en 0.6.21 sans souci.
+- Correctif `install.ps1` : en `-Upgrade` sous le compte SYSTEM (= lancé par l'agent), l'installeur se relance dans une
+  tâche ponctuelle indépendante `si-agent-update` (journal `update-relance.log`) puis rend la main ; lancé à la main par
+  un administrateur, il continue directement. Le correctif est dans l'installeur du NOUVEAU paquet : il vaut donc aussi
+  pour les vieux agents (pc-willy en 0.4.3). `uninstall.ps1` retire la tâche ponctuelle. Agent **0.6.22**.
+- Vérifié : accolades/parenthèses équilibrées, tests de l'agent module par module. Non vérifié : pas de PowerShell ici,
+  ni Windows réel — premier essai réel : pc-willy. Hors sujet, préexistant : `test_p2v_direct` échoue seulement quand
+  toute la suite tourne ensemble (dossier temporaire global laissé par un autre test).
+
+## 2026-10-29 — Hub bloqué par une accolade manquante dans le CSS de la tuile Hermes (livraison #917)
+
+- `hub.css` : bloc `@media(max-width:820px)` de la tuile Hermes (#912) non fermé → Vite refusait toute la feuille
+  (« Unclosed block », ligne 2847) et le hub ne s'affichait plus. Accolade ajoutée.
+- Nouveau test `hub/tests/css.test.mjs` : chaque feuille CSS du hub est analysée par postcss (le même analyseur que
+  Vite) ; contre-épreuve faite (le test échoue bien sur l'accolade manquante). Les validations précédentes ne
+  couvraient que le JSX.
+- Vérifié : 458 tests du hub. Non vérifié : rendu navigateur de la tuile Hermes.
+
+## 2026-10-29 — Test de charge exécuté en tâche de fond : suivi en direct et arrêt PENDANT le test (livraison #916)
+
+- #913 posait le plugin interruptible / suivi en direct, mais l'agent exécutait `poste-charge` de façon **synchrone** :
+  la boucle restait bloquée tout le test (jusqu'à ~4 min), donc le suivi direct n'arrivait qu'**à la fin** et un `stop`
+  attendait la fin — l'observation « en streaming » et l'arrêt « à volonté » demandés n'étaient pas effectifs.
+- `poste-charge` tourne désormais dans un **thread dédié** (commande `run_plugin` → réponse immédiate `{started:true}`) ;
+  la boucle reste libre : `charge_tick` pousse la courbe de tension (mesure `plugin:poste-charge-live`) toutes les ~2 s
+  en forçant l'envoi, et `stop_plugin` est traité **pendant** le test (sentinelle lue entre les blocs → arrêt en cours
+  de route, verdict « interrompu »). Un seul test de charge à la fois (2e lancement refusé).
+- Agent **0.6.21**. Vérifié : 37 tests de l'agent dont un nouveau test tâche-de-fond (lancement immédiat, poussée en
+  cours `fini=false`, capture de la fin, libération de l'emplacement, refus concurrent) ; file SQLite multi-thread
+  (`check_same_thread=False`, WAL) → poussée depuis le thread sûre. À valider sur pc-paul une fois la 0.6.21 + plugin
+  v2 servis par le central.
+
+## 2026-10-29 — Agents Windows -SystemCa : poser ca_file (faisceau #682), fin du CERTIFICATE_VERIFY_FAILED (livraison #915)
+
+- Un agent Windows installé `-SystemCa` (central à certificat **public**, ex. Let's Encrypt) restait avec
+  `ca_file=null` : le Python de l'agent ne voit pas les racines que Windows télécharge à la demande (intermédiaire LE
+  récent, p. ex. `YR2`) → `CERTIFICATE_VERIFY_FAILED: unable to get local issuer`, et la régénération auto du faisceau
+  était inopérante (`refresh_ca` exige `ca_file`). Constaté sur pc-paul : central injoignable, aucune sonde ni
+  commande reçue (d'où l'absence de `poste-charge` pilotable sur ce poste).
+- Correctif `install.ps1` : en `-SystemCa`, `ca_file` pointe désormais sur le faisceau construit par `central-ca.ps1`
+  (chaîne live du central + magasins Root/AuthRoot/CA de la machine) ; l'agent le charge et la régénération horaire
+  fonctionne. Agent **0.6.20**.
+- Vérifié : accolades équilibrées, mécanisme #682 relu. Non vérifié : pas de `pwsh` ici (analyse syntaxique), ni sur
+  Windows réel. Correctif manuel immédiat pour un poste déjà déployé : reconstruire le faisceau + poser `ca_file`.
+
+## 2026-10-29 — Mise à jour auto des agents Windows : arrêt avant copie, fin de la boucle (livraison #914)
+
+- `install.ps1 -Upgrade` recopiait `si_agent\` par-dessus l'ancien pendant que l'agent (`python.exe`) tournait
+  encore : ses `.py` étaient verrouillés, la copie échouait **en silence** (journal d'installeur vide, version
+  inchangée) et le central replanifiait la mise à jour toutes les 6 h — boucle `agent-update-started` constatée sur
+  pc-paul (bloqué en 0.6.15). Correctif : en `-Upgrade`, **arrêt de la tâche + du process agent AVANT la copie**
+  (l'installeur est détaché, il survit), avec un `trap` qui **relance l'agent** sur toute erreur terminante (jamais
+  de poste sans agent). Agent **0.6.19**.
+- Confirmé sur pc-paul : agent arrêté → la copie passe (**0.6.15 → 0.6.17**).
+- L'installeur exécuté lors d'une MAJ est celui du **paquet cible** : dès qu'un paquet ≥ 0.6.19 est servi par le
+  central, les agents se mettent à jour avec l'installeur corrigé → boucle levée pour toute la flotte.
+- Vérifié : équilibrage des accolades, base éprouvée (l'installeur vient de tourner sur pc-paul). Non vérifié :
+  pas de `pwsh` ici pour l'analyse syntaxique, ni de MAJ auto de bout en bout sur un vrai Windows.
+
+## 2026-10-29 — Postes Windows : pilotage des tests de charge en direct (livraison #913)
+
+- Onglet « Tests de charge » (Postes Windows › fiche du poste) : lancer un test `poste-charge` à la demande avec
+  les épreuves voulues (**processeur / mémoire / disque** — *(re)jouer une partie* = ne cocher que celles-ci) et les
+  paramètres, **suivre la tension en direct** (phase, %, débit disque Mo/s, courbe) et **interrompre à volonté**.
+- Plugin `poste-charge` v2 : épreuves sélectionnables (`--epreuves`), chaque épreuve **bornée** (`--max-s`, défaut
+  240 s) et **interruptible** (sentinelle `--stop`), progression/tension écrite en continu (`--live`, NDJSON). Un
+  disque qui cale est désormais rapporté « calé » (alerte critique) au lieu de **bloquer 30 min** (constat réel sur
+  pc-paul : `poste-charge` tué à 1800 s). Rétro-compatible, manifeste v2, timeout 1800→900 s.
+- Central (si-agent-api) : `POST /postes/charge/lancer` (épreuves + paramètres), `POST /postes/charge/stop`
+  (commande `stop_plugin`, ignorée proprement par un agent qui ne la connaît pas), `GET /postes/charge/live`
+  (tension en direct + dernier résultat).
+- Fichiers : `plugins/poste-charge/{poste_charge.py, manifest.json, test_poste_charge.py}`,
+  `si-agent/api/{app.py, store.py, test_z_charge.py}`, `hub/src/{PosteWindowsView.jsx, siAgentClient.js, chargeLive.js}`,
+  `hub/tests/chargeLive.test.mjs`.
+- Vérifié : plugin (7 tests + exécutions réelles sélection/arrêt/direct sur VM Linux), chargeLive (4 tests Node),
+  457 tests hub OK (non-régression), @babel/parser + esbuild, contrôle thème (aucune couleur en dur). Non vérifié :
+  rendu navigateur, Windows réel. **À suivre côté agent** : poussée du direct (mesure `poste-charge-live`) et prise
+  en charge de `stop_plugin` — sans quoi la courbe en direct reste vide (lancer / résultat / interprétation marchent).
+
+## 2026-10-29 — Tuile Hermes (supervision) : interface du hub (livraison #912)
+
+- Tuile « Hermes » dans le hub supervision (vue `HermesView`, entrée de menu + chemins métier assistant / hôtes) :
+  chat en STREAMING (SSE, réflexion `<think>` séparée et chronométrée), garde-fous par profil (bandeau « lecture
+  seule » en supervision), console repliable (plus récent en haut, copie / téléchargement), rejeu QA (clé de voûte),
+  panneau de réglages (garde-fous, préchauffage, cahier, moteur Hermes). Portée depuis la tuile du hub maison, adaptée
+  au thème supervision (couleurs sur variables de thème, clair + sombre) et à l'authentification Keycloak
+  (`fetch` credentials include).
+- Appelle `/hermes/api` (service `hermes-web` optionnel, #911). Sans ce backend déployé, la tuile affiche
+  « passerelle inaccessible » — sans effet sur le reste du hub.
+- Fichiers : `hub/src/HermesView.jsx` (nouveau), `App.jsx` (import + routing + viewMode), `hubThemes.js` (menu +
+  livraison), `hubBusiness.js` (chemins métier), `hub.css` (styles `.hw*`).
+- Vérifié : `@babel/parser` (tous), esbuild (HermesView), contrôle thème (`.hw*` sans couleur en dur), 453 tests hub
+  OK (non-régression). Non vérifié : rendu navigateur, SSE réel (dépend du déploiement `hermes-web`), `npm run build`.
+
+## 2026-10-29 — Tuile Hermes (supervision) : service optionnel + route passerelle SSE (livraison #911)
+
+- Intégration du harnais Hermes (dépôt séparé ../hermes-web) au hub supervision, côté infrastructure :
+  - `docker-compose.yml` : service `hermes-web` OPTIONNEL (`profiles: [hermes]`) — ignoré par un `up` ordinaire,
+    démarré seulement avec `COMPOSE_PROFILES=hermes` une fois `../hermes-web` cloné à côté du dépôt. Profil
+    « supervision » = LECTURE SEULE (écriture et destructif refusés). Ollama de l'hôte via `HERMES_OLLAMA_URL`
+    (preprodia / prodia : URL propre à chacun), vrai moteur Hermes par défaut.
+  - `tls-proxy/render_nginx_conf.py` : nouveau type de route « api-stream » (préfixe retiré + SANS TAMPON :
+    `proxy_buffering off`, `chunked_transfer_encoding on`) pour le flux SSE du chat ; route `/hermes/` →
+    `hermes-web:8092` `/api/...` (le tampon de la passerelle bloquait le flux — piège déjà vécu au déploiement pcia).
+  - `.env.example` : `HERMES_WEB_PORT` / `HERMES_WEB_MOTEUR` / `HERMES_OLLAMA_URL` / `HERMES_MODELE` / `HERMES_WEB_DATA_DIR`.
+- Déploiement par hôte (après `git clone` de `../hermes-web` à côté du dépôt ; `/opt/data` et `/data` en uid 10000,
+  `chown 10000` + `chmod go-w`) : `COMPOSE_PROFILES=hermes ./scripts/run.sh up -d --build hermes-web`.
+- Vérifié : rendu passerelle (`/hermes/` api-stream, buffering off, réécriture correcte), 2 tests passerelle OK,
+  compose valide (profil hermes, 88 services). Non vérifié : moteur Hermes réel contre un Ollama de prod, rendu
+  navigateur. La TUILE (front du hub) suit en #912.
+
+## 2026-10-28 — Parc IA : téléchargement automatique des modèles utilisables, noté /10 par contexte (livraison #910)
+
+- Onglet « Téléchargement auto » (Parc IA ▸ Veille des modèles) : propose les modèles **utilisables sur l'hôte**
+  (tiennent en VRAM Q4), pertinents, disponibles en GGUF et non déjà installés, bornés (taille max, nombre par
+  passe, intervalle) pour ne pas saturer le disque. Chaque candidat reçoit une **note /10 par contexte** — assistance
+  développement, ingénierie réseau et système, 3D modélisation, 3D impression, NéoPays — et le tri privilégie
+  l'intérêt puis la légèreté. Les modèles tirés (pull Ollama `hf.co/<dépôt>:<quant>`) apparaissent dans le parc.
+- **Hôte de production : automatisme désactivé par défaut** (`actif=false`) et le geste n'agit que sur Ollama,
+  aucune modification système. Routes `GET/POST /modeles/auto` (réglages bornés au schéma, pull à la demande),
+  passe périodique branchée sur la boucle de relève.
+- Vérifié : sélection et exclusions (trop gros pour les GPU, non-GGUF, déjà installé, plafond de taille), notes par
+  contexte (coder → dev 10, vision → 3D 10), tri, défaut OFF, routes GET/POST (schéma borné, persistance).
+
+## 2026-10-28 — Parc IA : répartition des usages des modèles sur les machines et GPU (livraison #909)
+
+- Nouvel onglet « Répartition GPU » : place les usages déclarés (modèles actifs) sur les GPU des machines, un usage
+  par GPU de préférence (on dédie un GPU à un mode, jamais le même usage sur deux GPU), tenue en VRAM Q4, charge
+  étalée, le plus gros d'abord. Machines et GPU réglés par `MODELES_MACHINES` (plusieurs GPU avec « + »).
+- Vérifié : affectation (gros sur grand GPU, GPU vide dédié), non-placés, unicité d'usage par GPU, route
+  `POST /modeles/repartition`.
+
+## 2026-10-28 — Parc IA : revue du jour des modèles (urgence et dédicace apprentissage) (livraison #908)
+
+- Nouvel onglet « Revue du jour » : classe les modèles par urgence de téléchargement (avant disparition ou passage
+  payant / accès restreint) et met en avant les modèles légers exécutables sur les machines et GPU du parc. Dédicace
+  spéciale aux modèles affinables (niveau d'apprentissage 0-3), l'idéal étant ceux qui apprennent **et** désapprennent
+  dynamiquement. Colonne `apprend` ajoutée (migration).
+- Vérifié : niveau d'apprentissage, risque de disparition, score et tri de la revue, route `GET /modeles/revue`.
+
+## 2026-10-28 — Sonde sockets : utilisateur résolu par le PID sous Linux (livraison #907)
+
+- `ss` récent (Debian 13) n'émet pas toujours `uid:` (ino/sk/cgroup seulement, et omet uid:0) : la colonne
+  utilisateur restait vide. Résolue désormais par le PID (`/proc/<pid>/status`). Agent 0.6.17.
+- Vérifié : parsing d'une ligne ss réelle sans uid: -> utilisateur « root ».
+
+## 2026-10-28 — Itinérance automatique à l'installation Windows (livraison #905)
+
+- Le hub connaît désormais son adresse interne (`SI_AGENT_INTERNAL_URL`, par défaut `https://HOST_IP:GATEWAY_PORT/api/si-agent`)
+  en plus du nom public. Les commandes d'installation Windows (`.ps1` et `.cmd` de l'accueil / de la fiche agent)
+  écrivent automatiquement un central de secours : principal = nom public (magasin système, joignable d'Internet),
+  secours = adresse interne (CA du projet épinglée, récupérée via le nom public qui est joignable partout). L'agent
+  bascule seul (#474) : il passe au secours quand le principal est injoignable et revient dès qu'il répond. Un portable
+  comme pc-paul joint ainsi le central par Internet (sans VPN) et par le LAN, sans configuration manuelle.
+- `install.ps1` (#905) : en principal public (`-SystemCa`), la CA interne récupérée pour le secours n'écrase plus la
+  confiance du principal (`ca_file` réservé au cas non-SystemCa). `-Fallback` / `-FallbackCa` (#904) inchangés.
+- Vérifié : génération `.ps1` / `.cmd` pour central public + interne connu (-> -SystemCa -CaFingerprint -Fallback),
+  central interne, central public sans interne ; syntaxe. Non vérifié : sur un vrai Windows itinérant.
+
+## 2026-10-28 — Installation Windows : CA du central public corrigée, et itinérance (central de secours) (livraison #904)
+
+- Correctif : le fichier `.cmd` et la commande d'installation Windows générés par le hub forçaient toujours
+  `-CaFingerprint` (CA interne), même pour un central public (`supervision.optline.fr`) servi par un certificat
+  Let's Encrypt -> `CERTIFICATE_VERIFY_FAILED` sur les postes (cas rencontré sur pc-paul). Ils choisissent désormais
+  `-SystemCa` (magasin Windows) pour un nom public et `-CaFingerprint` pour un central interne, comme le MSI et les
+  flux d'enrôlement par jeton (`_pin_internal_ca`).
+- Itinérance : `install.ps1` accepte `-Fallback <url>` (et `-FallbackCa`) et écrit `central_fallback_url` /
+  `fallback_ca_file` dans `agent.json`. L'agent gère déjà la bascule (#474) : il essaie le principal, passe au
+  secours quand il est injoignable, et revient au principal dès qu'il répond. Confiance du secours déduite : magasin
+  système si public, CA interne si interne. Un portable (ex. pc-paul, souvent à distance, parfois sans VPN) peut
+  ainsi joindre le central par le nom public d'Internet et par l'adresse interne sur le LAN/VPN.
+- Le MSI (#824) gérait déjà correctement le choix `-CaFingerprint` / `-SystemCa` ; inchangé.
+- Vérifié : génération des commandes `.ps1` / `.cmd` pour un central public (-> -SystemCa) et interne (-> -CaFingerprint)
+  hors Flask ; syntaxe Python. Non vérifié : `-Fallback` sur un vrai Windows.
+
+## 2026-10-28 — Tuile Messages : blog interne du hub (livraison #903)
+
+- Nouveau service `messages-api` et tuile « Messages » (thème « services/hub ») : déposer un mot pour tout le monde
+  ou pour soi seul, permanent ou à durée de vie automatique (1 h, 1 jour, 1 semaine ; effacé seul à l'échéance),
+  et le supprimer. Format « commande » : bloc copiable d'un clic, pour se passer une ligne d'un poste à l'autre sans
+  la recopier à vue. Ouvert à tout utilisateur connecté (jeton Keycloak du hub) ; seuls l'auteur et les membres des
+  groupes administrateurs suppriment. Les notes « pour moi » ne sont visibles que de leur auteur.
+- `auth.py` partagé : « * » dans la liste des utilisateurs autorisés ouvre un service à tout compte authentifié,
+  sans changer le comportement des services qui donnent une liste explicite.
+- Vérifié : `test_store.py` (portée, visibilité, expiration, suppression auteur / admin), ouverture « * » et maintien
+  de la restriction par liste, syntaxe Python et JSX. Non vérifié : routes Flask (Flask non installable ici) ni en réel.
+
+## 2026-10-28 — Fiche agent : diagnostic Windows « rien ne remonte » à copier (livraison #902)
+
+- Panneau d'installation d'un agent Windows : bloc dépliable « l'agent est installé mais rien ne remonte » avec les
+  commandes PowerShell (tâche planifiée, processus python, agent.json, 30 dernières lignes du journal) à copier d'un
+  clic, et la lecture du résultat (tâche OK, contact du hub, sonde à activer). Évite de recopier à vue.
+- Vérifié : syntaxe JSX.
+
+## 2026-10-28 — Keycloak : déconnexion depuis le nom public du hub (livraison #901)
+
+- « L'URI de redirection est invalide » à la déconnexion depuis le nom public : les adresses de retour après
+  déconnexion du client `supervision-hub` ne reprenaient que l'adresse d'origine. Modèle du royaume : `+` (= les
+  URI de redirection valides). Royaume déjà importé : même réglage à faire à la main (client supervision-hub ›
+  « Valid post logout redirect URIs » = `+`).
+
+## 2026-10-28 — Fichier d'installation Windows autonome (livraison #900)
+
+- Constat sur le poste de Paul : `.cmd` lancé depuis Téléchargements sans archive décompressée -> « install.ps1
+  introuvable ». Le `.cmd` se suffit désormais : élévation d'abord, puis archive décompressée à côté si présente,
+  sinon téléchargement depuis le central (`curl.exe`), contrôle de l'empreinte SHA-256 inscrite par le central
+  (arrêt si elle diffère), décompression (`tar`) dans %TEMP%, installation. Accueil et fiche : un seul fichier à
+  télécharger, avertissement « Éditeur inconnu » expliqué.
+- Vérifié : texte généré (fonction extraite et exécutée hors Flask), syntaxe JSX. Non vérifié : sur un vrai Windows.
+
+## 2026-10-28 — Accueil du hub sans connexion : « Nouvel agent » et « Accès sécurisé » (livraison #899)
+
+- Une visite non authentifiée (ou une reconnexion silencieuse en échec) n'affiche plus d'erreur mais un accueil à deux
+  entrées : « Nouvel agent » (nom du poste pré-configuré) et « Accès sécurisé » (mire Keycloak). Le message d'erreur
+  n'apparaît, discret, que s'il ne s'agit pas d'une simple absence de session.
+- « Nouvel agent » : un administrateur OUVRE l'installation de cet agent (fiche › Installation : 2 h ou 24 h, 72 h au
+  plus) ; tant qu'elle est ouverte et que l'agent n'a pas contacté le central depuis, le nom exact remet l'archive,
+  le fichier .cmd (Windows, détecté) et les lignes Linux / macOS. Refermée d'elle-même au premier contact ou à
+  l'échéance ; même refus que l'agent existe ou non ; 10 demandes / 10 min par adresse ; chaque remise journalisée.
+  Routes publiques `GET /accueil/agent?nom=` et `/accueil/agent.cmd?nom=` ; `GET/PUT /agents/<id>/accueil`.
+- Vérifié : `test_accueil.py` (ouverture, échéance, plafond, fermeture au premier contact, réinstallation d'un agent
+  vu avant l'ouverture, nom invalide, limiteur), syntaxe Python et JSX. Non vérifié : en réel.
+
+## 2026-10-28 — Fichier d'installation Windows (.cmd) : archive trouvée à côté ou en dossier double (livraison #898)
+
+- Le `.cmd` silencieux exigeait d'être posé à la racine de l'archive décompressée. Il trouve désormais
+  `windows\install.ps1` aussi dans un dossier `si-agent-agent-*` voisin (fichier laissé dans Téléchargements à côté
+  de l'archive) et dans le dossier en double que crée l'Explorateur (`si-agent-agent-x\si-agent-agent-x\windows`),
+  et son message d'erreur dit quoi faire. Concerne aussi les installations à distance (campus).
+- Vérifié : texte généré (fonction extraite de app.py et exécutée hors Flask). Non vérifié : sur un vrai Windows.
+
+## 2026-10-28 — Agents › Installation : téléchargement de l'archive sous Windows (livraison #897)
+
+- Le guide Windows supposait l'archive déjà décompressée. Nouvelle étape 1 (PowerShell, administrateur) :
+  `curl.exe` (livré avec Windows 10 / 11 ; `-k` pour une adresse interne, `-L` sinon), contrôle de l'empreinte
+  SHA-256 par `Get-FileHash` (arrêt si elle diffère), `tar -xzf`, puis `cd` dans le dossier ; l'installation devient l'étape 2.
+- Vérifié : test `agentInstallLib` (adresse interne et publique, sans archive), syntaxe JSX. Non vérifié : sur un vrai Windows.
+
+## 2026-10-28 — Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge (livraison #896)
+
+- Sonde `poste-windows` (agent 0.6.15, lecture seule, toutes les 6 h, désactivée par défaut) : relevé PowerShell 5.1
+  (`collecte.ps1`, sortie UTF-8) analysé en Python. Réinstallation : partages servis, lecteurs et raccourcis réseau
+  par utilisateur, imprimantes, Office Click-to-Run, comptes Microsoft 365, profils et fichiers Outlook, Thunderbird
+  (comptes, serveurs d'envoi, agendas Google / CalDAV / locaux, d'après prefs.js), licences Windows et Office (clé
+  partielle), antivirus (état décodé), logiciels machine et par utilisateur. Diagnostic sur 30 jours : chronologie des
+  évènements critiques (arrêts brutaux, écrans bleus, WHEA, disque, NTFS, pilote graphique, mémoire épuisée,
+  diagnostic mémoire), journaux regroupés, plantages d'applications avec module en cause, vidages, fiabilité des
+  disques, volumes, indice de stabilité, températures ; constats correspondants. Aucun mot de passe lu ; profils non
+  connectés signalés (limite du compte SYSTEM).
+- Sonde `poste-charge`, À LA DEMANDE seulement : processeur (calcul vérifié sur tous les cœurs), mémoire (motif écrit
+  et relu), disque (écrit, relu, comparé, débits), températures et évènements critiques pendant le test ; verdict.
+- API `GET /postes-windows[?agent=]` ; tuile « Postes Windows » (liste, diagnostic, réinstallation, impression).
+- Vérifié : `test_poste_windows.py` (Thunderbird, antivirus, doublons, constats, sortie PowerShell avec BOM, échec de
+  collecte), `test_poste_charge.py` (épreuves réduites, fichier effacé), syntaxe JSX, tests de l'agent.
+  NON vérifié : collecte.ps1 sur un vrai Windows (aucun PowerShell ici) -- premier relevé à contrôler.
+
+## 2026-10-28 — Onglet VPN : WireGuard reconstitué des journaux du routeur MikroTik (livraison #895)
+
+- Remplace la sonde wireguard pour le routeur du bureau (l'administrateur envoie ses journaux plutôt que d'ouvrir
+  l'API) : `rsyslog-listener` analyse les lignes du sujet wireguard (`wgsyslog.py`) -> pairs (nom RouterOS, état,
+  origine, adresses vues, dernière poignée de main réussie, échecs, pertes de contact) et sessions (ouverture à la
+  première poignée de main réussie, fermeture à l'effacement des clés ou après 5 min sans activité). Plus complet
+  que l'API sur les incidents (échecs, pertes, changements d'adresse) ; pas de volumes. Nom inverse des adresses
+  d'origine résolu (cache 24 h) pour la colonne Opérateur. Forme RouterOS sans en-tête reconnue (`sujet`).
+- Onglet VPN : carte « WireGuard · journaux du routeur », sessions fusionnées dans l'historique et la stabilité
+  par utilisateur, lignes brutes repliées.
+- Vérifié : `test_wgsyslog.py` sur des lignes au format réel rendues fictives (réussites, échec, perte, doublon des
+  deux formes, nouvelle adresse, session en cours puis close), `test_journal.py`, syntaxe JSX. Non vérifié : en réel.
+
+## 2026-10-28 — Réception syslog conservée, journal WireGuard du routeur dans l'onglet VPN (livraison #894)
+
+- `rsyslog-listener` (écoute UDP 5514 existante, #177) : conservation sur disque d'un fichier par émetteur et par
+  jour (`rsyslog-listener/data/`, hors dépôt), purge à 90 jours, émetteurs autorisés (`RSYSLOG_ALLOWED`) avec
+  compte des refusés, décodage Windows-1252 de repli, API `/journaux/emetteurs` et `/journaux` (filtres émetteur,
+  texte, gravité, période). Choix de l'administrateur réseau : le MikroTik envoie ses journaux plutôt que d'ouvrir son API.
+- Onglet VPN : section « Journal WireGuard reçu en syslog » (lignes du sujet wireguard, émetteurs reçus et refusés).
+  L'analyse en sessions viendra après observation des lignes réelles de RouterOS (format non garanti).
+- Vérifié : `test_journal.py` (analyse RFC 3164 / 5424, autorisés, écriture, recherche, purge, nom d'émetteur non
+  conforme refusé), syntaxe Python et JSX. Non vérifié : réception réelle depuis le routeur.
+
+## 2026-10-28 — Sonde wireguard : réglages MikroTik pris d'office (livraison #893)
+
+- L'agent ne transmet pas d'arguments propres à un hôte (ceux du manifeste seulement) : `--mikrotik` était
+  inapplicable. La sonde prend désormais /etc/si-agent/mikrotik-wg.json s'il existe (comme nas-snmp). Agent 0.6.14.
+- Vérifié : test (fichier présent -> routeur MikroTik, absent -> lecture locale) et tests WireGuard / RouterOS.
+
+## 2026-10-28 — Onglet VPN : erreur de lecture d'un serveur WireGuard visible (livraison #892)
+
+- Un serveur WireGuard sans interface lue (routeur MikroTik injoignable, mot de passe refusé…) n'apparaissait pas :
+  les cartes n'étaient tracées que par interface. Carte du serveur avec son erreur.
+- Vérifié : syntaxe JSX.
+
+## 2026-10-28 — Agents › Mises à jour : bouton « Tout mettre à jour » (livraison #891)
+
+- Envoie la mise à jour à chaque agent en retard (éligible, non éligible ou en échec), comme le bouton de sa ligne,
+  après une confirmation qui liste les agents ; bilan des échecs éventuels. Indépendant du canal bêta et de
+  l'activation générale, qui ne servent qu'à la planification automatique : infobulle ajoutée sur la colonne « Bêta ».
+- Vérifié : syntaxe JSX. Non vérifié : en réel.
+
+## 2026-10-28 — MikroTik : mot de passe accentué (livraison #890)
+
+- RouterOS compare des octets dans le codage du poste qui a saisi le mot de passe (Winbox : Windows-1252) ; un « é »
+  envoyé en UTF-8 était refusé. Connexion essayée en UTF-8 puis Windows-1252 (une connexion chacune), ou avec le
+  seul codage imposé par "encoding" dans le fichier de réglages ; l'erreur finale cite les codages essayés.
+  Réponses du routeur décodées en UTF-8 avec repli Windows-1252. Agent 0.6.13.
+- Vérifié : test contre un faux routeur qui n'accepte « été » qu'en Windows-1252 (refus UTF-8 puis succès).
+
+## 2026-10-28 — Onglet VPN : WireGuard d'un routeur MikroTik par l'API RouterOS (livraison #889)
+
+- Sonde `wireguard` (agent 0.6.12) : `--mikrotik /etc/si-agent/mikrotik-wg.json` {host, user, password, port, tls}.
+  Client RouterOS sans dépendance (`routeros.py`, compatible Python 3.5) : connexion nom + mot de passe (repli défi
+  MD5 des anciens RouterOS), uniquement des commandes `…/print` (toute autre est refusée). Interfaces et pairs
+  WireGuard : nom (name ou comment), adresse d'origine courante, adresses VPN, dernière poignée de main, volumes ;
+  pairs désactivés écartés, clé privée jamais renvoyée. Un compte du groupe « read » suffit.
+- Vérifié : `test_routeros.py` contre un faux routeur (encodage des longueurs, login, !re / !done / !trap, durées
+  RouterOS, refus d'écriture, mauvais mot de passe sans fuite) et tests WireGuard existants. Non vérifié : sur le routeur réel.
+
+## 2026-10-28 — Onglet VPN : opérateur d'origine et stabilité des connexions par utilisateur (livraison #888)
+
+- Opérateur et type d'accès tirés du nom inverse de l'adresse d'origine (Starlink · satellite, Orange · mobile / fixe,
+  SFR, Free, Bouygues, Nordnet, hébergeurs ; à défaut le domaine) : colonne « Opérateur » de l'historique.
+- Tableau « Stabilité par utilisateur » (période et filtre de l'historique) : sessions, sessions courtes (< 5 min),
+  reconnexions rapprochées (< 5 min après la fin de la précédente), durée médiane, temps total, opérateurs ;
+  clic = filtre l'historique sur l'utilisateur. Sert au diagnostic des déconnexions (liaison de l'utilisateur ou serveur).
+- Vérifié : `vpnLib.test.mjs` (opérateurs, type d'accès, courtes / reconnexions, session en cours exclue), syntaxe JSX.
+
+## 2026-10-28 — Page Agents : ligne d'installation avec un site contenant des espaces (livraison #887)
+
+- La ligne `./install.sh …` régénérée par le hub pour l'adresse choisie laissait le site sans guillemets :
+  « bureau/optline service/téléport 2 » se coupait en plusieurs arguments (« argument inconnu »). Le site et
+  l'identifiant sont désormais protégés pour le shell (`shq`), comme le faisait déjà la ligne fournie par l'API.
+- Vérifié : test `agentInstallLib` (espaces, accents, apostrophe) et découpage réel par bash.
+
+## 2026-10-28 — Sondes softether, wireguard et nas-snmp compatibles Python 3.5 (livraison #886)
+
+- r2d2 (Debian 9, i686) a Python 3.5.3 : `datetime.fromisoformat` et `subprocess.run(capture_output, text)`
+  (Python 3.7) remplacés par `strptime` et `stdout=PIPE, universal_newlines` ; plus aucun ordre de dictionnaire
+  supposé (non garanti avant 3.6). Agent 0.6.11.
+- Vérifié : tests des trois sondes ; absence de f-string, d'annotation de variable et de `:=` (analyse syntaxique).
+  Non vérifié : exécution sous un vrai Python 3.5.
+
+## 2026-10-28 — Onglet VPN : sessions SoftEther lues dans les journaux du serveur (livraison #885)
+
+- Sonde `softether` (agent 0.6.10, désactivée par défaut), sans mot de passe d'administration : lecture
+  incrémentale des journaux de sécurité de chaque hub (security_log/<hub>/sec_*.log), historique conservé sur
+  l'hôte (400 jours) et renvoyé sur 90 jours. Par session : hub, utilisateur, adresse et nom d'origine, protocole
+  (L2TP, SSTP, OpenVPN, SoftEther), poste client, adresse VPN attribuée, début, fin, durée, volumes, en cours.
+  Constat : échecs d'authentification répétés depuis une même adresse (5 par heure par défaut).
+- API `/vpn` : serveurs SoftEther et sessions fusionnées avec celles de WireGuard. Onglet VPN : carte par serveur
+  (hubs, sessions en cours, échecs récents), historique commun avec colonne protocole · poste, filtre étendu.
+- Vérifié : `test_softether.py` sur un journal fictif au format réel (session close, reprise incrémentale sans
+  doublon, session en cours, échecs et alerte, fichiers hors conservation ignorés), `test_vpn.py`, syntaxe JSX.
+  Non vérifié : sur r2d2.
+
+## 2026-10-28 — Onglet VPN : WireGuard en lecture seule et historique des connexions (livraison #884)
+
+- Sonde `wireguard` (agent 0.6.9, désactivée par défaut) : `wg show all dump`, en local (agent sur le serveur VPN,
+  noms des pairs tirés des commentaires de /etc/wireguard/*.conf) ou à distance par SSH vers la commande forcée
+  `wg-etat.sh`, à installer par l'administrateur du VPN (lecture seule, clés privées et partagées masquées à la source,
+  écartées une seconde fois par la sonde). Noms en mode distant : `--names` {clé publique: nom}.
+- API `GET /vpn?days=` : état courant par serveur et sessions reconstituées (WireGuard ne journalise pas les
+  connexions) : début / fin d'après les poignées de main, durée, origine, volumes, session en cours, pair retiré.
+- Onglet « VPN » : pairs (connecté, origine, adresses VPN avec ping, dernière poignée de main, volumes) ;
+  historique filtrable (24 h, 7, 30, 90 jours).
+- Vérifié : `test_wireguard.py` (dump, noms, aucune clé privée en sortie, mode SSH), `test_vpn.py` (sessions,
+  compteurs remis à zéro, pair retiré), syntaxe JSX, tests de l'agent. Non vérifié : sur un serveur WireGuard réel.
+
+## 2026-10-27 — Tuile NAS : état et alertes par SNMP en lecture seule (QNAP), étape 1 (livraison #883)
+
+- Sonde `nas-snmp` (agent 0.6.8, désactivée par défaut) : lit l'agent SNMP déjà actif du NAS avec ses réglages existants
+  (rien n'est modifié : Zenoss et les autres outils continuent de l'interroger). MIB QNAP QTS / QuTS (55062, repli 24681) :
+  disques (modèle, série, état, température, capacité, heures de fonctionnement, attributs SMART 5 / 187 / 197 / 198),
+  RAID (niveau, état), réserve, volumes (taille, libre, %), ventilateurs, applications (installée / disponible),
+  micrologiciel. Constats : volume à 80 / 90 %, disque en défaut, chaud (50 / 60 °C) ou âgé (50 000 h), secteurs
+  réalloués / en attente / illisibles, RAID dégradé ou sans redondance, ventilateur arrêté, mises à jour disponibles.
+  Réglages hors dépôt : /etc/si-agent/nas-snmp.json (root seulement, la communauté ne sort jamais de l'hôte).
+- API `GET /nas` ; tuile « NAS » (thème équipements) : alertes, volumes avec jauges, disques (âge en années, SMART),
+  RAID, ventilateurs, réserve, applications à mettre à jour.
+- Vérifié : `test_nas_snmp.py` sur un relevé fictif de même structure qu'un TS-883XU-RP réel (formats net-snmp,
+  table SMART par disque, volumes en Kio, alertes, communauté jamais renvoyée) ; syntaxe JSX ; tests de l'agent.
+  Non vérifié : sur le NAS réel ; correspondance disques / SMART supposée dans l'ordre des disques présents.
+
+## 2026-10-27 — Barème des estimations façon planning poker, catégories de systèmes, actions automatisables (livraison #882)
+
+- Constat : estimations #878 disproportionnées (heures fixes élevées, reconstruction à 16 h, puis × 3).
+- `etat_plan.py` : poids en POINTS par type d'action (échelle ½ 1 2 3 5 8 13 20 40 ; 25 types : socle et version de
+  mise à niveau, reconstruction, Windows, hyperviseur, service à revérifier, logiciels par nom, correctifs, filtrage,
+  identification, archivage…) ; heures = points × heures par point (vélocité, 1 par défaut) × coefficient de catégorie ×
+  marge. Catégories : serveur physique ×1,5, machine virtuelle ×1, conteneur ×0,8, SGBD ×1,5 en plus. Types
+  automatisables (correctifs, paquets, mise à niveau standard, agent invité, déclaration) : après la première
+  occurrence, facteur de répétition (×0,3). Seuil de reconstruction et part d'un logiciel mis à jour avec le système
+  réglables.
+- Page « ⚖ Barème des estimations » (état des lieux) : points par type (liste façon planning poker, écart au défaut),
+  case automatisable, coefficients de catégorie, vélocité, marge, seuils ; occurrences et heures de chaque type dans
+  l'état actuel, aperçu du total en direct ; enregistrer, revenir au défaut. API `GET/PUT /etat-des-lieux/bareme`. La
+  marge vit dans le barème (le réglage du planning la transmet). Excel et page d'audit citent le barème.
+- Fenêtres (fiche, barème, ⚙ OS) : plus de relecture à chaque rafraîchissement de la page (modifications et agent
+  choisi conservés).
+- Vérifié : `test_etat_plan.py` (barème borné, points, catégories, répétition automatisable, pesage, vélocité), tests
+  de l'état des lieux, tests du hub. Non vérifié : rendu ; valeurs par défaut à calibrer sur l'expérience.
+
+## 2026-10-27 — Excel des décideurs : erreur 500 corrigée (module du planning absent de l'image) (livraison #881)
+
+- `etat_plan.py` (#878) n'était pas copié dans l'image de si-agent-api (le Dockerfile liste ses fichiers un par un) :
+  « ModuleNotFoundError: No module named 'etat_plan' » sur l'Excel des décideurs, la page d'audit et le planning.
+- Ajouté au Dockerfile ; nouveau test `test_dockerfile_modules.py` : tout module local importé par l'API, directement
+  ou non, doit être copié dans l'image.
+- Vérifié : test ajouté. Non vérifié : construction de l'image (sur super).
+
+## 2026-10-27 — Bouton « ⚙ OS » : ping, processus, réseau et journal depuis l'OS de l'hôte, d'une VM ou d'un CT (livraison #880)
+
+- Agent 0.6.7, gestes encadrés (liste fermée, journal d'audit sur l'hôte) : `ping` vers une adresse tierce (validée,
+  20 paquets au plus), `top` (instantané type htop : charge, mémoire, processus), `net` (type ntop : débit par interface
+  sur 2 s, iftop s'il est installé, connexions établies par destination), `syslog` (journal du système, nombre de
+  lignes, filtre avertissements / erreurs ; repli sur /var/log/syslog ou messages). Option `ct` : exécution DANS un
+  conteneur LXC par l'agent de son nœud Proxmox (`pct exec`), pour un CT sans agent. Linux seulement.
+- Hub : bouton « ⚙ OS » ouvrant une fenêtre (choix de l'agent qui exécute, cible du ping, options du journal ; résultats
+  de la session dans une liste déroulante, sortie déroulante ; lien « htop en direct »). L'hôte lui-même s'il a un
+  agent (retrouvé par son nom), sinon son nœud pour un CT, sinon ping seulement depuis l'agent choisi (relais pour nms
+  / optick3). Placé : Flotte (colonne IP, fiche, hôtes relayés), fiche de l'état des lieux, Infra PVE/PBS, et partout
+  où une IP de gestion a le bouton ping (#868).
+- Vérifié : `tests/test_hostops.py` (ping et refus d'injection, top, net avec / sans iftop, journal, conteneur, audit),
+  syntaxe JSX, tests du hub. Non vérifié : exécution réelle sur un agent (mise à jour en 0.6.7 nécessaire), rendu.
+
+## 2026-10-27 — État des lieux : copies, clones, préparations de migration et VM de test rattachés et listés en fin (livraison #879)
+
+- Constat : bruit dans l'état des lieux et le planning -- clone d'une machine physique (« serv3-clone »), préparations
+  de bascule (« pre-optick3 », « pre-r2d2 »), copies d'un même système (« MED10 » répliqué, archivé), VM de test.
+- Rattachement automatique à la référence d'après le nom (préfixes `pre-`, `clone-`, `test-`…, suffixes `-clone`,
+  `-copie`, `-old`, `-test`…, avec séparateur : « preprodia » reste un système à part), d'après le numéro de VM / CT
+  (9106 = clone de 106 ; même numéro sur plusieurs nœuds = copies) ; règles manuelles dans la fiche (rattacher à…,
+  garder à part, automatique) -- API `GET/PUT /etat-des-lieux/regroupements`.
+- Les variantes restent listées, en fin de tableau, atténuées (« clone de … », « préparation de migration de … »,
+  « test ») ; hors compteurs, hors planning et hors audit ; la fiche de la référence liste ses copies. Quand la
+  référence n'est pas suivie (machine physique serv3), le clone la représente et le dit (« machine d'origine à
+  rechercher »). Excel : variantes en fin de la feuille « Systèmes », en gris, sans niveau ni action.
+- Vérifié : `test_etat_regroupement.py` (noms, numéros, copies multi-nœuds, représentant, tests isolés, règles
+  manuelles, planning, Excel), `test_etat_plan.py`, `test_z_etat.py`, `test_etat_audit_reseau.py`, tests du hub.
+  Non vérifié : sur les noms réels (une règle manuelle corrige tout cas mal deviné).
+
+## 2026-10-27 — État des lieux pour les décideurs : temps estimé par action (marge ×3) et planning en Gantt par regroupements de dépendances (livraison #878)
+
+- `etat_plan.py` : estimation brute de chaque action, tests compris (mise à niveau du système selon l'écart de versions,
+  reconstruction au-delà de 3 versions, hyperviseur, Windows ; logiciels ; correctifs ; filtrage d'accès ; nettoyage),
+  multipliée par la marge (3 par défaut). Un logiciel mis à jour en même temps que le système compte pour moitié.
+- Regroupements : les systèmes liés par des dépendances sont traités ensemble, celui dont les autres dépendent d'abord
+  (ex. « sql2.intranet et N systèmes qui en dépendent »). Phases : 1 mesures immédiates de sécurité, 2 systèmes urgents
+  et ce qui en dépend, 3 à planifier, 4 à surveiller, 5 nettoyage. Calendrier en jours ouvrés (7 h), N personnes.
+- Excel décideurs : feuille « Planning » (Gantt par semaine : phases, regroupements, actions, heures sans / avec marge,
+  jours, dates) juste après la synthèse ; colonne « Temps estimé » dans « Systèmes » ; point clé « temps total, fin
+  estimée ». Page d'audit à imprimer : section « Planning estimé » en Gantt. Page : réglages marge / personnes / début.
+- API : `GET/PUT /etat-des-lieux/plan`.
+- Vérifié : `test_etat_plan.py` (heures, marge, regroupement par pivot, phases, jours ouvrés, deux personnes, Excel,
+  page) ; `test_z_etat.py`, `test_etat_audit_reseau.py`. Non vérifié : sur les données réelles ; les barèmes d'heures
+  sont des valeurs de départ à ajuster.
+
+## 2026-10-27 — État des lieux compact avec fiche au clic ; barres de défilement épaisses et contrastées (livraison #877)
+
+- État des lieux : deux lignes de texte au plus par rangée (versions clés : la plus critique + « N autre(s) » ;
+  dépendances en nombre ; pourquoi / que faire coupé à deux lignes), tableau dans un cadre déroulant dans les deux
+  sens (glissière horizontale visible sans descendre en bas de page), en-tête fixe.
+- Clic sur une rangée : fiche du système en fenêtre rapide, format page (pourquoi / que faire, système, libellé,
+  déclaration à la main, rôle et usage, adresses avec ping, versions clés, dépendances nommées, ports, services, vu du
+  réseau) ; Échap ou clic hors de la fenêtre pour fermer.
+- Tout le hub : barres de défilement de 14 px, poignée claire sur fond contrasté. La règle précédente (gris sur gris)
+  déclarait `scrollbar-color`, ce qui, dans Chrome, désactive tout style `::-webkit-scrollbar` : barres fines et presque
+  invisibles. Désormais Firefox seul reçoit `scrollbar-color`.
+- Vérifié : syntaxe JSX, tests du hub. Non vérifié : rendu dans le navigateur.
+
+## 2026-10-27 — Flotte : hôtes relevés à distance affichés sous leur agent relais (livraison #876)
+
+- Les serveurs trop anciens pour l'agent (nms Debian 5, optick3 Debian 4), relevés par la sonde `systemes` de l'agent de
+  super, n'apparaissaient que dans l'état des lieux. Ils figurent maintenant dans la Flotte, sous leur relais :
+  « ↳ relevé par … », état (relevé / injoignable avec l'erreur), système, noyau, IP avec ping, ports écoutés, âge du
+  dernier relevé, lien vers l'état des lieux. API : `GET /relayed-hosts`.
+- Vérifié : `test_etat_audit_reseau.py` (hôtes relayés : hôte local écarté, injoignable, ports hors boucle locale) ;
+  syntaxe JSX. Non vérifié : rendu.
+
+## 2026-10-27 — Notes de mise à jour : liens vers les écrans des livraisons #867 à #874 (livraison #875)
+
+- Les boutons du pied de page « Mises à jour » n'ouvraient plus l'écran concerné depuis #867 (table `UPDATE_LINKS` non
+  complétée). Ajoutés : #867 à #874 (état des lieux, audit réseau, historique des clients Nebula, ping, événements).
+- Vérifié : tests du hub. Non vérifié : rendu.
+
+## 2026-10-27 — Contexte de navigation : un rechargement revient sur la page consultée, son onglet et sa position (livraison #874)
+
+- Constat : le hub retombait sur l'accueil après un rechargement (F5, rechargement sans cache d'une livraison, retour de
+  Keycloak qui revient sur « / », PWA relancée, liens qui effaçaient tous les paramètres de l'URL).
+- `navContext.js` : la vue est gardée dans l'URL (`?view=`) et par onglet du navigateur (sessionStorage, deux onglets
+  restent indépendants) ; retour de Keycloak sur la vue de l'onglet ; `clearViewParams` / `setViewParams` gardent la vue.
+- Onglets internes : `useNavState` pour 25 pages (onglet gardé au rechargement) ; Nebula, Agents et Migration gardent
+  aussi leur onglet tout en restant pilotables par lien (`?tab=` / `?page=`).
+- Position : défilement de la page et des cadres déroulants mémorisé par vue et restauré une fois au rechargement, le
+  temps que les données arrivent (4 s au plus) ; naviguer vers une autre vue repart du haut.
+- Vérifié : `tests/navContext.test.mjs` (vue initiale, retour de Keycloak, paramètres de vue, états par vue) ; syntaxe
+  JSX de tous les fichiers ; tests du hub. Non vérifié : rendu et restauration de position dans le navigateur.
+
+## 2026-10-27 — Audit réseau du site : hôtes, services, versions et systèmes dans l'état des lieux (livraison #873)
+
+- Sonde `lan-audit` (agent 0.6.6, désactivée par défaut, trafic actif) : nmap en deux passes -- découverte des hôtes
+  vivants des réseaux donnés (`--targets`), puis sur eux seuls ports usuels (`--top-ports 300`), services et versions
+  (`-sV --version-light`), système (`-O --osscan-limit`) ; débit plafonné (`--max-rate 200`), délai par hôte,
+  exclusions (`--exclude`, équipements fragiles). Exige nmap sur l'hôte de l'agent.
+- État des lieux : les hôtes vus complètent les systèmes déjà suivis (même adresse : services vus du réseau ; système
+  déduit seulement s'il n'était pas relevé) et ajoutent les **appareils découverts** suivis par rien d'autre. Système
+  déduit des bannières (Debian par nom de code ou `debNu`) ou de l'empreinte Windows ; logiciels reconnus (Apache,
+  MySQL, PHP, OpenSSH, Samba, Tomcat…) avec fin de support (Apache 2.2, MySQL 5.x, Tomcat 6-8.5, Samba 3 ajoutés).
+- Excel décideurs : point clé « appareils non suivis » et feuille « Audit réseau » (une ligne par service vu).
+  Page : type « découvert », compteur, source « déduit de l'audit réseau », ligne « Vu du réseau » dans le détail.
+- Vérifié : `test_lan_audit.py` (XML nmap, deux passes, exclusions, absence de nmap ou de cibles),
+  `test_etat_audit_reseau.py` (système déduit Debian 5 / 12 / Windows 2012 R2, fusion avec un hôte relevé, découverts,
+  niveaux, feuille Excel), `test_z_etat.py`, `test_si_agent.py`.
+- Non vérifié : contre un vrai nmap (absent ici) ; durée réelle sur deux /24.
+
+## 2026-10-27 — Historique des clients Nebula : relève horaire, relève immédiate, requête filtrée et triée (livraison #872)
+
+- Constat : Nebula ne garde que 24 h d'historique des clients ; une passerelle LoRa muette depuis le 13/10 y était
+  introuvable (MAC / IP jamais notées).
+- `nebula-api` : relève toutes les heures (`NEBULA_CLIENT_HISTORY_SECONDS`, défaut 3600) des clients du site (v2
+  clients + clients des bornes + clients des commutateurs, période 2 h) ; par MAC : première / dernière vue, dernière
+  IP, nom, fabricant, raccordement (équipement, port, SSID, VLAN), nombre de relèves ; périodes de présence à
+  raccordement constant (une nouvelle période à chaque changement d'IP, de port, de borne ou après 3 h d'absence).
+  Peu de lignes, index par site / MAC / date, conservation 400 jours, purge quotidienne.
+- Routes : `GET /client-history` (texte : MAC avec ou sans séparateurs, IP, nom, fabricant, équipement, SSID ;
+  fabricant ; équipement ; vu entre deux dates ; « plus vu depuis » ; tri par colonne ; pages de 200),
+  `/client-history/sessions`, `/manufacturers`, `/status`, `POST /client-history/poll` (une par minute au plus),
+  `/client-history/export.csv`.
+- Hub : onglet « Historique des clients » de la tuile Nebula (relever maintenant, filtres, tri par en-tête, périodes
+  de présence au clic, ping de l'IP, export CSV).
+- Vérifié : `nebula/tests/test_client_history.py` (fusion des trois sources, sessions, changement de raccordement,
+  disparition, filtres / tri / tri inconnu, début de mot d'abord, purge) ; syntaxe JSX.
+- Non vérifié : noms exacts des champs renvoyés par Nebula pour le port et le VLAN des clients des commutateurs
+  (plusieurs variantes lues) ; rendu dans le navigateur.
+
+## 2026-10-27 — Pied de page : fin de la boucle de rechargement quand le hub n'est pas reconstruit (livraison #871)
+
+- Constat : après un `git pull` sans reconstruction du hub, le pied de page annonçait « #868 servie (cet écran : #866) »
+  et rechargeait toutes les 15 s sans fin (le numéro servi vient du disque, celui de l'écran du build) : pages
+  inutilisables, dont l'État des lieux.
+- Un seul rechargement automatique par livraison (mémorisé pour l'onglet) ; si l'écran reste ancien, bandeau
+  d'avertissement avec la commande de reconstruction, « Réessayer » et « Masquer ».
+- Vérifié : syntaxe JSX (parseur Babel). Non vérifié : rendu dans le navigateur.
+
+## 2026-10-27 — Lectures « dernière mesure par sonde » indexées : État des lieux et vues des sondes (livraison #870)
+
+- Constat : les mesures de la sonde `systemes` (nms, optick3) arrivent bien au central, mais l'État des lieux ne les
+  affichait pas à temps. Une dizaine de requêtes (`WHERE task = ? GROUP BY agent_id` : État des lieux, maintenance,
+  diagnostics, netview, web-audit, inventaires, sondes Windows/diffusion/DNS/accès, Proxmox) relisaient toute la table
+  de 15 Go à chaque affichage : l'index existant commence par `agent_id`.
+- Index `idx_measurements_task_agent (task, agent_id, at)`, construit une seule fois en arrière-plan au démarrage de
+  l'API (verrou fichier, durée journalisée), jamais dans le schéma pour ne pas bloquer le redémarrage.
+- Vérifié : `test_purge_lots.py` (index créé une fois, utilisé par le plan de requête).
+- Non vérifié : durée de construction sur la base réelle ; pendant la construction (quelques minutes, une fois), les
+  écritures des agents attendent et certaines peuvent être refusées.
+
+## 2026-10-27 — Base des agents verrouillée par salves : purge et fusion guest-usage par petits lots (livraison #869)
+
+- Constat sur super : `si-agent.db` = 15 Go ; toutes les ~30 min, « database is locked » pendant ~2 min sur la
+  réception de TOUS les agents (mesures perdues). La purge horaire (`at < ? AND id NOT IN (SELECT MAX(id) … GROUP BY
+  …)`) relisait toute la table, sans index sur `at`, en tenant le verrou d'écriture ; la fusion jour par jour de
+  `guest-usage` (#771) se faisait dans la transaction de réception.
+- Purge : borne trouvée par dichotomie sur les ids (`received_at`), suppression par lots de 2 000 ids, une transaction
+  courte par lot et une pause entre deux, dernière mesure de chaque (agent, tâche) toujours gardée (via l'index).
+- Rétention par tâche `SI_AGENT_RETENTION_TASKS` (défaut `plugin:guest-usage=3` : seule la dernière mesure est lue,
+  l'historique est dans `guest_daily`). Durée de chaque purge journalisée.
+- Réception : fusion guest-usage après la validation, en transactions de 200 lignes.
+- Vérifié : `test_purge_lots.py` (rétention globale et par tâche, agent muet conservé, dichotomie, purge idempotente,
+  fusion après validation identique à #771 sur 302 jours) ; `test_ping.py`.
+- Non vérifié : sur la base réelle de 15 Go (la place disque n'est rendue qu'après un VACUUM, opération à part).
+
+## 2026-10-27 — Bouton « ping » à côté des IP de gestion du hub (livraison #868)
+
+- `si-agent-api` : `GET /ping?host=` et `POST /ping {"hosts": [...]}` (64 max). Le test part du hub (API centrale) :
+  ICMP (`iputils-ping` ajouté à l'image), puis repli TCP sur 22/443/80/3389/8006/161 (un refus TCP compte comme
+  « joignable »). Hôte validé avant tout appel, pas de shell, cache de 3 s, limite de 120 tests par client et par minute.
+- Hub : composant `IpPing.jsx` (IP + bouton « ping » + résultat ✓ délai / ✗, détail au survol). Il est placé dans :
+  Agents (nouvelle colonne IP = adresse de contact, fiche « dernière IP »), Proxmox, onduleurs, postes Windows, accès
+  au frontal, Infra PVE/PBS, latence, état des lieux, équipements réseau.
+- Vérifié : `test_ping.py` (validation dont tentatives d'injection, analyse de la sortie ping, repli TCP ouvert/fermé,
+  lot dédoublonné et borné, limite de débit) ; syntaxe JSX des 10 fichiers (parseur Babel).
+- Non vérifié : route Flask et rendu dans le navigateur (pas de Flask ni de build Vite ici) ; ICMP depuis le conteneur.
+
+## 2026-10-27 — Installeur unique des hôtes anciens : Debian 4.0, 5.0 et suivantes (livraison #867)
+
+- `si-agent/agent/ancien/install-ancien.sh` : détecte le système ; hôte récent -> agent complet (`install.sh`) ;
+  hôte ancien -> compte `si-agent` verrouillé, clé limitée à l'IP du relayeur, commande forcée = relevé `systemes`
+  en lecture seule ; `--sudo` optionnel (sudoers vérifié par visudo) ; `--verifier` par défaut, `--installer`, `--retirer`.
+- Relevé embarqué généré depuis `systemes.py` (`make-installer.py`), une seule source.
+- Vérifié : `test_install_ancien.py` (généré à jour, syntaxe sh/dash/bash, choix du mode Debian 4/5/9 i686/12, refus
+  sans root/clé, relevé embarqué identique et lisible par `parse_systeme`), `test_systemes.py`.
+- Non vérifié : `--installer` / `--retirer` réels (pas de root ici) ; OpenSSH 4.3 (Debian 4) et sudo 1.6 sur hôte réel.
+
+## 2026-10-26 — Relevé à distance des serveurs anciens : ports, adresses et services corrigés (livraison #866)
+
+- Sonde `systemes` (agent 0.6.5), constaté sur un serveur Debian 5 :
+  - ports écoutés absents : l'ancien `ss` n'affiche pas la colonne d'état avec `-l` -> adresse locale lue au bon
+    endroit ; les connexions entrantes n'étaient plus distinguées des sortantes (toutes comptées comme sortantes) ;
+  - adresses absentes : `hostname -I` non reconnu écrivait son aide sur la sortie -> sortie filtrée, repli sur `ip` ;
+    chemin `/sbin:/usr/sbin` ajouté (sessions ssh non interactives) ;
+  - scripts de démarrage sans service (`rc.local`, `rmnologin`, `stop-bootlogd`…) retirés de la liste des services.
+- Vérifié : `test_systemes.py` (ss ancien simulé).
+
+## 2026-10-26 — État des lieux : relevé à distance des serveurs très anciens (Debian 4 et suivants) (livraison #865)
+
+- Sonde `systemes` (agent 0.6.4) : un serveur trop ancien pour porter l'agent (Debian 4, OpenSSL 0.9.8, glibc 2.3)
+  est relevé par ssh depuis un agent récent :
+  - système lu dans `/etc/debian_version` (ou `/etc/redhat-release`) quand `/etc/os-release` n'existe pas ;
+  - paquets lus avec `${Status}` (dpkg ancien) ; ajout d'apache 1.x, proftpd, openssl ;
+  - ports écoutés et connexions par `netstat` quand `ss` est absent ; services par les liens `/etc/rcN.d` quand
+    `systemctl` est absent ;
+  - `ssh_options` par hôte dans `systemes-remote.json` (algorithmes hérités : `ssh-rsa`, `diffie-hellman-group14-sha1`).
+- Fin de support : Debian 4 (15/02/2010) et 5 (06/02/2012).
+- Vérifié : `test_systemes.py` (script réel exécuté sans ss ni systemctl, netstat et dpkg simulés ; options ssh).
+
+## 2026-10-26 — Page Agents : installation sur un hôte ancien (Python autonome), relance exacte proposée par install.sh (livraison #864)
+
+- Page Agents, bloc **« 2 bis. Hôte ancien »** (Debian 9, Proxmox VE 5 : Python 3.5, l'installation s'arrête sur
+  « si-agent requiert Python >= 3.7 ») : commandes complètes, dans l'ordre -- architecture, installation de uv,
+  Python 3.11 autonome dans `/opt/pyagent` (sans toucher au Python du système), vérification, puis **la même ligne
+  d'installation** relancée avec `--python "$PYAGENT"` et toutes ses options. Notes : machine 32 bits (i686),
+  certificat d'une adresse publique.
+- `install.sh` : en cas de Python trop ancien, affiche les commandes et **la ligne de relance exacte** (options
+  d'origine reprises, secret remplacé par `"$TOKEN"`) ; message clair si `--python` est vide (uv absent).
+- Vérifié : `agentInstallLib.test.mjs` (hôte ancien), `bash -n install.sh`, sortie testée.
+
+## 2026-10-26 — Pour les décideurs : où, quand, combien -- serveurs concernés et organisation du chantier par phase (livraison #863)
+
+- Migration › État des lieux, bloc **« Où, quand, combien »** ; repris dans la feuille Chantiers de l'Excel et dans l'audit :
+  - **serveurs et sites concernés** (tirés de l'inventaire des copies) : site, machines hébergées, capacité, place
+    occupée, disque de secours (oui / non), état (normal / dégradé / injoignable) ;
+  - **organisation du chantier par phase** du plan de migration : quand, où (de → vers), volume, débit, **durée estimée
+    calculée** (volume ÷ débit ; débit par défaut : le plafond des copies de la phase), coupure de service, contraintes,
+    avancement (terminée / en cours / à venir, étapes faites / total). Saisie dans la page (`PUT /etat-des-lieux/phases`).
+- Vérifié : `test_z_etat.py` (durées, organisation, serveurs, Excel, audit), `test_z_etat_routes.py`.
+
+## 2026-10-26 — Excel décideurs et audit : chantiers en cours et décisions à prendre (livraison #862)
+
+- L'Excel pour les décideurs gagne une feuille **Chantiers** (2e position) et l'audit imprimable deux sections :
+  **Décisions à prendre** (objet, pourquoi, montant, échéance -- saisies dans Migration › État des lieux) et
+  **Avancement des chantiers** : plan de migration (étapes faites / total, par phase) et, par chantier du Journal des
+  chantiers, ce qui a été fait sur les 45 derniers jours, ce qui est en cours, planifié, à faire.
+- `PUT /etat-des-lieux/decisions` ; éditeur dans la page (lignes, enregistrement).
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`. Non vérifié : rendu avec le journal réel.
+
+## 2026-10-26 — État des lieux : SI interne hors Proxmox (serveurs, NAS, postes) et serveurs utilisés par les postes (livraison #861)
+
+- Nouvelle sonde **`systemes`** (agent **0.6.3**) : l'hôte de l'agent (Linux ou **Windows**) et les hôtes de
+  `/etc/si-agent/systemes-remote.json` (nms, frontal, serveur de fichiers, NAS… : `[{name, host, key, user, role}]`, ssh,
+  lecture seule ; modèle `systemes-remote.exemple.json`) : même relevé que les invités (système, mise à jour,
+  correctifs en attente, paquets clés, ports, connexions agrégées, services). Windows : système et build (Windows 10 /
+  11, Server 2012 à 2025), dernier correctif installé, ports écoutés et processus, connexions, services en marche.
+  Rôle « poste » ou « serveur » (un Windows client est un poste par défaut).
+- Migration › État des lieux : ces systèmes apparaissent (types « serveur » et « poste ») ; un hôte qui est en fait un
+  invité déjà suivi (même adresse) n'est pas dupliqué ; un hôte injoignable est signalé avec la raison. Ils entrent dans
+  les dépendances (« utilise » / « utilisé par »), l'Excel et l'audit.
+- **Serveurs utilisés mais non suivis** : la liste des adresses que les systèmes et les postes suivis contactent sans
+  qu'elles soient suivies (services en clair, nombre de systèmes et de postes, réseau interne ou Internet) -- les
+  serveurs internes de cette liste sont ceux à ajouter au suivi.
+- Vérifié : `test_systemes.py` (script réel exécuté sous sh, hôtes distants simulés, découpage Windows),
+  `test_z_etat.py`. **Non vérifié** : relevé Windows réel (PowerShell 5.1), hôtes réels (nms, r2d2, NAS).
+
+## 2026-10-26 — Audit d'obsolescence et de support pour les décideurs (page imprimable) (livraison #860)
+
+- Migration › État des lieux : lien **« Audit obsolescence et support (page à imprimer) »** (`GET /etat-des-lieux/audit.html`),
+  complément de l'Excel : chiffres clés (systèmes en service, éléments dont le support est terminé, fins de support dans
+  6 mois et dans 2 ans, correctifs non appliqués, systèmes fragiles accessibles depuis Internet), « ce qu'il faut
+  retenir », **calendrier des fins de support** (système et logiciels clés : élément, qui le maintient, date, échéance
+  « dépassée depuis 4 ans » / « dans 2 mois »), plan d'action (immédiat, 6 mois, 2 ans, en continu), méthode.
+  Sombre à l'écran, clair à l'impression ; « Imprimer / PDF ».
+- Tableau de l'état des lieux : défilement horizontal au lieu de colonnes coupées.
+- BACKLOG 138 (passe de design : onglet actif visible, tableaux larges) et 139 (SI interne hors Proxmox, serveurs et
+  services utilisés par les postes).
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`, rendu de la page sur données simulées.
+
+## 2026-10-26 — État des lieux : VM arrêtées lues hors ligne (système, paquets, services, adresses) (livraison #859)
+
+- Sonde `guest-usage` (agent **0.6.2**) : son script d'invité, déjà exécuté sur le disque des VM ARRÊTÉES lu hors ligne
+  (#777 : VM verrouillée, disques ouverts un par un en lecture seule, ext2-4 / xfs / btrfs montés sans rejouer le
+  journal ; jamais Windows, NTFS, pool ZFS ou LVM internes), relève maintenant l'**inventaire** : système, date de la
+  dernière installation de paquets, versions des paquets clés (dpkg de la racine lue), ownCloud / Nextcloud, services
+  activés, nom d'hôte, adresses de `/etc/network/interfaces`. Chaque VM arrêtée est relue une fois avec ce script.
+- Migration › État des lieux : quand pve-preflight n'a rien (VM arrêtée, VM sans agent invité dont l'activité est
+  relevée), l'inventaire de guest-usage est utilisé (« lu hors ligne ») ; la déclaration à la main ne sert plus qu'aux
+  systèmes vraiment illisibles (Windows, LVM ou ZFS internes, chiffré). Les adresses lues servent aussi aux dépendances.
+- Vérifié : `test_guest_usage.py` (script exécuté sous dash sur une racine simulée), `test_z_etat.py`,
+  `test_z_etat_routes.py`. Non vérifié : lecture réelle des VM arrêtées de pve10 avec ce script.
+
+## 2026-10-26 — État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés (livraison #858)
+
+- Migration › État des lieux : un système que la sonde ne peut pas lire (VM sans agent invité QEMU, Windows, appliance,
+  VM arrêtée) se **déclare à la main** depuis sa ligne (« + déclarer le système » : famille, version, date de la dernière
+  mise à jour, note). La fin de support est alors calculée comme pour un système relevé ; la ligne indique « déclaré à la
+  main ». Compteur « non identifié(s) » en tête de page : l'objectif est zéro. `PUT /etat-des-lieux/manuel`.
+- Fins de support ajoutées : Windows 10 / 11, Windows Server 2012 à 2025 (références corrigeables).
+- Rôles d'un nœud Proxmox : spiceproxy (3128) n'est plus pris pour un proxy, ni le postfix des notifications locales
+  pour un serveur de messagerie (un paquet de messagerie, partage, proxy ou DNS ne compte que si son port est ouvert).
+- Action proposée pour une VM non identifiée : installer l'agent invité QEMU (VM Linux) ou déclarer le système.
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`, suite du hub. Non vérifié : rendu sur le hub réel.
+
+## 2026-10-26 — État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs (livraison #857)
+
+- Tuile Migration, page **« État des lieux »** (`?view=migration&page=etat`) : chaque nœud Proxmox, CT et VM, avec :
+  - **système d'exploitation** et **date de fin des correctifs** (obsolète / fin proche / supporté), noyau ;
+  - **dernière mise à jour** et correctifs **en attente, dont sécurité** ;
+  - **versions clés** : Proxmox VE / PBS, PHP, PostgreSQL, ownCloud / Nextcloud (un paquet de la distribution reste
+    « maintenu » tant que le système l'est) ;
+  - **services inclus** traduits en rôles (messagerie, site web, base de données, partage de fichiers…), ports écoutés,
+    services actifs ; **exposition sur Internet** (adresse publique et service ouvert) ;
+  - **usage** : clients connectés, requêtes web, charge processeur ; **interactions et dépendances** entre systèmes
+    (connexions établies : « utilise » / « utilisé par ») ;
+  - **niveau** : urgent / à planifier / à surveiller / ok / inactif, avec score, impact, raisons et action proposée.
+- **Suivi à long terme** : une photographie par jour (800 jours gardés), courbe d'évolution dans la page.
+- **Excel pour les décideurs** (bouton « Télécharger l'Excel pour les décideurs », `GET /etat-des-lieux/export.xlsx`) :
+  Synthèse (chiffres clés, points clés en phrases simples, 10 priorités), Systèmes (un par ligne : rôle, fin des
+  correctifs, dernière mise à jour, utilisation, accès Internet, niveau, pourquoi, action), Dépendances, Évolution.
+  Sans jargon : ni ports ni noms de paquets. Libellé métier modifiable par système (« Messagerie », « Partage de
+  fichiers »…) ; nom de l'organisation par `ETAT_ORGANISATION`.
+- Dates de fin de support : table de référence (Debian, Ubuntu, CentOS / Rocky / Alma, Alpine, Proxmox VE / PBS, PHP,
+  PostgreSQL, ownCloud, Nextcloud) **corrigeable** dans la page (`PUT /etat-des-lieux/eol`).
+- Sonde `pve-preflight` (agent **0.6.1**) : dans chaque invité démarré et sur le nœud lui-même -- système, noyau,
+  adresses, date de la dernière installation de paquets, mises à jour en attente (simulation `apt-get -s`), versions
+  des paquets clés, version d'ownCloud / Nextcloud, ports écoutés et processus, connexions établies agrégées (nombres),
+  services actifs, nombre de requêtes web, comptes ; CT arrêté : système et date de mise à jour lus sur son disque.
+  Des noms et des nombres seulement.
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py` (dont l'export Excel relu), `test_pve_preflight.py` (script de
+  l'invité exécuté réellement sous dash), `etatLib.test.mjs`, rendu de la page sur données simulées. **Non vérifié** :
+  les sorties réelles des invités (Debian 8 / 9, PVE 5.4, VM sans agent invité).
+
+## 2026-10-26 — Migration : inventaire permanent de toutes les copies et de leur distance à la source ; récapitulatif permanent du risque (livraison #856)
+
+- Tuile Migration, page **« Copies et sauvegardes »** (`?view=migration&page=copies`) : pour chaque CT / VM de tous les
+  nœuds relevés, **toutes** ses copies, où qu'elles soient (nœuds Proxmox, serveurs du LAN, PBS, disque USB) :
+  - réplique pvesr, copie ZFS (reçue ou clonée), instantané local, archive vzdump, sauvegarde PBS, flux `zfs send` posé
+    en fichier, copie rsync (répertoire `subvol-…-disk-…`), CT / VM restauré sous un autre numéro (9xxx, même nom) ;
+  - **distance à la source** : octets modifiés depuis la copie, **exacte** quand un instantané est commun aux deux
+    (somme des `written`), sinon majorant ; **0** quand la source est arrêtée et n'a rien écrit depuis son dernier
+    instantané (« figée depuis ») ;
+  - **volume** : la copie correspond-elle en taille (ZFS ±3 % en logique, rsync ±15 %, archive compressée plausible) ;
+  - **survit à la perte du nœud** ? (un hôte virtuel comme pbs10 ne protège pas l'hôte qui le porte) ; **support
+    fragile** signalé (pool dégradé ou sans redondance, disque simple ext4) ;
+  - verdict par invité (ok / attention / critique), meilleure copie hors du nœud, copies non rattachées, règles de
+    rattachement modifiables (préfixe de chemin = nœud, hôte virtuel = hôte physique, hôte = site).
+- Page **« Risques »** (`?view=migration&page=risques`) : niveau critique / élevé / moyen / faible de chaque CT / VM sur
+  cinq axes -- sauvegarde, réplication (dernière synchro, échecs), **accès aux services**, support (pool), nœud (quorum,
+  nœud à réinstaller, choisi dans la page). Les copies restaurées (9xxx) n'y sont pas comptées comme sources.
+- **Accès aux services**, contrôlé depuis le hub toutes les 5 min : ports usuels découverts une fois par jour sur les
+  adresses fixes des CT (ssh, smtp, http(s), imaps, bases, Proxmox…), puis surveillés ; cibles ajoutées à la main par
+  invité (`https://…`, `tcp://hôte:port`) ; « depuis quand » dans chaque état ; bouton « Vérifier l'accès maintenant ».
+  Réglage : `ACCES_THREAD=0` pour couper la boucle.
+- Nouvelle sonde **`copies-inventory`** (agent **0.6.1**), sur l'agent qui joint les Proxmox et le LAN : un ssh par hôte,
+  lecture seule, PVE 5.4 et PBS compris -- pools (santé, **redondance** : un pool de disques simples concaténés est
+  signalé « sans redondance »), jeux de données et instantanés, invités, réplications, archives et flux des stockages
+  et des chemins supplémentaires (ex. disque USB), PBS, copies rsync (volume par `du`, mis en cache tant que le
+  répertoire ne bouge pas). Hôtes : `/etc/si-agent/copies-hosts.json` (modèle `copies-hosts.exemple.json` dans le
+  répertoire de la sonde), sinon nœuds de `pve-remote.json`. Alerte critique : pool dégradé sans redondance.
+- Sonde `pve-preflight` : adresses IPv4 fixes de la configuration des invités (pour le contrôle d'accès).
+- Vérifié : `test_copies_inventory.py` (dont le pilote bash réel sur de faux zpool / zfs / pct / pvesh), `test_z_copies.py`,
+  `test_z_acces.py`, `test_z_risque.py`, `test_z_copies_routes.py`, `copiesLib.test.mjs`, rendu des deux pages sur données
+  simulées. **Non vérifié** : les sorties réelles des hôtes (PVE 5.4, PBS, disque USB).
+
+## 2026-10-24 — Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés (livraison #855)
+
+- Tuile Nebula, onglet **Pilotage**, deux colonnes. **Mesures** : état de la veille, clients et débit Wi-Fi, bornes
+  (simultanés, clients, débit, courbe 4 h), sondes netprobe (signal, latence, pertes, gigue et pertes d'un flux cast,
+  débit, HTTP), recommandations en cours (lien vers l'outil, acquittement, banc proposé à lancer), banc en cours
+  (avancement, Arrêter), derniers bancs (verdicts, détail par étape et par sonde), journal. Relevé chaque minute (4 h gardées).
+- **Outils** : chaque réglage Nebula non écrivable par l'OpenAPI ouvre Nebula Control Center avec le chemin exact du
+  menu et la documentation : puissance d'émission (1-30 dBm par bande et par borne), plafond de clients par radio
+  (équilibrage), limite de débit par client d'un SSID, limite par application sur l'USG FLEX 700H, SNMP v2c du site,
+  miroir de port vers le capteur de flux ; outils internes : ports des commutateurs (API, chien de garde), veille, charge.
+- **Boucles de rétroaction** : si une mesure (borne, SSID, site, veille, sonde) passe un seuil pendant N minutes alors
+  notifier (action `nebula.pilotage`), recommander un outil, proposer ou lancer un banc. Activation et mode (conseil /
+  auto) **à chaud**, pris en compte au relevé suivant ; délai minimal entre deux déclenchements ; retour à la normale journalisé.
+- **Scénarios** prêts à installer (inactifs, mode conseil) : borne saturée, cast dégradé, latence élevée, signal faible,
+  panne du réseau, bancs de pointe et de navigation.
+- **Bancs de test** : chaque sonde autorisée devient un client simulé ; tâches injectées dans les sondes pendant chaque
+  étape (flux UDP type cast, téléchargements TCP parallèles, navigation HTTP, DNS, ping), montée en charge (1 sonde, la
+  moitié, toutes), tâches d'origine restaurées à la fin, arrêt automatique si la veille passe en panne, synthèse et
+  verdict par objectif, notification. Plafonds : 60 min, 50 Mb/s UDP, 4 flux TCP, 6 tâches par étape. Bancs
+  personnalisés en JSON. Un banc à la fois.
+- Sondes netprobe : iperf3 en **UDP** (`udp`, `bitrate_mbit` ≤ 50, gigue, pertes) et **flux parallèles** (`parallel` ≤ 4) ;
+  le port non standard et l'UDP entrent dans le nom de la tâche (deux flux vers le même serveur ne se confondent plus).
+  **Mettre à jour l'agent des sondes** pour les bancs UDP.
+- Réglages (onglet) : sondes autorisées, serveur iperf3 (un `iperf3 -s` sur les ports 5201 et 5202 d'une machine du
+  campus : pas de lien, opération manuelle), cible du ping, adresses à charger. nebula-api : `NETPROBE_API_URL`,
+  `NEBULA_PILOTAGE_DISABLED=1` pour couper la boucle.
+- Lien : `?view=nebula&tab=pilotage`. API : `GET /pilotage/tableau|catalogue|sondes`, `PUT /pilotage/reglages`,
+  `/pilotage/boucles[/<id>[/basculer]]`, `POST /pilotage/scenarios/<id>/installer`, `/pilotage/plans[/<id>/lancer]`,
+  `POST /pilotage/runs/arreter`, `POST /pilotage/passer`.
+
+## 2026-10-23 — Parc IA : généalogie des modèles depuis l'origine, tenue à jour (livraison #854)
+
+- Parc IA › Veille des modèles, onglet **Généalogie** (même module que le hub maison) : frise par année du Transformer
+  (2017) à aujourd'hui, 71 modèles relevés à la main (GPT, BERT, T5, LLaMA, Mistral, Qwen, Gemma, Phi, DeepSeek, Claude,
+  Gemini, Hermes, gpt-oss...) avec date, éditeur, auteurs, ouverture (libre / poids sous conditions / fermé), filiation
+  (succession, affinage, distillation, fusion, architecture), liens (article, Hugging Face, annonce, Ollama).
+- Fiche d'un modèle : chemin jusqu'au Transformer, parents, enfants et forks, descendance complète, **mode d'emploi**
+  (commande Ollama à copier, VRAM estimée en Q4, machines du parc qui le tiennent) ; la lignée est entourée dans la frise.
+- **Mise à jour automatique** une fois par jour (et bouton « Relever maintenant ») : dérivés les plus téléchargés de chaque
+  modèle ouvert (tags `base_model:finetune|adapter` de Hugging Face), et nouveaux modèles de la veille des sorties rattachés
+  à leur modèle de base déclaré ; quantifications ignorées ; un relevé hors sujet s'écarte depuis sa fiche.
+- Corriger l'histoire : `si-agent/api/genealogie_base.json` (erreurs signalées en tête de page). Pas de lien : opération
+  manuelle (édition du fichier puis reconstruction de si-agent-api). Réglages : `GENEALOGIE_DERIVES` (5), `GENEALOGIE_AUTO` (1).
+- Lien : `?view=iapark&tab=modeles&onglet=genealogie`. API : `GET /modeles/genealogie`, `POST /modeles/genealogie/relever`.
+
+## 2026-10-23 — Pauses planifiées des alertes : fermeture de site, travaux, coupure électrique (livraison #853)
+
+- Tuile Notifications, onglet **Pauses planifiées** : type (fermeture, travaux, coupure, maintenance), motif, début,
+  fin, producteurs couverts (ex. si-agent, nebula), sites et agents (motifs). Pendant la fenêtre, les notifications
+  couvertes sont **retenues et journalisées** (statut « paused »), pas envoyées ; à la fin, un **bilan « reprise »**
+  (action `notify.maintenance-fin`) liste ce qui a été retenu, à vérifier au retour.
+- Agents (si-agent-api) : le site de l'agent accompagne désormais ses notifications ; les canaux directs (webhook,
+  courriel des secrets) respectent aussi les pauses. notify-api injoignable = pas de pause (on alerte plutôt que de se taire).
+- Veille du campus (Nebula) : « EN PAUSE (motif) jusqu'au … », texte d'état « OK PAUSE » (200), aucun suivi d'alerte
+  pendant la fenêtre ; si-veille (poste) : la veille d'un hub en pause ne sonne pas.
+- Lien : `?view=notifications&tab=pauses`.
+
+## 2026-10-23 — Nebula : recherche sur tout, module d'action surveillé (impact, chien de garde, retour arrière, journal) ; sondes livrées sous Windows (livraison #852)
+
+- **Recherche** en tête de la tuile Nebula : appareils, clients (nom, IP, MAC avec ou sans séparateurs, fabricant,
+  système, SSID, VLAN, signal « -70 dBm », dates « 23/10 »), VLAN, anomalies, fiches du campus ; un clic ouvre l'onglet
+  et met l'élément au point dans le synoptique (`GET /api/nebula/sites/<site>/recherche?q=`).
+- **Préparer l'action** sur chaque anomalie : plan (par l'API ou manuel guidé), **impact immédiat** (clients du
+  périmètre vus depuis moins de 10 min, volume Wi-Fi des 2 h -- l'API ne donne pas les flux en cours), confirmation
+  renforcée si l'impact est fort. Par l'API (VLAN manquant sur un port de commutateur) : sauvegarde du port, écriture,
+  **chien de garde** à +60 s et +180 s (commutateur en ligne, VLAN présents, clients revenus), **retour arrière
+  automatique** au premier échec, alerte « nebula.action-reseau ». Manuel (ex. interface de passerelle à l'adresse du
+  réseau : l'API Nebula ne modifie pas les interfaces de la passerelle) : étapes guidées, « Fait, vérifier » relit la
+  carte. **Journal des actions** avec annulation (retour arrière à la demande). Écriture : NEBULA_ALLOW_WRITE=1.
+- Agent Windows : les sondes livrées sont désormais installées dans le dossier des sondes de l'agent
+  (`C:\ProgramData\si-agent\plugins`) -- elles restaient invisibles (« aucune sonde » sur un poste Windows).
+- Liens : `?view=nebula&tab=vlan` (anomalies et journal des actions), recherche en tête de la tuile.
+
+## 2026-10-23 — Campus : couleurs du synoptique (névralgiques), charge par borne / SSID / VLAN / commutateur, veille sur le poste (livraison #851)
+
+- **Synoptique** (tuile Nebula, Carte des VLAN) : rouge = panne qui compte (appareil réseau hors ligne, poste
+  **névralgique** absent), orange = doute, vert = en ligne, gris = poste absent sans importance (plus de rouge
+  trompeur). Chaque nœud porte une barre de couleurs et des pastilles chiffrées (rouges / orange / verts) de tout son
+  aval. Un client se **marque névralgique** depuis sa fiche (avec son rôle, ex. pilote de 4 écrans interactifs) ;
+  la veille le suit alors comme poste « attendu toujours ».
+- **Charge** (nouvel onglet) : par borne, SSID, VLAN et commutateur, sur 2 h / 1 jour / 7 jours / 30 jours : clients
+  distincts, clients simultanés moyens et maximum (relevés d'occupation), volumes montant / descendant et débit moyen.
+  Sources OpenAPI Nebula : clients des bornes (octets par client), clients du site et des commutateurs (VLAN), usage
+  de la liaison montante des commutateurs ; la passerelle n'a pas d'usage documenté (essayé, signalé sinon).
+- **Veille sur le poste** : `GET /api/nebula/veille/resume?jeton=…` (vérifications sans réglages) et si-veille 1.1
+  (type de maillon `veille_hub`) : panne = alerte, dégradé = icône orange, rubrique « réseau du campus » dans le menu
+  de l'icône avec les vérifications hors « ok ».
+- Liens : `?view=nebula&tab=charge`, `?view=nebula&tab=vlan` (synoptique) ; veille du poste : pas de lien,
+  opération manuelle (docs/veille-chaine.md).
+
+## 2026-10-23 — Veille du campus : réglages pré-remplis depuis Nebula et les fiches du campus (livraison #850)
+
+- Bouton « Proposer depuis Nebula et les fiches du campus » dans les réglages de l'onglet Veille : VLAN de la carte
+  Nebula (numéro, nom, SSID, sous-réseau ; VLAN d'administration sans contrôle Internet), postes des fiches Matériels
+  (MAC ou IP, en « info » à passer en « toujours » / « heures »), agents du site ; rien n'est écrasé ni enregistré
+  avant « Enregistrer ». `GET /api/nebula/veille/suggestions`.
+- Lien : `?view=nebula&tab=veille`, bouton « Réglages ».
+
+## 2026-10-23 — si-onglets : fenêtre agrandie par défaut, rien sans onglets enregistrés ; outils du poste publiés à part (livraison #849)
+
+- Premier essai réel : une seule fenêtre rouverte, en plein écran sans la barre du haut -- aucun onglet n'avait encore
+  été enregistré, et le plein écran (F11) était le défaut. Désormais : fenêtre **agrandie** par défaut (« fenetre » :
+  « plein-ecran » pour le plein écran), rien n'est ouvert à la connexion tant qu'aucun onglet n'est enregistré
+  (`--auto`), `--voir` montre la commande sans l'exécuter.
+- Les outils du poste (si-onglets, si-veille, si-mailbox) sont aussi publiés dans un dépôt à part, `poste-session`
+  (Linux et macOS, paquet .deb) ; les copies de ce dépôt restent pour l'historique.
+- Pas de lien : opération manuelle.
+
+## 2026-10-23 — si-onglets : la fenêtre de terminal et ses onglets rouverts à l'ouverture de la session (livraison #848)
+
+- `poste-onglets/` : `si-onglets --capturer` relève les onglets ouverts de GNOME Terminal (dossier courant et commande
+  au premier plan, ex. `ssh super`) ; à l'ouverture de la session, la fenêtre est rouverte en plein écran avec tous
+  ses onglets dans l'ordre, chaque commande relancée puis suivie d'un shell.
+- Pas de lien : opération manuelle (docs/poste-onglets.md).
+
+## 2026-10-23 — Veille de santé du réseau du campus : Nebula + agents internes, VLAN à usage mixte (livraison #847)
+
+- Nouvel onglet **Veille** (premier onglet de la tuile Nebula@<site>) : passerelle / pare-feu, commutateurs, bornes
+  (Nebula), agents internes muets ou non, chaque VLAN suivi (DHCP, passerelle, DNS, Internet vus par la sonde « chemin
+  de service » d'un agent présent dans le VLAN), serveur DHCP inattendu (bail ou annonces), liaison Internet, postes
+  suivis présents / absents (clients Nebula et annonces réseau ; attendus toujours, aux heures ouvrées ou information).
+- VLAN à **usage mixte par créneaux** (ex. demi-journées d'un organisme extérieur) : la vérification indique l'usage en
+  cours et son alerte part sur une action de notification distincte (`nebula.veille-campus-externe`).
+- Silencieuse quand tout va bien ; alertes par notify-api après un délai réglable, rappel, retour à la normale ;
+  texte d'état `GET /api/nebula/veille/etat` (200 / 503, jeton `NEBULA_VEILLE_TOKEN`) pour le veilleur du poste.
+- Pas d'agent supplémentaire nécessaire : poste du campus + Proxmox suffisent tant qu'une sonde est présente dans
+  chaque VLAN à suivre (interface, sous-interface 802.1Q ou SSID en rotation).
+- La tuile Nebula ouvre l'onglet donné par l'adresse (`?view=nebula&tab=health`…).
+- Lien : `?view=nebula&tab=veille` (bouton « Réglages » de l'onglet). Destinataires : tuile Notifications.
+
+## 2026-10-23 — Univers du hub : recherche par nom du site, mots-clés, adresse IP ou MAC (livraison #846)
+
+- La recherche de l'Univers porte aussi sur le **titre réel** des tuiles (« Nebula@<site> » du .env, affiché tel quel)
+  et sur des mots-clés : campus, wifi, bornes, vlan, santé du réseau pour la tuile Nebula, plus ceux de
+  `VITE_HUB_ALIASES` (« vue=mot1,mot2;front:x=mot »). « @ » sépare les mots (« numer » trouve « Nebula@Numer… »).
+- Une **adresse IP ou MAC complète** est cherchée dans les sources du hub (IPAM, exploration réseau, équipements,
+  Nebula, MikroTik, Cisco, sondes, DNS… par l'assistant, sans modèle) : résultats avec lien direct sous le champ.
+- Lien : menu « Univers du hub » de l'en-tête.
+
+## 2026-10-23 — si-veille : icône dans la barre du haut, dernière alerte, maillons, alertes récentes et journal (livraison #845)
+
+- Extension GNOME (45+) installée par `veille-chaine/installer.sh` : icône à côté de la date (verte, orange, rouge avec
+  le maillon en panne, grisée si le veilleur ne passe plus) ; menu : état, dernière alerte, maillons, 15 dernières
+  alertes, ouvrir le journal, vérifier maintenant.
+- si-veille garde les 50 dernières alertes graphiques et l'ordre des maillons dans son état local.
+- Pas de lien : opération manuelle (relancer `installer.sh` sur le poste, puis fermer et rouvrir la session).
+
+## 2026-10-23 — si-mailbox : STARTTLS, jeton local sans dépendre du cookie, démarrage avec la session graphique (livraison #844)
+
+- Comptes IMAP : sécurité **SSL/TLS (993)**, **STARTTLS (143)** ou aucune ; le chiffrement est établi avant l'envoi du
+  mot de passe, certificat vérifié. Les comptes existants restent en SSL.
+- « jeton local requis » : l'écran garde le jeton de son adresse pour l'onglet et l'envoie en en-tête (le cookie de
+  127.0.0.1 pouvait être refusé par le navigateur) ; la page elle-même ne contient aucun secret.
+- si-mailbox et si-veille démarrent et s'arrêtent avec la **session graphique** (graphical-session.target), qui leur
+  transmet affichage et bus de session ; les installations précédentes sont basculées par `installer.sh`.
+- Pas de lien : opération manuelle (relancer `installer.sh` sur le poste).
+
+## 2026-10-23 — si-mailbox : widget des non lus à côté de la date, total et par filtre de / sujet (livraison #843)
+
+- Extension GNOME (45+) installée par `mailbox/installer.sh` : icône + « non lus · non lus du 1er filtre » au centre
+  de la barre du haut, à droite de la date ; menu avec chaque filtre, l'âge du relevé et « Ouvrir si-mailbox ».
+- L'agent relève les compteurs (SEARCH UNSEEN, dossier en lecture seule, rien n'est lu ni marqué) toutes les 60 s et les
+  écrit en local (`compteurs.json`, 600) ; nouvel onglet **Widget** de l'écran (dossier, cadence, 5 filtres de / sujet,
+  comptes) ; `si-mailbox --compteurs` en ligne de commande. Critères non ASCII envoyés en CHARSET UTF-8.
+- Service utilisateur Linux : affichage et bus de session transmis (notifications, trousseau).
+- Pas de lien : opération manuelle (sur le poste, `sh installer.sh`, puis fermer et rouvrir la session).
+
+## 2026-10-23 — Hub blanc au chargement : fetchImages déclaré deux fois dans siAgentClient.js (livraison #842)
+
+- Le hub ne s'affichait plus (« redeclaration of const fetchImages ») : le catalogue d'images de l'orchestration (#834)
+  réutilisait le nom de la liste des images P2V (#634). Renommé `fetchOrchImages` dans la tuile Orchestration.
+- Test ajouté : aucun nom déclaré deux fois au niveau d'un module de `hub/src` ; tout le hub a aussi été assemblé
+  (esbuild, imports et exports vérifiés) sans erreur.
+
+## 2026-10-23 — si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien (livraison #841)
+
+- Nouveau programme **dans la session de l'utilisateur** (Mac ou Linux, sans root, bibliothèque standard seule), qui
+  teste toute la chaîne d'accès au hub sans passer par le hub : DNS, certificat et frontal https, SSH vers l'hôte,
+  conteneurs, canal de contrôle du bastion, disque… (types dns, tcp, tls, http, commande).
+- **Silencieux** tant que tout va bien ; en panne : **notification graphique récurrente** (toutes les 5 min par défaut)
+  et **un seul courriel** par incident (retenté si l'envoi échoue), notification « rétablie » à la fin.
+- Maillons chaînés : ceux qui dépendent d'un maillon en échec ne sont pas testés, l'alerte nomme la cause probable ;
+  seuil d'échecs consécutifs contre les fausses alertes. Mot de passe SMTP dans le trousseau du système.
+- Installation : `cd ~/Downloads/supervision-si/veille-chaine && sh installer.sh <config>` (docs/veille-chaine.md).
+  Pas d'onglet dans le hub : pas de lien, opération manuelle.
+
+## 2026-10-23 — si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret (livraison #840)
+
+- Nouvel agent **dans la session de l'utilisateur** (sans root, Linux ou macOS), écran web local 127.0.0.1:8095 avec
+  jeton : comptes IMAP (mot de passe dans le trousseau du système), **requêtes** ponctuelles (recherche + question à
+  l'IA sur les messages trouvés), **automates** (dossier → filtres → IA : catégorie, résumé, extraction, consigne →
+  actions : déplacer, copier, étiqueter, marquer, script local, notification), conditionnés à la catégorie, en mode
+  **essai** d'abord ; journal local.
+- **Discret** par défaut : aucune liaison avec le hub. **Relié** (au choix) : résumé sans contenu des messages remonté
+  par la nouvelle sonde `mailbox` de l'agent du poste → tuile **Boîtes aux lettres**.
+- Installation : `cd ~/Downloads/supervision-si/mailbox && sh installer.sh` (docs/mailbox.md).
+
+## 2026-10-22 — Émulation : écran d'un clic dans le hub supervision, par le bastion (livraison #839)
+
+- Chaque hôte d'émulation ouvre une **porte des écrans** (websockify à jetons, 127.0.0.1:6899) : un jeton aléatoire
+  par instance démarrée, retiré à l'arrêt ou à la destruction.
+- La porte est publiée une fois par hôte (bastion + `NAVIGATEURS`, déclarée dans « Navigateurs des hôtes » avec l'usage
+  « écrans d'émulation ») ; ensuite chaque instance a son bouton **Écran** (noVNC, même origine que le hub). Sans
+  publication, la tuile affiche la marche à suivre et la commande de tunnel SSH.
+- Registre des navigateurs : champ « usage » (navigateur de l'hôte / écrans d'émulation) ; les portes d'écrans ne
+  sont pas proposées comme navigateurs.
+
+## 2026-10-22 — Émulation : lancement d'une machine complète marqué en échec à tort ; émulateurs hors de l'agent (livraison #838)
+
+- Premier test réel (Raspberry Pi 3 B, machine complète) : QEMU démarrait mais la commande finissait en échec et
+  l'écran n'était jamais lancé -- un `pkill -f` visait un motif présent dans le texte du script et tuait le bash
+  qui l'exécutait. Les processus d'écran (websockify, Xvfb, x11vnc) sont désormais suivis par fichiers pid ; test
+  ajouté : aucun `pkill -f` / `pgrep -f` dans les scripts.
+- QEMU, l'émulateur Android et l'écran tournent dans leur propre portée systemd (`systemd-run --scope`) : un
+  redémarrage ou une mise à jour de l'agent ne les arrête plus.
+- Les avertissements PipeWire de QEMU (`client.conf`) sont sans effet.
+
+## 2026-10-22 — Pied de page : commandes Émulation / Orchestration en cours, liens et « terminé — voir » (livraison #837)
+
+- Les commandes envoyées aux agents par les tuiles **Émulation** et **Orchestration** apparaissent dans le pied de page
+  tant que l'agent y travaille (icône, action, hôte, durée) ; un clic ouvre la tuile sur l'onglet Commandes.
+- À la fin d'une commande vue en cours dans ce navigateur : bandeau « ✔ terminé — voir » (ou « ✗ échec : raison »),
+  lien vers la tuile ; les travaux terminés du pied de page déplié sont aussi des liens.
+
+## 2026-10-22 — Orchestration : VM à la demande avec durée de vie (livraison #836)
+
+- Onglet **Machines virtuelles** : « Créer la VM » depuis un modèle Proxmox du nœud (ceux du Banc compris) -- clone
+  « orch-<nom> » dans une plage de vmid réservée (distincte de celle du Banc), cœurs, mémoire, description avec
+  l'expiration, démarrage ; liste avec phase et étape en cours ; Démarrer, Arrêter, Détruire.
+- **Durée de vie** : à l'échéance, arrêt puis destruction par le central (boucle de 30 s, comme le Banc) ; un échec
+  pendant la création déclenche le nettoyage (pas de clone orphelin). Événements « orchestration » à chaque fin de phase.
+- Réglages : nœud, plage de vmid, stockage, clone complet ou lié, durée de vie maximale.
+
+## 2026-10-22 — Émulation : écran dans le navigateur, image Raspberry installable, APK dans l'émulateur (livraison #835)
+
+- **Écran** des machines complètes Raspberry et des émulateurs Android (noVNC : écran, clavier, souris = toucher),
+  SSH et adb : la commande d'accès s'affiche sur chaque instance (tunnel SSH vers l'hôte d'émulation).
+- **Exporter l'image** (Raspberry, machine complète) : image `.img.xz` généralisée à graver sur carte SD ; au premier
+  démarrage, identité unique, partition agrandie, puis utilisateur, clé SSH, nom, Wi-Fi et agent depuis
+  `si-premier-demarrage.conf` (effacé après usage) ; liste des images avec taille, SHA-256 et commande `scp`.
+- **Installer une APK** (Android) : adresse https + SHA-256 ; `adb install`, paquets ajoutés dans la sortie.
+- **Préparer** installe ce qui manque sur l'hôte (QEMU, noVNC, websockify, Xvfb, x11vnc, Java).
+- Test de la synthèse des alertes rendu indépendant de la date (il expirait le 22/10/2026).
+
+## 2026-10-22 — Orchestration : catalogue d'images Docker Hub (livraison #834)
+
+- Onglet **Déployer** : sélection de départ (images officielles courantes avec leur port : nginx, redis, postgres,
+  grafana, uptime-kuma, ollama…), **recherche Docker Hub** (officielles d'abord, nombre de téléchargements),
+  étiquettes récentes avec leurs **architectures** (amd64 / arm64) ; un clic remplit image, port et nom.
+- Lecture seule, sans compte Docker Hub ; réponses gardées 10 min. L'API du central doit joindre hub.docker.com
+  (sinon message « Docker Hub injoignable » ; la sélection de départ reste disponible).
+
+## 2026-10-22 — Émulation / Orchestration : boutons « en cours… », bascule vers le résultat ; Nomad démarre (livraison #833)
+
+- Chaque bouton qui envoie une commande à un agent (Installer, Rejoindre, Désinstaller, Relever, Échelle, Supprimer ;
+  Préparer, Lancer, Arrêter, Détruire, Installer l'agent) passe à « en cours… » (désactivé) tant que l'agent n'a pas
+  répondu ; à la fin, la tuile bascule vers l'onglet du résultat (échec : onglet Commandes, avec la sortie).
+- Nomad : adresse annoncée explicite (API sur 127.0.0.1 et plusieurs adresses privées avec Docker / k3s
+  empêchaient le démarrage : « Defaulting advertise to localhost is unsafe ») ; en cas d'échec, le journal du service
+  remonte dans la sortie de la commande.
+
+## 2026-10-22 — Orchestration : VM et conteneurs au même endroit (Proxmox, k3s, Nomad) (livraison #832)
+
+- Nouvelle tuile **Orchestration** (Équipements), un « OpenStack » maison :
+  - **Conteneurs** : toutes les charges des hôtes (k3s et Nomad) -- image, répliques prêtes / voulues, accès
+    (NodePort k3s), expiration ; « Échelle », « Supprimer » ;
+  - **Déployer** : moteur, hôte ou **placement automatique** (hôte en ligne le moins chargé), image, répliques, port,
+    CPU, mémoire, espace, **durée de vie** (TTL : la sonde supprime la charge expirée et le signale) ;
+  - **Clusters** : par hôte, k3s et Nomad -- installer, rejoindre un serveur, désinstaller, nœuds et leur état ;
+    **quotas** par espace k3s (ResourceQuota ; Nomad : réservé à Enterprise) ;
+  - **Machines virtuelles** : VM Proxmox des nœuds locaux (sonde proxmox) ; création depuis les modèles du Banc,
+    opérations Proxmox, Infrastructure (liens) ;
+  - **Commandes** avec sortie.
+- k3s s'installe **sans Traefik ni servicelb** (le hub a déjà son Traefik sur 80/443). Nomad : serveur + client, pilote
+  Docker, API sur 127.0.0.1:4646 uniquement (pas d'ACL : jamais exposée ; interface web par tunnel SSH).
+- Jeton de jonction k3s : jamais renvoyé par l'agent ; pas de lien : opération manuelle -- le lire sur le serveur
+  (`sudo cat /var/lib/rancher/k3s/server/node-token`) ; masqué dans les commandes et les événements.
+- Agent 0.6.0 : commande `orchestration`, sonde `plugin:orchestration` (60 s, privilégiée).
+- Correctifs : tri des nœuds de l'infrastructure sans nom (erreur 500 possible) ; tests indépendants de l'ordre.
+
+## 2026-10-22 — Émulation et déploiement supervisé : Raspberry Pi (3B, Zero W, Zero 2 W) et Android (livraison #831)
+
+- Nouvelle tuile **Émulation** (Équipements) : choix de l'hôte (agent), capacités détectées (docker, binfmt, QEMU,
+  KVM, SDK Android, architecture), instances en cours, lancement par profil, historique des commandes avec sortie.
+- **Raspberry Pi, deux niveaux** : *conteneur* (rootfs Raspberry Pi OS Lite officiel, vérifié SHA-256, émulation
+  utilisateur binfmt, `QEMU_CPU` arm1176 / cortex-a53) et *machine complète* QEMU (`raspi3b` pour 3B et Zero 2 W avec
+  son DTB, `raspi0` pour Zero W, SSH redirigé 52200+n).
+- **Android** : API 24 à 35, x86_64 / x86 (x86 jusqu'à l'API 30) sur hôte x86_64, arm64-v8a sur hôte ARM ; KVM requis ;
+  licences du SDK acceptées seulement si tu coches la case.
+- **Déploiement supervisé** : « Installer l'agent » dans une instance conteneur (la ligne d'enrôlement est masquée dans
+  l'historique et les événements).
+- Agent 0.5.99 : commande `emulation` (préparer, lancer, arrêter, détruire, lister, deployer_agent), sonde
+  `plugin:emulation` (60 s) ; `install.sh` fonctionne sans systemd (conteneurs : `/etc/si-agent/demarrer.sh`).
+- Pas de lien : opération manuelle pour installer QEMU / Docker / le SDK sur l'hôte (« Préparer » le fait si l'agent
+  est root).
+
+## 2026-10-22 — Pied de page permanent : livraison, mise à jour en cours, rechargement sans cache, travaux en cours (livraison #830)
+
+- **Toujours visible** en bas du hub : « Hub supervision #<livraison de cet écran> » (et la livraison servie si elle
+  diffère), les travaux en cours avec leur durée -- 🧠 IA (Priorités : préparation, décideur, explication ; essais
+  de skills ; évaluations du décideur), 📡 sources (veille des modèles) -- et la dernière relève de la veille cyber ;
+  un clic déplie les derniers travaux terminés (✔ / ✗, durée, erreur).
+- **Mise à jour en cours** : `scripts/run.sh … --build` l'annonce (`.maj-en-cours.json`, retiré à la fin, même en
+  échec) ; services-api la sert à tous (`/version-hub`, public) ; bandeau « ⟳ mise à jour en cours vers #N », puis
+  « redémarrage des services — reconnexion » pendant les redémarrages.
+- **Nouvelle livraison servie** : bandeau et rechargement **sans cache** après 15 s (« Recharger maintenant » /
+  « Plus tard ») ; bouton ↻ permanent. (index.html était déjà servi sans cache depuis #681.)
+- Même pied de page dans le hub maison (version = rang du commit déployé).
+
+## 2026-10-22 — Priorités : tes décisions (✓ / ✎), vérité pour l'apprentissage du décideur (livraison #829)
+
+- Sur chaque élément des **Priorités** de la page d'accueil : « ✓ » (le décideur a raison) ou « ✎ » (corriger :
+  urgent ou non, gravité) ; ta décision s'affiche à côté de celle du modèle (en couleur si elle diffère), « ↺ » la retire.
+- Elle est gardée avec l'état exact que le décideur a vu (événements des agents compris, pas seulement la veille) et
+  passe en tête du jeu de **Parc IA > Apprentissage** (elle prime sur l'étiquette déduite de la veille).
+- Même fonction dans le hub maison (Cyber news > Priorités).
+
+## 2026-10-22 — Parc IA : skills (consignes versionnées) et apprentissage du décideur (livraisons #827, #828)
+
+- **#827 Skills** (Parc IA > Skills) : consignes des IA versionnées (historique, restauration, auteur, notes), actives
+  ou non, essai sur un texte avec le modèle de l'usage. Branchés sur les **Priorités** : `priorites-preparation`,
+  `priorites-decideur` (instructions / critères : les clés et le format restent imposés par le code),
+  `priorites-explication` ; non personnalisé ou désactivé = texte du code. Skills personnels pour la bibliothèque.
+- **#828 Apprentissage** (Parc IA > Apprentissage) : jeu de données du décideur tiré de **nos décisions** de veille
+  (statut posé par une personne, rejets), même entrée que la production, découpage stable entraînement / test, export
+  JSONL ; registre des entraînements ; **évaluation** du modèle produit (ou de celui de production) sur la part test
+  (accord urgent / gravité). Kit LoRA Unsloth -> GGUF -> Ollama (`si-agent/tools/apprentissage/`, non exécuté) ;
+  `docs/apprentissage.md`. Aucune mise en service automatique.
+
+## 2026-10-22 — Tuile « Banc d'installation » : modèles de VM fabriqués depuis le hub (livraison #826)
+
+- Nouvelle **tuile Banc d'installation** (Supervision, à côté du Parc IA) : onglets *Modèles de VM*, *Pool et passages*
+  (le banc #825), *Modèles Windows* (marche à suivre).
+- **Fabriquer un modèle Linux** depuis le hub (Debian 13 / 12, Ubuntu 24.04, Rocky 9) : commande `banc_modele` à
+  l'agent du nœud (agent 0.5.98) -- image cloud officielle, **empreinte vérifiée** contre le fichier de sommes de
+  l'éditeur, VM avec agent invité QEMU, cloud-init (qemu-guest-agent installé par un snippet), disque agrandi,
+  `qm template`. Suivi des fabrications, modèles présents sur le nœud (sonde proxmox), « Ajouter au pool ».
+- `docs/banc-installation.md` : pool, modèles Linux, modèles Windows (VirtIO, agent invité, Sysprep, MSI).
+- **Non vérifié en réel** (URL des images et PVE du nœud à confirmer au premier essai ; l'échec est explicite).
+
+## 2026-10-22 — Banc d'installation des agents sur un pool de VM (livraison #825)
+
+- **Agents hôtes > Banc d'installation** : un pool = un nœud Proxmox (son agent), une plage de vmid pour les clones,
+  des modèles de VM Linux / Windows avec l'agent invité QEMU, et par OS les commandes à jouer dans l'invité
+  (installer : ligne du central local, du hub ou MSI ; vérifier et désinstaller : valeurs par défaut fournies).
+- Un passage par modèle : cloner (clone lié « banc-<modèle>-<n> ») -> démarrer -> attendre l'agent invité (15 min) ->
+  installer -> vérifier -> désinstaller -> arrêter -> détruire ; un échec saute au **nettoyage** (aucune VM de banc ne
+  reste) ; détail et sortie de chaque étape ; « Arrêter » ; événement de fin `banc-run`.
+- Agent (0.5.97) : actions `guest_ping`, `guest_ip`, `guest_exec` de `vm_action` ; **l'exécution dans l'invité est
+  refusée par l'agent du nœud si la VM ne s'appelle pas « banc-… »** (vérifié sur l'hôte par `qm config`).
+- Jetons d'enrôlement masqués : affichage du pool, paramètres des commandes relus par le hub, événements de l'agent.
+- **Non vérifié en réel** : modèles de VM à préparer sur un nœud (qemu-guest-agent ; Windows : VirtIO + guest agent).
+
+## 2026-10-22 — Agent Windows : installeur MSI ; mise à jour automatique Windows réparée (livraison #824)
+
+- **MSI** (`si-agent/agent/windows/msi/`, WiX v5+) : agent + Python embarqué (aucun téléchargement à
+  l'installation), même `install.ps1` que l'installation manuelle ; propriétés `CENTRAL`, `TOKEN` (masqué dans le
+  journal MSI), `CAFINGERPRINT` (sinon magasin Windows), `SITE`, `PLUGINS`, `KEEPDATA` ; déploiement silencieux
+  (`msiexec /i … /qn`), GPO / Intune ; mise à jour majeure = `install.ps1 -Upgrade` (enrôlement conservé) ;
+  désinstallation propre, données gardées avec `KEEPDATA=1` ; signature de code optionnelle (`-SignCert`).
+  **Non vérifié** : écrit et contrôlé statiquement, pas encore construit ni installé (première passe sur une VM Windows
+  du pool, BACKLOG 133).
+- **Bogue corrigé** : `install.ps1 -Upgrade` (mise à jour automatique des agents Windows, #522) exigeait une option de
+  CA et s'arrêtait donc toujours -- les postes Windows ne se mettaient jamais à jour seuls. Agent 0.5.97 (la correction
+  agit à la mise à jour suivante : les postes déjà installés se mettent à jour une dernière fois à la main).
+- `-EnablePlugin "a,b"` accepté en une seule chaîne.
+
+## 2026-10-22 — Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées (livraison #823)
+
+- Les trois étapes des **Priorités** (préparation, décideur, explication) prennent chacune le modèle déclaré pour son
+  usage dans **Parc IA > Veille des modèles > Usages**, pour l'hôte qui sert leur LLM (`PRIORITES_LLM_HOTE` = son
+  agent) ; sans déclaration, le .env s'applique. Le panneau dit quels modèles ont servi, avec le lien vers Usages.
+- Chaque alerte de la veille des modèles (nouveau modèle utilisable, passage ouvert <-> fermé, accès restreint,
+  disparition) devient un **événement du hub** `modele-alerte` (journal, bandeau, notifications).
+- Liens directs vers un onglet du Parc IA (`?view=iapark&tab=modeles&onglet=mes`).
+- BACKLOG 132 T2 livrée en partie (reste : installer un modèle depuis une alerte ; bibliothèque Ollama).
+
+## 2026-10-22 — Diffusions en cascade : déploiement automatique avec dépendances (livraison #822)
+
+- **Agents hôtes > Mises à jour > Diffusions en cascade** : une règle = une **cible** (agents qui portent telle
+  sonde, tel OS, telle liste, avec exclusions) et des **étapes** ordonnées par leurs dépendances (`apres`) :
+  mise à jour forcée de l'agent (hors canal bêta / général, ou `version_min`), activer / désactiver une sonde,
+  attendre un relevé réussi d'une sonde.
+- Plan agent par agent : fait, en cours, en attente d'une dépendance, à faire, échec (avec le détail) ; « Simuler »,
+  « Exécuter » ; mode **automatique** : le central fait les gestes toutes les 2 min (un seul worker, verrou de fichier).
+  Chaque geste est journalisé (événement avec la diffusion et l'auteur).
+- Exemple proposé : forcer la mise à jour, puis activer pve-preflight sur les agents qui portent guest-usage ou
+  pve-remote, puis attendre son premier relevé.
+
+## 2026-10-22 — Parc IA : veille des modèles, historique, alertes, usages (livraison #821)
+
+- Nouvel onglet **Parc IA > Veille des modèles** (même module que la tuile « Modèles IA » du hub maison) :
+  - **veille** des derniers dépôts des éditeurs suivis sur Hugging Face, relevés toutes les 6 h par si-agent-api (un
+    seul worker relève, verrou de fichier) ; le premier passage remonte le passé (40 dépôts par éditeur) sans alerter ;
+  - **historique** : nouveau, ouverture / fermeture de licence, accès restreint / libéré, disparition des modèles suivis ;
+  - **alertes** : nouveau modèle pertinent qui tient en Q4 sur une de nos machines (`MODELES_MACHINES`), tout passage
+    ouvert <-> fermé ; « ✕ » écarte un modèle ;
+  - **usages** : les modèles relevés par la sonde ollama de chaque hôte (« hôte/modèle »), cases « actif » et types
+    d'usage (inventaire ; branchement sur les priorités en tranche 2) ;
+  - **bancs** : résultats des bancs comparatifs.
+- BACKLOG 132 (modèles, skills, apprentissage, bancs : tranches 2 à 5) et 133 (pool de VM de test des agents,
+  installeur Windows MSI).
+
+## 2026-10-22 — Veille cyber : rejets fins archivés et repêchables (livraison #820)
+
+- « ✕ » sur chaque article : ne plus présenter **cet article**, **sa source**, **son sujet** (ses CVE), **un de ses
+  thèmes** (préfiltre ou catégorie) ou des **mots-clés** proposés depuis le titre (modifiables).
+- Onglet **Rejets** : règles (type, valeur, motif, auteur, date, nombre d'articles écartés), ajout manuel, retrait (qui
+  repêche tout) ; archive des articles écartés avec la règle en cause ; « ↺ » repêche un article, l'exempte de toute
+  règle et l'inscrit au journal.
+- Les articles écartés restent en base (la relève ne les ramène pas) mais sortent des listes, filtres, extraction,
+  synthèses quotidiennes et de la priorisation de la page d'accueil.
+- **Décision** : un rejet large (source, thème, mots-clés, sujet) ne fait **pas** taire l'alerte immédiate d'un article
+  qui touche notre SI ; seul le rejet explicite de l'article la retient.
+- Même fonction dans le hub maison (tuile Cyber news).
+
+## 2026-10-22 — si-agent : vue locale de transparence sur le poste (livraison #819)
+
+- **Vue locale** (agent 0.5.96) : l'agent peut servir sur le poste lui-même une page **en lecture seule** pour
+  l'administrateur du poste, sans compte à créer. Elle montre :
+  - **ce qui remonte** au central : chaque relevé, son dernier envoi, sa taille, le nombre d'envois et le contenu exact
+    envoyé (dépliable) ;
+  - les **sondes** du poste : état (active / inactive / bloquée), cadence, dernier passage, résultat ;
+  - le **journal** de l'agent ;
+  - la **configuration**, où les secrets sont masqués.
+  Elle indique aussi comment suspendre toute collecte (fichier BLOCKED) et comment désinstaller. Aucune action
+  n'est possible depuis la page.
+- Écoute sur `127.0.0.1:8090` par défaut, donc visible seulement depuis le poste. Pour l'ouvrir au réseau, il faut
+  `bind` 0.0.0.0 **et** une liste `allow` : sans liste, seule la boucle locale reste admise.
+- **Fermée par défaut.** On l'ouvre de deux façons :
+  - `local_view` dans `agent.json`, par exemple `{"enabled": true}` ;
+  - par le central, qui l'emporte. Le central local accepte `--local-view 8090` ou
+    `--local-view 8090@0.0.0.0 --local-view-allow 172.16.51.0/24`.
+- Note : `tests/test_updater` (test_run_update) échouait déjà avant cette livraison sur la VM Linux ; il n'est pas lié
+  à ce changement.
+
+## 2026-10-22 — Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties » (livraison #818)
+
+- **Priorités** en haut de la page d'accueil du hub :
+  1. **Préparation** (modèle de langage local) : rassemble ce qui est ouvert -- les événements warning / critical des
+     agents sur 48 h et les articles de veille qui touchent notre SI sans être traités. Les doublons sont regroupés et
+     les événements résolus écartés : un « -recovered » ultérieur, ou un agent revu depuis. Le modèle écrit pour chacun
+     une description détaillée et son impact.
+  2. **Décision** par le **décideur** : un petit modèle à décisions typées, sur l'interface du modèle Jev de TypeSafe
+     sorti en septembre 2026 (oui/non, choix, échelle). Il dit urgent / non urgent avec une probabilité, et donne une
+     gravité (faible -> critique). On garde les 5 plus urgents.
+  3. **Explication** (modèle conversationnel) : pour chaque urgence, ce qui se passe, pourquoi c'est urgent, la solution
+     proposée (commandes et machine) et où agir.
+  - Chaque élément a son lien vers l'écran du hub où on agit.
+  - Le calcul tourne en tâche de fond et reste gardé 15 minutes. Un bouton « Recalculer » le relance, et la page
+    affiche l'état de chaque étape.
+- **`shared/decideur.py`** : trois fournisseurs (`DECIDEUR`) :
+  - `llm` (défaut) : le modèle local compatible OpenAI, aucune donnée ne sort ;
+  - `jev` : un serveur LOCAL au format Jev (Clef de Cloudflare, Tiny-Jev…), via `DECIDEUR_URL` ;
+  - `typesafe` : l'API hébergée de TypeSafe, avec `TYPESAFE_API_KEY`. Les données SORTENT : à n'activer qu'en
+    connaissance de cause.
+
+  Jev lui-même n'existe qu'en API hébergée.
+- **Veille cyber, onglet « IA : sorties »** : les nouveaux modèles, API et outils.
+  - Sources : versions d'Ollama, llama.cpp, vLLM, Hermes Agent, Open WebUI et Transformers ; blogs Hugging Face, OpenAI
+    et Google DeepMind ; Simon Willison.
+  - Les sources proposées par une livraison arrivent aussi sur une installation existante, une seule fois : une source
+    supprimée ne revient pas.
+- `si-agent-api` : `GET /priorites` (`?refresh=1`). Nouvelles clés `.env` : `PRIORITES_LLM_*`, `DECIDEUR*`,
+  `TYPESAFE_API_KEY`.
+- **Vérifié** :
+  - `shared/test_decideur.py` (questions, lecture tolérante du modèle, format Jev, lots de 25) ;
+  - `test_z_priorites.py` (résolus écartés, top 5, trois IA, repli sur la sévérité brute) ;
+  - `test_veille.py` (semis) ;
+  - rendu du panneau.
+- **Non vérifié** : avec le vrai modèle local, et les nouveaux flux réels.
+
+## 2026-10-22 — Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle » (livraison #817)
+
+- La page « Préparer la réinstallation d'un nœud » disait « activer la sonde pve-preflight… fiche de l'agent › Sondes » sans
+  lien. Elle donne maintenant un bouton par agent qui joint les Proxmox : ceux qui remontent pve-remote ou guest-usage, à
+  défaut proxmox. Le bouton ouvre la fiche de l'agent sur ses Sondes.
+- S'il n'y a aucun agent, la page écrit « pas de lien : opération manuelle » et dit quoi faire (pve-remote.json, puis
+  activer la sonde). C'est aussi le cas dans le contrôle « Relevés des deux nœuds ».
+- Même règle appliquée aux autres messages sans lien : Data RF, Activité des VM, Parc IA, Infra PVE/PBS. Ils ont
+  maintenant un lien « Agents hôtes › choisir l'agent › Sondes ».
+- **Règle désormais absolue** pour toute nouvelle page : tout message qui demande d'activer ou de régler quelque chose
+  porte le lien vers l'endroit du hub où on le fait. Sinon, il porte la note « pas de lien : opération manuelle » avec la
+  marche à suivre.
+- **Vérifié** :
+  - `test_z_prep.py` (liens par agent, mention manuelle sans agent) ;
+  - suite du hub, construction.
+
+## 2026-10-21 — Mises à jour : tentatives en échec visibles jusqu'à résolution, puis archivées (livraison #816)
+
+- Le pied de page « Mises à jour » montre maintenant, au-dessus des livraisons, les **tentatives de la tour de contrôle
+  en échec** : mise à jour git, livraison, reconstruction, passerelle… Pour chacune :
+  - date, libellé, genre, auteur, code de sortie ;
+  - **journal dépliable** (40 dernières lignes) ;
+  - le bouton du pied de page signale « ⚠ N tentative(s) en échec ».
+- **Une tentative reste affichée jusqu'à sa résolution** :
+  - automatique, quand un travail ultérieur du même genre réussit (même libellé pour une reconstruction) ;
+  - ou manuelle, avec le bouton « Résolu » et une note.
+- Résolue, elle quitte la liste et est **archivée** dans `services/data/jobs-archive/` (méta, 400 dernières lignes du
+  journal, ce qui l'a résolue, qui, note). Ces archives servent au retraitement et à l'apprentissage : base de
+  connaissances, assistant.
+- services-api : `GET /jobs/echecs`, `POST /jobs/<id>/resolu`, `GET /jobs/archives` (`?complet=1` avec les journaux).
+  Fonction pure `tower.echecs`.
+- **Vérifié** :
+  - `test_tower.py` (résolution par genre / libellé, un travail en cours ne résout rien) ;
+  - `test_app.py` (archive automatique et manuelle, journaux) ;
+  - rendu de la liste dépliable.
+
+## 2026-10-21 — Migration : préparer la réinstallation d'un nœud -- quorum, invités transférés, sauvegardes, PRA (livraison #815)
+
+- Tuile Migration, nouvelle page **« Préparer la réinstallation d'un nœud »**, à côté du plan. On y choisit le nœud à
+  réinstaller et celui qui reste, et on règle les hypothèses de débit. La page donne un verdict global : prêt / points
+  à vérifier / pas prêt.
+- **1. Quorum** :
+  - état actuel : votes, membres, QDevice ;
+  - simulation sans le nœud : dans un cluster à deux nœuds sans QDevice, le nœud restant **perd le quorum** ;
+  - actions dans l'ordre, une commande à la fois, avec la machine où la lancer : `pvecm expected 1`, contrôle,
+    `pvecm delnode`, QDevice durable ;
+  - avertissement de version : un nœud réinstallé en PVE >= 6 ne rejoint pas un cluster 5.4 ;
+  - HA.
+- **Contrôles** :
+  - invités encore sur le nœud à réinstaller, avec la décision de leur fiche (archiver / arrêter) ;
+  - réplications liées au nœud, avec la commande `pvesr delete` de chacune.
+- **2. Invités transférés et invités du nœud qui reste** :
+  - état, charge sur 24 h (CPU moyenne / pic, pic mémoire) ;
+  - erreurs et avertissements du journal sur 24 h, unités systemd en échec, taux HTTP 5xx ;
+  - verdict et raisons ;
+  - « transféré » : migration pct / qm détectée, ou case à cocher.
+- **3. Sauvegardes** :
+  - dernière sauvegarde, et s'il existe une copie qui survit à la perte du nœud (stockage partagé ou autre nœud) ;
+  - **les archives posées sur le nœud à réinstaller ne comptent pas** : elles seront effacées, et la page dit
+    combien (et quel volume) ;
+  - dernière tâche vzdump (réussie / en échec), copie tirée au LAN.
+- **4. PRA par CT / VM** :
+  - scénarios : réplica pvesr, sauvegarde hors du nœud, copie au LAN, et la sauvegarde sur le même nœud signalée comme
+    insuffisante ;
+  - **RPO** = âge de la copie ;
+  - **RTO** = taille ÷ débits + démarrage, plus le déplacement de l'IP OVH si l'invité a une MAC virtuelle, plus la
+    reprise du quorum si le cluster le perd ;
+  - étapes exactes du scénario retenu.
+- **Nouvelle sonde `pve-preflight`** (agent **0.5.95**) :
+  - sur l'agent qui joint les Proxmox (nœud local + `pve-remote.json`, comme guest-usage), un ssh par nœud, en lecture
+    seule, PVE 5.4 compris ;
+  - relève pvecm, pveversion, ha-manager, ressources du cluster, pvesm, storage.cfg, pvesr, vzdump.cron / jobs.cfg,
+    tâches, sauvegardes de chaque stockage, configuration et RRD de chaque invité ;
+  - dans l'invité démarré : journal, unités en échec, HTTP. Des nombres seulement : aucune ligne de journal ne remonte.
+- **Vérifié** :
+  - `test_pve_preflight.py`, avec un pilote bash réel exécuté de bout en bout sur de faux pvecm / pvesh / pct / qm /
+    pvesm / pvesr ;
+  - `test_z_prep.py` (quorum, contrôles, santé, sauvegardes effacées, PRA, route) ;
+  - `prepLib.test.mjs`.
+- **Non vérifié** : les sorties réelles de pve-2 et pve-3 (PVE 5.4), et le rendu dans le hub réel.
+
+## 2026-10-21 — Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion (livraison #814)
+
+- **BACKLOG 130, tranches T1-T2**, dans vuln-api (pas de nouveau service : routes `/veille`, hub `/api/vuln/veille/`).
+- **Relève** de flux publics : RSS 2.0, Atom, RDF et catalogue KEV de la CISA. 18 sources proposées : CERT-FR, CISA,
+  ANSSI, CNIL, CEPD, presse cyber, IA et sécurité, arXiv limité à l'IA. Chaque source a sa période, ETag /
+  Last-Modified, 8 Mo au plus ; les entités XML sont refusées. Une source reste « non vérifiée » jusqu'à sa première
+  relève réussie.
+- **Tables** :
+  - Alertes, aux niveaux Alerte, Exploitée et Avis ;
+  - IA cyber, Générales, France / Europe, Règlements ANSSI / RGPD. Les catégories sont aussi déduites du texte : un
+    article de la presse générale qui parle d'IA ou du RGPD apparaît dans la table correspondante.
+- **Impacts sur notre SI** :
+  - les CVE de chaque article sont rapprochées des constats de vuln-api, ce qui donne les actifs touchés et leur
+    priorité P1-P4 ;
+  - l'EPSS et le KEV des CVE citées sont affichés ;
+  - onglet « Impacts SI », avec une vue par actif.
+- **Publics** : RSSI, administrateurs, développeurs, déduits de l'article et de ses impacts.
+- **Suivi** : à traiter, en cours, traité, non applicable — avec qui, quand et une note — et un journal pour le RSSI.
+- **Diffusion par notify-api** :
+  - `veille.alerte-si` (critique), une seule fois par article : une alerte ou une vulnérabilité exploitée qui touche
+    notre SI, ou qui cite un de nos modèles ;
+  - synthèse quotidienne par public : `veille.quotidienne-rssi`, `-adminsys`, `-dev`, envoyée à
+    `VEILLE_SYNTHESE_HEURE` ;
+  - bouton « envoyer maintenant ».
+- **Préfiltres** python, php, linux, bsd, mikrotik, modifiables et extensibles. Le préfiltre mikrotik porte **nos
+  modèles**, saisis dans la tuile et gardés dans la base, jamais dans le dépôt : ils déclenchent la marque ⚑.
+- **Filtres enregistrés** :
+  - critères : texte `"expression" -exclusion a|b`, catégories, niveaux, publics, suivi, préfiltres, sources, période,
+    « touche notre SI », CVE, nos modèles, non lus, suivis ;
+  - **extraction** CSV (actifs touchés, priorité, publics, suivi), Markdown, JSON, ou Atom pour s'y abonner.
+- **IA locale**, compatible OpenAI (`VEILLE_LLM_BASE_URL` / `VEILLE_LLM_MODEL`, par défaut ceux de l'assistant) :
+  - « Expliquer » un article : de quoi il s'agit, qui est concerné, chez nous, gravité, que faire ;
+  - « Synthèse IA » d'un filtre, avec un « À faire » par public ;
+  - le contenu des flux est passé au modèle comme une donnée balisée, jamais comme une consigne.
+- Même logique que la tuile « Cyber news » du hub maison, enrichie ici des impacts, des publics, du suivi et de la diffusion.
+- **Vérifié** :
+  - `vuln/tests/test_veille.py` (7 tests, KEV au format réel) et `test_vuln.py` ;
+  - `veilleLib.test.mjs`.
+- **Non vérifié** :
+  - les URL réelles des flux, faute d'accès Internet depuis l'environnement de travail : l'onglet Sources le dira à la
+    première relève ;
+  - l'envoi par notify-api en réel.
+
+## 2026-10-21 — Écoute Wi-Fi : budget de temps par passage, canaux tournants (livraison #813)
+
+- sonde-3b affichait « carte d'écoute absente », alors que l'Alfa était présente et en moniteur (lsusb, `alfa0` UP).
+  Le passage complet de wifi-monitor (32 canaux, plus deux relevés `survey` par canal) dépassait sur le Pi 3B le
+  délai de l'agent (50 s). Le relevé était perdu, et la tuile le lisait comme une carte absente.
+- wifi-monitor travaille maintenant avec un **budget de 35 s** par passage. Le canal de départ change à chaque passage,
+  si bien que tous les canaux sont couverts en quelques passages ; la `couverture` est indiquée (ex. « 24/32 »).
+- Data RF distingue une carte absente (`iface` nul) d'un relevé vide (sonde en échec côté agent).
+- Agent **0.5.94**.
+- Vérifié : `test_radio_probes.py` (rotation), `datarfLib.test.mjs`, suite agent.
+
+## 2026-10-21 — Réseau de sondes en réel : spectre gardé malgré un balayage lent, collecteur hors de la liste (livraison #812)
+
+- Premier état réel du réseau de sondes. sonde-3b : « balayage vide : … timed out ». Sur le Pi 3B, le bus USB est
+  partagé entre le HackRF, la carte Wi-Fi et l'Ethernet, et hackrf_sweep dépassait son délai : tout le relevé était
+  perdu. Le balayage est maintenant arrêté proprement et **ce qui a déjà été mesuré est gardé** (`partiel`). Délai
+  ramené à 75 s, et 5 balayages par défaut au lieu de 10.
+- Le mini-PC du site apparaissait comme une sonde « en panne », avec les mesures de ses sondes radio désactivées depuis.
+  L'hôte d'un collecteur n'est plus une sonde, et une mesure directe de plus de 2 h est ignorée.
+- Agent **0.5.93** : le mini-PC reçoit ainsi `collecte-sondes` avec le chemin (colonne LAN, #811), et la sonde le
+  balayage corrigé.
+- Vérifié : `test_radio_probes.py` (arrêt sur délai avec sortie gardée), `test_z_datarf.py`, suite agent.
+
+## 2026-10-21 — Data RF : état du réseau de sondes (livraison #811)
+
+- **Onglet « Réseau de sondes »** (par défaut) dans la tuile Data RF :
+  - une ligne par sonde, colonnes Activité, RF (spectre), Wi-Fi (écoute et client), LAN (chemin) et constats ;
+  - couleur **et** symbole (✔ ⚠ ⛔, — quand la sonde n'a pas l'équipement), compteurs (en ordre, à surveiller, en panne) ;
+  - pour chaque case qui ne va pas, l'action à faire : PortaPack en mode HackRF, hub USB alimenté, rfkill, rôle
+    moniteur en Configuration radio, SSID à tester, bail / DNS / HTTP en échec… ;
+  - boutons « Données » et « Configuration » vers le détail de la sonde.
+- `collecte-sondes` remonte aussi le chemin (path-probe : état global et par interface) et **l'erreur d'une sonde en
+  échec côté agent** (délai dépassé…) au lieu d'un relevé vide ; le central prend path-probe pour les sondes directes.
+- BACKLOG 131 : agent HackRF et client local pour poste nomade (Mac, Linux portable), à prévoir.
+- Vérifié : `datarfLib.test.mjs` (règles de chaque colonne, tri, compteurs), `test_collecte_sondes.py`,
+  `test_z_datarf.py` ; onglet rendu avec des données simulées (3 sondes, cas variés), passage au détail, sans erreur.
+
+## 2026-10-21 — Data RF en réel : le spectre qui manque dit pourquoi (livraison #810)
+
+- Premier affichage réel de sonde-3b dans Data RF (via le mini-PC du site) : l'écoute Wi-Fi remonte (canaux, bornes, BSS Load),
+  mais la colonne « spectre » est restée vide sans explication. Un balayage `hackrf_sweep` vide est maintenant un
+  constat (`spectre-vide`, avec la cause), et la tuile affiche l'erreur dans l'indicateur « spectre ».
+- Vérifié : `test_radio_probes.py`.
+
+## 2026-10-21 — Cadrage : veille cyber, impacts sur notre SI, couverture du SI (livraison #809)
+
+- `docs/veille-cyber.md` et BACKLOG 130 :
+  - publics : RSSI, développeurs, administrateurs ;
+  - sources ouvertes : CERT-FR, CISA KEV, NVD, RFC Editor, systèmes et constructeurs du parc ;
+  - chaîne collecte → enrichissement (moteur `vuln`) → rapprochement avec l'inventaire → diffusion par notify-api ;
+  - trois pages : dernières infos, impacts, couverture avec matrice actifs × couches de surveillance et liste des trous ;
+  - tranches T1 à T5 et choix à valider.
+- Aucun code dans cette livraison.
+
+## 2026-10-21 — Écoute Wi-Fi : un relevé vide dit pourquoi (livraison #808)
+
+- Premier relevé réel de la sonde-3b par le collecteur du mini-PC du site : wifi-monitor rendait 0 canal et 0 borne en
+  0,4 s, sans explication. Les refus de `iw … set channel` sont maintenant gardés (`refus`), et le constat
+  `monitor-canaux` donne la cause du premier refus.
+- Radios bloquées par rfkill (paquet manquant au premier démarrage) : wifi-monitor et la configuration radio lèvent
+  eux-mêmes le blocage logiciel (/sys/class/rfkill), sans dépendre de l'outil.
+- Vérifié : `test_radio_probes.py` (dont le déblocage : Wi-Fi seulement, Bluetooth intact), `test_wificonf.py`.
+
+## 2026-10-21 — Configuration radio des sondes depuis le hub : interfaces et SSID testés (livraison #807)
+
+- **Tuile Data RF › Configuration radio** : « Lire les interfaces de la sonde » (pilote, type, connexion), puis :
+  - un rôle par interface : client, moniteur ou inactive ;
+  - une liste de SSID à tester, chacun avec un accès du coffre (sa clé) et une case pour l'activer ou le désactiver ;
+  - « Envoyer à la sonde », avec suivi de la commande jusqu'au résultat.
+- **Agent 0.5.92**, commande `wifi_config` (etat | appliquer) :
+  - un SSID actif devient une connexion NetworkManager `si-<ssid>`, écrite en keyfile 0600 (la clé n'est jamais en
+    ligne de commande), sans route par défaut ;
+  - le premier SSID de chaque interface client se connecte seul, les autres servent à la rotation de path-probe ;
+  - un SSID désactivé est retiré ; une interface moniteur ou inactive n'est pas gérée par NetworkManager ;
+  - le réglage sans clé est écrit dans `/etc/si-agent/wifi-sondes.json`, d'où wifi-probe prend son interface et
+    path-probe ses connexions.
+- **Commande `collecteur`** (agent du mini-PC) : dépose la commande d'une sonde au collecteur du site (127.0.0.1) et
+  attend son résultat (90 s au plus). Le hub n'atteint les sondes que par l'agent du mini-PC.
+- **Central** :
+  - `GET|POST /datarf/config` : clés lues dans le coffre au moment de l'envoi ; réglage mémorisé sans clé ; événement
+    `datarf-config` ;
+  - clés masquées dans toute commande renvoyée au hub (sonde directe ou relayée).
+- **Collecteur** :
+  - `--ui-local` (posé par `installer-collecteur.sh`) : l'interface, qui montre le jeton et permet de déposer des
+    commandes, n'est servie qu'au mini-PC lui-même ;
+  - port noté dans `/etc/si-collecteur/env` pour le relais ;
+  - `wifi_config` relayable, clés masquées.
+- Vérifié :
+  - `test_wificonf.py` : validation, keyfiles et droits, clés jamais en ligne de commande ni dans le réglage, retrait,
+    UUID stable, échec de connexion, relais simulé ;
+  - `test_z_datarf.py` : coffre, routes, masquage ;
+  - `datarfLib.test.mjs`, suites agent, central et hub ;
+  - panneau rendu (lecture des interfaces puis envoi) sans erreur.
+- Non vérifié : NetworkManager réel de la sonde (Debian 13), clé Wi-Fi supplémentaire, relais réel par le mini-PC du site.
+
+## 2026-10-21 — Collecteur des sondes sur le mini-PC du site et tuile « Data RF » (livraison #806)
+
+- **`si-agent/local-central/installer-collecteur.sh`** (mini-PC du site, root) : central local des sondes en service
+  `si-collecteur` (https://<IP>:6444). Code pris sur l'archive GitHub du dépôt ; état et jeton conservés d'une mise à
+  jour à l'autre ; jeton dans `/etc/si-collecteur/env` (600), affiché seulement par `--jeton` ; archive d'agent
+  reconstruite à chaque démarrage (les sondes reçoivent la version du collecteur) ; historique JSONL seulement avec
+  `--historique`.
+- **Sonde `collecte-sondes`** (agent du mini-PC, agent 0.5.91) : lit l'état du collecteur et remonte au hub la dernière
+  mesure de chaque sonde (wifi-monitor, rf-spectrum, résumé de wifi-probe sans le voisinage). Constats des sondes
+  préfixés par leur nom, plus « sonde muette » après 5 min.
+- **Central** : `GET /datarf` (`datarf.py`) assemble les collectes des sites et les sondes enrôlées directement (la
+  mesure la plus récente l'emporte). La sonde est reconnue dans les constats notifiés et dans l'aide « rien ne remonte ».
+- **Tuile « Data RF »** (Thèmes › réseau Wi-Fi), sombre :
+  - choix de la sonde, puis : dernier contact, écoute, spectre, lien client, constats ;
+  - spectre 2,4 et 5 GHz (moyenne et pic, repères de canaux, bruit de fond) ;
+  - tableau par canal croisant l'occupation au spectre et l'occupation Wi-Fi : « brouillage ou émetteur non Wi-Fi
+    probable » si le spectre est occupé sans trafic Wi-Fi à la hauteur, et rien conclu sans écoute sur ce canal ;
+  - bornes vues (signal, clients, BSS Load, désauthentifications).
+- Vérifié : `test_collecte_sondes.py` (état, résumé, constats, script réel), `test_z_datarf.py`,
+  `datarfLib.test.mjs`, suites agent, central et hub ; tuile rendue dans un Chromium avec des données simulées, sans
+  erreur. Non vérifié : `installer-collecteur.sh` sur le mini-PC réel, réenrôlement de la sonde, tuile déployée.
+
+## 2026-10-21 — Sonde spectre : bruit de fond à la médiane, fin de la fausse occupation (livraison #805)
+
+- Premier balayage réel (HackRF dans une PortaPack Mayhem v2.3.2, bureau) : tous les canaux 2,4 GHz paraissaient
+  occupés à 30-45 %. Le bruit de fond était pris au 10e centile, alors que la puissance d'une case de FFT suit une loi
+  exponentielle. Le seuil (bruit + 10 dB) était donc franchi par le bruit seul environ 35 % du temps.
+- Le bruit de fond est maintenant la médiane de la bande : le bruit seul franchit le seuil environ 0,1 % du temps. Les
+  canaux 36-48 du bureau (pics -36 à -48 dB pour un bruit vers -71 dB) restent vus comme occupés. Gains d'origine
+  validés (LNA 32 / VGA 20 : pas de saturation, pics à -36 dB au plus).
+- Vérifié : `test_radio_probes.py` (bruit simulé seul : occupation < 3 % sur tous les canaux).
+
+## 2026-10-21 — Sonde Raspberry : paquets réinstallés tant qu'il en manque (livraison #804)
+
+- Premier démarrage réel du Pi 3B : « Temporary failure resolving 'deb.debian.org' » pendant l'installation. iw,
+  tcpdump, wavemon et hackrf manquaient, mais les services avaient démarré quand même. `firstrun-si.sh` fait
+  maintenant 5 tentatives et vérifie chaque paquet (`dpkg -s`). Le service `si-probe-paquets` installe à chaque
+  démarrage ceux qui manquent encore.
+- Vérifié : syntaxe ; unité systemd avec `$$` (sinon systemd remplace les variables). Non vérifié : nouveau premier
+  démarrage complet.
+
+## 2026-10-21 — htop : un swap rempli mais inerte ne déclenche plus d'alerte (livraison #803)
+
+- Premier cas réel : pve-1, swap à 72 % mais `si`/`so` à 0, 21 Go disponibles (pages anciennes, surtout `snmpd` d'OB1,
+  jamais relues). Ce n'est pas un engorgement.
+- L'émetteur envoie l'activité du swap (pages entrées / sorties par seconde, `/proc/vmstat`). Le relais ne lève le
+  constat « swap » que si les échanges continuent (seuil `swap_activite`, 50 pages/s). Pour un émetteur plus ancien,
+  sans cette mesure, il faut en plus que la mémoire soit à 10 points de son seuil.
+- Mémoire des CT à 0 % : dans un CT, `/proc/spl/kstat/zfs/arcstats` est celui de l'hôte, son ARC était retranché. ARC désormais compté seulement pour un Proxmox ou un hôte (émetteur et relais) ; par prudence, MemAvailable plus grand que le total (lxcfs ancien) est recalculé.
+- Tuile et client : l'ARC n'est plus retranché à la mémoire affichée d'un CT (AIC85 affichait « -8,0 Go ») ; cœurs d'un
+  CT (lxcfs, non significatifs : un cœur à 100 % pour un CT à 0,5 %) masqués, et plus envoyés par l'émetteur.
+- Vérifié : `test_htop.py` (swap inerte, ancien émetteur avec mémoire libre ou pleine, échanges continus ; mémoire lxcfs). Tuile rendue avec un CT à
+  ARC d'hôte (ancien émetteur).
+
+## 2026-10-21 — htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande (livraison #802)
+
+- Les CT sortent avec leur propre IP publique, que l'entrée du routeur (limitée aux IP des nœuds) n'admet pas.
+  **`emetteur.py --transit`** (service `si-htop-transit`, `installer-emetteur.sh --transit`) relaie tels quels vers le
+  relais central les relevés reçus des CT du nœud. Sources admises : IP déclarées dans `/etc/pve/lxc/*.conf`
+  (relues toutes les minutes) et `SI_HTOP_TRANSIT_DEPUIS`. Le relais central vérifie toujours les signatures.
+- **`installer-invites.sh`** (sur le nœud) : émetteur installé dans tous les CT en marche (ou `--ids`), fichiers et
+  clé du nœud poussés par `pct push`, émetteur dirigé vers le relais local. Les CT sans python3 ≥ 3.4 ou sans systemd
+  sont ignorés et signalés.
+- Émetteur compatible **Python 3.4** (CT Debian 8) : plus de `subprocess.run`.
+- Vérifié : `test_htop.py` (sources admises, transit réel en UDP local : relevé relayé intact, paquet étranger
+  refusé), vermin (3.3+), syntaxe des scripts. Non vérifié : `pct push` / `pct exec` sur les nœuds réels.
+
+## 2026-10-21 — Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack) (livraison #801)
+
+- **Kit `netprobe/rpi`** : `make-boot-files.sh --alfa monitor|client --hackrf` ; au premier démarrage, la carte Alfa
+  (MT7612U, pilote `mt76x2u`) devient `alfa0` (règle udev). En mode `monitor`, NetworkManager ne la gère pas. En mode
+  `client`, elle porte le SSID audité et les mesures client (le Wi-Fi intégré du Pi 3B n'a que le 2,4 GHz). Paquet
+  `hackrf` installé, sondes ajoutées au collecteur. Scripts du kit rendus exécutables (le README les appelait
+  directement alors qu'ils ne l'étaient pas).
+- **Sonde `wifi-monitor`** (agent 0.5.90) : écoute passive des canaux 2,4 / 5 GHz (France) sans émettre. La capture
+  passe par une socket brute, avec analyse radiotap / 802.11 en bibliothèque standard.
+  - Par canal : trames/s, retransmissions, occupation (survey de la puce, sinon temps d'antenne estimé),
+    gestion / contrôle / données, désauthentifications, signal max.
+  - Par borne : SSID, canal réel (élément DS : en 2,4 GHz on entend les canaux voisins), signal, balises, clients vus,
+    BSS Load.
+  - Constats : canal saturé, retransmissions, rafale de désauthentifications, SSID surveillé diffusé par un BSSID
+    inconnu (`/etc/si-agent/wifi-monitor.json`), carte absente.
+- **Sonde `rf-spectrum`** : `hackrf_sweep` sur 2,4 GHz et 5 GHz (bandes 1-2), **réception seule** (garde-fou contre
+  l'outil d'émission). Par canal de 20 MHz : puissance moyenne et max (dB relatifs non étalonnés), occupation
+  au-dessus du bruit de fond, spectre résumé par pas de 2 MHz. Constats : canal occupé, HackRF absent ou PortaPack
+  hors mode HackRF.
+- Central : sondes reconnues dans les constats (événements notifiés) et dans l'aide « que faire si rien ne remonte ».
+- Vérifié : `si-agent/agent/tests/test_radio_probes.py` (radiotap, balises, données, FCS, voisinage, constats, collecte
+  simulée, survey, sortie hackrf_sweep, bruit de fond, occupation, garde-fou), suite agent et central ;
+  `make-boot-files.sh` sur une fausse partition (options, env, cmdline, archive avec les deux sondes).
+- Non vérifié : matériel réel (mode moniteur et survey du pilote mt76, HackRF / PortaPack Mayhem), premier démarrage
+  complet ; pas encore d'affichage dédié dans le hub (mesures visibles dans le collecteur et sur la fiche de l'agent).
+
+## 2026-10-21 — htop en direct : émetteur sur chaque VM / CT / Proxmox, relais UDP, constats, tuile et client terminal (livraison #800)
+
+- **Émetteur `si-agent/htop/emetteur.py`** (bibliothèque standard, Python 3.5+ : tourne sur PVE 5.4) : toutes les 2 s,
+  CPU global et par cœur, iowait, **steal** (temps volé par l'hyperviseur, vu depuis une VM), charge, mémoire avec
+  l'**ARC ZFS à part**, swap, processus les plus gourmands (sur un Proxmox : rattachés à leur CT / VM), partitions,
+  pools ZFS ; sur un Proxmox, **CPU (cœurs, % du nœud) et mémoire (totale, hors cache, limite) de chaque CT / VM**
+  lus dans les cgroups v1 et v2, avec leur nom. Envoi UDP signé (HMAC-SHA256, numéro de séquence, horloge).
+  `installer-emetteur.sh` : service systemd durci, clé demandée au clavier (`/etc/si-htop/cle`, 600).
+- **Relais `htop-relais`** (nouveau service compose, port UDP `HTOP_UDP_PORT`) : refuse paquets altérés, rejoués ou
+  hors d'heure ; garde 10 min à 2 s et 24 h par minute (moyenne, pic ; pics par invité), repris après redémarrage.
+  **Constats soutenus 60 s** avec hystérésis : CPU 90 / 98 %, iowait 30 / 50, steal 20 / 40, mémoire hors ARC 92 / 97,
+  swap 60 / 90, charge par cœur 2 / 4, partition 90 / 97, pool ZFS 85 / 95 ou non ONLINE, CT / VM à 95 / 99 % de sa
+  limite mémoire hors cache, hôte muet 30 s ; le message nomme les trois plus gros consommateurs (invités d'un
+  Proxmox, sinon processus). Seuils réglables (`HTOP_SEUILS`).
+- **Central** : `GET /htop`, `GET /htop/hote/<nom>` ; constats lus toutes les 30 s → événements `htop-alert` (gravité
+  du constat, aggravation comprise) et `htop-recovered`, relayés à notify-api (nouvelles actions de la tuile
+  Notifications).
+- **Tuile « htop »** (Thèmes › hyperviseurs) : hôtes en direct (3 s), invités rangés sous leur Proxmox, tri, niveaux
+  (jamais la couleur seule) ; détail d'un hôte : courbes 10 min et 24 h, cœurs, mémoire / swap / disques / pools,
+  invités, processus ; **Capacité** : nœud d'accueil + CT / VM cochés → CPU pic et p95, mémoire hors ARC au pic,
+  mémoire allouée, avant / après, verdict (tient / juste / ne tient pas) — pour vérifier qu'un nœud tient la charge
+  avant d'en vider un autre.
+- **Client `client.py`** (poste d'exploitation, terminal façon htop) : s'abonne au relais (aucun port à ouvrir côté
+  poste), liste, constats, détail (Entrée), tri c / m / n, signal sonore sur constat critique (`--son`, touche s),
+  mode `--texte` sans curses.
+- Vérifié : `si-agent/htop/test_htop.py` (analyse /proc, relevé réel, signature / rejeu / horloge, constats soutenus
+  et hystérésis, mémoire hors ARC, invités, hôte muet, historique et pics, persistance, abonnements et taille des
+  paquets, écrans du client, bout en bout UDP + HTTP), `si-agent/api/test_z_htop.py`, `hub/tests/htopLib.test.mjs`,
+  suite complète si-agent-api et hub ; relais + émetteur + client lancés ensemble (mode texte et curses), émetteur
+  conforme Python 3.5 (vermin).
+- Non vérifié : cgroups réels d'un Proxmox (v1 sur PVE 5.4, v2 sur PVE 7+), image Docker du relais, tuile dans le hub
+  déployé.
+
+## 2026-10-20 — Navigateur des hôtes : apprentissage des parcours et demandes en langage courant (livraison #799)
+
+- **Apprendre** (onglet de la tuile) : « Démarrer », on fait le parcours à la main dans l'écran de l'hôte (connexion,
+  saisies, choix, cases, clics), « Terminer » : chaque geste devient une étape QA avec un sélecteur stable
+  (`data-testid`, `id` non généré, `name`, `aria-label`, texte du bouton, chemin court). Saisies fusionnées, doublons
+  retirés, clic implicite d'Entrée ignoré, validation d'un formulaire de connexion non comptée comme écriture,
+  boutons « créer / enregistrer / valider / supprimer… » marqués `ecrit`. **Mot de passe jamais gardé** (vidé dès le
+  geste). Paramètres déduits : `{{identifiant}}`, `{{mot_de_passe}}`, un paramètre par champ saisi (nommé d'après son
+  libellé, valeur enregistrée par défaut), adresse de base. Brouillon modifiable puis enregistré.
+- **Parcours appris** (central `GET|POST /parcours`, `PUT|DELETE /parcours/<id>`) : lié à un navigateur, à une adresse
+  de base et à un **accès du coffre** (tuile Accès d'équipements) qui fournit identifiant et mot de passe AU MOMENT DU
+  JEU (`credentials-api`, jeton interne) ; valeurs secrètes masquées (`***`) dans les commandes renvoyées au hub.
+  `POST /parcours/<id>/jouer {valeurs, confirmer}` : arrêt avant la première étape qui écrit sauf confirmation.
+- **Demande en langage courant** (`POST /parcours/interpreter`, assistant `POST /assistant/intent`) : le modèle local
+  de l'assistant du hub choisit un parcours appris et les valeurs de ses paramètres d'après la demande (« ouvre la GMAO,
+  connecte-toi et crée un ticket de maintenance du chauffage chez beta ») ; il ne voit que le catalogue (descriptions,
+  paramètres non secrets), jamais les accès ; le plan (parcours, valeurs, manquants, confiance) est montré et modifiable,
+  rien n'est joué sans l'utilisateur.
+- Choix faits faute de préférence : modèle = celui de l'assistant du hub (`LLM_BASE`/`LLM_MODEL`, à pointer vers le
+  serveur IA voulu) ; confirmation avant toute étape qui écrit.
+- Vérifié : enregistrement → paramétrage → rejeu **dans un vrai Chromium relié en CDP** (page de connexion + formulaire
+  de ticket : étapes et paramètres attendus, arrêt avant « Créer le ticket », rejeu complet qui crée) ;
+  `navigateur/test_automate.py`, `si-agent/agent/test_navctl.py`, `si-agent/api/test_z_parcours.py` (coffre et assistant
+  simulés, masquage), `assistant/tests/test_rag.py` (intent), `hub/tests/navigateurLib.test.mjs` ; tuile rendue dans un
+  Chromium avec API simulée (demande → plan → jeu → arrêt avant écriture), sans erreur de console.
+- Vérifié ensuite hors conteneur (mêmes paquets que l'image) : `entrypoint.sh` complet (Xvfb, fluxbox, x11vnc, noVNC,
+  Chromium relancé, automate) -- écran noVNC affiché avec la page ouverte par l'automate, `/etat`, `/aller`, `/capture`,
+  401 sans jeton ; apprentissage par l'API pendant qu'un autre client agit dans le même navigateur (gestes relevés,
+  paramètres déduits). `NAV_CHROME` permet de désigner un autre Chromium.
+- Non vérifié : construction de l'image Docker elle-même, publication par le bastion, vrai modèle (qualité du choix).
+
+## 2026-10-20 — Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate (livraison #798)
+
+- Demande : voir et utiliser un site web **depuis l'hôte d'un agent** (en priorité une VM OVH : nos services vus de
+  l'extérieur), pas depuis le navigateur qui consulte le hub -- pour le débogage et la QA (BACKLOG 129, tranche 1).
+- **`navigateur/`** (installé sur l'hôte, `sudo sh installer.sh`) : conteneur Playwright avec écran virtuel (Xvfb,
+  fluxbox), Chromium relancé s'il est fermé (profil conservé), VNC local + **noVNC**, et **automate** (API locale à
+  jeton) qui pilote CE navigateur par CDP : ouvrir une adresse, capturer, jouer un parcours au format QA avec arrêt
+  avant les étapes marquées `"ecrit": true`. Tout sur 127.0.0.1 (réseau de l'hôte).
+- **Écran dans le hub** : publication par le bastion (`SI_PROXY_PUBLISH=6490=<shim>:127.0.0.1:6080`) puis tls-proxy
+  sous la même origine que le hub (`NAVIGATEURS=ovh1=6490` → `/navigateur/ovh1/`, websocket relayé).
+- **Agent 0.5.89** : commande `navigateur` (`etat`, `aller`, `capture`, `etapes`) relayée à l'automate local
+  (`/etc/si-agent/navigateur/jeton`), résultat allégé au-delà de 3 Mo. Central : commande acceptée, registre
+  `GET|PUT /navigateurs` (nom de l'écran, agent, libellé, page d'accueil).
+- **Tuile « Navigateur des hôtes »** (thème Réseau et infrastructure) : choix de l'hôte, écran intégré (ou plein
+  écran), barre d'adresse (ouverte par l'automate), capture, état, parcours JSON joué sur l'hôte avec résultats pas à
+  pas et capture finale, déclaration des navigateurs.
+- Vérifié : `navigateur/test_automate.py` (étapes, page simulée, échec, arrêt avant écriture),
+  `si-agent/agent/test_navctl.py`, `si-agent/api/test_z_navigateurs.py`, `tls-proxy/test_render_nginx_conf.py`,
+  `hub/tests/navigateurLib.test.mjs` ; suites complètes si-agent (api, agent) et hub au vert ; syntaxe @babel/parser.
+- Non vérifié : construction de l'image et Chromium réel sous Xvfb/noVNC, publication par le bastion, rendu de la
+  tuile dans un navigateur (pas de navigateur ici).
+
+## 2026-10-20 — Central : fin des « database is locked » (contrôle DNS des proxys d'entrée) (livraison #797)
+
+- Constat sur super : erreurs 500 en série (journal des chantiers, agents qui déposent leurs mesures ou lisent leur
+  configuration), journaux « sqlite3.OperationalError: database is locked ».
+- Cause : le contrôle DNS des proxys d'entrée (#776, toutes les 30 s) interrogeait les résolveurs (3 s chacun) en gardant
+  une écriture ouverte sur la base, puis écrivait l'événement « DNS à configurer » par une autre connexion : il
+  s'attendait lui-même 30 s, et tout le central restait bloqué pendant ce temps.
+- Correction : requêtes DNS hors de toute écriture, chaque résultat validé aussitôt, événements émis après validation ;
+  même précaution pour les événements de la maintenance des Proxmox (#705).
+- Test : `test_z_edge` vérifie qu'aucune requête DNS ne part pendant une écriture et qu'un événement écrit par une autre
+  connexion passe sans attente (vérifié ici ; à confirmer sur super : plus de « database is locked » dans les journaux).
+
+## 2026-10-20 — Hub installable sur téléphone : écran « Urgence » et alertes poussées (livraison #796)
+
+- Le hub devient une application installable (manifeste, icônes, service worker) : sur Android « Installer
+  l'application », sur iPhone Partager › « Sur l'écran d'accueil ». L'icône ouvre l'écran Urgence. Raccourcis : Urgence,
+  SMS, Journal des chantiers. Il faut l'adresse https publique (le service worker n'existe pas en http).
+- Nouvel écran « Urgence » (thème Supervision, sous « Aujourd'hui ») : état en un coup d'œil (critiques et
+  avertissements des agents sur 24 h, répétitions regroupées, hôtes touchés), rafraîchi chaque minute ; accès rapides
+  (Aujourd'hui, événements, SMS, tour de contrôle, migration, journal, PRA) ; contacts d'urgence gardés sur l'appareil
+  seulement, avec appel direct.
+- Alertes poussées (Web Push, RFC 8291 / VAPID RFC 8292) par notify-api : chaque appareil s'abonne depuis l'écran
+  Urgence (seuil : critiques, critiques et avertissements, ou tout), essai d'envoi, désabonnement, liste des appareils
+  abonnés. Toute notification passée à `/notify` part aussi en alerte poussée aux appareils dont le seuil est atteint ;
+  file d'envoi avec reprises, abonnements expirés (410) supprimés d'office. Clé VAPID créée au premier démarrage dans le
+  volume de notify-api (`NOTIFY_VAPID_PRIVATE_PEM` pour en fournir une) ; contact VAPID : `NOTIFY_VAPID_SUBJECT`.
+- Hors ligne : page de secours avec les contacts, les dernières alertes reçues et le dernier état relevé.
+- API notify-api : `/push/key` (public), `/push/subscribe`, `/push/subscriptions`, `/push/subscriptions/<id>`, `/push/test`.
+- Tests : `notify/api/test_push.py` (vecteur de la RFC 8291, jeton VAPID, envoi simulé), `test_app.PushRoutes`,
+  `hub/tests/urgenceLib.test.mjs`.
+
+## 2026-10-20 — Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel (livraison #795)
+
+- Nouvelle tuile (thème Réseau et infrastructure, près de « Migration ») : par chantier, chaque entrée a date, jour,
+  heures de début / fin, durée, nature (Acte, Surveillance, Relance, Intervention), intitulé, description non technique,
+  résultat, statut (Fait, En cours, Planifié, À faire) et source. Week-ends et heures hors bureau (8 h 30 - 12 h 15,
+  14 h - 18 h) en rouge ; tableau de synthèse par chantier (entrées, temps tracé, week-end, hors heures, natures).
+- Saisie dans le hub ; import JSON ou CSV (format de l'export, doublons ignorés) ; export CSV pour Excel (`;`, UTF-8
+  avec BOM, même colonnes que le récapitulatif des chantiers).
+- « Suggestions du hub » : événements du central qui ressemblent à des actes de chantier (pilotage de la migration,
+  rapatriements, PRA, maintenances, sauvegardes, agents hors ligne, constats critiques des sondes), ajoutés au journal
+  d'un clic, une seule fois chacun, à l'heure de Paris (`JOURNAL_TZ`, paquet `tzdata` ajouté à l'image).
+- API si-agent-api : `/journal`, `/journal/<id>`, `/journal/import`, `/journal/export.csv`, `/journal/suggestions`.
+- Vérifié : 7 tests API (validation, heures, indicateurs, aller-retour CSV, parcours complet, suggestions), 2 tests hub
+  (journalLib), suite hub au vert (403), syntaxe JSX ; import d'un journal réel de 77 entrées sans erreur.
+  Non vérifié : rendu navigateur, `npm run build`. Corrigé au passage : `test_z_repatriation.test_campaign` échouait selon
+  l'ordre des modules (base de test partagée avec test_z_ia) -- suite si-agent-api entièrement au vert. Écart volontaire avec le classeur : un acte non horodaté un
+  week-end compte ici aussi « hors heures ».
+
+## 2026-10-20 — Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88 (livraison #794)
+
+- Le firmware RutOS 7 du TRB140 n'a plus de service « Post/Get » : la sonde **hub-watch** envoie désormais son SMS
+  d'alerte directement par l'API du routeur (`--trb https://… --trb-compte … --trb-modem 3-1`, mot de passe dans
+  `/etc/si-agent/hub-watch/trb_password`), toujours sans passer par le relais hébergé sur l'hôte du hub.
+  `--sms-url-fichier` reste possible pour une autre passerelle à URL GET.
+- Vérifié : tests de la sonde (6). Non vérifié en réel : l'appel `POST /api/messages/actions/send` (même API que le relais).
+
+## 2026-10-20 — Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87 (livraison #793)
+
+- Sonde **hub-watch**, à activer sur l'agent d'un AUTRE hôte que celui du hub : teste toutes les 2 min les URL du hub et
+  du central (« répond » = HTTP < 500). Après 2 échecs de suite (`--echecs`) : courriel par le sendmail de l'hôte et SMS
+  direct par la passerelle (`--sms-url-fichier`, URL avec `{numero}` / `{texte}`, sans passer par le relais hébergé sur
+  l'hôte du hub) ; rappel toutes les heures, message « rétabli » au retour. Une alerte qui n'a pas pu partir est
+  elle-même un constat critique.
+- Sens inverse : le central signale déjà tout agent qui se tait (`agent-offline`) -- les deux se surveillent.
+- Vérifié : tests de la sonde (3, dont le cycle complet panne / rappel / rétabli) et liste des sondes livrées.
+  Non vérifié en réel : envoi par le service « Post/Get » du TRB140.
+
+## 2026-10-20 — Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86 (livraison #792)
+
+- Sonde **remote-status** (veilles distantes) : lit par ssh, avec une clé dédiée limitée à une commande `cat` côté distant,
+  le fichier d'état d'une veille installée sur une machine sans agent (ex. `sms-veille` du NMS : « OK|KO date détail »).
+  Constats **critiques** : état KO, état trop ancien (`--age-max`, défaut 25 min : veille arrêtée ou machine plantée), machine injoignable.
+- Sonde **sms-gateway** (test de la passerelle 4G) : SMS de test par le relais du TRB140 (`/send`), état du modem par l'API
+  du TRB140 (enregistrement, opérateur, 2G/3G/4G, signal). Envoi refusé ou modem non enregistré = critique ; repli 2G/3G ou
+  signal faible = avertissement.
+- Réglages propres à chaque hôte dans `/etc/si-agent/<sonde>/args` (une « --option valeur » par ligne), secrets dans des
+  fichiers root : aucune adresse réelle dans le dépôt ni dans le catalogue central.
+- Test de la liste des sondes livrées complété (gpu y manquait depuis #782).
+- Vérifié : tests des deux sondes (10) et de l'agent ; tests de l'API (1 échec préexistant `test_z_repatriation.test_campaign`, présent aussi sans ce changement). Non vérifié en réel : champs de `/api/modems/status` selon le firmware du TRB140.
+
+## 2026-10-19 — Notifications › SMS : accès direct au relais SMS et à la passerelle TRB140 (livraison #791)
+
+- Onglet 📱 SMS : boutons « Relais SMS », « Envoyer depuis le relais » (/compose) et « Passerelle TRB140 (interface web) ».
+- Réglages `.env` : `NOTIFY_SMS_RELAY_UI` (vide = `NOTIFY_SMS_RELAY_URL`), `NOTIFY_SMS_TRB_UI` (vide = pas de bouton) ;
+  URL nettoyées (http/https seulement, sans identifiants ni paramètres).
+- Vérifié : tests notify (12) et hub ; compilation JSX.
+
+## 2026-10-19 — Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…) (livraison #790)
+
+- Un lien de mise à jour peut porter des paramètres d'écran : « Notifications › 📱 SMS » ouvre directement l'onglet SMS,
+  « Migration › onglet MX » l'onglet MX (onglet inconnu : retour à l'onglet principal).
+
+## 2026-10-19 — Hub : la recherche « sms » trouve la tuile Notifications (livraison #789)
+
+- Tuile renommée « Notifications (courriels, SMS) » : les menus (thèmes, métier) et l'univers la trouvent par « sms ».
+
+## 2026-10-19 — Hub : liens des « Mises à jour » rétablis pour les livraisons #780 à #787 (livraison #788)
+
+- Pied de page « Mises à jour » : chaque livraison récente a de nouveau ses boutons vers les écrans concernés
+  (Migration, Vues de parc, Parc IA, Tour, Notifications › SMS).
+- La liste elle-même est régénérée jusqu'à la dernière livraison.
+
+## 2026-10-19 — SMS internes du hub : onglet « SMS » des Notifications et API, canal distinct du client externe (livraison #787)
+
+- Besoin : remplacer le vieux modem 2G (smstools) par le TRB140, avec un onglet et une API SMS propres au hub, distincts
+  de ceux du client externe qui utilise déjà le relais.
+- notify-api : canal SMS avec sa propre clé sur le relais du TRB140 (`NOTIFY_SMS_RELAY_URL`, `NOTIFY_SMS_RELAY_KEY` :
+  utilisateur dédié du relais), file d'envoi (reprises avec backoff, abandon, Renvoyer / Abandonner), historique des
+  envoyés et des reçus.
+  - `POST /sms` (jeton de consommateur ou interne) ; `GET /sms/send?number&message&key` au format du relais : le pont
+    smstools (`/var/spool/sms*/outgoing`) s'y branche en changeant seulement l'URL et la clé ;
+  - `GET|POST /sms/recu?jeton=…&de=…&texte=…` pour la transmission des SMS reçus par le TRB140 (SMS Forwarding HTTP) ;
+  - administration (Keycloak) : `/sms/journal`, `/sms/envoyer`, `/sms/<id>/retry|drop`.
+- Hub : onglet « 📱 SMS » de la tuile Notifications (état du relais, envoi avec nombre de SMS facturés, envoyés, reçus,
+  URL à donner aux scripts et au TRB140).
+- Vérifié : notify-api test_app / test_core (numéros, file, backoff, reçus, droits), notifyLib (node --test), syntaxe JSX.
+  Non vérifié : envoi réel par le relais, rendu dans le navigateur.
+
+## 2026-10-19 — Activité horaire : vrais utilisateurs séparés des scanners, journaux « vhost » lus (livraison #786)
+
+- Constat sur deux conteneurs réels : aucune ligne reconnue pour l'un (journaux au format vhost_combined, nom du site en
+  tête), activité 24 h / 24 pour l'autre, dominée par des scanners (réponses 404) et par Nextcloud lui-même (::1).
+- `scripts/activite-horaire.py` : format « site:port » en tête accepté ; requêtes en erreur (≥ 400) et locales (::1,
+  127.0.0.1) écartées ; diagnostic (lignes lues, non reconnues avec un exemple, trop anciennes, écartées) ; comptes
+  authentifiés (WebDAV / synchronisation) avec leurs heures d'activité ; plages sans aucune activité par jour et communes aux jours ouvrés (créneaux sûrs pour une coupure).
+- Vérifié : journal simulé (vhost, scanner 404, ligne illisible). Non vérifié : sur les conteneurs.
+
+## 2026-10-19 — Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule (livraison #785)
+
+- Besoin : avant de basculer des conteneurs web d'administrations (DNS à changer, utilisateurs à prévenir), savoir s'il
+  y a une activité régulière et sur quelle plage horaire.
+- `scripts/activite-horaire.py CT [semaines]` (sur le PVE qui porte le conteneur, Python 3.5+, lecture seule) : journaux
+  d'accès Apache / Nginx (rotations .gz comprises) lus par la racine du conteneur, robots / supervision / fichiers
+  statiques écartés (`--exclure` pour des adresses), grille jour × heure (requêtes par semaine, visiteurs distincts),
+  28 derniers jours, adresses les plus actives, plage d'activité par jour, créneaux les plus calmes des jours ouvrés.
+- Vérifié : sur un journal simulé (rotation gz, robot, fichier statique écartés). Non vérifié : sur les vrais conteneurs.
+
+## 2026-10-19 — Migration : onglets (dont « MX »), étapes à la main avec commande et machine (livraison #784)
+
+- Besoin : suivre dans la tuile Migration la bascule de la messagerie (prérequis, répétition complète avec émission et
+  réception, bascule, réinstallation et retour) sans la mêler au plan des copies.
+- Plan : une phase peut porter `"onglet": "MX"` ; chaque onglet a sa propre suite d'étapes (prochaine étape, « Démarrer »,
+  « Étape suivante », enchaînement automatique : jamais d'un onglet à l'autre). Une étape peut porter `cmd` (commande
+  exacte) et `where` (machine où la lancer), affichées avec un bouton « Copier » pour les étapes à la main.
+- API : `/migration` renvoie `onglets` et `nexts` (prochaine étape par onglet) ; `/migration/control` accepte `onglet`.
+- Hub : barre d'onglets (Migration, MX…) avec l'avancement de chacun ; la vue, la barre de pilotage et l'étape en grand
+  suivent l'onglet choisi.
+- Exemple : `deploy/migration/plan-exemple.json` (phase « MX » fictive). Le plan réel de la messagerie est dans le fichier
+  local hors dépôt.
+- Vérifié : test_z_migrun (onglets : prochaine étape, geste dans un onglet sans toucher l'autre), migrationLib (node --test),
+  syntaxe JSX. Non vérifié : rendu dans le navigateur.
+
+## 2026-10-19 — Tour de contrôle : la cascade ne dépasse plus le délai de construction (livraison #783)
+
+- Constat : toutes les « mises à jour git en cascade » échouaient depuis le 7 oct. (`failed to solve: DeadlineExceeded`) ;
+  chaque service passait ~650 s dans « load build context ».
+- Cause : 73 services sont construits depuis la racine du dépôt, sans `.dockerignore` racine -- chacun envoyait tout le
+  dépôt (historique git, node_modules, archives, données montées), et la cascade les construisait tous en même temps.
+- `.dockerignore` racine (git, node_modules, caches Python, archives, `.env`, données et certificats montés, `dist` du hub)
+  -- rien de ce qu'un Dockerfile copie n'est exclu (vérifié sur toutes les lignes COPY/ADD).
+- Cascade : reconstruction par lots de 6 services (`tower.BUILD_BATCH`), une étape par lot dans le job.
+- Vérifié : test_tower (lots 6/6/2, passerelle à la fin, registre), test_app des services. Non vérifié : durée réelle de
+  la cascade sur super.
+
+## 2026-10-19 — Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85 (livraison #782)
+
+- Besoin : voir depuis le hub la puissance et l'état des GPU (A4500 de la prod campus, RTX 2000 Ada de la préprod,
+  Arc Pro B60 de pcia) pour revoir la répartition des modèles entre machines.
+- Sonde `gpu` (agent, lecture seule, inactive par défaut) : inventaire `lspci` (puces de gestion et cartes virtuelles
+  ignorées), pilote lié ; NVIDIA par `nvidia-smi` (mémoire vidéo, charge, température, consommation et limite,
+  ventilateur, processus) ; Intel / AMD par les capteurs du noyau (température, puissance). Constats : carte sans
+  pilote, mémoire vidéo ≥ 95 %, température ≥ 80 / 87 °C, nvidia-smi en échec ; `--ignore vendeur:modèle` pour une
+  carte laissée sans pilote volontairement.
+- Central : `plugin:gpu` dans les sondes à constats (événements, notifications) ; `views.row` expose `gpus` ; le Parc IA
+  inclut les hôtes portant la sonde gpu.
+- Hub : colonne « GPU » des vues de parc (mémoire vidéo en jauge, charge, °C, W ; « sans pilote », « passée à une VM ») ;
+  Parc IA : bloc des cartes par hôte, bouton « Activer la sonde » quand elle manque.
+- Vérifié : test_gpu_probe (dont capteurs sysfs simulés), test_z_views, test_z_ia, fleetViewsLib / iaParkLib
+  (node --test), syntaxe JSX (analyseur Babel). Non vérifié : rendu dans le navigateur, mémoire vidéo des cartes Intel
+  (non exposée par le noyau : visible côté Ollama).
+
+## 2026-10-18 — Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée (livraison #781)
+
+- Constat : B7 (images des CT supprimés de pve-1), d'abord « à faire à la main », remplacée dans le plan par une copie rsync ;
+  après réimport le titre changeait mais l'étape restait « à faire à la main » (statut `manuel` conservé, seuls « Fait » et
+  « Sauter » proposés).
+- `migrun.set_plan` : à l'import, une étape au statut `manuel` dont le type n'est plus `manual` repasse « à faire » ; une étape
+  déjà faite à la main (`manuel_fait`) est gardée.
+- Vérifié : test_z_migrun (dont le cas réimport manuel → rsync → manuel). Non vérifié : rendu de la tuile.
+
+## 2026-10-18 — Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84 (livraison #780)
+
+- Constat (B8, pve-3 → pve11) : « VOLUME MANQUANT : aucun disque pour 104 » alors que le CT 104 existe ; c'est un modèle
+  (template), son disque s'appelle `rpool/basevol-104-disk-0` et la recherche ne connaissait que `subvol-` et `vm-`.
+- `migctl.py` (envoi ZFS) et `migration_report.py` (total pour « restant / transféré / total ») reconnaissent aussi
+  `basevol-` (modèle de CT) et `base-` (modèle de VM). Les 5 autres CT de B8 sont déjà reçus : la relance ne renvoie que le 104.
+- Vérifié : tests de l'agent fichier par fichier, dont un essai réel de la recherche (`grep -E`) sur une liste de volumes ;
+  `test_updater` échouait déjà avant cette livraison (non lié).
+
+## 2026-10-17 — Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec ») (livraison #778)
+
+- Constat : le bouton « Importer » de la tuile Migration (et bien d'autres) ne montrait aucune prise en compte ; on relançait
+  plusieurs fois et l'action partait plusieurs fois.
+- `hub/src/actionFeedback.js`, installé une fois (`main.jsx`), sans toucher aux vues : tout envoi de modification (POST, PUT,
+  PATCH, DELETE) parti dans les 1,5 s d'un clic est rattaché au bouton cliqué -- bouton « occupé » (roue, curseur
+  d'attente) et second clic ignoré tant que le serveur n'a pas répondu ; bandeau en bas à droite « envoi en cours… », puis
+  « fait » (ou le message du serveur) ou « échec : raison » (erreur du serveur, code HTTP, pas de réponse). Les lectures et
+  les envois sans clic (rafraîchissements) ne changent rien.
+- Migration : l'import du plan répond « plan « … » importé : N étape(s), étapes déjà faites conservées » et le bouton affiche
+  « Import en cours… ».
+- Migration (agent 0.5.81) : le lot rsync (pve-2 → disque de 10 To) échoue « SOURCE VIDE » quand aucun dossier ne correspond, au lieu
+  de réussir sans rien copier.
+- Migration (agent 0.5.82) : l'envoi ZFS échoue « VOLUME MANQUANT » (code 13) si un des CT / VM demandés n'a aucun disque sur la
+  source, au lieu de réussir avec les seuls volumes trouvés (vu : 9106 absent de pve-3, B5 « réussie » avec 102 et 119).
+- Vérifié : `node --test` (dont actionFeedbackLib), syntaxe JSX, **essai réel dans Chromium** (bouton occupé pendant l'envoi,
+  second clic bloqué, bandeau « déjà en cours… » puis message du serveur), test_z_migrun. Non vérifié : chaque tuile une à une.
+
+## 2026-10-17 — Activité des VM : analyse interne des invités (SSH, sudo, courriels, fichiers modifiés, journaux, connexions établies) dans le temps (livraison #777)
+
+- Constat réel : CT 103 de pve-1 sans journal d'accès web, sans MySQL et wtmp vide -- « dernière activité » inconnue ;
+  demandé : une analyse plus intrusive, par exemple les journaux internes.
+- Sonde guest-usage v3 (agent 0.5.75), toujours en lecture seule et sans ligne brute remontée : connexions SSH acceptées
+  par jour (comptes distincts, dernière : compte et adresse) et commandes sudo (auth.log / secure, sinon journal systemd),
+  courriels envoyés (postfix), fichiers de données modifiés par jour (/home, /var/www, /srv, courrier, ownCloud /
+  Nextcloud ; caches, sessions, tmp, .git exclus ; dossier de premier niveau seulement), journaux écrits dans les 24 h,
+  connexions établies vers les services de l'invité, processus les plus consommateurs ; en reprise d'historique : .gz
+  d'auth / mail et dates de fichiers sur 800 jours.
+- Central : jours SSH, sudo, courriels, fichiers accumulés ; SSH et sudo comptent comme activité réelle (« Inactif réel »),
+  fichiers et courriels sont des signes INDIRECTS datés à part (une tâche automatique peut les produire) ; mois : SSH, sudo,
+  fichiers modifiés, courriels.
+- Hub : fiche du CT / VM -- SSH (journaux internes), fichiers modifiés, courriel envoyé, connexions établies, bloc
+  « Activité interne » (journaux récents, processus) ; « Inactif réel » indique les signes indirects plus récents.
+- Correctif (agent 0.5.76), vu en réel sur tous les CT : « sh: 0: -c requires an argument » -- le script de l'invité, logé dans
+  `$(cat <<...)` du pilote, arrivait vide (bash 4.4 des PVE 5.4) ; il est désormais écrit dans un fichier temporaire puis relu,
+  et un pilote réel (faux pct / pvesh) est testé de bout en bout. Le nœud distant est nommé comme le nœud Proxmox
+  (pve-1 relevé par deux agents apparaissait deux fois : « pve-1 » et « ns3037858 »).
+- Correctif 2 (agent 0.5.77) : la cause réelle, vue sur pve-3 (bash 4.4, pct de PVE 5.4) : `pct exec <ct> -- sh -c "<script>"` perd un
+  argument de plusieurs lignes (un argument court passe) ; le script est donc passé par l'entrée standard (`pct exec ... sh -s`).
+- Correctif 3 (agent 0.5.78), vu sur le CT 102 de pve-3 (Debian 9 : mawk 1.3.3, iproute2 2014) : `ss -H` inconnu, l'aide sortait sur la
+  sortie standard et faussait les connexions établies (« port 0 ») ; lignes de données reconnues sans l'option -H.
+- CT ARRÊTÉS (agent 0.5.79) : analysés une fois hors ligne, comme une reprise d'historique -- `pct mount`, même script sur la racine
+  montée (journaux web, wtmp, SSH / sudo / courriels, dates de fichiers sur 800 j ; ni MySQL, ni processus, ni connexions),
+  `pct unmount` aussitôt ; une marque par CT monté fait démonter au passage suivant un CT resté monté après un arrêt brutal.
+- VM ARRÊTÉES (agent 0.5.80), choix de la personne : jamais Windows ; tâche de fond détachée (systemd-run), une VM à la fois par
+  nœud, UNE seule lecture tant que la VM n'a pas redémarré (signature des disques : taille / date des fichiers, octets écrits
+  des zvol), VM verrouillée par Proxmox pendant la lecture (`qm set --lock backup`, elle ne peut pas démarrer), disques ouverts
+  un par un en LECTURE SEULE (zvol / LV, `losetup -r` pour .raw, `qemu-nbd -r` pour .qcow2), ext2-4 / xfs / btrfs montés ro
+  sans rejouer le journal ; jamais : NTFS, pool ZFS interne (jamais importé), LVM interne, chiffré ; tout est démonté,
+  détaché, déverrouillé (et défait au passage suivant si la tâche a été interrompue) ; la VM est marquée « lue » sur le nœud.
+- Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
+  caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
+  pve-remote.json de l'agent qui porte la sonde), rendu navigateur.
+
+## 2026-10-17 — Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer » (livraison #776)
+
+- Demandé : un couple interchangeable de proxys sur deux VM chez l'hébergeur, sur deux Proxmox différents, pour
+  rediriger dynamiquement une entrée DNS / IP vers une autre interne, avec un test automatique de la configuration DNS
+  et une alerte de demande de configuration indiquant le serveur DNS à modifier.
+- Agent 0.5.74 : commande `edge` (`si_agent/edgectl.py`) -- l'agent fabrique LUI-MÊME la configuration HAProxy à partir de
+  routes validées (nom HTTPS par SNI en passage direct sur 443 + HTTP 80 pour Let's Encrypt, ou port public → port
+  interne, option PROXY), `haproxy -c`, sauvegarde, rechargement, ancienne remise en cas d'échec ; état : service,
+  empreinte de la configuration, joignabilité de chaque serveur interne vue du proxy.
+- Central (`edgepair.py`, `dnsq.py` client DNS sans dépendance) : deux proxys au plus (avertissement s'ils sont sur le
+  même nœud), routes avec serveurs candidats et bascule appliquée aux deux, état relevé toutes les 5 min, contrôle DNS
+  toutes les 10 min -- serveurs faisant autorité (zone trouvée d'elle-même) et résolveurs publics -- états conforme /
+  à configurer / propagation / erreur ; alerte notifiée au changement d'état avec le fournisseur et les serveurs de la
+  zone à modifier, l'enregistrement exact (TTL conseillé) et la valeur actuelle (CNAME compris) ; mode DNS « les deux »
+  ou « proxy actif ». Problèmes des proxys classés avec solution (agent trop ancien, HAProxy absent, configuration
+  refusée avec le contrôle de haproxy, écart d'empreinte, serveur interne injoignable → tunnel WireGuard).
+- Hub : Réseau › Proxys d'entrée -- alertes en tête, le couple, routes (bascule par liste, joignabilité vue de chaque
+  proxy, détail DNS par serveur), réglages, aperçu de la configuration HAProxy, journal.
+- `deploy/proxy-pair/` : `install-edge.sh` (HAProxy, WireGuard, réglages ; `--check`) et mode d'emploi.
+- Vérifié : unittest edgectl (validation, rendu identique quel que soit l'ordre, **`haproxy -c` réel sur la configuration
+  produite**, application, retour arrière sur échec de rechargement), test_z_edge (paquets DNS fabriqués avec
+  compression, contrôle DNS simulé : conforme / à configurer avec CNAME / propagation / zone introuvable ; parcours par
+  les routes : deux proxys, routes, bascule, acquittements, alerte unique puis retour à la normale, mode actif),
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : VM réelles, DNS réel, rendu navigateur.
+
+## 2026-10-17 — Tuile « Latence des IP publiques » : mesures régulières depuis plusieurs points, configurateur des accès (agent, compte + sudo, rebond), erreurs avec solution (livraison #775)
+
+- Demandé : une page du hub des mesures de latence de toutes les IP publiques du SI, avec un configurateur pour ajouter
+  les comptes de connexion directe et indirecte (cas général : compte personnel + sudo, ou l'agent existant).
+- Cibles : IP publique, ports, noms servis en HTTPS, groupe ; points de mesure : `agent` (l'agent mesure), `direct`
+  (un agent exécutant ouvre `ssh compte@hôte`, sudo facultatif), `indirect` (même chose par un rebond `-J`) ; aucun mot de
+  passe ni clé enregistrés (chemin de clé facultatif sur l'exécutant). Import / export JSON : la liste réelle reste hors dépôt.
+- Agent 0.5.73 : commande `latency` (`si_agent/latctl.py`, lecture seule) -- ping (perte, aller-retour), ouverture TCP par
+  port, HTTPS forcé sur l'IP et par le nom (résolution, connexion, poignée TLS, premier octet, total, code, sans proxy),
+  adresses obtenues pour le nom ; localement ou par `ssh ... bash -s` (`sudo -n` si demandé).
+- Central (`latency.py`) : une mesure par point toutes les 15 min (réglable), une seule par créneau, résultats gardés
+  31 jours ; diagnostic (pertes, port fermé, HTTPS en échec, poignée TLS lente au regard de l'aller-retour, premier octet
+  lent, nom qui ne pointe pas sur l'IP, chemin par le nom plus lent) ; médiane et p95 sur 24 h ; erreurs classées avec
+  solution (clé refusée → commande pour poser la clé de l'exécutant, sudo avec mot de passe, agent trop ancien, outils
+  absents, empreinte, DNS, réseau, agent silencieux ou inconnu).
+- Hub : Réseau › Latence des IP publiques -- tableau IP × points (total, ping, TLS, constat), détail avec courbes 24 h,
+  onglets Cibles, Points de mesure (commande « préparer l'accès » générée), Réglages et import.
+- Garde : test qui vérifie que tout module importé par le central est copié dans l'image (oubli de `migrun.py` en #774).
+- Vérifié : unittest latctl (script `bash -n`, exécution locale réelle, lecture des mesures, SSH simulé), test_z_latency
+  (parcours par les routes : import, mesure demandée, acquittements, diagnostic, erreurs classées, créneau unique,
+  export), `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : mesures réelles depuis super / r2d2, rendu navigateur.
+
+## 2026-10-17 — Tuile « Migration 2026-2027 » : plan d'étapes pré-paramétré, pilotage pas à pas, erreurs détaillées avec bouton Solution (livraison #774)
+
+- Demandé : une page du hub pré-paramétrée pour suivre et piloter la migration (start, stop, pause, next, auto) avec
+  toutes les étapes retenues, chaque erreur détaillée avec une solution, et un script de mise à jour des agents par SSH.
+- Plan importé en JSON (phases, étapes, paramètres `${NOM}`), hors dépôt pour le plan réel ; modèle fictif
+  `deploy/migration/plan-exemple.json`. État en base du central (`mig_plan`, `mig_run`, `mig_steps`, `mig_log`) ; chaque
+  geste est journalisé et donne un événement.
+- Agent 0.5.71 : commande `migstep` (start, pause, resume, stop) -- étape d'un TYPE connu (contrôles SSH / place /
+  fichier, création de volume, rsync à chaud, lot rsync, envoi ZFS reprenable, flux ZFS vers fichier, vérifications),
+  paramètres validés, script détaché par `systemd-run` (survit au redémarrage de l'agent). Sonde **migration** : état,
+  code de sortie, taille copiée, débit, fin estimée, fin du journal.
+- Central : enchaînement automatique sur rapport de la sonde, suspension sur erreur, refus de l'agent repris comme
+  erreur, étape « silencieuse » signalée après 5 min, processus disparu (hôte redémarré) reconnu ; catalogue d'erreurs
+  avec cause, détail et solution (relance avec reprise, ou commande exacte et hôte où la lancer).
+- Hub : tuile Infrastructure › Migration 2026-2027 -- barre de pilotage, étape en cours en grand (avancement, débit, fin
+  estimée, journal), carte d'erreur et bouton Solution, paramètres, phases et étapes, journal des gestes, import du plan.
+- Solution « clé SSH refusée » : la clé de l'hôte est posée chez le distant par le compte personnel + sudo (sans mot de passe
+  root), depuis la maison ; vérifiée sur pve-3 le 17/10.
+- Contrôle d'un flux `zfs send` vers fichier (.zfs) : complet si son dernier enregistrement est la fin de flux (DRR_END),
+  au lieu d'une comparaison de tailles trompeuse (taille du volume ≠ taille du flux) ; vu sur la copie PBS de pve10.
+- Agent 0.5.72 : copie d'un conteneur Proxmox par son numéro (`ct`) -- en service, racine vue par son processus init
+  (`/proc/<pid>/root`, /proc /sys /dev /run /tmp exclus), arrêté : `pct mount` puis `pct unmount` ; une copie rsync qui ne
+  trouve aucun fichier échoue (« SOURCE VIDE ») au lieu de réussir. Vu sur pve-1 : `/var/lib/lxc/103/rootfs` est vide
+  vu de l'hôte, la copie de B2 (et celle lancée à la main dans tmux) n'avait rien copié.
+- `deploy/migration/agent-ssh.sh` : mise à jour de l'agent et activation des sondes sur des hôtes, par SSH depuis un poste
+  Linux.
+- Vérifié : unittest migctl et sonde (scripts `bash -n` pour tous les types, injections refusées), test_z_migrun (parcours
+  complet par les routes : plan, variables, erreur classée, saut, automatique, étape manuelle, refus d'agent),
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : exécution réelle sur pve10 / pve11, rendu navigateur.
+
+## 2026-10-16 — Infra PVE / PBS : suivi des copies en cours (zfs send, zfs recv, rsync) avec avancement, débit et fin estimée (livraison #773)
+
+- Besoin réel : suivre depuis le hub les copies du week-end (stockage PBS vers le disque de 10 To, rsync de pve-1 et
+  envois ZFS vers pve11), qui n'écrivent pas dans les dossiers surveillés.
+- Sonde node-activity v4 (agent 0.5.70), **sans réglage** : pour chaque zfs send/recv, rsync, scp, dd en cours, la
+  destination est retrouvée d'elle-même -- fichier de sortie d'un `zfs send > fichier` (copié / taille du snapshot,
+  pourcentage, fin estimée), volume ZFS d'un `zfs recv`, volume ZFS ou disque de destination d'un `rsync` / `scp` (taille
+  occupée qui grossit) ; débit d'un passage à l'autre ; constat « ne progresse plus » après 3 passages (6 min) sans
+  croissance. Dossiers surveillés en plus : `/etc/si-agent/node-activity.json` `{"watch": [...]}`.
+- Hub : tuile Infra PVE / PBS › Transferts, bloc « Destinations des transferts » (nœud, transfert, destination, copié,
+  avancement, débit, fin estimée).
+- Vérifié : unittest node-activity (dont le relevé shell réel sur un dd vers un fichier et un rsync simulé), test_z_infra,
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : zfs send / recv réels sur pve10 et pve11, rendu navigateur.
+
+## 2026-10-16 — Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction (livraison #772)
+
+- Constat réel : `docker compose up --build` en échec « no space left on device » sur super alors que `/var` avait
+  ensuite 119 Go libres et 4 % d'inodes utilisés -- saturation passagère que la surveillance #593 (instantané toutes
+  les 60 s) ne voyait pas.
+- Tour de contrôle, surveillance de l'hôte (services-api) : par partition, **fichiers (inodes)** (orange ≥ 85 %, rouge
+  ≥ 95 % ou < 10 000 libres) ; **rythme de remplissage** et « plein dans ~N » (orange < 6 h, rouge < 1 h) ;
+  **minimum de 24 h** : une saturation passagère (< 200 Mo libres puis retour à la normale) donne un événement et une
+  notification `tower.host.disk` ; **fichiers effacés encore ouverts** par un processus de l'hôte (place non rendue,
+  vus par /host/proc au mieux, toutes les 10 min) : signalés au-delà de 1 Go avec le processus en cause.
+- Hub, Tour › Services › Hôte du hub : ces informations sous chaque partition.
+- `scripts/run.sh` : **garde avant construction** (`--build` / `build`) -- place et inodes du dossier Docker affichés ;
+  moins de `SI_BUILD_MIN_FREE_GB` (5 Go) ou inodes ≥ 95 % : cache de construction vidé automatiquement (jamais images
+  en service ni volumes), puis arrêt clair si toujours insuffisant (`SI_BUILD_FORCE=1` pour passer outre).
+- Vérifié : test_lights, test_app (inodes simulés, saturation passagère notifiée une fois), test_tower ; garde de
+  run.sh exécutée sur un docker simulé (sous le seuil, forcée, sans construction) ; syntaxe JSX. Non vérifié : lecture
+  de /host/proc depuis le conteneur services-api sur super (droits), rendu navigateur.
+
+## 2026-10-16 — Activité réelle des VM dans le temps (un an et plus), « inactif réel depuis », décision et suivi de migration (livraison #771)
+
+- But : connaître l'usage réel de chaque CT / VM dans le temps et depuis quand il est vraiment inactif, pour dresser
+  la liste à soumettre aux décideurs et planifier / suivre la migration.
+- Sonde `guest-usage` v2 (agent 0.5.69) : bloc « days » par jour et par service -- web des **humains** (requêtes,
+  octets, visiteurs distincts ; robots, outils, supervision et boucle locale comptés à part), ownCloud, connexions
+  unix (sessions, comptes), MySQL (connexions, requêtes, octets, d'un passage à l'autre), CPU / réseau / disque (RRD
+  « month » par jour, « year » par semaine). **Reprise de l'historique** une fois par invité : tous les journaux
+  d'accès encore présents (.gz compris, 800 j au plus) et wtmp.1, résumés sur place (aucune ligne brute) -- au plus un
+  CT et une VM par nœud et par passage. Hors reprise : 3 derniers jours seulement (séries RRD complètes une fois par jour).
+- Central : les jours sont **accumulés à la réception** (table `guest_daily`, fusion par jour : un relevé partiel ne fait
+  jamais baisser un jour complet) -- l'historique s'allonge après la rotation des journaux des invités. `GET
+  /infra/guests` porte pour chaque invité l'activité dans le temps (mois par mois, dernière activité réelle par
+  service, jours sans activité, classe actif ≤ 7 j / faible ≤ 30 j / dormant ≤ 180 j / inactif / inconnu) ;
+  `GET /infra/guests/history?node=&vmid=&days=` : série quotidienne. Mesure malformée : ignorée sans casser l'écran.
+- Fiche ⚙ : **décision** (garder, migrer, archiver puis arrêter, arrêter, à étudier), motif, décidé par, cible, date
+  prévue, état de la migration (à planifier, planifiée, en cours, faite, annulée).
+- Hub, écran « Activité des VM » : colonnes « 13 mois » (jours d'activité réelle par mois), « Inactif réel » (classe et
+  date), « Décision » ; filtres activité réelle / décision ; indicateurs inactifs et décisions prises ; détail
+  « Activité réelle dans le temps » mois par mois ; bouton **Liste décideurs (CSV)** (lignes affichées, moins actives
+  d'abord, séparateur « ; » pour tableur).
+- Limites : l'historique dépend des journaux encore présents dans les invités (sinon il commence au déploiement) ;
+  MySQL n'a pas d'historique propre (compté à partir du déploiement) ; une VM migrée change de clé (nœud, vmid).
+- Vérifié : unittest guest-usage (dont l'awk réel sur un journal .gz, robots et boucle locale à part), test_z_guestusage
+  (réception, fusion, résumé, routes, mesure malformée), `node --test hub/tests/*.test.mjs`, syntaxe JSX par
+  @babel/parser. Échec préexistant et indépendant : test_z_repatriation.test_campaign (dépend de l'ordre des tests,
+  identique sur #770). Non vérifié : passage réel sur les Proxmox, rendu navigateur, `npm run build`.
+
+## 2026-10-16 — Serveur de messagerie : contrôles automatiques, tests fabriqués (spam, virus) et indicateurs extensibles depuis le hub (livraison #770)
+
+- Né d'un constat sur OB1 : Amavis tournait « ANTI-VIRUS code NOT loaded » (base ClamAV quotidienne absente, mises à
+  jour refusées pour version en fin de vie) -- le courrier passait sans analyse virale, sans alerte claire.
+- Sonde mail-server v3 (agent 0.5.68) : constats `antivirus-not-loaded` et `antivirus-db-missing` (critiques) ;
+  **tests fabriqués** envoyés à une boîte de test (courriel ordinaire, spam GTUBE, virus EICAR -- fichier de test
+  inoffensif --, pièce jointe .exe, message libre) avec verdict attendu, relu par Message-ID dans le journal Amavis,
+  ou dans la réponse du filtre au Postfix émetteur quand le filtre est sur une VM spécialisée ; délai dépassé = échec ;
+  historique ; **indicateurs** (expression du journal, fenêtre, seuils). Constats `test-failed:<id>`, `indicator:<id>`.
+- Catalogue `/etc/si-agent/mail-checks.json` (complète les valeurs par défaut, `remove` pour en retirer) ; actions
+  mailctl `checks_get`, `checks_set` et `canary_run` (motif obligatoire, journalisées).
+- Hub : tuile Serveur de messagerie › onglet **Contrôles** : boîte de test et fréquence, tests (actif, verdict attendu,
+  dernier résultat, historique), indicateurs (expression, fenêtre, seuils, valeur), ajout depuis des modèles,
+  « Lancer les tests maintenant », écriture sur le serveur.
+- Vérifié : unittest mail-server (dont un passage complet : 3 messages envoyés, verdicts local et distant, virus de test
+  accepté = critique, délai dépassé), test_mailctl, `node --test hub/tests/*.test.mjs` ; syntaxe JSX par
+  @babel/parser. Non vérifié : envoi réel par sendmail sur OB1, rendu navigateur, `npm run build`.
+
+## 2026-10-15 — Activité des VM : dernier accès web, MySQL, connexions et CPU de chaque CT / VM de tous les Proxmox, fiche de paramétrage (livraison #769)
+
+- Sonde `guest-usage` v1 (agent 0.5.67) : nœud local + nœuds distants de pve-remote.json, un appel ssh par nœud ;
+  par CT / VM : CPU (RRD : instant, moyenne / pic 24 h, moyenne 7 j), HTTP/HTTPS (journaux Apache / nginx agrégés
+  dans l'invité : dernier accès, requêtes 24 h / 7 j / par jour, IP, ownCloud et dernier compte), connexions unix
+  (`last`), MySQL / MariaDB (compte de maintenance Debian ou root par socket : sessions, connexions par jour d'un
+  passage à l'autre, comptes vus). Aucun mot de passe, aucune ligne de journal remontée.
+- API : `GET /infra/guests`, `PUT /infra/guests/profile` (fiche : comptes unix, compte MySQL, URL HTTPS / ownCloud,
+  IP à ignorer, rôle, notes, entrée du coffre-fort ; champ « secret » refusé), table `guest_profiles`.
+- Hub : écran « Activité des VM » (Équipements › Hôtes › Hyperviseurs) : tableau trié / filtré (nœud, classe
+  d'activité actif / récent / calme / dormant, démarrés, recherche), mini-histogramme 14 j ; détail au clic (requêtes,
+  connexions MySQL et unix par jour, clients HTTP, comptes) et fiche ⚙ par VM. La fiche s'applique à l'affichage :
+  IP ignorées (supervision, sauvegardes), comptes unix / MySQL suivis.
+- Tuile Proxmox : le suivi d'une VM (déjà : disponibilité, sauvegardes, accès console / API, extraits de journaux)
+  renvoie vers son activité (statistiques et derniers accès, que la tuile n'avait pas) ; lien `?view=guest-usage&q=<vmid>`.
+- Au passage : `hub/src/hubUpdates.json` n'avait pas été régénéré en #768 (test hubUpdates en échec) : rattrapé.
+- Vérifié : `node --test hub/tests/*.test.mjs`, unittest guest-usage (dont le script de l'invité exécuté pour de vrai
+  par sh / awk / sort sur un journal factice, et `bash -n` du script de nœud), test_z_guestusage, test_z_infra,
+  test_z_repatriation ; syntaxe JSX par @babel/parser. Non vérifié : `npm run build`, rendu navigateur, exécution sur
+  un vrai Proxmox (pct exec / qm guest exec / pvesh rrddata sur PVE 5.4).
+
+## 2026-10-15 — Messages d'erreur : lien vers le journal de l'agent concerné (livraison #768)
+
+- Règle d'ergonomie : une erreur de sonde ou d'action affiche « → événements · sondes · journal de l'hôte » de
+  l'agent qui l'a remontée (`agentJournalLinks` dans `hubLinks.js`, composant `JournalLinks.jsx`).
+- Branché sur : État des données (sources en erreur ou en retard), Rapatriement (sources de l'inventaire, inventaire
+  vide, restes sur le nœud local). `?view=si-agent&tab=events&agent=…&q=…` ouvre les événements filtrés.
+- Agent 0.5.66, pve-remote v3, node-activity v3 : clé ssh absente pour le service → message explicite (ProtectHome
+  masque /root et /home : clé à placer dans `/etc/si-agent/keys/`) au lieu de « Permission denied ».
+- Vérifié : `node --test hub/tests/*.test.mjs` (373 OK), unittest pve-remote, node-activity, xferctl, leftovers,
+  test_z_repatriation, test_z_infra ; syntaxe JSX par @babel/parser. Non vérifié : `npm run build`, rendu navigateur.
+
+## 2026-10-14 — Assistant du hub : base de connaissance privée (sessions de travail, fiches d'exploitation, skills) et questions récurrentes en évaluation (livraison #767)
+
+- Assistant : nouvelle source « kb » = `DATA_DIR/kb/**` (hors dépôt, ignoré par git) : fiches symptôme → cause →
+  commandes, sessions de travail transcrites, skills du projet ; jeux d'évaluation complémentaires
+  `DATA_DIR/cases.d/*.json` ajoutés aux cas de base (champ `origin`).
+- Outil `assistant/tools/transcript_to_md.py` : journal JSONL d'une session (Claude / Cowork) → Markdown (demandes,
+  réponses, commandes, extraits de résultats et erreurs, résumés de contexte), secrets masqués d'office, `--map` pour
+  une version anonymisée. Test : `assistant/tests/test_transcript.py`.
+- Vérifié hors dépôt sur la base réelle : 18 questions d'exploitation, fiche attendue dans les 5 premiers extraits 18 / 18.
+
+## 2026-10-14 — Infra PVE / PBS : avancement des tâches Proxmox en cours (sauvegardes vzdump vers PBS) (livraison #766)
+
+- Sonde node-activity v2 (agent 0.5.65) : tâches en cours (`/var/log/pve/tasks/active`) et extrait de leur journal --
+  liste des CT / VM de la tâche vzdump, terminés (durée), en échec, en cours, pourcentage (VM) ; pour un CT sauvegardé
+  vers PBS (pas de pourcentage dans le journal), octets lus par proxmox-backup-client. Nœuds locaux et distants.
+- API : `pve_tasks` dans `/infra/overview`, avancement estimé (octets lus / espace utilisé du CT) et global pondéré
+  par la taille des CT / VM.
+- Hub : tuile Infra PVE / PBS › Transferts, bloc « Tâches Proxmox en cours » (barre d'ensemble, CT en cours, bilans).
+
+## 2026-10-14 — Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub (livraison #765)
+
+- Agent 0.5.64 : action xfer `leftovers` (archives vzdump, `.part` d'exports interrompus, images brutes et montages en
+  boucle des dossiers `/var/lib/vz/dump`, `/data/dump`, `/var/lib/vz/import` ou `xfer_leftover_dirs`) et `purge`
+  (démontage, `losetup -d`, effacement) : fichier listé, nom répété, motif, refus si référencé par une conf CT / VM
+  ou export en cours ; journal `/var/log/si-agent/xfer-purge-audit.log`, événement `xfer-purge`.
+- API : `POST /repatriation/cleanup/evaluate` et `/repatriation/cleanup/purge` -- conditions par élément : copie
+  locale présente (campagne ou id 9000+vmid), copie démarrée, sauvegarde PBS complète de la copie postérieure à
+  l'archive ; une archive d'un CT / VM local est traitée comme une sauvegarde ordinaire. Forcer exige un motif.
+- Hub (tuile Rapatriement) : section « Restes sur le nœud local » (ouverte aux étapes Nettoyage et Bilan) : Analyser,
+  conditions ●/■ par élément, Supprimer / Forcer…, « Supprimer les éléments prêts » en un geste avec un motif.
+
+## 2026-10-14 — Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte (livraison #764)
+
+- Sonde pve-remote (agent 0.5.63) : le filtre des CT / VM par nœud compare les noms courts (`hostname -s`) et, si
+  le nom d'hôte ne correspond à aucun nœud Proxmox (serveurs loués au nom d'hôte constructeur), garde tous les
+  invités au lieu d'un inventaire vide.
+- Assistant de rapatriement, étape Inventaire : ligne « Sources » (pve-remote / node-activity, agent, âge, nombre de
+  CT/VM, erreur) et, si le tableau est vide, la raison et le geste à faire (nœud non déclaré, injoignable, ou joint
+  sans invité vu).
+
+## 2026-10-14 — État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées (livraison #763)
+
+- Hub : bandeau « État des données » (DataStatus) sur Rapatriement, Infra PVE / PBS, Vues de parc et Parc IA -- pour
+  chaque source de l'écran (sonde des agents) : nombre d'agents, âge de la dernière mesure, erreur, et ce qu'il faut
+  faire quand rien ne remonte ; temps de réponse de l'API (lent ≥ 2,5 s, engorgement probable ≥ 8 s) ; constats propres
+  à l'écran. Replié : une ligne de pastilles ; déplié : le détail.
+- Rapatriement : la liste des nœuds locaux vient des agents qui remontent la sonde proxmox (elle était vide quand la
+  sonde n'avait pas été affectée depuis le hub) ; le bandeau dit pourquoi la liste des nœuds distants est vide
+  (sonde pve-remote / node-activity absente, ssh refusé…).
+- si-agent-api : `GET /diag/tasks?tasks=…` (état des sources) ; `/repatriation` renvoie `local_agents`.
+- Vérifié : tests API (rapatriement + diag), hub (371), rendu du bandeau (capture). Non vérifié : sur super.
+
+## 2026-10-14 — Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié (livraison #762)
+
+- Hub : pied de page « ▸ Mises à jour (dernière : #N du JJ/MM) » -- les 40 dernières livraisons (numéro, date, titre)
+  et, pour chacune, des boutons vers les tuiles nouvelles (« Nouveau · ») et les écrans modifiés (avec l'onglet ou la
+  section concernée) ; bouton grisé si l'écran n'est pas disponible pour la personne ou sur ce déploiement. État
+  ouvert / fermé mémorisé dans le navigateur.
+- `scripts/gen-hub-updates.py` : génère `hub/src/hubUpdates.json` depuis les titres du CHANGELOG ; à relancer à chaque
+  livraison (un test du hub échoue si la dernière livraison n'y figure pas). Écrans modifiés : `UPDATE_LINKS` dans
+  `hub/src/hubUpdatesLib.js`, tuiles nouvelles : `SINCE` de hubThemes.js.
+- Vérifié : tests hub. Non vérifié : rendu dans le hub déployé.
+
+## 2026-10-14 — Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré (livraison #761)
+
+- Hub, tuile « Rapatriement d'un nœud distant (assistant) » (thème Équipements) : une campagne par nœud distant, en
+  six étapes façon assistant d'installation (◀ Précédent / Suivant ▶) -- Inventaire (CT / VM vus par pve-remote :
+  rapatrier, garder, supprimer ; nouvel identifiant), Préparation (stockage, débit, mode, plage des destructions,
+  contrôles au vert ; « Lancer le rapatriement »), Rapatriement (phase de chaque plan), Vérification (comparaison
+  original / copie, « Valider la copie » ou « Abandonner »), Nettoyage (destructions dans la plage ; suppressions
+  manuelles listées avec leur commande), Bilan (rapatriés, gardés, place libérée). Synoptique permanent : étapes,
+  curseur sur l'étape courante, pourcentage pondéré mesuré à partir des plans en cours. Rafraîchi toutes les 10 s.
+- si-agent-api : `repatriation.py` (phases, avancement, inventaire, contrôles), table `repatriation`, routes
+  `/repatriation` (liste, création, lecture, mise à jour, lancement, validate / abort par CT / VM). Chaque CT / VM
+  « rapatrier » est confié à un plan repatriate #750 (transition 1 reprise automatiquement : la Préparation en tient
+  lieu ; transition 2 = « Valider la copie »). Tuile Infra : taille des disques des invités.
+- Vérifié : tests API (3 : phases, avancement, campagne complète jusqu'à 100 %), hub (368), rendu (capture).
+  Non vérifié : sur pve-1 / pve10 réels.
+
+## 2026-10-14 — Cortex : constats des sondes de terrain corrélés aux constats Wi-Fi de Nebula, cause Wi-Fi probable (livraison #760)
+
+- BACKLOG 122, point 7 : Cortex reçoit les constats Wi-Fi en cours de nebula-api (occupation, alertes Nebula,
+  anticipation #758-#759) comme événements rattachés à la borne ; les constats des sondes si-agent gardent leur sonde
+  d'origine (`probe-alert:wifi-probe`, `probe-alert:path-probe`…). Un constat de sonde de terrain et un constat Wi-Fi à
+  moins de 30 min, sur le même site (ou sites mis en correspondance par `CORTEX_WIFI_SITE_MAP`, ou un seul site Nebula
+  en cause) forment un incident dont l'hypothèse causale en tête est « cause Wi-Fi probable : <constat Nebula> », avec
+  le nouveau principe `wifi-field-correlation` (confiance de base 0,65, ajustée par le retour humain comme les autres).
+- Vérifié : tests Cortex (22, dont le nouveau scénario : regroupement, fenêtre, sites, correspondance). Non vérifié :
+  sur les événements réels.
+
+## 2026-10-14 — Anticipation Wi-Fi (suite) : ports vers les bornes, micrologiciels, licences, bandes et signal (livraison #759)
+
+- nebula-api, `anticipation.py` (BACKLOG 122, points 3, 5, 6) :
+  - ports des commutateurs vers les bornes (liaisons LLDP de la carte VLAN #548/#555, réglages bruts des ports) :
+    vitesse < 1 Gbit/s, PoE en défaut, borne en ligne qui n'est plus vue en LLDP ;
+  - micrologiciels hétérogènes par modèle ; licences / abonnements de l'organisation à J-90 / J-30 / échus ;
+  - bandes et signal : part de clients en 2,4 GHz sur une borne chargée (pilotage de bande), clients « collés »
+    (signal faible sur 3 relevés de suite).
+  Les champs exacts de l'OpenAPI pour la vitesse, le PoE, le micrologiciel et les licences ne sont pas documentés : ils
+  sont cherchés par motif et l'écran affiche « non fourni » quand la réponse ne les contient pas (diagnostic :
+  `/sites/<site>/vlan-raw`). Ports, micrologiciels et licences : relevé horaire, constats rejoués entre deux relevés.
+- Hub, section Anticipation : bandes et signal, ports vers les bornes, micrologiciels, licences.
+- Correctif : un crochet de relevé hérité d'un enregistrement précédent n'est plus conservé (report_routes.register).
+- Vérifié : tests nebula anticipation (8) ; deux échecs préexistants de test_report_routes, inchangés. Non vérifié :
+  sur l'OpenAPI réelle (noms de champs).
+- Reste de l'item 122 : point 7, corrélation avec les sondes de terrain (wifi-probe, path-probe) et Cortex.
+
+## 2026-10-14 — Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP (livraison #758)
+
+- nebula-api, `anticipation.py` (BACKLOG 122, points 1, 2 et 4) : profil habituel par borne × jour × heure (maximum de
+  chaque créneau, comparé d'une semaine à l'autre : médiane et p90) ; alerte AVANT un pic habituel (horizon réglable, 2 h
+  par défaut) ; affluence inhabituelle (habituel + marge) ; battements d'état (≥ 3 passages hors ligne / en alerte en
+  24 h : PoE, câble, port) ; disponibilité 7 / 30 jours par appareil ; occupation des étendues DHCP déclarées par SSID
+  (80 / 95 %). Constats suivis comme ceux de l'occupation, action `nebula.anticipation`. Route `GET /report/anticipation`.
+- Hub, tuile Nebula › Rapports › Occupation : section « Anticipation » (réglages, alertes, prochaines heures par borne,
+  disponibilité, étendues DHCP).
+- Vérifié : tests nebula anticipation (5) ; suite nebula : deux échecs préexistants de test_report_routes, inchangés.
+  Non vérifié : sur les relevés réels (il faut 2 semaines de relevés pour les premières prévisions).
+- Reste de l'item 122 : ports des commutateurs vers les bornes, licences / micrologiciels, bandes et signal,
+  corrélation avec les sondes de terrain et Cortex.
+
+## 2026-10-14 — Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout (livraison #757)
+
+- Hub (hub.css) : plafonds de 1400 / 1800 px retirés de l'accueil et de tous les écrans `.hub-settings` (la plupart des
+  tuiles) ; glissières de 14 px contrastées (clair et sombre) sur toute zone qui défile, sur le modèle de la tuile Infra.
+- Vérifié : tests hub. Non vérifié : revue visuelle tuile par tuile (signaler celles dont un formulaire s'étire mal).
+
+## 2026-10-14 — Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte (livraison #756)
+
+- Hub, tuile « Parc IA » (thème Supervision) : hôtes portant la sonde ollama ou ajoutés à la main (en-tête htop,
+  modèles avec déployer / charger / tester / supprimer, conteneurs Docker), état de l'assistant (modèle, serveur de
+  modèles joignable, index), tests (évaluations par modèle : dernier et meilleur score, critères atteints, jetons/s ;
+  tous les passages), activité par jour (appels, erreurs, temps moyen, jetons/s, usages).
+- Agent 0.5.62 : commande `hostops` -- gestes encadrés, PAS un shell : lecture (état / journal d'un service, conteneurs,
+  journal d'un conteneur, carte graphique, disques) et actions avec motif (redémarrer un service ou un conteneur, mettre à
+  jour une pile compose) ; listes blanches dans agent.json (`hostops` : units, containers, compose_dirs, enabled ;
+  défaut : ollama et docker, tous conteneurs, aucune pile) ; journal d'audit /var/log/si-agent/hostops-audit.log ;
+  sortie bornée à 20 Ko.
+- si-agent-api : `/ia/overview`, `/ia/hosts`, relais en lecture `/ia/assistant/{status,eval/summary,eval/last,journal/stats}`
+  (`ASSISTANT_API_URL`, défaut http://assistant-api:5000/assistant). Assistant : `/eval/summary`, `/journal/stats`.
+- Vérifié : tests agent (gestes : 4), assistant (33), API (1), hub (366), rendu des trois onglets (capture).
+  Non vérifié : sur pcia et super (agent à mettre en 0.5.62, assistant à reconstruire).
+
+## 2026-10-14 — Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main (livraison #755)
+
+- si-agent-api : la version d'un agent est relevée sur ses événements `agent-started` / `agent-updated`, plus seulement
+  sur l'inventaire (envoyé bien plus tard) : la tuile Mises à jour ne dit plus « installeur lancé, sans effet » pour un
+  agent effectivement mis à jour (cas de pve10, passé 0.5.59 -> 0.5.60 à 14:10:47).
+- Agents encore en 0.5.14 (pve11, i9freg) : leur programme de mise à jour date d'avant #577 (extraction dans un /tmp
+  privé que l'installeur lancé par systemd-run ne voit pas : journal vide). Mise à jour manuelle unique ; ensuite
+  l'auto-mise à jour fonctionne. Même cause pour l'échec de la sonde docker-containers sur i9freg (limite mémoire de
+  512 Mo, relevée à 4 Go en 0.5.15).
+- Agent 0.5.61 : une commande déjà exécutée (acquittement perdu) est acquittée au lieu d'être signalée à chaque relève.
+- Vérifié : test API (version sur événement), tests updates, API et agent existants.
+
+## 2026-10-14 — Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère (livraison #754)
+
+- Assistant (`rag.describe_case`, `rag.check_case`) : pour chaque cas d'évaluation, la tâche, l'entrée, les consignes
+  (types, sites, nombre d'extraits) et les messages réellement envoyés au modèle ; les indicateurs cibles (réponse JSON,
+  valeur attendue de chaque champ, mots-clés présents / interdits, source citée) et, en face, ce que le modèle a rendu,
+  ✔ / ✘ par critère. Le score reste la moyenne des critères (par famille).
+- Onglet Évaluation : colonnes Fourni au modèle / Attendu (indicateurs cibles) / Rendu / Score (n critères atteints) ;
+  Journal : mêmes colonnes pour chaque cas d'évaluation (les rapports antérieurs restent lisibles, à l'ancienne).
+- Vérifié : tests assistant (31), rendu de l'onglet (capture). Non vérifié : une évaluation réelle sur pcia.
+
+## 2026-10-14 — Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent (livraison #753)
+
+- si-agent-api : `views.py` (normalisation, ligne htop par agent à partir des mesures host / node-activity / ollama,
+  synthèse par groupe), routes `/views`, `/views/<id>/overview` ; réglage partagé `fleet_views`.
+- Hub : tuile « Vues de parc » (FleetViewsView.jsx, fleetViewsLib.js) -- onglets par vue, tableaux par groupe,
+  organisation (vues, groupes, agents), rangement proposé, étiquette #perso.
+- Vérifié : tests API (3), hub (364), rendu clair / sombre et organisation (capture). Non vérifié : données réelles.
+
+## 2026-10-14 — Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam (livraison #752)
+
+- Agent 0.5.60 : `mailadmin.py` -- actions `mail` queue_list, queue_action, delivery_failures, lists, list_set,
+  settings_get, settings_set ; motif obligatoire et journal d'audit pour les écritures ; sauvegarde et retour à l'état
+  antérieur (postmap / postfix check / reload / redémarrage d'Amavis vérifié).
+- Hub : onglets Incidents, File d'attente, Échecs de distribution, Listes, Réglages (MailOps.jsx, mailOpsLib.js).
+- Vérifié : tests agent (file, échecs, listes, réglages, retours arrière ; 16 + mailctl), hub (362), rendu des onglets.
+  Non vérifié : sur ob1 (postqueue -j demande Postfix ≥ 3.1 ; chemins réels des tables et de 50-user).
+
+## 2026-10-14 — Virtualisation directe sur le LAN : le poste pousse son image à l'agent du nœud, le hub orchestre (livraison #751)
+
+- Agent 0.5.59 : `lanpush.py` -- récepteur temporaire (nœud : jeton à usage unique, IP source facultative, reprise par
+  offset, SHA-256 incrémental, fermeture après clôture / inactivité / nettoyage) et client (poste) au même protocole que
+  l'envoi au central ; `p2v` `receive` ; `image_host` / `image_transfer` acceptent `push_url` / `push_token`.
+- si-agent-api : action de plan `p2v_receive` (URL et jeton reportés dans l'étape image_host), méthode `lan` du
+  générateur de migration.
+- Hub : méthode « directe sur le LAN » par défaut (IP LAN du nœud, IP du poste, port, débit).
+- Vérifié : tests agent (récepteur / client sur boucle locale, de bout en bout poste -> nœud avec image-fetched ; 3),
+  API (plan, exécution ; 2), hub (359), syntaxe JSX. Non vérifié : poste Windows réel (Disk2vhd + envoi), pare-feu du nœud.
+
+## 2026-10-14 — Rapatriement OVH → local piloté depuis le hub : export, vérification, destruction par tranches (livraison #750)
+
+- Agent 0.5.58 : commande `xfer` (`xferctl.py`) -- `export` (vzdump --stdout par ssh vers un nœud de `pve-remote.json`,
+  débit borné, restauration `pct restore` / `qmrestore --unique`), `verify` (comparaison fichier à fichier original /
+  copie, exclusions vzdump ignorées), `destroy` (plage horaire, images réduites par tranches, refus sans vérification
+  réussie, si l'original tourne ou si la copie a disparu), `status`. Actions détachées, événements xfer-*.
+- si-agent-api : actions de plan `xfer_export`, `xfer_verify`, `xfer_destroy` (attente de la fin par l'id de commande,
+  72 h max) ; méthode `repatriate` du générateur `/pra/migrations/plan` ; plans sans étapes de retour acceptés.
+- Hub : Contrôle PVE › Migration › « + Rapatriement distant → local » (nœud local, nœud et CT/VM distants proposés depuis
+  la tuile Infra, nouvel identifiant, stockage, mode, débit, plage et tranches) ; libellés des étapes xfer.
+- Motif : le 14/10, l'image de l'original d'un CT rapatrié a été tronquée de 60 Go avant toute comparaison ; la
+  destruction exige désormais une vérification réussie.
+- Vérifié : tests agent (xferctl + garde-fous, 8), API (plan, exécution avec transitions, échec ; 3), hub (358) ; syntaxe
+  JSX. Non vérifié : exécution réelle sur un nœud distant (vzdump --stdout, pct restore, montage pour la liste).
+
+## 2026-10-14 — Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop (livraison #749)
+
+- Sonde livrée `node-activity` (agent 0.5.57, désactivée, 2 min) : un même relevé shell pour l'hôte et pour chaque nœud
+  distant de `pve-remote.json` (un ssh par nœud, lecture seule) -- CPU global et par cœur, charge, tâches, uptime, mémoire,
+  swap, partitions, pools ZFS, débit par interface (rx/tx), connexions (`ss -s`), transferts en cours (vzdump,
+  restaurations, importdisk, zfs send/recv, rsync, scp, compression ; chemins de clé masqués) et fichiers qui grossissent
+  dans les dossiers surveillés (débit) ; constats disque > 90 %, pool > 85 %, nœud injoignable, transfert arrêté.
+- `pve-remote` et `proxmox` : CPU, vCPU, mémoire et uptime par VM (en-tête htop des VM).
+- si-agent-api : `GET /infra/overview` (`infra.py`, assemblage pur : nœuds locaux / distants, PBS, VM, transferts,
+  totaux par zone -- stockages « dir » d'un même système de fichiers comptés une fois -- et constats).
+- Hub : tuile « Infra PVE / PBS » (thème Équipements) PLEINE LARGEUR, glissières visibles ; onglets Synthèse
+  (indicateurs par zone, anneaux stockages et VM, histogrammes remplissage avec seuils 85/95 %, CPU et mémoire,
+  débit, connexions, invités, débit des transferts), htop (une ligne par hôte puis ses VM : CPU, cœurs, mémoire, swap,
+  tâches, charge, uptime, état ; tri par colonne), Transferts, Constats ; filtre local / distant ; rafraîchie 30 s.
+  Palette catégorielle validée (clair / sombre), états avec icône + libellé.
+- Vérifié : `node-activity/test_node_activity.py` (relevé complet, deux passages : CPU, cœurs, débits, fichiers ;
+  constats ; texte vide), `api/test_z_infra.py` (assemblage, route), `si-agent/api`, tests agent, `node --test`
+  (dont tests/infraLib.test.mjs), rendu Chromium de la tuile sur données simulées (clair, sombre, htop).
+  Non vérifié : relevés réels des nœuds OVH (PVE 5.4 : `ss`, `zpool` présents ?).
+
+## 2026-10-14 — Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée (livraison #748)
+
+Cas réel : l'image P2V d'un poste (68 Go) copiée à la main sur le Proxmox du campus a rempli son disque système à 100 %
+et est arrivée tronquée. Demande : l'agent du poste et celui du nœud préparent chacun leur espace, une VM réceptacle est
+créée, et le hub transfère progressivement sans saturer personne.
+- Agent 0.5.56 : commande `p2v` (`si_agent/p2vctl.py`) -- `prepare_source` (espace utilisé, emplacement temporaire
+  choisi), `prepare_target` (volume LVM-thin temporaire monté sous /var/lib/vz/import, place du pool vérifiée),
+  `fetch` (lecture au fil de l'eau par le relais, reprise, débit borné, SHA-256 vérifié, `image-fetched`), `status`,
+  `cleanup` ; envoi de l'image : attente sur 429 (fenêtre pleine) sans compter d'échec, débit borné.
+- Central : relais dans `imagestore` (fenêtre, perforation `FALLOC_FL_PUNCH_HOLE`, clôture sans re-hachage, fichier
+  supprimé quand la cible a tout), route `GET /api/v1/agents/<cible>/relay/<source>`, type de commande `p2v`.
+- Plans : méthode `direct` (`migration.py`) et étapes `p2v_prepare_source`, `p2v_prepare_target`, `p2v_fetch`,
+  `p2v_cleanup` (`pra.py`), valeurs d'une étape reportées dans les suivantes (`{{need_bytes}}`, `{{import_dir}}`,
+  `{{src_target}}`, `{{vg}}`), attente de `image-fetched` (48 h) ; retour en arrière : volume temporaire supprimé.
+- Hub, Contrôle PVE › Migration : méthode « directe » par défaut, débit max et fenêtre du relais.
+- Vérifié : `agent/tests/test_p2v_direct.py` (calculs, relais : 429 quand la cible n'a pas suivi, lecture complète
+  identique, perforation, fichier supprimé ; boucle de lecture de l'agent cible contre le relais réel avec envoi
+  concurrent), `api/test_z_p2v_direct.py` (plan, exécution avec faux agents : valeurs reportées, attente de
+  image-fetched), `si-agent/api` (74), tests agent, `node --test` (352). Non vérifié : sur un vrai poste Windows et le
+  Proxmox du campus (lvcreate/mount réels, débit réel).
+
+## 2026-10-14 — Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif (livraison #747)
+
+- `nebula/api/occupancy.py` (logique pure) : relevé des clients connectés par borne (rattachement de topology.py : bande,
+  SSID, signal faible), seuils par borne (avertissement / critique), part de clients sous N dBm, total du site ; alerte
+  Nebula quand un appareil est hors ligne ou en alerte depuis N minutes (états du sondeur minute) ; récapitulatif par
+  borne (moyenne, p95, maximum et son heure, bornes vides, pic du site).
+- `report_routes.py` : relevé à la période choisie (table `nebula_occupancy`, 35 jours), suivi par alerting.track
+  (une alerte par constat, retour à la normale), messages notify-api `nebula.occupation-seuil`, `nebula.alerte-nebula`,
+  `nebula.occupation-recap` (CSV joint), `nebula.retour-normale` ; routes `GET /report/occupancy?hours=`,
+  `POST /report/occupancy/send` (relevé immédiat + récapitulatif de test, droit `manage`) ; réglages dans
+  `settings.occupancy` (désactivé par défaut).
+- Hub, tuile Nebula › Rapports : bloc « Occupation des bornes Wi-Fi et alertes Nebula » (réglages, dernier relevé,
+  statistiques 6 h à 7 j, constats en cours).
+- BACKLOG item 122 : anticipation des pannes Wi-Fi à partir de Nebula (tendances, battements, PoE, DHCP, licences).
+- Vérifié : `nebula/tests/test_occupancy.py` (réglages, relevé, seuils, signal faible, alerte Nebula retardée, suivi sans
+  doublon et retour, récapitulatif, boucle complète avec notify factice), tests nebula, `node --test` (351), syntaxe
+  `@babel/parser`. Non vérifié : champs réels des clients Nebula (rattachement borne, signal), rendu navigateur.
+
+## 2026-10-13 — Modèles IA déployés depuis le hub : agent ↔ Ollama (livraison #746)
+
+- Agent 0.5.55 : commande `ollama` (`si_agent/ollamactl.py`) -- état (version, modèles, chargés et part GPU, place
+  libre du dossier des modèles, téléchargement en cours), téléchargement détaché en flux (`pull`, progression, événements
+  `ollama-pull-done` / `ollama-pull-failed`), suppression, chargement (keep_alive), déchargement, essai (tokens/s, % GPU).
+  Noms de modèles filtrés ; Ollama joint en local (`OLLAMA_URL`, défaut 127.0.0.1:11434). `ollama`, `nvidia-smi` ajoutés
+  aux outils détectés.
+- Sonde livrée `ollama` (désactivée, non privilégiée, 5 min) : modèles et état ; constats Ollama injoignable, modèle
+  chargé hors GPU, dossier des modèles presque plein (événements « modèles IA »).
+- Central : type de commande `ollama` (actions contrôlées). Hub : section « Modèles IA (Ollama) » de la fiche agent
+  (dès qu'Ollama est détecté) -- tableau des modèles, Charger / Décharger / Tester / Supprimer, champ « Déployer » avec
+  suggestions, suivi de l'acquittement, bouton d'activation de la sonde.
+- Vérifié : `tests/test_ollamactl.py` (faux serveur Ollama : état, chargement à 70 % GPU, essai 16 tokens/s, déchargement,
+  suppression et 404, téléchargement en flux et erreur, double téléchargement refusé, Ollama arrêté, sonde et constats),
+  `test_si_agent` (sondes livrées), `si-agent/api` (72), `node --test` (351, dont tests/ollama.test.mjs), syntaxe
+  `@babel/parser`. Non vérifié : sur pcia avec le vrai Ollama, rendu navigateur.
+
+## 2026-10-13 — Chien de garde du socle : Keycloak, passerelle et hub relancés seuls (livraison #745)
+
+Cas réel : après la migration de la VM du hub, Keycloak, la passerelle HTTPS et le hub sont restés « Exited (137) »
+(le reste du socle tournait) ; supervision.optline.fr a répondu 503 jusqu'à une relance manuelle.
+- `restart: unless-stopped` sur `keycloak` et `tls-proxy` (gateway/docker-compose.yml) et sur `hub` : ils remontent
+  avec Docker après un redémarrage de la VM ou un arrêt brutal.
+- `scripts/watchdog.sh` : relance dans l'ordre les conteneurs indispensables s'ils ne tournent pas
+  (`WATCHDOG_CONTAINERS`), redémarre la passerelle après 3 passages sans aucune réponse HTTPS sur `GATEWAY_PORT`
+  (un 502/503 d'un service derrière ne compte pas) ; `--install` pose un minuteur systemd (2 min), `.watchdog-pause`
+  suspend les relances pendant un chantier. Minuteur : `OnActiveSec` ajouté (sans lui, NEXT restait vide après
+  `--install` : `OnBootSec` déjà passé et `OnUnitActiveSec` sans premier passage).
+- Vérifié : `bash -n`, passages simulés (docker/curl factices) : relance de 2 conteneurs arrêtés, redémarrage de la
+  passerelle au 3e échec, remise à zéro sur réponse 401, pause ; politique de redémarrage lue par PyYAML.
+  Non vérifié : sur super.
+
+## 2026-10-13 — Agent en conteneur : ports et connexions avec leur processus, sans refus AppArmor (livraison #744)
+
+- `si-agent/agent/docker/deploy-docker.sh` : conteneur lancé `--security-opt apparmor=unconfined --cap-add SYS_PTRACE`.
+  Avec `--pid host`, le profil docker-default refusait à `ss -p` la lecture de /proc des processus de l'hôte : refus
+  `apparmor="DENIED" operation="ptrace"` répétés dans dmesg et ports d'écoute / connexions remontés sans processus.
+  `CONFINED=1` garde l'ancien comportement. Redéployer : relancer `deploy-docker.sh` sur l'hôte concerné.
+- BACKLOG item 121 : arguments d'une sonde par agent depuis la fiche (aujourd'hui : catalogue global, ou manifeste local
+  pour les sondes livrées, écrasé à la mise à jour de l'agent).
+- Vérifié : `bash -n`. Non vérifié : sur un hôte réel.
+
+## 2026-10-13 — Supervision distribuée : tournées de mesures réparties avec suppléance (livraison #743)
+
+Item 120, volet 1 (cadrage `docs/supervision-distribuee.md` : ordonnanceur, chronologie, couverture, architecture).
+- `si-agent/api/rotation.py` : une tournée = sonde + groupe d'agents + période ; *à tour de rôle* (un agent par créneau,
+  le suivant en ligne supplée un titulaire absent) ou *réparti* (chaque agent décalé de période / n) ; phase stable,
+  heures calmes, plafond de lancements simultanés par site ; lancement par commande `run_plugin` (agents inchangés),
+  créneau marqué fait / échec / sauté / sans réponse ; couverture sur 24 h.
+- Routes `/rotations` (liste avec prochains créneaux et couverture, création, modification, suppression, historique) ;
+  tick toutes les 30 s dans le chien de garde du central.
+- Hub : onglet « Tournées » de la tuile Agents hôtes (formulaire, prochains créneaux, taux sur 24 h, historique).
+- Vérifié : `test_z_rotation.py` (créneaux réguliers, décalages, rotation, suppléance, heures calmes, plafond, couverture,
+  validation, tick complet avec commande et acquittement), `si-agent/api` (72), syntaxe `@babel/parser`.
+  Non vérifié : sur la flotte réelle, rendu navigateur.
+
+## 2026-10-13 — Ordre des listes (A → Z, récent, gravité) et agents par catégorie (livraison #742)
+
+- `hub/src/listOrder.js` + `ListOrder.jsx` : trois ordres pour toute liste (alphabétique par défaut, antéchronologique,
+  gravité d'abord), gravités de vocabulaires différents ramenées à un rang commun, choix mémorisé par liste.
+- Tuile Agents hôtes : flotte présentée par catégorie (Proxmox PVE / PBS, sondes, VM, Windows, Linux, autres), groupes
+  repliables avec compteurs critique / hors ligne / avertissement, rôle PVE ou PBS affiché ; ordre au choix dans chaque
+  groupe ; case « par catégorie » ; étiquette `#pve #pbs #sonde #vm #windows #linux` dans le libellé pour forcer.
+  Événements : ordre au choix (récent par défaut). Catalogue des sondes et onglet Mises à jour : A → Z.
+- si-agent-api `/fleet` : `plugin_ids`, `virtualization`, `hardware_model` (dernier inventaire) pour la catégorie.
+- Vérifié : `node --test` (349, dont tests/listOrder.test.mjs), `si-agent/api` (66), syntaxe `@babel/parser`.
+  Non vérifié : rendu navigateur ; catégorie VM tant que l'inventaire matériel d'un agent n'est pas remonté.
+- BACKLOG item 119 : brancher le sélecteur sur les autres listes du hub.
+
+## 2026-10-13 — Assistant IA sur un poste GPU distant par le bastion (livraison #741)
+
+Palier 2 réalisé hors du LAN du hub (Arc Pro B60 24 Go, qwen3:30b-a3b 100 % GPU, 43 jetons/s, évaluation
+20/20 en 171 s). Branchement sans code nouveau, par les mécanismes existants : shim `ia` sur le poste
+(tunnel SSH sortant vers l'entrée 9922, #575) et publication de port du bastion (`6489=ia:<IP>:11434`,
+#583) ; `LLM_BASE_URL=http://si-proxy:6489/v1`. Procédure : `docs/assistant-ia-infrastructure.md`
+(« Palier 2 réalisé »), `.env.example`. Non vérifié : chaîne complète hub → poste (mise en service prévue).
+
+## 2026-10-12 — netprobe-api : fin des 200 % de CPU sur super (livraison #740)
+
+Constat sur super : gunicorn de netprobe-api à 200-236 % de CPU depuis 2 jours, 109 Go lus, charge 36 pour 4 CPU ;
+py-spy : `latest_sample_per_target` (route `/smokeping/latest`, appelée par le hub et Cortex).
+
+- Requête « dernier échantillon par cible » : sous-requête corrélée évaluée pour CHAQUE échantillon (table jamais
+  purgée) -> une recherche d'index par cible, nouvel index `smokeping_samples(target_id, id)` (aussi utilisé par
+  `_last_sample_ts` du planificateur à chaque tick de 15 s).
+- Purge enfin branchée : toutes les heures, `NETPROBE_KEEP_SAMPLES` par cible (défaut 10 000) ; purge par plage d'id.
+- Analyseurs : relancés à chaque tick tant qu'ils ne trouvaient rien (dernier passage déduit du dernier constat)
+  -> dernier passage mémorisé.
+- Vérifié : `netprobe/api` test_samples_perf (4, dont plan de requête sans tri temporaire), test_agents_routes ;
+  600 000 échantillons : dernier par cible < 1 ms, purge 0,5 s. Non vérifié : sur la base réelle de super
+  (première purge et création d'index au redémarrage : quelques minutes possibles).
+
+## 2026-10-12 — Sondes GTB/GTC pour poste Windows : réseau et journaux d'application (livraison #739)
+
+Poste Windows 10 Pro 22H2 portant un superviseur GTB ancien (ex. Neutrino GLT) : trouver pourquoi il perd ses
+automates ou ses remontées. Deux plugins de l'agent, désactivés par défaut, privilégiés, lecture seule.
+
+- `gtb-netwatch` : capture bornée des en-têtes (SYN, SYN-ACK, RST, ICMP, UDP BACnet/KNX/SNMP) par `pktmon`
+  (intégré à Windows 10 2004+) ou tcpdump/dumpcap, relevé des connexions avec leur processus ; verdict par
+  équipement : acceptée, refusée (RST), sans réponse, injoignable (ICMP + routeur), coupée ; entrants refusés /
+  ignorés ; UDP sans réponse ; lecteur pcap/pcapng en Python pur (`--pcap` pour une capture existante).
+- `app-logwatch` : « lsof » de l'application (processus, services, fichiers ouverts par la table des handles ou
+  `handle.exe`), journaux récents lus en incrémental (rotation, UTF-16), erreurs réseau et codes Winsock, IP:port
+  cités, journal d'événements (plantages 1000/1002/1026, services 7031/7034).
+- Constats → alertes → événements `probe-alert` (store : `PROBE_TASKS`, libellés). Doc `docs/sondes-gtb-windows.md`.
+- Vérifié : tests des deux sondes (capture pcapng synthétique : refus, sans réponse, ICMP, reset, entrants, UDP ;
+  journaux : incrémental, rotation, Winsock ; scénario Linux réel processus + journal ouvert), `si-agent/agent`
+  tests, `si-agent/api` (66). Non vérifié : sur Windows réel (syntaxe des filtres `pktmon`, énumération des handles).
+
+## 2026-10-09 — Images construites hors de la VM du hub, registre local (livraison #738)
+
+Lot 3 du second hub : un nœud « constructeur » construit les images et les pousse dans un registre local
+(`deploy/registry/`, registry:2 sur le VPN) ; super et les autres nœuds ne font que les tirer (tag = commit git).
+Plus de construction sur la VM du hub pendant les mises à jour. Activé par `SI_REGISTRY` dans `.env`, sinon inchangé.
+
+- `deploy/images.py` (override des noms d'images, `build` 2 en parallèle au plus + `push`, `pull`) ; `scripts/run.sh`
+  ajoute l'override ; `node_agent.py` : `apply` tire au lieu de construire (le constructeur construit et pousse),
+  `build-images` depuis le manager, `update-all` commence par le constructeur ; tour de contrôle : le plan de mise à
+  jour git devient « construire là-bas, tirer + relancer sans construire ici ».
+- Vérifié : `deploy/tests` (35, dont override d'images, apply avec / sans registre, constructeur, build-images),
+  `services/api` (plan de mise à jour avec registre), syntaxe de `run.sh`. Non vérifié : registre et images réels.
+- Fichiers : `deploy/images.py`, `deploy/registry/docker-compose.yml`, `deploy/node_agent.py`, `scripts/run.sh`,
+  `services/api/tower.py`, `services/api/app.py`, `.env.example`, `docs/second-hub.md`, tests.
+
+## 2026-10-09 — Fronts pré-compilés dans l'image, comme le hub (livraison #737)
+
+Les 6 fronts encore servis par le serveur de développement Vite (Supervision SI `/app/`, portail tickets, DBA,
+exploration réseau, coffre-fort, administration LDAP) sont compilés à la construction de l'image et servis
+statiquement, avec leur configuration lue à l'exécution (`env.js`). Mécanisme commun `shared/front/` (serveur avec
+chemin de base, écriture de `env.js`, démarrage) ; `FRONT_MODE=dev` rend l'ancien serveur. Fini la compilation à la
+volée et les WebSockets de rechargement à chaud ouverts en permanence par onglet.
+
+- Corrigé au passage : l'exploration réseau autonome ne copiait pas `TableColumns.jsx` / `tableLayout.js` (#707) --
+  la vue orchestrateur cassait au chargement (révélé par la compilation).
+- Le portail d'une instance clonée (#731, base `/tickets-<nom>/`) reste en serveur de développement (`FRONT_MODE=dev`).
+- Non concerné : portail d'administration du coffre (HTTPS propre au serveur Vite, port direct).
+- Vérifié : `vite build` en mode pré-compilé des 6 fronts (configuration lue à l'exécution, aucun `import.meta.env`
+  restant), tests des fronts, `hub/tests` (344, dont serveur commun), `deploy/tests`. Non vérifié : images réelles.
+
+## 2026-10-09 — Hub pré-compilé dans l'image, second hub sur une bordure (livraison #736)
+
+- Le hub est compilé UNE fois à la construction de l'image (`HUB_RUNTIME_ENV=1` : chaque `import.meta.env.VITE_X`
+  lit `window.__HUB_ENV__`, écrit au démarrage dans `/env.js` depuis le compose par `write-env.mjs`) : le conteneur
+  démarre sans `vite build` (fini le pic CPU de 2 Go à chaque redémarrage) ; repli automatique sur l'ancienne
+  compilation au démarrage si la pré-compilation manque ; `HUB_PREBUILT=0` pour la forcer.
+- Second hub : une bordure (`"edge": true`) sert le hub en local (`replicas`, défaut `["hub"]`) au lieu de le relayer
+  vers le nœud core ; seules les API traversent le VPN. `docs/second-hub.md` : constat chiffré, répartition conseillée,
+  bascule.
+- Vérifié : `vite build` en mode pré-compilé (69 variables lues à l'exécution, aucun `import.meta.env` restant),
+  `hub/tests` (343), `deploy/tests` (30, dont réplique du hub sur la bordure et relais sans réplique),
+  `cohorts.py check`. Non vérifié : image construite et hub servi en réel.
+- Fichiers : `hub/Dockerfile`, `hub/entrypoint.sh`, `hub/write-env.mjs`, `hub/public/env.js`, `hub/index.html`,
+  `hub/vite.config.js`, `hub/src/runtimeEnv.js`, `hub/src/apiAuth.js`, `hub/src/netActivity.js`,
+  `deploy/cohorts.py`, `deploy/tests/test_deploy.py`, `docs/second-hub.md`.
+
+## 2026-10-09 — Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché (livraison #735)
+
+Lot 2 de la répartition / second hub (interface réactive).
+- Les 53 vues du hub sont chargées à la demande (React.lazy) : JavaScript initial de 2,1 Mo → 368 Ko (vite build
+  vérifié). Toutes les vues sont ensuite préchargées une à une quand le navigateur est inactif (3 s après l'ouverture),
+  donc le changement de tuile reste instantané. Pendant un premier chargement : « Chargement… » à la place de la vue,
+  en-tête conservé.
+- Retour visuel des commandes : barre fine en haut de l'écran et curseur d'attente dès qu'une requête dure plus de
+  150 ms ; boutons marqués à l'appui.
+- Onglet du navigateur caché : les GET vers les API du hub attendent son retour, et les GET identiques ne partent
+  qu'une fois (les ~35 rafraîchissements périodiques ne chargent plus le serveur pour un onglet que personne ne regarde).
+- Vérifié : `hub/tests` (342, dont activité réseau et préchargement), `vite build` complet. Non vérifié : rendu.
+- Fichiers : `hub/src/App.jsx`, `hub/src/lazyViews.js`, `hub/src/netActivity.js`, `hub/src/hub.css`,
+  `hub/tests/netActivity.test.mjs`.
+
+## 2026-10-09 — Régime mémoire de la VM du hub et passerelle HTTP/2 + compression (livraison #734)
+
+Mesure sur super : 4 vCPU, 8,7 Go de RAM, 7 Go de swap utilisés, charge 10-11 ; gros consommateurs : Keycloak (deux
+instances), Elasticsearch, Mayan (3 processus web + workers celery à 4), ~90 processus gunicorn. Un service resté
+inactif part en swap et met des secondes à répondre au clic suivant.
+
+- 37 API passent de 2 processus synchrones à 1 processus + 4 threads (gthread) : moitié moins de mémoire, une requête
+  lente ne bloque plus l'API ; pixel-grid garde 2 processus (connexion SQLite partagée au niveau du module).
+- Keycloak de la passerelle : tas borné (`KEYCLOAK_HEAP_OPTS`, défaut `-Xms256m -Xmx512m`).
+- Mayan : 1 processus web, workers à 1 (`MAYAN_GUNICORN_WORKERS`, `MAYAN_WORKER_CONCURRENCY`) -- noms de variables à
+  vérifier sur l'image s4.11.
+- Passerelle nginx : HTTP/2, cache des sessions TLS, compression gzip (le frontal Apache retire déjà Accept-Encoding).
+- Vérifié : rendu nginx (tests + `--check`). Non vérifié : effet réel des réglages Mayan et Keycloak, `nginx -t`
+  sur l'image 1.27.
+
+## 2026-10-09 — Tuile « Déploiement d'application » : instances clonées depuis le hub (livraison #733)
+
+Item 117 tranche 4 : thématique Données & référentiels → « Déploiement d'application » (onglet « 🧬 Instances » de la
+tour de contrôle). Liste des instances (application, nœud, adresse, état lu par l'agent de nœud, données), déclaration
+d'une nouvelle instance (application, nom, nœud ; nom et routes vérifiés), puis Déployer / Retirer en jobs suivis dans
+« Livraisons & jobs ». Retirer arrête l'instance et garde ses données sur le nœud.
+
+- Vérifié : `services/api` (test_app dont déclaration validée, état, jobs deploy / undeploy, refus), `deploy/tests`,
+  `hub/tests` (339, dont nom et état d'instance, chemins de la tuile), syntaxe `@babel/parser`.
+- Non vérifié : rendu de l'onglet ; déploiement réel.
+- Fichiers : `services/api/app.py`, `services/api/Dockerfile`, `services/api/test_app.py`, `deploy/node_agent.py`
+  (`instance-undeploy`), `hub/src/TowerInstances.jsx`, `hub/src/ControlTowerView.jsx`, `hub/src/App.jsx`,
+  `hub/src/hubThemes.js`, `hub/src/hubBusiness.js`, `hub/src/servicesClient.js`, `hub/src/towerLib.js`.
+
+## 2026-10-09 — Instances clonées : création en une commande par les agents de nœud (livraison #732)
+
+Item 117 tranche 3 : `node_agent.py instance-deploy <nom>` (manager) crée l'instance sur son nœud (services clonés,
+relais vers l'application source, puis copie de la configuration -- référentiels seulement -- par
+`export?scope=config` / `import?mode=merge` joués dans le conteneur de l'instance), puis rafraîchit chaque passerelle :
+routes tls-proxy rechargées, URL de redirection Keycloak de la nouvelle adresse poussées dans le realm vivant.
+
+- Vérifié : `deploy/tests` (dont script de clonage de configuration joué contre de vrais serveurs HTTP locaux,
+  redirections Keycloak idempotentes, création et orchestration avec appels simulés), `keycloak/render.py --check`.
+- Non vérifié : création réelle sur un nœud (compose, réseau VPN, Keycloak vivant).
+- Fichiers : `deploy/node_agent.py`, `deploy/instances.py`, `keycloak/render.py`, `deploy/tests/test_instances.py`,
+  `docs/deploiement-instances.md`.
+
+## 2026-10-09 — Instances d'application clonées : registre et génération des services (livraison #731)
+
+Item 117 tranche 2 : `deploy/instances.json` déclare une instance (« formation », portail tickets, sur tel nœud) ;
+`deploy/instances.py` en déduit les services renommés (`tickets-api-formation`, `tickets-portal-formation`), leurs
+données propres, leurs routes `/tickets-formation/` et `/api/tickets-formation/` ; le plan par nœud
+(`deploy/cohorts.py override`) et la passerelle (`render_nginx_conf.py`) les intègrent. Base SQLite forcée pour un
+clone : il ne peut pas toucher la base de l'instance d'origine.
+
+- Vérifié : `deploy/tests` (26, dont clonage, contrôles du registre, override du nœud cible et relais de la bordure,
+  rendu nginx), `cohorts.py check` et `render_nginx_conf.py --check` sur le dépôt (registre absent : inchangé),
+  `tickets/api` tests.
+- Non vérifié : construction et démarrage réels d'un clone ; le front servi sous `/tickets-<nom>/`.
+- Fichiers : `deploy/instances.py`, `deploy/instances.example.json`, `deploy/cohorts.py`, `deploy/tests/test_instances.py`,
+  `tls-proxy/render_nginx_conf.py`, `tickets/portal/vite.config.js` (`VITE_BASE`), `.gitignore`,
+  `docs/deploiement-instances.md`.
+
+## 2026-10-09 — « Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT (livraison #730)
+
+Trois nouvelles familles de questions, toujours sans modèle : « quels tickets sont en retard ? », « tickets ouverts
+sur le VPN », « ticket n°42 » (file des tickets) ; « quels agents sont hors ligne sur alpha ? » (flotte des agents) ;
+« sur quel nœud tourne le CT 108 / la VM optick-web ? » (invités des PVE avec agent et des PVE distants).
+
+- Vérifié : `assistant/tests` (29, dont détection, filtres, mise en forme, passage par l'API avec sources simulées).
+- Non vérifié : API réelles.
+- Fichiers : `assistant/hubqa.py`, `assistant/app.py`, `assistant/tests/test_hubqa.py`, `assistant/README.md`,
+  `docker-compose.yml` (`TICKETS_PORTAL_URL` de l'assistant).
+
+## 2026-10-09 — Tests QA : la maquette validée devient la cible des campagnes (livraison #729)
+
+Item 116 tranche 5, fin de la boucle de conception : la variante retenue d'une maquette devient la cible du scénario ;
+chaque exécution et chaque campagne indique « conforme à la maquette » ou l'écart (captures différentes, note), et la
+première exécution conforme marque la maquette « intégrée ». Cible retirable si le développement change de direction.
+
+- Vérifié : `qa/api` (maquette → validation → exécution non conforme → campagne conforme → maquette intégrée → cible
+  retirée), `hub/tests` (338, dont `designBadge`), syntaxe `@babel/parser`.
+- Non vérifié : rendu du hub.
+- Fichiers : `qa/api/app.py`, `qa/api/qa_mockup.py`, `qa/api/test_qa.py`, `hub/src/QaView.jsx`,
+  `hub/src/QaMockupPanel.jsx`, `hub/src/qaClient.js`, `hub/src/qaLib.js`.
+
+## 2026-10-09 — Tests QA : maquettes en étapes, de la proposition au ticket évolution (livraison #728)
+
+Item 116 tranche 4 : depuis une exécution, « 🎨 Maquette » propose des variantes de refonte (feuilles CSS calculées
+depuis les constats de conformité, ou écrites à la main), les rejoue dans le navigateur de test seulement, et les
+présente en étapes : situation actuelle → proposition → variantes (note, vignettes avant / après / différences) →
+règles respectées → décision. Validée, la variante part en ticket évolution avec son correctif CSS.
+
+- Vérifié : `qa/api` (test_qa 6 dont maquette de bout en bout ; test_qa_mockup 4 ; design, visual), `hub/tests` (337),
+  syntaxe `@babel/parser` ; injection + variante calculée dans un vrai Chromium sur une page de test (note 70 → 95).
+- Non vérifié : rendu du hub, maquette sur le hub réel.
+- Fichiers : `qa/api/qa_mockup.py`, `qa/api/app.py`, `qa/api/runner.py`, `qa/api/qa_design.py` (champs el / fg / bg /
+  els des constats), `qa/api/Dockerfile`, `hub/src/QaMockupPanel.jsx`, `hub/src/QaView.jsx`, `hub/src/qaClient.js`,
+  `hub/src/qaLib.js`, `hub/src/hub.css`, `docs/qa-design-assistant.md`.
+
+## 2026-10-09 — Tests QA : référence visuelle, différences de captures, rejouer un bug (livraison #727)
+
+Item 116 tranche 3 (assistant de design et de parcours) : une exécution d'un scénario peut devenir sa **référence
+visuelle** ; toute exécution suivante se compare à elle (ou à n'importe quelle autre, par ex. celle jointe à un ticket
+pour rejouer un bug) étape par étape : écart en %, zone touchée, image de différence en rouge, vignettes référence /
+nouvelle / différences côte à côte. Zones masquées par scénario (horloges, compteurs) neutralisées à la capture.
+
+- Vérifié : `qa/api` (7 tests dont référence + diff de bout en bout avec images Pillow, `against`, image servie),
+  `hub/tests` (336, dont `diffSummary` / `ratioPct` / `parseMask`), syntaxe `@babel/parser`.
+- Non vérifié : capture masquée dans un vrai Chromium, rendu du hub.
+- Fichiers : `qa/api/qa_visual.py`, `qa/api/app.py`, `qa/api/runner.py`, `qa/api/Dockerfile`, `qa/api/requirements.txt`
+  (pillow), `hub/src/QaView.jsx`, `hub/src/qaClient.js`, `hub/src/qaLib.js`, `hub/src/hub.css`.
+
+## 2026-10-09 — « Questions sur le hub » : sauvegardes et snapshots (livraison #726)
+
+Suite de #715 avec l'inventaire de #724 : « dernière sauvegarde du CT 108 ? », « quels snapshots sur pve-1 ? »,
+« sauvegardes de l'appli … » -- l'assistant interroge `/maint/backups` (PVE avec ou sans agent, PBS, sauvegardes tirées)
+et répond par la plus récente de chaque source et type, avec son âge, son emplacement et le lien vers la vue Sauvegardes.
+
+- Vérifié : `assistant/tests` (25, dont détection, plus récente par type, filtre par nom de nœud ou de tâche, réponse
+  vide, passage par l'API avec sources simulées).
+- Non vérifié : API réelle, rendu.
+- Fichiers : `assistant/hubqa.py`, `assistant/app.py`, `assistant/tests/test_hubqa.py`.
+
+## 2026-10-09 — Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub (livraison #725, agent 0.5.54)
+
+Demandé : sauvegarder la VM du PBS sur le disque USB de 10 To, en opération ponctuelle (pas de rotation de disques), avec un
+décompte d'ancienneté dans le hub et des copies différentielles ZFS. `si-agent/tools/zfs-secours.sh <pool> <vmid>…` sur
+l'hyperviseur : instantané atomique (gel du système de fichiers si possible), envoi complet puis différentiel, rétention des
+deux côtés, configuration copiée, pool exporté. La sonde pulled-backups v3 lit aussi ce journal : ancienneté, alerte au-delà
+de 14 jours, notification de chaque copie.
+
+- Vérifié : `test_pulled_backups.py` (5, dont le script avec zfs/zpool simulés : disque absent, copie complète des deux
+  disques, différentielle ensuite, rétention, journal, pool exporté ; un défaut trouvé et corrigé : la 2e passe recopiait
+  les volumes du disque de secours eux-mêmes), sonde sur deux journaux dont un absent, `bash -n`.
+- Non vérifié : vrai ZFS (pool USB, gel par l'agent invité), durée de la 1re copie.
+- Fichiers : `si-agent/tools/zfs-secours.sh`, `si-agent/agent/plugins/pulled-backups/*`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `si-agent/README.md`, `BACKLOG.md`.
+
+## 2026-10-09 — Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris (livraison #724, agent 0.5.53)
+
+Demandé : « ajoute l'inventaire des snapshots et des backups, y compris du PBS, y compris des PVE OVH ». Vue Sauvegardes
+de la Maintenance des Proxmox : table unique filtrable (type, ancienneté, texte) des snapshots et sauvegardes de toutes
+les sources -- PVE avec agent (sonde proxmox v5 : toutes les sauvegardes des stockages), PVE hébergés sans agent (sonde
+pve-remote v2 : listsnapshot et pvesm list par ssh), PBS (sonde pbs v2 : 30 derniers snapshots par groupe) et
+sauvegardes tirées ; snapshots de plus de 30 jours signalés. `/maint/backups` renvoie `inventory`.
+
+- Vérifié : `test_pve_remote.py` (4, sorties pct/qm listsnapshot et pvesm list), `test_pbs.py`, `test_proxmox_plugin`,
+  `si-agent/api` (66, inventaire des 4 sources), `node --test` (335), syntaxe `@babel/parser`.
+- Non vérifié : formats réels de `pct listsnapshot` sur PVE 5.4, rendu ; dates des PVE distants lues sans fuseau.
+- Fichiers : `si-agent/agent/plugins/{proxmox,pve-remote,pbs}/*`, `si-agent/api/maint.py`, `si-agent/api/test_maint.py`,
+  `hub/src/{PveMaintView.jsx,pveMaintLib.js}`, `hub/tests/pveMaintLib.test.mjs`, `si-agent/README.md`, agent 0.5.53.
+
+## 2026-10-09 — Inventaire des PVE distants par le hub et campagne générée (livraison #723, agent 0.5.52)
+
+Demandé : « la liste de CT, c'est quelque chose que le hub devrait pouvoir faire ». Nouvelle sonde `pve-remote` sur le
+serveur de sauvegarde : inventaire par ssh, sans agent, des PVE listés dans `/etc/si-agent/pve-remote.json` (CT/VM,
+état, disque, stockages). La vue Sauvegardes de la Maintenance des Proxmox les affiche et génère la liste de campagne
+de `pve-pull-batch.sh` (CT arrêtés d'abord, CT en marche sur demande seulement, exclusions, téléchargement).
+
+- Vérifié : `plugins/pve-remote/test_pve_remote.py` (3 : sorties réelles de pct/qm/pvesm, pvesh filtré par nœud, repli,
+  nœud injoignable), `si-agent/api` (65), `test_si_agent.py` (liste des plugins livrés), `node --test` (334, dont la
+  génération de campagne), syntaxe `@babel/parser`, `bash -n install.sh`.
+- Non vérifié : ssh réel vers des PVE 5.4 (format de `pvesh --output-format` selon la version : repli prévu), rendu.
+- Fichiers : `si-agent/agent/plugins/pve-remote/*`, `si-agent/api/{maint,store}.py`, `si-agent/api/test_maint.py`,
+  `si-agent/agent/install.sh`, `si-agent/agent/si_agent/__init__.py`, `si-agent/agent/tests/test_si_agent.py`,
+  `hub/src/{PveMaintView.jsx,pveMaintLib.js}`, `hub/tests/pveMaintLib.test.mjs`, `si-agent/README.md`.
+
+## 2026-10-09 — Portail tickets : export « configuration » pour le clonage d'instance (livraison #722, item 117 tranche 1)
+
+Décisions du 9 oct. : la nouvelle instance clonée (GED, tickets…) tourne sur un autre nœud ; le clonage copie
+configuration et référentiels, sans données métier, personnes ni secrets. Première brique : `GET /export?scope=config`
+de tickets-api (types, niveaux, statuts, sites, règles d'escalade, appariement, exclusions, mots-clés de priorité,
+filtres d'agenda), importable par `/import?mode=merge`. Au passage : `sites` et `deadline_escalation_rules` manquaient à
+l'export complet (ajoutés, dans l'ordre des clés étrangères). Cadrage des tranches suivantes : `docs/deploiement-instances.md`.
+
+- Vérifié : tickets-api sur une base SQLite neuve (`scope=config` : 9 tables, export complet avec `sites`, `scope`
+  invalide → 400).
+- Non vérifié : PostgreSQL, import croisé entre deux instances.
+- Fichiers : `tickets/api/app.py`, `docs/deploiement-instances.md`, `BACKLOG.md`.
+
+## 2026-10-09 — QA : tour du hub et conformité visuelle et ergonomique (livraison #721, item 116 tranches 1-2)
+
+Décisions du 9 oct. : analyse locale sans modèle de vision, hub seul d'abord. Nouvelle étape QA `audit` : relevé dans la
+page puis règles de design du hub (contraste WCAG, page qui défile au lieu des cadres, défilement horizontal, en-tête de
+tableau non fixe, cibles < 24 px, couleurs en dur, textes tronqués) → constats et note /100 par page. Bouton
+« 🧭 Tour du hub (conformité) » : un scénario visite chaque vue des thématiques (`?view=…`) et l'audite ; le détail
+d'une exécution montre la note moyenne et les constats par page.
+
+- Vérifié : `qa/api/test_qa_design.py` (3 : contraste, règles, génération du tour), `qa/api/test_qa.py` (4, dont le tour
+  du hub et le refus d'une valeur d'audit invalide), `AUDIT_JS` dans un vrai Chromium sur une page de test (les 6 règles
+  détectent leur cas), `node --test` (333), syntaxe `@babel/parser`.
+- Non vérifié : tour réel du hub (connexion Keycloak via les étapes de connexion du site), build de l'image QA, rendu.
+- Fichiers : `qa/api/{qa_design,qa_steps,runner,app,test_qa,test_qa_design}.py`, `qa/api/Dockerfile`, `qa/README.md`,
+  `hub/src/{QaView.jsx,qaLib.js,qaClient.js}`, `hub/tests/qaLib.test.mjs`, `docs/qa-design-assistant.md`, `BACKLOG.md`.
+
+## 2026-10-09 — « Univers du hub » : demander à l'assistant depuis la recherche (livraison #720)
+
+Suite de #715 : la recherche du menu « Univers du hub » propose en pied de liste « 💬 Demander à l'assistant : « … » »
+(dès 3 caractères, si l'assistant est accessible à la personne) : ouvre l'onglet « Questions sur le hub » avec la
+question posée (vues, API, adresse IP ou MAC, dernier redémarrage d'un poste). Une seule zone de saisie pour trouver un
+écran ou poser une question.
+
+- Vérifié : `node --test hub/tests/*.test.mjs` (332, dont `assistantAskUrl`), syntaxe `@babel/parser`.
+- Non vérifié : `npm run build`, rendu navigateur.
+- Fichiers : `hub/src/hubTree.js`, `hub/src/App.jsx`, `hub/src/hub.css`, `hub/tests/hubTree.test.mjs`.
+
+## 2026-10-09 — Maintenance des Proxmox, vue Sauvegardes : serveurs PBS et tâches de sauvegarde (livraison #719)
+
+Pour suivre depuis le hub la campagne du week-end et la sauvegarde quotidienne : la vue Sauvegardes (Maintenance des
+Proxmox) affiche chaque serveur PBS vu par la sonde `pbs` (#716) -- datastores et occupation, groupes par espace de noms
+(dernière sauvegarde, snapshot incomplet, état ok / en retard / inactif, inactifs masqués par défaut), tâches à problème
+des 24 h -- et le tableau des sauvegardes tirées montre les tâches (`job`) à côté des CT, ✉ = réussite notifiée.
+`/maint/backups` renvoie `pbs_servers` ; `has_pbs` vrai dès qu'un serveur PBS est vu par un agent.
+
+- Vérifié : `si-agent/api/test_maint.py` (mesure pbs relue, seules les tâches à problème remontées), `node --test`
+  (331), syntaxe `@babel/parser`.
+- Non vérifié : rendu navigateur, mesure réelle de pbs10.
+- Fichiers : `si-agent/api/maint.py`, `si-agent/api/test_maint.py`, `hub/src/PveMaintView.jsx`.
+
+## 2026-10-09 — « Univers du hub » : recherche par thématique, sans casse ni accents (livraison #718)
+
+Demandé (note d'évolution) : « Sécurité et accès doit être indexé dans la recherche d'univers du hub avec ou sans
+majuscule et accent ». La recherche du menu « Univers du hub » porte désormais aussi sur la thématique de chaque
+entrée (« securite », « SÉCURITÉ », « sécurité et accès » listent toute la thématique Sécurité & accès) ; « & » vaut
+« et » dans le filtre texte commun ; la thématique s'affiche à côté de chaque entrée. Le libellé reste prioritaire.
+
+- Vérifié : `node --test hub/tests/*.test.mjs` (331, dont 1 nouveau sur les vraies thématiques), syntaxe `@babel/parser`.
+- Non vérifié : `npm run build`, rendu navigateur.
+- Fichiers : `hub/src/textFilter.js`, `hub/src/hubTree.js`, `hub/src/App.jsx`, `hub/tests/hubTree.test.mjs`.
+
+## 2026-10-09 — Campagne de sauvegardes tirées pour vider les PVE hébergés (livraison #717)
+
+Demandé : lancer les sauvegardes des CT des trois PVE hébergés pendant le week-end pour libérer l'hébergeur, avec suivi à
+distance. `si-agent/tools/pve-pull-batch.sh <liste>` : en série, échec non bloquant, arrêt sous un seuil d'espace libre,
+verrou, journal de campagne ; `pve-pull-backup.sh` accepte `PULL_NOTIFY_OK=1` (chaque réussite notifiée via #716).
+Au passage : l'adresse publique réelle d'un hyperviseur figurait dans un exemple et trois tests de #714 → remplacée par
+203.0.113.21 (elle reste dans l'historique git : à purger avec le reste, BACKLOG item 2).
+
+- Vérifié : `test_pulled_backups.py` (4, dont la campagne : ordre, échec au milieu, `notify_ok`, ssh qui ne vole pas la
+  liste sur l'entrée standard, arrêt sur seuil d'espace), `bash -n`.
+- Non vérifié : vrais PVE (bande passante, durée), unité systemd-run.
+
+## 2026-10-09 — Sauvegardes suivies par le hub, sonde PBS, notifications par courriel (livraison #716, agent 0.5.51)
+
+Demandé : « faisons le [suivi de la sauvegarde quotidienne] sur le hub avec émission d'email de notification », puis
+« un petit agent PBS aussi ». Le journal des sauvegardes tirées (`pulls.jsonl`, #714) accepte toute tâche de sauvegarde
+(`job`, délai propre `max_age_h`, `notify_ok`) ; nouvelle sonde `pbs` sur le serveur PBS (datastores, groupes par espace
+de noms, tâches GC / vérification / purge / sauvegarde) ; leurs constats deviennent des événements `backup-alert` /
+`backup-recovered` / `backup-done`, relayés à notify-api (`si-agent.backup-*`) : l'adresse de destination se règle dans
+la tuile Notifications, jamais dans le dépôt. `install.sh` active la sonde sur un PBS.
+
+- Vérifié : `si-agent/api` (65 tests, dont 5 nouveaux), `plugins/pbs/test_pbs.py` (4), `plugins/pulled-backups` (3, dont 1
+  nouveau), `si-agent/agent/tests/test_si_agent.py` (liste des plugins livrés mise à jour : `pulled-backups` y manquait
+  depuis #714), `bash -n install.sh`.
+- Non vérifié : `proxmox-backup-manager task list --output-format json` sur un vrai PBS (en cas d'échec, `tasks_error`
+  dans la mesure, le reste fonctionne), relais réel vers notify-api, envoi SMTP, rendu de la mesure dans le hub.
+- Fichiers : `si-agent/agent/plugins/pbs/*`, `si-agent/agent/plugins/pulled-backups/*`, `si-agent/api/{store,notify,app}.py`,
+  `si-agent/api/Dockerfile`, `si-agent/api/test_z_backup_notify.py`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `si-agent/agent/tests/test_si_agent.py`, `docker-compose.yml`, `si-agent/README.md`,
+  `notify/README.md`.
+
+## 2026-10-09 — Assistant : « Questions sur le hub » (livraison #715)
+
+Demandé : une micro-IA qui réponde aux questions sur le hub et ses API (« où trouver le dernier reboot du pc Windows
+xxx ? », « l'ip xx.yy est-elle visible quelque part dans le hub ? »). `POST /assistant/hub/ask`, onglet par défaut de la
+page de l'assistant : réponses tirées des API elles-mêmes, sans modèle (le modèle seulement sur demande). Dernier
+démarrage d'un poste (agents hôtes, `last_boot` Windows ou relevé − uptime) ; adresse IP/MAC cherchée dans 14 sources
+(exacte ou sous-réseau CIDR, objet et champ) ; routes d'API (index des `@app.route` du dépôt) ; vue du hub (catalogue
+`hubThemes.js`, lien `?view=`). Index construit dans l'image (`build_hub_index.py` : 62 vues, 1130 routes au 9 oct.).
+Cadrage de la demande suivante (assistant de design et de parcours dans QA) : `docs/qa-design-assistant.md`, item 116.
+
+- Vérifié : `assistant/tests` (24 tests, dont 9 nouveaux : détection, bornes d'IP, recherche dans un JSON, MAC sous
+  toutes ses écritures, appariement des postes, dernier démarrage mesuré ou calculé, index construit depuis le dépôt réel,
+  API avec sources simulées dont une en panne) ; syntaxe JS de la page (`new Function`).
+- Non vérifié : formats réels des 14 sources (une source au format inattendu ne fait que ne rien trouver), build de l'image,
+  rendu navigateur.
+- Fichiers : `assistant/hubqa.py`, `assistant/build_hub_index.py`, `assistant/app.py`, `assistant/static/index.html`,
+  `assistant/Dockerfile`, `assistant/requirements.txt` (tzdata), `assistant/tests/test_hubqa.py`, `assistant/README.md`,
+  `docker-compose.yml`, `.env.example`, `docs/qa-design-assistant.md`, `BACKLOG.md`.
+
+## 2026-10-08 — Sauvegardes « tirées » des PVE anciens vers le LAN (livraison #714, agent 0.5.50)
+
+Constat réel : PVE 5.4 sur les trois nœuds en ligne (pas de stockage PBS avant 6.2), nœuds pleins (pas de place pour un
+vzdump local). Le serveur de sauvegarde du LAN tire l'archive : `si-agent/tools/pve-pull-backup.sh <hôte> <vmid> [mode]
+[garder]` (`ssh root@hôte "vzdump --stdout --compress gzip"`, connexion sortante du LAN, aucun espace temporaire sur le
+nœud, archive vérifiée, SHA-256, rétention, journal `pulls.jsonl`) ; essai réel réussi sur un CT arrêté. Sonde
+`pulled-backups` (agent du serveur de sauvegarde) : dernière sauvegarde par nœud / CT, échecs, fichier disparu, ancienneté.
+Maintenance des Proxmox : détecteur `pulled_backup` (constat « sauvegarde faite » sans PBS), modèle « Libérer un nœud »
+avec sauvegarde tirée (commande prête dans la consigne), vue Sauvegardes : tableau des sauvegardes tirées. Tests :
+`test_pulled_backups.py` (script avec ssh simulé + sonde), `test_maint.py` (11).
+
+## 2026-10-07 — Messagerie : groupe dédié et exports CSV (livraison #713)
+
+Fin de l'item « Serveur de messagerie » : la tuile n'est plus réservée aux administrateurs -- groupe / rôle Keycloak
+**`messagerie`** (gabarit du royaume, matrice des droits), en plus de `administrateurs` et `admin_hub` (`canMail`) ;
+consultation toujours motivée et journalisée sur le serveur. Exports CSV (Excel français) des résultats de la recherche :
+boîtes, historique, quarantaine (`mailCsv.js`, métadonnées seules). Royaume déjà en service : créer le groupe
+`messagerie` dans Keycloak (ou réimporter le gabarit). Tests : `mailCsv.test.mjs`, hub 330 verts.
+
+## 2026-10-07 — Nebula : passerelle USG FLEX -- publications vers Internet et zones invité (livraison #712)
+
+Vérifié dans la documentation officielle de l'OpenAPI Nebula : **aucune route ne publie les règles de sécurité** (security
+policies) ni les zones du pare-feu ; lisibles : interfaces (`guestZone`, déjà exploitée) et NAT
+(`gw/{devId}/nat-settings` : `oneToOne`, `virtualServer`). `nebula/api/gwpolicy.py` en déduit des anomalies de la carte
+des VLAN (donc des rapports et alertes #703) : port sensible publié à tout Internet (SSH, RDP, SMB, bases, Proxmox,
+Docker…, `nat_sensitive_port`, haute) ou à une origine restreinte (basse), NAT 1:1 sans restriction (`nat_whole_host`),
+service publié depuis la zone invité, publication vers une adresse inconnue, SSID invité sur un VLAN hors zone invité
+(isolation à la seule charge de règles invisibles), SSID non invité en zone invité ; règles R-NET-09 à 15. Petites plages
+seulement pour les ports sensibles (8006 au milieu de 8000-8010 n'est pas Proxmox). Hub, carte des VLAN : tableau
+« Publications vers Internet ». Tests : `test_gwpolicy.py` (3), nebula 44 verts.
+
+## 2026-10-07 — Vulnérabilités : inventaire Windows / macOS et images Docker (livraison #711, agent 0.5.49)
+
+Suite de #699 (Linux). `sbomctl` : syft officiel de chaque plateforme (archive `.zip` Windows / `.tar.gz` macOS,
+empreinte SHA-256 vérifiée, `syft.exe`), racine (`C:\` / `/`) et exclusions propres au système (WinSxS, Installer,
+pagefile, profils temporaires ; System/Volumes, System/Library, caches, courrier…), outils dans le dossier de données
+de l'agent ; Windows / macOS : logiciels installés (sonde software-inventory : registre, /Applications) ajoutés au SBOM
+en composants « application » avec éditeur, pour Dependency-Track ; Linux : images des conteneurs Docker en service
+(`docker ps`, 20 au plus, `syft docker:<image>`), chacune déposée comme actif « image » (`?kind=image&name=` dans le
+chemin signé), commande `{"images": false}` pour s'en passer. Central : `kind` host | image. Hub : texte et case
+« images Docker ». Tests : `test_sbomctl.py` (8), central (27).
+
+## 2026-10-07 — Messagerie : historique indexé six mois, plein texte, index Dovecot signalé (livraison #710, agent 0.5.48)
+
+La recherche « historique » relisait le journal mail à chaque requête (14 jours, 300 Mo au plus). L'agent du serveur
+tient maintenant un **index local** (`/var/lib/si-agent/mail-log-index.db`, 0600) des métadonnées de chaque message —
+n° de file, expéditeur, destinataires, Message-ID, client, taille, états, verdict Amavis, lignes du journal ; jamais le
+contenu — alimenté toutes les 5 min (sonde mail-server active) et à chaque recherche : rattrapage de 31 jours au premier
+passage, puis suite à la position mémorisée, reprise après rotation (fin du `.1`) ou troncature, n° de file recyclé
+distingué, refus NOQUEUE de lots différents distincts, conservation 183 jours. Recherche par jokers et **plein texte
+FTS5** (`q`), repli sur la relecture du journal si l'index manque (`source: "log"` pour la forcer). Boîtes : la recherche
+dans le contenu signale l'absence d'index plein texte Dovecot (`doveconf -n`) avec la marche à suivre.
+Hub : champ « Historique : plein texte », périodes jusqu'à 183 j, état de l'index. Tests : `test_maillogidx.py` (3),
+agent complet vert.
+
+## 2026-10-07 — Réponse rapide des agents pendant une session interactive (livraison #709, agent 0.5.47)
+
+Les commandes de la tuile Messagerie (recherche, ouverture, libération) attendaient le relevé de l'agent, environ
+chaque minute. Le central ouvre une **session interactive** par agent (`POST /agents/<id>/interactive {seconds}` ou
+`{close}` ; toute commande créée ouvre 2 min) et l'annonce dans la réponse signée du relevé (`fast_poll : {seconds,
+for}`) : l'agent relève alors toutes les `SI_AGENT_FAST_POLL_SECONDS` (3 s par défaut, 2 s au moins) pendant au plus
+15 min, puis revient seul à son rythme. La tuile Messagerie ouvre la session à l'affichage, la renouvelle toutes les
+2 min, la ferme en partant. Agents plus anciens : champ ignoré, rien ne change. Tests : agent (35), central (46).
+
+## 2026-10-07 — Sonde mail-server : politiques antispam, conservation, authentification des expéditeurs (livraison #708, agent 0.5.46)
+
+Points 2, 3 et 5 du BACKLOG « Messagerie » (postscreen et antivirus déjà couverts par #692). Nouveaux constats :
+`spam-discard-silent` (spam supprimé sans quarantaine, vu au journal ou `D_DISCARD` sans quarantaine),
+`spam-threshold-low` (seuil de blocage < `--kill-min` sur un domaine hébergé ou une boîte : politiques Amavis lues en
+SQL, identifiants dans un fichier 0600 temporaire), `quarantine-short` (quarantaine récupérable < `--quarantine-min-days`),
+`log-retention-short` (journal mail < `--log-min-days` selon logrotate), `sender-unauth-blocked` (expéditeur bloqué sans
+DKIM aligné — `dkim_sd` d'Amavis — ni SPF « pass » — policyd-spf). Fiche de l'agent : politiques, conservation,
+authentification des expéditeurs. Tests : `test_mail_server.py` (16).
+
+## 2026-10-07 — Hub : colonnes réglables sur tous les tableaux (livraison #707)
+
+Suite de #698 (tableau des agents) : `<AutoColumns id>` (TableColumns.jsx) enveloppe un `<table>` ordinaire sans le
+réécrire. Colonnes reconnues par le libellé de leur en-tête (espaces et flèches de tri ignorés, doublons numérotés) ;
+poignée de largeur ajoutée à chaque en-tête (glisser ; double-clic = largeur automatique) ; bouton « ⚙ » au survol en
+haut à droite du tableau pour masquer / réafficher (jamais la dernière colonne) et réinitialiser ; feuille de style propre
+au tableau (`nth-child`, cellules fusionnées épargnées) ; réglages mémorisés par compte comme #698 (`table.auto.<id>`
+dans prefs-api, copie locale). Tableau sans `<thead>` d'une seule ligne : rendu inchangé. Branché par script sur
+275 tableaux de 84 vues (ceux qui ont un en-tête ; celui des agents garde #698).
+
+Vérifié : `tests/tableLayout.test.mjs` (5), hub `node --test` (329), `@babel/parser` sur toutes les vues.
+Non vérifié : rendu navigateur, build. Déploiement : `cd ~/SRC/data2/tickets/supervision-si && git pull && ./scripts/run.sh up -d --build hub`.
+
+## 2026-10-07 — Maintenance des Proxmox : signalements (livraison #706)
+
+Le planificateur de #705 inscrit au journal d'événements du central (source « maintenance ») : échec d'une opération
+(`maint.echec`, avertissement), action datée non faite 15 min après l'heure (`maint.retard`, avertissement), étape
+terminée (`maint.etape`), campagne terminée (`maint.campagne`). Chaque changement n'est signalé qu'une fois (marques
+conservées à la modification de la campagne) ; les avertissements partent sur les canaux de notification du central
+(SMS / courriel / webhook, seuil et anti-tempête existants). Campagnes « actives » seulement. Tests : `test_maint.py` (10).
+
+## 2026-10-07 — Tuile « Maintenance des Proxmox » : campagnes, avancement constaté, planification, sauvegardes (livraison #705)
+
+Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement détecté ; planification des tâches ; gestion
+des PBS. Contexte : PVE saturés chez l'hébergeur, CT arrêtés à sauvegarder puis supprimer, CT actifs à déplacer en deux
+passes, PBS du LAN à mettre en service.
+
+- Central `si-agent-api` (`maint.py`, routes `/maint/*`) : campagnes (étapes → actions manuelles ou opérations PVE #653
+  exécutées par l'agent du nœud via un plan PRA d'une étape) ; **détecteurs** évalués sur la dernière mesure du plugin
+  proxmox : CT/VM absent / présent / dans un état, sauvegarde récente (option stockage), espace libre, stockage déclaré
+  (type pbs), tâche de sauvegarde planifiée, version d'agent ; « inconnu » si un nœud n'a pas de mesure récente ; un
+  constat acquis le reste quand la donnée disparaît (sauvegarde d'un CT ensuite supprimé) ; étape « après la précédente »
+  bloquée tant que celle-ci n'est pas finie (exécution refusée) ; planificateur (opérations « auto » lancées à l'heure si la
+  campagne est active, une seule fois) ; modèles : libérer un nœud, mettre en service un PBS, déplacer un CT en deux
+  passes ; vue des sauvegardes (stockages, tâches, dernière sauvegarde par CT/VM : jamais, ancienne, en échec, hors tâche).
+- Hub : tuile Supervision/Réseau → « Maintenance des Proxmox » (`PveMaintView.jsx`, `pveMaintLib.js`) : Campagnes
+  (liste avec avancement, lecture avec coches / simuler / exécuter, éditeur d'étapes et d'actions, modèles), Planning,
+  Sauvegardes (PBS).
+
+Vérifié : `si-agent/api/test_maint.py` (9), suites central (44 avec test_si_agent_api et test_z_pra), hub `node --test`
+(328), `@babel/parser`. Non vérifié : sur les vrais PVE, rendu navigateur, build.
+Déploiement : `cd ~/SRC/data2/tickets/supervision-si && git pull && ./scripts/run.sh up -d --build si-agent-api hub`.
+
+## 2026-10-07 — Serveur de messagerie : onglet Quarantaine (livraison #704, agent 0.5.45)
+
+Niveaux récupérable / dépassée / historique complet, statistiques par expéditeur, domaine, destinataire, type, jour et
+origine, redistribution groupée (50 au plus), règles de protection Amavis (wblist : ajustement de score, liste blanche,
+liste noire ; avertissement si `@lookup_sql_dsn` absent), exports CSV. Libérer et modifier une règle exigent un motif
+journalisé. Fichiers : `si-agent/agent/si_agent/mailctl.py`, `test_mailctl.py` (17), `hub/src/{MailQuarantine.jsx,MailServerView.jsx}`.
+
+## 2026-10-07 — Anomalies réseau : rapports CSV / Excel / PDF, récapitulatif quotidien et alertes d'urgence par courriel (livraison #703)
+
+Demandé : rapport d'anomalies en CSV, Excel mis en forme et PDF ; courriel récapitulatif quotidien et alerte
+d'urgence à l'apparition d'une anomalie ; tout paramétrable (marche / arrêt, fréquence, délai avant envoi sans
+retour à la normale, destinataires).
+- nebula-api : `report.py` (lignes à plat triées par gravité ; CSV UTF-8 « ; » ; Excel : feuille Synthèse par
+  gravité et par site + feuille Anomalies colorée, filtres, volets figés ; PDF paysage DejaVu), `alerting.py`
+  (réglages normalisés, suivi première / dernière apparition, alerte après le délai, une fois ou en rappel,
+  retour à la normale, résolues sur 7 jours, échéance du récapitulatif heure + jours), `report_routes.py`
+  (`/report/settings` GET / PUT, `/report/anomalies?format=csv|xlsx|pdf|json`, `/report/send`, boucle de
+  contrôle à un seul worker). Envoi par notify-api : actions `nebula.anomalie-urgente`,
+  `nebula.retour-normale`, `nebula.recapitulatif` (groupes de la tuile Notifications + destinataires du réglage).
+- notify-api : `to` (destinataires explicites, liste noire appliquée) et `attachments` (base64, 5 fichiers,
+  8 Mo ; effacées après envoi) ; `shared/notify_client.notify(..., to=, attachments=)`.
+- Hub, tuile Nebula : onglet « Rapports & alertes » (téléchargements, réglages, envoi de test, anomalies suivies,
+  journal d'envoi). Image nebula-api : police DejaVu, tzdata, TZ=Europe/Paris ; reportlab.
+
+- Vérifié : `test_report` (8), `test_report_routes` (4 : droits, exports, urgence après délai, retour à la normale,
+  récapitulatif une fois par créneau, envoi de test), suites nebula, notify-api `test_app` (pièces jointes, `to`),
+  hub `node --test` (325), `@babel/parser`. Non vérifié : envoi SMTP réel, rendu PDF dans l'image.
+- Fichiers : `nebula/api/{report.py,alerting.py,report_routes.py,app.py,Dockerfile,requirements.txt}`,
+  `nebula/tests/{test_report.py,test_report_routes.py}`, `notify/api/{app.py,test_app.py}`, `shared/notify_client.py`,
+  `hub/src/{NebulaReports.jsx,NebulaView.jsx}`, `docker-compose.yml`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — nebula-api ne démarrait plus : module ssidmatrix absent de l'image (livraison #702)
+
+Vu après reconstruction : `ModuleNotFoundError: No module named 'ssidmatrix'` -- le Dockerfile listait les modules
+un à un et `ssidmatrix.py` (#686) n'y avait jamais été ajouté ; l'ancienne image tournait encore, la reconstruction
+de #701 l'a révélé (tuile Nebula : « JSON.parse… », autres modules : nom `nebula-api` introuvable). Le Dockerfile
+copie désormais `nebula/api/*.py` ; test de garde : tout module local importé par app.py est dans l'image.
+
+- Vérifié : `test_vlanmap` (garde comprise). Non vérifié : reconstruction sur le serveur.
+- Fichiers : `nebula/api/Dockerfile`, `nebula/tests/test_vlanmap.py`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Carte des VLAN Nebula : ports de bornes, « All », adresse de passerelle invalide (livraison #701)
+
+Vu sur un site réel : un nouveau SSID / VLAN n'obtenait pas d'adresse ; deux causes que la carte des VLAN ne
+voyait pas (elle ne contrôlait que les liaisons entre commutateurs). Trois anomalies typées en plus, avec règles :
+- `ap_port_missing_ssid_vlan` (R-NET-06, haute) : VLAN d'un SSID actif absent des ports de bornes (liaisons
+  commutateur → borne vues par LLDP), regroupé par ensemble de VLAN manquants et nombre de ports -- signe d'un
+  profil de port commun à compléter ;
+- `ap_port_all_vlans` (R-NET-07, moyenne) : ports de bornes en « All » (toute prise de borne donne alors accès à
+  tous les VLAN du site) ;
+- `gateway_ip_not_host` (R-NET-08, haute) : interface de passerelle à l'adresse du réseau ou de diffusion
+  (ex. x.x.x.0/24), avec l'adresse à prendre ; jamais pour un sous-réseau déduit des clients.
+
+- Vérifié : `test_vlanmap` (dont le cas réel reproduit), `test_rules`, suites nebula. Non vérifié : sur l'OpenAPI
+  réelle (type « AP » des bornes et adresse des interfaces de l'USG FLEX parfois vide dans l'OpenAPI).
+- Fichiers : `nebula/api/vlanmap.py`, `nebula/tests/{test_vlanmap.py,test_rules.py}`, `rules/reseau-nebula.md`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Pastille de version : contrôle régulier page / central / origin, bouton vers la tour (livraison #700)
+
+Vu : le dépôt du central était en #699 (git pull à la main), la page en #693, et la tour se disait « à jour » (elle
+compare le dépôt à origin, pas ce qui tourne). La pastille en bas à droite contrôle désormais, pour qui a accès à la
+tour, 15 s après l'ouverture puis toutes les 15 min (et au retour sur l'onglet, ou au clic) : livraison compilée
+dans la page vs HEAD du central vs origin. À jour : « ● #N ». Sinon un bouton orange ouvre la tour : « ⬆️ #N »
+(nouveaux commits sur origin) ou « 🔨 #N » (code présent sur le central, page non reconstruite). Rien n'est forcé.
+Dans la tour, le cas « reconstruction à faire » est signalé au-dessus des boutons de mise à jour.
+
+- Vérifié : `versionStatus` (towerLib.test.mjs), hub `node --test` (325), `@babel/parser`. Non vérifié : dans un navigateur.
+- Fichiers : `hub/src/{VersionBadge.jsx,towerLib.js,App.jsx,ControlTowerView.jsx,hub.css}`, `hub/tests/towerLib.test.mjs`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Vulnérabilités, tranche 2 : inventaire logiciel par les agents (syft sur l'hôte → central → vuln-api) (livraison #699)
+
+- Agent : commande `sbom` (`si_agent/sbomctl.py`) -- `{now}` inventaire en arrière-plan, `{schedule_days}` relevé
+  périodique mémorisé (0 = arrêt, vérifié dans la maintenance de l'agent, nouvel essai à 6 h en cas d'échec),
+  `{install}` syft installé à la demande dans /var/lib/si-agent/tools depuis la publication officielle, archive
+  vérifiée par l'empreinte SHA-256 publiée. syft en priorité basse (nice / ionice), sans les zones de données
+  (boîtes, disques de VM / CT, bases, journaux, caches, Docker). SBOM compressé, envoyé SIGNÉ ; évènements
+  `sbom-sent` / `sbom-failed`. Linux seulement. Agent 0.5.44.
+- Central : `POST /api/v1/agents/<id>/sbom` (signature vérifiée, gzip) transmis à vuln-api (`VULN_API_URL`), actif
+  = nom d'hôte ; l'exposition réglée dans la tuile est conservée ; évènement `sbom-received`. `sbom` ajouté aux
+  commandes admises.
+- Hub, tuile Vulnérabilités : section « Inventaire par les agents » (dernier inventaire, P1 / P2, « Inventaire
+  maintenant », périodicité jour / semaine / mois / arrêt, installation de syft cochable).
+
+- Vérifié : `test_sbomctl` (5 : installation vérifiée et refus d'une archive altérée, commande, envoi, échecs,
+  échéance), `test_si_agent_api` (26, dont transmission signée et refus non signé), `tests/test_si_agent.py`,
+  `test_mailctl`, `test_updater`, hub `node --test` (324), `@babel/parser`. Non vérifié : syft réel sur un hôte.
+- Fichiers : `si-agent/agent/si_agent/{sbomctl.py,agent.py,__init__.py}`, `si-agent/agent/test_sbomctl.py`,
+  `si-agent/api/{app.py,store.py,test_si_agent_api.py}`, `hub/src/{VulnView.jsx,App.jsx}`, `docker-compose.yml`,
+  `.env.example`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Tableaux du hub : colonnes redimensionnables et masquables, mémorisées par compte (livraison #698)
+
+Demandé pour le tableau des agents, fait en composant commun : `useTableColumns(id, colonnes)` + `TableColumnsHead`
++ `ColumnsMenu` (`hub/src/TableColumns.jsx`, logique pure `hub/src/tableLayout.js`). Largeur : glisser le bord droit
+d'un en-tête (double-clic = automatique) ; menu « ⚙ Colonnes » pour masquer / réafficher / réinitialiser (colonnes
+fixes non masquables). Réglages mémorisés dans prefs-api (clé `table.<id>` par tableau, écriture regroupée) et
+localement pour l'affichage immédiat ; le compte prime au chargement (même réglage d'un poste à l'autre).
+Premier tableau branché : Agents hôtes. Aussi : commentaire d'import de VulnView remis à sa place (#697).
+
+- Vérifié : `tableLayout.test.mjs` (4), hub `node --test` (324), `@babel/parser`. Non vérifié : à la souris dans un navigateur.
+- Fichiers : `hub/src/{TableColumns.jsx,tableLayout.js,SiAgentView.jsx,App.jsx}`, `hub/tests/tableLayout.test.mjs`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Tuile « Serveur de messagerie » : traitements, recherche (boîtes, historique, quarantaine), visualiseur, journal en arbre (livraison #697)
+
+Demandé : vue des traitements des messages ; retrouver un message dans toutes les boîtes, dans l'historique de
+traitement et dans la quarantaine (avec libération) ; filtres expéditeur / destinataire (utilisateur ou domaine) /
+sujet à jokers / plein texte / contenu ; visualiseurs source et HTML ; journal en arbre façon JSON.
+- Agent : commande `mail` (`si_agent/mailctl.py`) -- `log_tree` (programme → évènement → lignes), `log_search`
+  (journal regroupé par message : n° de file, rattachement Amavis par « queued as », refus NOQUEUE, blocages ;
+  rotations .1 / .gz lues), `quarantine_search` / `quarantine_get` / `quarantine_release` (SQL Amavis/Modoboa,
+  identifiants lus dans la configuration et passés à `mysql` par fichier 0600, littéraux X'…' sans injection possible,
+  secret_id lu seulement à la libération, `amavisd-release`), `mailbox_search` / `mailbox_get` (`doveadm fetch`,
+  -A ou -u motif, jamais « tout » sans borne de date). Jokers * ? partout. Secret des correspondances : motif
+  obligatoire pour ouvrir ou libérer ; chaque action (recherches et refus compris) journalisée sur l'hôte avec
+  l'acteur et le motif (`/var/log/si-agent/mail-audit.log`). Central : `mail` ajouté aux commandes admises. Agent 0.5.43.
+- Hub : tuile réservée aux administrateurs -- Traitements (sonde mail-server + historique par message et décompte des
+  issues), Recherche (trois périmètres en parallèle, libération), Visualiseur (aperçu HTML dans un cadre isolé :
+  aucun script, aucun chargement distant, images cid: embarquées ; texte, source, en-têtes, structure MIME, .eml),
+  Journal (arbre filtrable, JSON brut). Lecture MIME pure : `hub/src/mailMime.js`.
+
+- Vérifié : `test_mailctl` (13 : arbre, regroupement, filtres, DSN, SQL sans injection, mot de passe hors ligne de
+  commande et hors résultat, source / libération, audit, doveadm, jokers, rotations), `mailMime.test.mjs` (5), hub
+  `node --test` (320), `@babel/parser`, `test_si_agent.py`, `test_updater`, `test_si_agent_api`.
+  Non vérifié : sur le serveur réel (schéma de la quarantaine Modoboa, champs `hdr.*` de doveadm 2.2, formats réels).
+- Fichiers : `si-agent/agent/si_agent/{mailctl.py,agent.py,__init__.py}`, `si-agent/agent/test_mailctl.py`,
+  `si-agent/api/store.py`, `hub/src/{MailServerView.jsx,mailMime.js,App.jsx,hubThemes.js,hubBusiness.js}`,
+  `hub/tests/mailMime.test.mjs`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Mise à jour depuis le hub sur Debian 9 : `systemd-run --collect` seulement si systemd ≥ 236 (livraison #696)
+
+Vu sur un hôte Debian 9 (systemd 232) : la mise à jour lancée depuis le hub échouait aussitôt
+(`systemd-run: unrecognized option '--collect'`), l'agent restant dans l'ancienne version. L'option n'est plus passée
+qu'à partir de systemd 236. Les agents déjà installés sur ces hôtes portent l'ancien code de mise à jour : une mise à
+jour manuelle (`install.sh --upgrade`) une fois, puis le hub prend le relais. Agent 0.5.42.
+
+- Vérifié : `test_updater` (version de systemd, commande avec / sans `--collect`). Non vérifié : sur l'hôte.
+- Fichiers : `si-agent/agent/si_agent/{updater.py,__init__.py}`, `si-agent/agent/test_updater.py`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Installeur Linux : secret de l'agent exclu d'etckeeper (livraison #695)
+
+Vu sur un hôte : etckeeper a versionné `/etc/si-agent/agent.json` (secret de l'agent) au premier `apt` suivant
+l'installation. L'installeur l'ajoute désormais à `/etc/.gitignore` et le retire du suivi (l'historique déjà
+enregistré reste à purger ou le secret à renouveler, voir la procédure donnée). Agent 0.5.41.
+
+- Vérifié : `bash -n install.sh`. Non vérifié : sur un hôte avec etckeeper.
+- Fichiers : `si-agent/agent/install.sh`, `si-agent/agent/si_agent/__init__.py`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Sonde mail-server : retours du premier passage réel ; sondes livrées mises à jour par --upgrade (livraison #694)
+
+Premier passage sur un serveur réel : trois constats étaient du bruit, et la correction ne pouvait pas atteindre l'hôte.
+- Service **désactivé** (`systemctl disable`) = arrêt volontaire : affiché « disabled », jamais signalé ; les signatures
+  ClamAV ne sont plus jugées quand clamd est désactivé (`--ignore-service` reste possible).
+- `spamassassin` (démon spamd) inactif n'est plus une panne quand Amavis tourne (il embarque SpamAssassin).
+- `blacklist_to` : dédoublonné, et seules les adresses pouvant viser un domaine **hébergé** sont signalées (domaines
+  déduits des remises locales du journal) ; les motifs anti-hameçonnage sur un domaine étranger sont ignorés.
+- `install.sh` : une sonde livrée déjà présente sur l'hôte voit son code **remis à jour** (avant : copiée seulement si
+  absente -- aucune correction de sonde livrée n'atteignait les hôtes) ; `enabled`, `blocked` et `args` locaux conservés ;
+  une sonde du central de même nom n'est pas touchée. Agent 0.5.40.
+
+- Vérifié : `test_mail_server` (13), `tests/test_si_agent.py`, `test_updater`, `bash -n install.sh`, bloc de mise à jour
+  joué sous `LANG=C` (manifeste UTF-8, état conservé, code remplacé). Non vérifié : `--upgrade` réel sur l'hôte.
+- Fichiers : `si-agent/agent/plugins/mail-server/{mail_server.py,test_mail_server.py}`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Vulnérabilités : travaux en arrière-plan, « État de l'installation », exclusions syft (livraison #693)
+
+Signalé : la tuile « Vulnérabilités » (#688) ne semble pas fonctionner. Causes probables corrigées ou rendues visibles :
+- « Analyser le dépôt » et « Recharger EPSS et KEV » duraient plus que le délai du tls-proxy (300 s) → 504 côté hub
+  alors que le travail continuait. Ils deviennent des **travaux en arrière-plan** (`202 {id}`, `GET /jobs/<id>`,
+  `GET /jobs`, `?wait=1` = synchrone ; un seul travail par type) ; le hub suit l'avancement et le reprend à
+  l'ouverture de la tuile.
+- syft parcourait tout le dépôt monté, **données des modules comprises** (GED, sauvegardes, bases) : exclusions
+  par défaut `data/`, `dist/`, `node_modules/`, `.git/`, `__pycache__/`, `.venv/`, `backups/`, `*.zip`
+  (`VULN_SELF_SCAN_EXCLUDES`).
+- `GET /diag` + bouton **« État de l'installation »** (ouvert d'office en cas d'échec) : syft et osv-scanner présents
+  (versions), stockage inscriptible et place libre, dépôt monté, flux EPSS/KEV chargés, sortie Internet vers
+  api.osv.dev / EPSS / KEV / Dependency-Track, liste des problèmes en clair.
+- Hub : erreurs sans réponse de vuln-api traduites (404 = route absente du tls-proxy, 502/503 = conteneur arrêté,
+  réponse non JSON = mauvais routage, URL absente = hub à reconstruire).
+- osv-scanner épinglé en 2.6.0 ; `OSV_SCANNER_ARGS` (ex. mode hors ligne sans accès à api.osv.dev).
+
+- Vérifié : `vuln/tests` (12 : travaux, échec syft, travail unique, diagnostic), `@babel/parser` sur `VulnView.jsx`.
+  Non vérifié : sur le serveur (cause exacte de l'échec signalé non encore observée).
+- Fichiers : `vuln/{app.py,Dockerfile,README.md,tests/test_vuln.py}`, `hub/src/VulnView.jsx`, `docker-compose.yml`,
+  `.env.example`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-07 — Sonde « serveur de messagerie » (Postfix, postscreen, Amavis, ClamAV, Dovecot) (livraison #692)
+
+Après un incident réel (courrier légitime supprimé en silence, puis refusé 14 h en « 451 queue file write error »),
+première tranche de l'item « supervision du serveur de courrier » :
+- Plugin livré `mail-server` (agent 0.5.39, désactivé par défaut, privilégié) : sur la dernière heure de
+  `/var/log/mail.log` (formats syslog et ISO) -- refus 451, erreurs Amavis (clamd injoignable, base, délais),
+  verdicts, **faux positifs probables** (bloqués sous `--fp-below`, défaut 8 : expéditeur, destinataires, score,
+  n° de quarantaine ; jamais le contenu), destinataires les plus bloqués, rejets SMTP par motif, postscreen,
+  remises ; plus l'état des services (postfix, amavis, dovecot, clamd, base -- une seule base active suffit),
+  la file Postfix (`postqueue -j`), `postscreen_dnsbl_action`, les `blacklist_to` de SpamAssassin, l'âge des
+  signatures ClamAV et le refus de mise à jour, la fin de support Debian. Constats → événements notifiés
+  (`plugin:mail-server` ajouté aux sondes suivies). `--ignore-service clamav-daemon` pour un arrêt volontaire.
+- Hub, fiche agent : section « Serveur de messagerie » (constats, services, file, verdicts, faux positifs).
+- Tests de l'agent : le faux exécuteur reconnaît l'interpréteur de l'agent (#690) -- test réel de chaîne réparé.
+
+- Vérifié : `test_mail_server` (10, lignes au format Postfix 3.1 / amavisd-new réel, valeurs fictives), suites
+  `si-agent/agent` et `si-agent/api`, hub `node --test` (315), `@babel/parser`. Non vérifié : sur le serveur réel.
+- Fichiers : `si-agent/agent/plugins/mail-server/`, `si-agent/agent/si_agent/__init__.py`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/store.py`, `hub/src/{MailServerSection.jsx,SiAgentView.jsx}`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Installeur Linux : chaîne du central vérifiée avec l'interpréteur de l'agent, `certifi` au besoin (livraison #691)
+
+Vu sur deux hyperviseurs Debian 9 en Python autonome : `CERTIFICATE_VERIFY_FAILED` vers le nom public du central
+(racine ISRG Root X2 inconnue). Corrigé à la main avec `certifi` ; l'installeur le fait désormais : test de la chaîne
+avec l'interpréteur de l'agent ; en échec, magasin système puis `certifi` (installé par uv dans cet interpréteur),
+inscrit en `ca_file` ; avertissement sinon. Rien ne change quand la vérification passe ou qu'une CA est épinglée.
+
+- Vérifié : `bash -n install.sh`, compilation du bloc Python. Non vérifié : sur un hôte Debian 9.
+- Fichiers : `si-agent/agent/install.sh`, `docs/agent-python-autonome.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Sondes Python lancées par l'interpréteur de l'agent (livraison #690)
+
+Vu sur un hyperviseur Debian 9 (agent en Python 3.11 autonome) : la sonde `proxmox` échouait (« __init__() got an
+unexpected keyword argument 'text' ») -- les sondes Python étaient lancées par le `python3` système (3.5).
+- Agent 0.5.38 : `plugin_python()` -- l'interpréteur de l'agent (`sys.executable`) pour les sondes Python ; repli sur
+  `python3` seulement si cet interpréteur est sous `/root` ou `/home` et que la sonde tourne sous un utilisateur de
+  confinement qui ne pourrait pas le lire.
+
+- Vérifié : `tests.test_si_agent` (+1), toutes les suites de `si-agent/agent`. Non vérifié : sur l'hôte.
+- Fichiers : `si-agent/agent/si_agent/{agent.py,__init__.py}`, `si-agent/agent/tests/test_si_agent.py`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Répartition : cohortes complétées (groupware, outils, ia) et recette d'une 3e VM locale (livraison #689)
+
+- `deploy/cohorts.json` : les 12 services ajoutés depuis #513 n'étaient dans aucune cohorte (une VM de répartition ne
+  les aurait pas lancés ni relayés). `dns-api` → `reseau`, `service-watch-api` → `supervision` ; nouvelles cohortes
+  `groupware` (groupware-api + radicale, inséparables), `outils` (portage-api/db, qa-api, datasync-api, vuln-api,
+  dependency-track : la plus lourde, première à délester), `ia` (assistant-api, ollama). 89 services, 11 cohortes.
+- Test : tout service du compose réel est dans une et une seule cohorte (`deploy/tests/test_deploy.py`).
+- `deploy/README.md` : recette « troisième VM locale » (WireGuard sur le LAN, profil `node`, `migrate outils`).
+
+- Vérifié : `cohorts.py check` (ok, isolation comprise), `deploy/tests` (16). Non vérifié : migration réelle.
+- Fichiers : `deploy/{cohorts.json,README.md,tests/test_deploy.py}`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Vulnérabilités du SI : SBOM (syft) → OSV (osv-scanner) → EPSS + KEV, Dependency-Track en option (livraison #688)
+
+Tranche 1 de « tout superviser avec syft, osv-scanner, Dependency-Track et EPSS ».
+- `vuln/` (`vuln-api`, `/api/vuln/`) : dépôt d'un SBOM CycloneDX par actif (`POST /sbom`), osv-scanner v2
+  (`scan source -L *.cdx.json`), constats regroupés par alias (CVE/GHSA/PYSEC), score (max_severity, vecteur CVSS 3
+  recalculé, ou libellé), versions corrigées ; flux **EPSS** (FIRST, fichier courant) et **KEV** (CISA, miroir GitHub
+  en secours) rechargés chaque jour avec re-priorisation de tout ; priorité P1→P4 avec la raison en clair ; première
+  apparition conservée ; « Analyser le dépôt » (syft sur le dépôt monté en lecture seule) ; dépôt automatique dans
+  **Dependency-Track** si `DT_URL`/`DT_API_KEY` (service `dependency-track`, profil `vuln-dt`, lourd).
+- Hub : tuile « Vulnérabilités » (Supervision et états) : synthèse P1-P4/KEV, actifs (case « Exposé » qui re-priorise),
+  vulnérabilités filtrées, dépôt d'un SBOM, rechargement des flux.
+- Suite au BACKLOG (agents, Dependency-Track, tickets, criticité Cortex, fin de vie, CERT-FR, micrologiciels…).
+
+- Vérifié : `vuln/tests` (10 : syft 1.40 réel sur un projet d'exemple, avis OSV réel GHSA-462w-v97r-4m45, extrait réel
+  du catalogue KEV, format EPSS, CVSS 3 contre les scores publiés, chaîne API complète avec bascule sur le miroir KEV),
+  hub `node --test` (315), `@babel/parser`, `tls-proxy` tests, compose YAML. Non vérifié : image Docker (téléchargement
+  syft/osv-scanner au build), interrogation réelle d'api.osv.dev et du fichier EPSS (bloqués dans l'environnement de
+  développement), Dependency-Track, rendu.
+- Fichiers : `vuln/{app.py,vulnlib.py,Dockerfile,requirements.txt,README.md,tests/}`, `hub/src/{VulnView.jsx,App.jsx,
+  hubThemes.js,hubBusiness.js}`, `docker-compose.yml`, `tls-proxy/render_nginx_conf.py`, `.env.example`, `.gitignore`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Point d'observation extérieur : audit non intrusif des applications en ligne (livraison #687)
+
+Première tranche de la demande « accès de l'extérieur pour tester et auditer nos applications en ligne ».
+- Agent 0.5.37 : `si_agent/extaudit.py` (stdlib) -- ports TCP d'une courte liste (pause entre deux), TLS (chaîne
+  système, nom, échéance -- relue même si la chaîne est refusée --, version, TLS 1.0/1.1 acceptés), en-têtes de
+  sécurité (HSTS, CSP/frame-ancestors, nosniff, Referrer-Policy, Server versionné), redirection http → https ;
+  constats par gravité. Commande `ext_audit` exécutée dans un fil, mesure `ext-audit` + événement résumé ;
+  REFUSÉE si l'agent n'a pas `audit_enabled` (`install.sh --observation`).
+- Central : liste blanche `SI_AGENT_AUDIT_ALLOWED` (domaines, `*.`sous-domaines, IP/CIDR ; vide = rien), 10 cibles et
+  32 ports max ; mesure `ext-audit` conservée en dernière valeur.
+- Hub, fiche agent : section « Audit extérieur » (cibles, lancement, constats par cible) si l'agent est point
+  d'observation.
+- Reste (backlog) : exécution déportée service-watch / QA, outils lourds après accord de l'hébergeur, comparaison
+  entre campagnes, archivage GED.
+
+- Vérifié : `test_extaudit` (5), `tests.test_si_agent` (+1), `test_si_agent_api` (+2 liste blanche), hub `node --test`
+  (315), `@babel/parser`, `bash -n install.sh`, essai réel sur un site public et sur un serveur TLS autosigné local
+  (chaîne refusée + échéance lue). Non vérifié : depuis un CT de l'hébergeur, rendu du hub.
+- Fichiers : `si-agent/agent/si_agent/{extaudit.py,agent.py,__init__.py}`, `si-agent/agent/{test_extaudit.py,install.sh}`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/{store.py,test_si_agent_api.py}`, `si-agent/README.md`,
+  `hub/src/{ExtAuditSection.jsx,HostControlSection.jsx}`, `docker-compose.yml`, `.env.example`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Nebula : matrice SSID × VLAN prévue / observée / prouvée (livraison #686)
+
+- `nebula/api/ssidmatrix.py` (pur) : par SSID, le **prévu** (VLAN, sous-réseau de la passerelle ou déduit, zone invité,
+  anomalies de transport du VLAN de la carte #548), l'**observé** (clients sans fil de l'API complétés par le dernier
+  export CSV « Clients », dédoublonnés par MAC ; sous-réseau de leur adresse, hors plan signalé) et le **prouvé**
+  (dernier test actif importé). Verdict `prouvé` / `observé` / `à prouver` / `désactivé` / `écart`, écarts en phrases
+  (règle en cause) ; cibles injoignables depuis un SSID invité = note « isolation attendue », pas un écart.
+- Routes `GET /sites/<id>/ssid-matrix`, `POST /sites/<id>/ssid-proof` (table `nebula_ssid_proofs`, historique).
+- `ssid-vlan-check.sh` : `SSIDCHECK_CSV=<fichier>` écrit aussi le résultat en CSV importable.
+- Hub, Nebula > VLAN : section « Matrice SSID × VLAN » (verdicts, écarts, import du test actif).
+- Reste (backlog) : security policies / isolation du USG FLEX dans l'OpenAPI, à vérifier.
+
+- Vérifié : `nebula/tests` (+7 `test_ssidmatrix`, +1 route et import dans `test_poll`), `bash -n`, `@babel/parser`.
+  Non vérifié : sur le site réel (champ SSID des clients dans l'API inconnu -- repli sur l'export CSV ; `clients-raw`
+  le dira), rendu du hub.
+- Fichiers : `nebula/api/{ssidmatrix.py,app.py}`, `nebula/tests/{test_ssidmatrix.py,test_poll.py}`,
+  `nebula/tools/ssid-vlan-check.sh`, `hub/src/{NebulaSsidMatrix.jsx,NebulaVlan.jsx}`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Mises à jour automatiques de l'agent Linux : interpréteur conservé, journal de l'installeur rempli (livraison #685)
+
+Vu sur un hyperviseur : « l'installeur n'a pas relancé l'agent -- journal vide ». Trois défauts :
+- `install.sh --upgrade` lancé par l'agent (sans `--python` ni `SI_AGENT_PYTHON`) reprenait le `python3` système : un
+  hôte en Python autonome (Debian 9, 3.5) faisait échouer le garde-fou ≥ 3.7 avant le redémarrage du service, et un
+  autre aurait vu son `ExecStart` réécrit. L'interpréteur de l'`ExecStart` en place est désormais conservé.
+- Sous `systemd-run`, la sortie de l'installeur partait dans le journal de l'unité transitoire, jamais dans
+  `update-N.log` : elle y est redirigée (`bash -c 'exec … >>log 2>&1'`).
+- Interpréteur sous `/root` ou `/home` (`uv python install`) : `ProtectHome=true` le rendait invisible au service →
+  `ProtectHome=read-only` dans ce cas ; doc `agent-python-autonome.md` (variante `UV_PYTHON_INSTALL_DIR=/opt/pyagent`).
+Agent 0.5.36. Un agent antérieur se met à jour avec SON ancien code de mise à jour : pour les hôtes en Python
+autonome, une dernière mise à jour manuelle (`--upgrade --python …`) reste nécessaire.
+
+- Vérifié : `test_updater` (+2, dont exécution réelle de la redirection), `bash -n install.sh`, extraction de
+  l'interpréteur depuis un `ExecStart` uv. Non vérifié : mise à jour complète depuis le hub sur un hôte.
+- Fichiers : `si-agent/agent/{install.sh,test_updater.py}`, `si-agent/agent/si_agent/{updater.py,__init__.py}`,
+  `docs/agent-python-autonome.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Redémarrage planifié avec relance des applications, intégré à l'agent (livraison #684)
+
+Remplace les tâches planifiées posées à la main sur le poste écran du campus.
+- Commande `power_schedule` (`{enabled, time, days, relaunch}`), persistée par l'agent ; créneau de 15 min servi une
+  fois par jour (rattrapage si l'agent était occupé), rien si l'agent est bloqué.
+- Au créneau (Windows) : instantané des applications de la session console (`Win32_Process`, lancées par
+  l'explorateur, hors processus système, dédoublonnées, 20 max), événement `host-reboot` (liste des applications),
+  `shutdown /r /t 60 /f`. Au retour : relance dans la session de l'utilisateur (#683) dès qu'il est connecté
+  (autologon), événement `host-boot` « n/m relancée(s) » ; abandon signalé après 4 h sans utilisateur. Linux : le
+  redémarrage seul.
+- Hub, section Poste : bloc « Redémarrage planifié » (heure, jours, relance) avec l'état en place et la relance en
+  attente (inventaire). API : type de commande `power_schedule`. Agent 0.5.35.
+
+- Vérifié : `test_winctl` (+2 : créneau, instantané), `tests.test_si_agent` (+1 : créneau servi une fois, relance qui
+  attend l'utilisateur puis `host-boot`), toutes les suites de `si-agent/agent`, `si-agent/api`, `@babel/parser`.
+  Non vérifié : instantané et relance sur un Windows réel ; retirer ensuite les tâches manuelles du poste écran.
+- Fichiers : `si-agent/agent/si_agent/{powersched.py,agent.py,__init__.py}`, `si-agent/agent/test_winctl.py`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/store.py`, `hub/src/HostControlSection.jsx`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Chien de garde Windows : applications relancées dans la session de l'utilisateur (livraison #683)
+
+Défaut vu au campus : l'agent est un service SYSTEM (session 0) ; une application graphique relancée par le chien de
+garde #613 y tournait sans fenêtre visible.
+- Nouveau `si_agent/winsession.py` : jeton de l'utilisateur de la session console (`WTSQueryUserToken`), son
+  environnement, `CreateProcessAsUserW` sur `winsta0\default`, commande passée par `cmd /c start` (fenêtre cmd masquée).
+  Sans utilisateur connecté : échec explicite (`app-restart-failed` « aucun utilisateur connecté ») plutôt qu'un
+  lancement invisible.
+- Option par application `session` : `console` (défaut) / `service` (ancien comportement, programmes sans fenêtre) ;
+  champ « Session de lancement (Windows) » dans le formulaire du hub. Agent 0.5.34.
+
+- Vérifié : `test_winctl` (+2 : option `session`, ligne de commande), `tests.test_si_agent`, `@babel/parser`.
+  Non vérifié : lancement réel sous Windows (ctypes) -- à valider sur le poste écran (tuer l'application surveillée).
+- Fichiers : `si-agent/agent/si_agent/{winsession.py,watchdog.py,agent.py,__init__.py}`, `si-agent/agent/test_winctl.py`,
+  `hub/src/HostControlSection.jsx`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Agent Windows -SystemCa : faisceau de confiance écrit par l'installeur et régénéré par l'agent (livraison #682)
+
+Vu au campus : le Python embarqué ne lit que les magasins `ROOT`/`CA` de Windows, pas les racines téléchargées à la
+demande (AuthRoot, ex. ISRG Root X2 de la chaîne ECDSA Let's Encrypt) → `CERTIFICATE_VERIFY_FAILED` avec `-SystemCa`.
+- Nouveau `windows/central-ca.ps1 -Central <url> -Out <pem>` : construit la chaîne du central par Windows (`X509Chain`,
+  ce qui télécharge la racine manquante) et écrit, atomiquement, un faisceau PEM chaîne + magasins `Root`/`AuthRoot`/`CA`
+  de la machine (dédoublonné).
+- `install.ps1 -SystemCa` l'appelle, copie le script dans le dossier d'installation et inscrit `ca_file`,
+  `ca_system_bundle`, `ca_refresh_script` dans agent.json (aussi en `-Upgrade` d'un agent déjà installé en `-SystemCa`).
+- Agent 0.5.33 : sur `CERTIFICATE_VERIFY_FAILED` vers le central principal, régénère le faisceau (au plus une fois par
+  heure) et reconstruit le contexte TLS ; faisceau illisible ou échec → contexte précédent conservé.
+
+- Vérifié : `si-agent/agent` unittest (+3 `CaRefreshTests`). Non vérifié : `central-ca.ps1` / `install.ps1` sur un
+  poste Windows réel (à valider au prochain `-Upgrade -SystemCa` du poste écran).
+- Fichiers : `si-agent/agent/windows/{central-ca.ps1,install.ps1}`, `si-agent/agent/si_agent/{agent.py,__init__.py}`,
+  `si-agent/agent/tests/test_si_agent.py`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Hub servi compilé, page d'entrée sans cache (livraison #681)
+
+Vu en réel : page blanche après une mise à jour -- le serveur de développement Vite recompilait ses dépendances
+(requêtes pendantes plusieurs minutes sur la VM) et le navigateur redemandait des blocs d'une version antérieure.
+Le conteneur compile désormais le hub au démarrage (`vite build`, les `VITE_*` du compose restent lus à ce moment-là)
+et le sert par `hub/serve.mjs` (sans dépendance) : `index.html` / routes SPA en `no-cache, no-store`, `assets/*`
+immuables, pas de compression (substitution d'origine du frontal), 405 hors GET/HEAD, traversée refusée. Échec de
+compilation : repli sur le serveur de développement. `HUB_MODE=dev` (`.env`) pour l'ancien mode.
+
+- Vérifié : `hub/tests/serve.test.mjs` (résolution, en-têtes, 404/405, traversée), `sh -n entrypoint.sh`.
+- Vérifié ensuite (environnement Linux) : `vite build` complet en ~7 s (un bundle JS + CSS), `serve.mjs` sur le
+  `dist/` réel (index sans cache, asset immuable, route SPA 200) et chargement dans Chromium sans erreur JavaScript
+  (écran de connexion, Keycloak injoignable dans ce bac à sable). Premier démarrage sur super à surveiller
+  (`./scripts/run.sh logs -f hub` : « compilé en N s »).
+- Fichiers : `hub/{serve.mjs,entrypoint.sh,Dockerfile,README.md}`, `hub/tests/serve.test.mjs`, `docker-compose.yml`,
+  `.env.example`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Agents : adresse du hub choisie (historique) pour les lignes d'installation ; refus d'amorçage tracés (livraison #680)
+
+- Cadre « Installation » d'un agent : champ **Adresse du hub vue de l'hôte** (saisie libre + boutons des adresses
+  connues : historique de ce navigateur, adresse interne du central, origine du navigateur = entrée extérieure),
+  mémorisé (localStorage, 8 dernières). Lignes régénérées (`agentInstallLib.js`, testé) : adresse interne → `curl -k`
+  + `--ca-fingerprint` ; adresse publique → `curl -L` sans `-k` ni empreinte. `TOKEN='…'` en tête, `--secret "$TOKEN"`.
+- `GET /deploy/<plateforme>` refusé (403) : motif précis renvoyé (inconnu / révoqué / expiré / épuisé n/m) et tracé
+  dans le journal de si-agent-api (jeton masqué, IP) ; un « $ » dans le jeton signale une variable shell non développée
+  (URL entre guillemets simples -- cas réel).
+
+- Vérifié : `hub` `node --test` (313, +3 `agentInstallLib`), `@babel/parser`, `si-agent/api` unittest.
+  Non vérifié : rendu (hub et si-agent-api à reconstruire).
+- Fichiers : `hub/src/{agentInstallLib.js,SiAgentView.jsx}`, `hub/tests/agentInstallLib.test.mjs`, `si-agent/api/app.py`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Installation d'un agent déclaré : TOKEN='…' en tête, variante entrée extérieure (livraison #679)
+
+Cadre « Installation » d'un agent (tuile Agents hôtes) : ligne `TOKEN='<secret>'` en tête, commande d'installation
+qui réutilise `--secret "$TOKEN"`, et variante complète par l'entrée extérieure (origine du navigateur =
+frontal public, jamais écrite en dur) : `curl -fsSL` sans `-k`, contrôle SHA-256, `./install.sh … --central
+<origine>/api/si-agent` sans empreinte de CA ni `sudo` ; rappel pour les hôtes Debian 9 (`SI_AGENT_PYTHON`, racine X2).
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/SiAgentView.jsx`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Déploiement des agents : jeton sur sa propre ligne, entrée extérieure en un clic (livraison #678)
+
+Demandé après un 403 (jeton mal recopié dans une longue ligne) : à la création d'un jeton d'enrôlement, l'onglet
+Déploiement affiche d'abord `TOKEN='…'` (et `$TOKEN='…'` pour PowerShell), puis des lignes qui ne font que le
+réutiliser (`…/deploy/linux?token=$TOKEN | bash`, variante Linux ancien avec `SI_AGENT_PYTHON="$PY"`, Windows
+`iex (iwr …)`), sans `sudo` (absent des Proxmox). Bouton « entrée extérieure » qui remplit l'URL du central avec
+l'origine du navigateur (`<origine>/api/si-agent`, le frontal public quand on passe par lui -- jamais écrite en dur),
+indication interne / extérieure du jeton créé et exemple complet avec l'entrée extérieure.
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/DeployTab.jsx`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-06 — Hub : la tuile Proxmox réapparaît (livraison #677)
+
+La tuile « Proxmox » (#488, thème Réseau) était déclarée et rendue mais absente de la liste des vues activées
+d'`App.jsx` : jamais affichée depuis l'introduction de cette liste. Activée comme « Contrôle PVE » dès que
+l'API des agents (si-agent) est configurée.
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/App.jsx`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-04 — Tour : les dossiers du .env hors du dépôt (PKI_DIR…) sont montés dans le runner (livraison #676)
+
+Vu sur super : `mkdir: cannot create directory '/home/<user>/supervision-si-pki': Permission denied` à l'étape passerelle
+d'un job — le runner ne monte que le dépôt, or `PKI_DIR` (et `KEYCLOAK_IMPORT_DIR`, `*_DATA_DIR`…) peuvent pointer
+ailleurs ; en root ça « marchait » en créant un dossier vide dans le conteneur, plus maintenant (#672). Tout `*_DIR` du
+`.env` en chemin absolu, hors du dépôt et existant sur l'hôte est monté au même chemin en écriture. Au passage :
+l'avertissement HOST_IP ≠ IP détectée (#674) se tait dans un conteneur (l'IP détectée y est celle du runner).
+
+- Vérifié : `services/api` unittest (montage de PKI_DIR hors dépôt, chemin inexistant / relatif ignorés), `bash -n`.
+- Non vérifié : job réel (à relancer : « Mettre à jour le central »).
+- Fichiers : `services/api/{app.py,test_app.py}`, `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-04 — Feu tricolore : tls-proxy sondé sur son vrai port (HTTPS), réseau hôte sondé par l'IP (livraison #675)
+
+Deux faux rouges vus dans « Services du hub » : `tls-proxy` « port 80 injoignable » (l'image expose 80, nginx n'écoute
+que sur GATEWAY_PORT en TLS) et `network-agent-api` « Name or service not known » (conteneur en `network_mode: host`,
+donc sans nom DNS Docker). Le port sondé est désormais d'abord un port **publié** sur l'hôte, puis celui de l'image ;
+une réponse 400 « plain HTTP request was sent to HTTPS port » bascule la sonde en HTTPS (certificat non vérifié) ; un
+conteneur en réseau hôte est sondé par `SERVICES_HOST_IP` (ou pas sondé si elle est vide).
+
+- Vérifié : `services/api` unittest (`exposed_port` publié, `host_network`). Non vérifié : sur super (rebuild services-api).
+- Fichiers : `services/api/{lights.py,app.py,test_lights.py}`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-04 — run.sh : avertissement quand HOST_IP du .env diffère de l'IP détectée (livraison #674)
+
+Suite de #672 : le `HOST_IP` du `.env` est désormais honoré… et sur l'hôte réel il portait une vieille valeur d'un autre
+réseau — Keycloak recréé avec ce `KC_HOSTNAME`, redirection vers une adresse injoignable (« IFrame timed out »). Les deux
+`run.sh` affichent maintenant un avertissement explicite quand la valeur retenue diffère de l'IP détectée (légitime pour
+un nom public ou une autre interface, sinon à corriger).
+
+- Vérifié : `bash -n`. Fichiers : `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-04 — PKI : refus de changer de CA par inadvertance (livraison #673)
+
+Vu en réel : `PKI_DIR` absent du `.env` de l'hôte alors que la PKI en service est ailleurs — le job de la tour puis un
+lancement à la main ont régénéré le certificat serveur avec la CA du dépôt, et le frontal Apache (`SSLProxyVerify
+require` sur l'autre CA) a répondu « Error during SSL Handshake ». `generate-server-cert.sh` s'arrête désormais si le
+certificat existant n'est pas signé par la CA retenue (`openssl verify`), sauf `PKI_ALLOW_CA_CHANGE=1`.
+
+- Vérifié : `bash -n`, test manuel du garde-fou avec deux CA. Fichiers : `pki/scripts/generate-server-cert.sh`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Tour : le runner des jobs n'est plus root ; HOST_IP lue dans .env par les run.sh (livraison #672)
+
+Constaté sur super après un job en cascade : `./gateway/scripts/run.sh up -d tls-proxy` à la main → « chmod :
+Opération non permise » sur `pki/server` — tout ce qu'un job crée dans le dépôt (pki/server, keycloak/import,
+tls-proxy/generated, objets git du pull…) appartenait à root. Le conteneur runner tourne désormais avec l'uid/gid du
+propriétaire du dépôt + le groupe du socket Docker (`HOME`, `DOCKER_CONFIG` et caches dans /tmp ; le dossier des jobs
+lui est donné) ; retour à root si le dépôt est à root, si le socket est réservé à root, ou avec `TOWER_JOB_AS_ROOT=1`.
+
+Même session : le realm rendu par le job disait `https://supervision.<domaine>` et celui rendu à la main
+`https://<ip>:6443` — `scripts/run.sh` et `gateway/scripts/run.sh` exportaient l'IP détectée sans jamais lire le
+`HOST_IP` du `.env` (pourtant documenté comme la source) ; il est maintenant lu en premier (variable exportée dans le
+shell > .env > détection).
+
+Remise à plat une fois sur un hôte déjà touché (jamais les dossiers `data/` des conteneurs) :
+`sudo find . -user root -not -path './*/data/*' -not -path './data/*' -print0 | sudo xargs -0 chown <user>:<user>`.
+
+- Vérifié : `services/api` unittest (runner : `user`, `HOME`), `bash -n` des deux run.sh, extraction de HOST_IP.
+- Non vérifié : job réel avec le runner non root (docker compose, git pull) — à surveiller au prochain
+  « Mettre à jour le central » ; en cas d'échec, `TOWER_JOB_AS_ROOT=1` dans l'environnement de services-api.
+- Fichiers : `services/api/{app.py,test_app.py}`, `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Mise à jour git : la passerelle ne tombe plus sur la question « realm Keycloak changé » (livraison #671)
+
+Constaté sur un job en cascade : `./gateway/scripts/run.sh up -d --build tls-proxy` détecte un realm-template.json
+différent du dernier import, tente la capture des groupes (401, Keycloak sans jeton) puis pose sa question
+`read -r -p` — sans terminal, `read` échoue sur EOF et `set -e` fait tomber tout le job (code 1), passerelle non
+reconstruite. Désormais sans terminal (job de la tour, cron) : volume Keycloak conservé, message explicite, le stack
+continue avec l'ancien realm et le marqueur n'est pas mis à jour (la question reviendra au prochain lancement à la
+main) ; `GATEWAY_REALM_ANSWER=marquer` accepte le realm courant sans purge.
+
+- Vérifié : `bash -n`. Non vérifié : job réel sur super (à relancer : « Mettre à jour le central »).
+- Fichiers : `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware : rappels d'agenda affichés par le hub (livraison #670)
+
+`GET /reminders?user=&groups=&within=` : occurrences de mes agendas (invitations reçues comprises, déclinées exclues)
+portant un rappel et commençant dans la fenêtre — `fire_at`, `due`, `minutes_to_start`. Bandeau « ⏰ Rappel d'agenda »
+(`GroupwareReminders.jsx`) en tête de toutes les pages, interrogé toutes les minutes : une ligne par rappel échu
+(clic → tuile Groupware), « ✕ » pour l'écarter, notification du navigateur quand elle est autorisée (permission
+demandée au premier clic sur le bandeau). Au passage : `vcard.py` sans avertissement de séquence d'échappement.
+
+- Vérifié : `test_live_invite.test_reminders` contre un Radicale réel (rappel échu / à venir / absent, autre
+  utilisateur vide), hub `node --test` (310), `@babel/parser` (`App.jsx`, `GroupwareReminders.jsx`).
+- Non vérifié : rendu navigateur, notification réelle.
+- Fichiers : `groupware/api/{app.py,vcard.py,test_live_invite.py}`, `groupware/README.md`, `hub/src/{App.jsx,
+  GroupwareReminders.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware : invitations (participants, réponses) et rappels (livraison #669)
+
+Radicale ne fait pas de scheduling : le hub s'en charge. Un événement peut avoir des **participants** (identifiants du
+hub) : écrit chez l'organisateur avec `ORGANIZER` / `ATTENDEE;PARTSTAT`, **copié dans l'agenda de chaque participant**
+(`X-SI-INVITE-FROM`), qui répond depuis sa fiche (`POST /events/<owner>/<book>/<uid>/reply`) — accepté / décliné /
+peut-être, réponse reportée chez l'organisateur et dans sa copie (déclinée = transparente) ; supprimer sa copie =
+décliner ; modifications de l'organisateur propagées (réponses conservées), participant retiré ou événement supprimé =
+copies retirées. **Rappel** (`alarm`, minutes avant) = `VALARM` lu par les clients CalDAV. Tuile Groupware → Agenda :
+champs Participants et Rappel, fiche avec les réponses (compteur) et boutons de réponse pour l'invité.
+`GROUPWARE_MAIL_DOMAIN` (`.env`, défaut `groupware.local`) pour les adresses `mailto:` internes.
+
+- Vérifié : `test_ical` (aller-retour participants / rappel), `test_live_invite.py` contre un Radicale réel 3.5.10
+  (copies, réponses dans les deux sens, retrait, suppression), `test_live_cal` / `test_live` toujours verts, hub
+  `node --test` (309), `@babel/parser`.
+- Non vérifié : rendu navigateur ; alarmes affichées par un client réel.
+- Fichiers : `groupware/api/{ical.py,app.py,test_ical.py,test_live_invite.py}`, `groupware/README.md`,
+  `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`,
+  `.env.example`, `docker-compose.yml`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware tranche 4 : InfoLog ; tour : en-tête en fenêtre étroite (livraison #668)
+
+Dernière tranche de la note de cadrage (item 115) : **InfoLog**, le journal d'eGroupware — notes, appels et tâches
+**liées à tout** (contact du carnet, ticket, `app:id`). API `groupware-api` : table `infolog`, `GET /infolog` (filtres
+type / statut / portée / recherche / lié à), `POST`, `GET/PUT/DELETE /infolog/<id>` ; visibilité par les partages
+(`r`, `p` pour les privées ; propriétaire et responsable toujours), droits effectifs renvoyés par entrée, `done_at`
+posé au passage à « terminé ». Tuile Groupware → onglet **InfoLog** : liste ou Kanban par statut, filtres, formulaire
+avec recherche de contact, n° de ticket, lien libre ; boutons de statut ; retard signalé.
+
+Tour de contrôle : en fenêtre étroite, le titre et les onglets de l'en-tête se chevauchaient avec le contenu
+(`.hub-page-head` passe à la ligne, titre et onglets sans retour à la ligne interne).
+
+- Vérifié : `groupware/api` (`test_core`, `test_app` avec InfoLog), hub `node --test` (308), `@babel/parser` sur
+  `GroupwareView.jsx`.
+- Non vérifié : rendu dans le navigateur, service réel derrière tls-proxy.
+- Fichiers : `groupware/api/{core.py,app.py,test_core.py,test_app.py}`, `groupware/README.md`,
+  `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Mise à jour git : les fichiers générés par run.sh ne bloquent plus (livraison #667)
+
+Constaté sur super : « fichiers modifiés localement : shared/EXPOSURE.json, shared/VERSION.json » — ces deux fichiers sont
+suivis par git mais réécrits par `run.sh` à chaque lancement. Ils sont désormais ignorés par le contrôle et remis à la
+version du dépôt juste avant le `git pull` (premier pas du job), puis régénérés au `up`. Idem pour `deploy/node_agent.py update`.
+
+Vérifié : `services/api/test_tower.py`, `test_app.py`, `deploy/tests` (19). Fichiers : `services/api/{app.py,tower.py,test_tower.py}`,
+`deploy/{node_agent.py,tests/test_deploy.py}`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware tranche 3 : agenda dans le hub (récurrences, disponibilités, ressources), compte de service depuis le coffre, nouveaux services depuis la tour (livraison #666, item 115)
+
+- `groupware/api/ical.py` (icalendar + dateutil) : VEVENT ↔ dict, récurrences développées, créneaux occupés, conflits ;
+  `app.py` : `/calendars`, `/events` (occurrences multi-agendas, création / modification / suppression selon les partages),
+  `/freebusy` (sans détail), `/resources` (réservation ouverte, chevauchement refusé 409, suppression par le demandeur ou
+  l'admin) ; compte de service DAV lu dans le **coffre des accès** (entrée `groupware-dav`) avant le `.env` ; `carddav.py`
+  tolère un serveur injoignable (503 lisible).
+- Hub : tuile Groupware → onglet **Agenda** (jour / semaine / mois / liste, double-clic = création, formulaire avec
+  récurrence, agendas affichés, disponibilités hachurées + créneaux libres communs, ressources) ; `groupwareLib` :
+  semaine / mois, placement des chevauchements, formulaire ↔ événement, créneaux libres.
+- Tour de contrôle → mise à jour git : les **nouveaux services** touchés par les commits entrants mais jamais démarrés
+  sont proposés à cocher (« démarrer aussi ») ; `tower.git_update_plan(start_new=…)`.
+
+Vérifié : `groupware/api/test_ical.py` (3), `test_live_cal.py` + `test_live.py` **contre un Radicale 3.5.10 réel**, `test_core`,
+`test_app`, `test_vcard`, `services/api/test_tower.py` (+1), hub Node 307 / 0 échec, `@babel/parser`.
+Non vérifié : Radicale derrière tls-proxy, auth LDAP, coffre réel, rendu navigateur de la grille.
+
+Fichiers : `groupware/{README.md,api/{app.py,carddav.py,ical.py,test_ical.py,test_live_cal.py,requirements.txt,Dockerfile}}`,
+`hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,ControlTowerView.jsx}`, `hub/tests/groupwareLib.test.mjs`,
+`services/api/{app.py,tower.py,test_tower.py}`, `docker-compose.yml`, `.env.example`, `BACKLOG.md`, `CHANGELOG.md`,
+`shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware tranche 2 : carnet d'adresses dans le hub sur CardDAV (livraison #665, item 115)
+
+- `groupware/api/carddav.py` : client CalDAV/CardDAV minimal (stdlib) ; `vcard.py` : vCard 3.0 ↔ dict, champs inconnus
+  conservés, pliage des lignes, recherche ; `app.py` : `/addressbooks`, `/contacts` (lecture multi-carnets avec droits
+  effectifs, création / modification / suppression selon les partages a / e / d), compte de service
+  (`GROUPWARE_DAV_SERVICE_USER/PASSWORD`, règle `[service]` générée) ; `radicale/entrypoint.sh` crée le compte de service
+  en htpasswd (bcrypt) sans LDAP.
+- Hub : tuile Groupware → onglet **Carnet d'adresses** (liste, recherche, fiche, fiche d'édition, carnets, création de
+  carnet) ; `groupwareLib` : formulaire ↔ contact, lignes.
+
+Vérifié : `groupware/api/test_vcard.py` (3), `test_core.py`, `test_app.py`, **`test_live.py` contre un Radicale 3.5.10 réel**
+(partages lecture / écriture appliqués par l'API et par Radicale), hub Node 305 / 0 échec, `@babel/parser`.
+Non vérifié : Radicale derrière tls-proxy, auth LDAP, rendu navigateur.
+
+Fichiers : `groupware/{README.md,api/{app.py,core.py,carddav.py,vcard.py,test_vcard.py,test_live.py,Dockerfile},radicale/{Dockerfile,
+entrypoint.sh}}`, `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js}`, `hub/tests/groupwareLib.test.mjs`,
+`docker-compose.yml`, `.env.example`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Groupware façon eGroupware, tranche 1 : noyau (partages, catégories, liens, préférences) et CalDAV/CardDAV (livraison #664, item 115)
+
+Cadrage `docs/groupware-egroupware-python.md`, choix de la personne : pour l'équipe et les clients, CalDAV/CardDAV dès le
+départ (« exactement ce que je voulais »), option B (composition sur les briques du hub + noyau groupware + Radicale).
+
+- `groupware/api` : `core.py` pur (droits r/a/e/d/p, effectifs avec groupes, validation, préférences à quatre niveaux,
+  fichier de droits Radicale depuis les partages agenda / carnet avec convention de nom des collections, URLs DAV) ;
+  `app.py` : `/grants` (+ effectifs, reçus), `/categories`, `/links`, `/prefs`, `/dav/me`, `/dav/rights/rebuild`, journal ;
+  groupes développés en membres via LDAP (`ldap3`).
+- `groupware/radicale` : Radicale 3.5 (auth LDAP ou htpasswd, droits `from_file` générés, collections persistantes, web
+  interne) ; tls-proxy : route `/dav/` (nouveau gabarit `dav` : préfixe retiré + `X-Script-Name`, corps 100 Mo, délai
+  600 s) et `/api/groupware/` ; compose `groupware-api`, `radicale` ; `.env.example` `GROUPWARE_*`, `RADICALE_*`.
+- Hub : tuile **Groupware** (Documents & ENT) — mes URLs CalDAV/CardDAV et consignes clients, partages donnés / reçus,
+  catégories, préférences ; `groupwareClient.js`, `groupwareLib.js` ; chemins métier, journaux.
+- Anonymisation : DN LDAP d'exemple (`dc=exemple,dc=fr`), adresse de démo et noms de sites fictifs dans les tests ;
+  ProjeQtOr : droits de lecture garantis sur les sources copiées (dépôt tiré avec umask 077).
+
+Vérifié : `groupware/api/test_core.py` (6), `test_app.py` (2), hub Node 304 / 0 échec, `@babel/parser`,
+`render_nginx_conf.py --check` + tests tls-proxy, `shared/test_site_scope.py`, `ldap-admin` tests.
+Non vérifié : Radicale réel derrière la passerelle (hrefs, clients Thunderbird / DAVx5 / iOS), LDAP réel, rendu navigateur.
+
+Fichiers : `groupware/{README.md,api/{app.py,core.py,test_core.py,test_app.py,requirements.txt,Dockerfile},radicale/{Dockerfile,
+entrypoint.sh}}`, `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js}`,
+`hub/tests/groupwareLib.test.mjs`, `tls-proxy/render_nginx_conf.py`, `docker-compose.yml`, `.env.example`, `.gitignore`,
+`projeqtor/Dockerfile`, `ldap-admin/*`, `shared/test_site_scope.py`, `docs/groupware-egroupware-python.md`, `BACKLOG.md`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Miroir froid du hub : synchronisation, bascule, retour (livraison #663, étape 3 des items 108-110)
+
+Actif/passif, construit sur les briques existantes : sauvegarde totale/incrémentale chiffrée (#458-#460), agent de nœud
+sur le VPN (#513), rôles « celui qui répond » (#654/#656), jobs de la tour (#586).
+
+- `deploy/node_agent.py` : `GET /mirror/status`, `PUT/GET /mirror/archive/<nom>`, `POST /mirror/restore` (refusé si des
+  services tournent), `/mirror/backup`, `/mirror/takeover {host_ip}` (regenerate + run-all all up), `/mirror/standby`.
+- `deploy/mirror.py` (primaire) : `status` (âge, RPO), `sync [--full]` (sauvegarde, chaîne manquante poussée, restauration
+  sur le miroir), `failover`, `failback` (sauvegarde du miroir → restaurée ici, services arrêtés puis relancés, miroir en
+  standby), `prune` ; `deploy/mirror.example.json`.
+- `services/api` : `GET /mirror`, `POST /mirror/<action>` (jobs), bascule de rôle après failover/failback ; hub, tour →
+  Répartition : carte **Miroir froid** (état, RPO, boutons) ; `towerLib` : `mirrorText`, `mirrorActions`.
+
+Vérifié : `deploy/tests/test_deploy.py` (+2 : archives, refus si services en marche, chaîne à pousser, âge), `services/api`
+(test_app), hub Node 301 / 0 échec, `@babel/parser`. Non vérifié : **aucun second hôte dans la session** — sync, bascule et
+retour réels à éprouver (conseillé : sur une VM de test avant le miroir réel), `full_backup.py restore --force` par-dessus
+un dépôt existant, temps de restauration.
+
+Fichiers : `deploy/{node_agent.py,mirror.py,mirror.example.json,README-socle.md,tests/test_deploy.py}`,
+`services/api/app.py`, `services/README.md`, `hub/src/{ControlTowerView.jsx,servicesClient.js,towerLib.js}`,
+`hub/tests/towerLib.test.mjs`, `docs/architecture-clonage-distribution-hub.md`, `.gitignore`, `BACKLOG.md`, `CHANGELOG.md`,
+`shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Répartition des nœuds depuis la tour de contrôle, plans filtrés par placement (livraison #662)
+
+Étape 2 des items 108-110 (ADR), sur la mécanique #513 (nodes.json, cohortes, agents de nœud, repartition.py) : l'IHM
+manquait et les plans de la tour ignoraient le placement.
+
+- `services/api/tower.py` : `validate_nodes`, `placed_here`, `filter_plan` (services d'autres nœuds retirés des étapes,
+  listés `not_here`) ; `app.py` : `GET/PUT /repartition`, `POST /repartition/apply`, `POST /repartition/migrate` (jobs
+  runner), filtre appliqué aux plans de livraison zip, de mise à jour git (central) et à l'aperçu.
+- Hub, tour → onglet **Répartition** : nœuds (zone, VPN, rôle, cohortes, état de l'agent de nœud), cohortes → nœud
+  (sélecteur, manager verrouillé, enregistrement validé), « Appliquer partout » / « + reconstruire », migration d'une
+  cohorte avec ses données (job) ; `towerLib` : `cohortRows`, `moveCohort`, `nodeText`.
+
+Vérifié : `services/api/test_tower.py` (+1), `test_app.py`, hub Node 300 / 0 échec, `@babel/parser`. Non vérifié :
+agents de nœud réels (aucun déploiement réparti dans la session), rendu navigateur.
+
+Fichiers : `services/api/{app.py,tower.py,test_tower.py}`, `services/README.md`, `hub/src/{ControlTowerView.jsx,
+servicesClient.js,towerLib.js}`, `hub/tests/towerLib.test.mjs`, `docs/architecture-clonage-distribution-hub.md`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Socle commun d'un nœud : étape 1 de la distribution / du miroir du hub (livraison #661)
+
+Items 108-110, étape 1 de l'ADR `docs/architecture-clonage-distribution-hub.md` : un sous-ensemble installable partout
+(passerelle, Keycloak, tour de contrôle, hub, partagé minimal) qui reçoit les déploiements (zip ou git #659) et sert
+l'interface complète sans les tuiles métier.
+
+- `deploy/socle.py` : `list` (passerelle / principal / dépendances compose non démarrées), `up [--build] [+tuile…]`
+  (gateway `up -d` puis `run.sh up -d --no-deps`), `status`, `check` (`.env`, `pki/ca/ca.crt`, `ca.key`, clés manquantes
+  via sync-env) ; `+tuile` = fermeture de dépendances, hors `network_mode: host`. Stdlib, s'appuie sur `deploy/cohorts.py`.
+- `deploy/README-socle.md` : reprise sur un nouvel hôte (clone, `.env` et `pki/ca/` recopiés hors dépôt, `HOST_IP`,
+  CA du bastion jamais copiée), ajout de tuiles, suite (étapes 2-3).
+
+Vérifié : `deploy/tests/test_socle.py` (4 : découpage, commandes, extension, reprise, vrai compose). Non vérifié :
+démarrage réel du socle sur un hôte vierge.
+
+Fichiers : `deploy/{socle.py,README-socle.md,tests/test_socle.py}`, `docs/architecture-clonage-distribution-hub.md`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Routes Cisco dans la tour de contrôle, suite de tests hub au vert (livraison #660)
+
+- `cisco/parsers.py` : `parse_ip_route` (IOS : défaut `S*`, connectées / locales, OSPF… avec interface ; NX-OS : blocs
+  `ubest/mbest` + lignes `*via`, multi-chemins) ; `GET /cisco/switches/<name>/routes` (lecture seule).
+- Hub : `ciscoClient.js` ; onglet Réseau de la tour → panneau Routage : équipements Cisco après les MikroTik (`kind`),
+  routes normalisées (`ciscoRouteRows` : passerelle ou interface, distance, protocole en commentaire) ; `ciscoApiBase`
+  passé par App.jsx (`VITE_CISCO_URL`). Reste du point 114 : Nebula côté relais campus.
+- Suite Node du hub de nouveau au vert : `view:personal` (#638) ajouté aux chemins métier (`droits/personnes`, un chemin
+  voulu) ; `hubIconSet.test.mjs` indépendant du dossier courant (il supposait la racine du dépôt).
+
+Vérifié : `cisco/tests` (+1), hub Node 299 / 0 échec, `@babel/parser`. Non vérifié : équipement Cisco réel, rendu navigateur.
+
+Fichiers : `cisco/{parsers.py,app.py,tests/test_cisco.py}`, `hub/src/{ciscoClient.js,TowerNetworkTab.jsx,towerNetworkLib.js,
+App.jsx,ControlTowerView.jsx,hubBusiness.js}`, `hub/tests/{towerNetworkLib.test.mjs,hubBusiness.test.mjs,hubIconSet.test.mjs}`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Mise à jour du hub depuis le git : central ciblé, ensemble en cascade, agents hôtes (livraison #659)
+
+Demande : « brancher la mise à jour du hub sur le GitHub : un bouton mise à jour du central depuis le git, un autre pour
+l'ensemble en cascade… côté agents aussi ». S'appuie sur la tour de contrôle (#586 : runner détaché, plan de reconstruction).
+
+- `services/api/app.py` : `GET /git` (branche, HEAD, remote masqué, fetch, retard/avance, commits entrants, version
+  distante, fichiers changés, plan ciblé, nœuds, services en marche), `POST /git/update {mode: central|cascade, agents,
+  force}` → job runner ; `_agents_after_update` à la fin d'un job en cascade (si-agent-api `/updates/apply`).
+  `services/api/tower.py` : `mask_remote`, `remote_hint`, `parse_log`, `git_update_plan`.
+- `deploy/node_agent.py` : `POST /update` et CLI `update` / `update-all` (pull + apply --build sur chaque autre nœud).
+- Hub, tour de contrôle → Livraisons & jobs : carte « Mise à jour depuis le git » (état, commits, plan, boutons
+  « Mettre à jour le central » / « Tout mettre à jour en cascade », case agents hôtes, suivi du job).
+
+Vérifié : `services/api/test_tower.py` (+1), `test_app.py`, `deploy/tests/test_deploy.py` (+1 : pull puis apply, refus si
+fichiers modifiés), hub Node 296 (+1) avec les 2 échecs préexistants, `@babel/parser`.
+Non vérifié : job réel (git pull + reconstruction depuis le runner), rendu navigateur, agents de nœud réels.
+
+Fichiers : `services/api/{app.py,tower.py,test_tower.py}`, `services/README.md`, `deploy/node_agent.py`,
+`deploy/tests/test_deploy.py`, `hub/src/{ControlTowerView.jsx,servicesClient.js,towerLib.js}`, `hub/tests/towerLib.test.mjs`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Migration d'un serveur / service vers la virtualisation : image à chaud ou reconstruction, transitions, retour en arrière (livraison #658, agent 0.5.32)
+
+Item 112 du BACKLOG, choix de la personne : « les deux : permettre le retour en arrière et des étapes de transition ».
+Un plan de migration est un plan PRA (#653) généré, simulable, exécuté pas à pas, qui **s'arrête aux transitions** et
+peut **revenir en arrière** ; le serveur physique n'est jamais détruit.
+
+- `si-agent/api/migration.py` (pur) : `POST /pra/migrations/plan` → aperçu ou plan enregistré. Méthode **image** :
+  transition « geler les écritures », `image_host` (source), `create` (VM réseau coupé, OVMF/TPM si Windows), `import_disk`
+  (image du central), `start`, transition « console », `set net0`, bascule (rôle #654 ou transition manuelle), transition
+  « observation », `host_shutdown`. Méthode **rebuild** : `create` d'un conteneur depuis un modèle, `start`, transition
+  « reconstruire le rôle + datasync », bascule, observation, arrêt. Retour : rôle rendu, VM coupée du réseau puis arrêtée,
+  transition « rallumer le serveur », `destroy` seulement si `purge_on_rollback`.
+- `si-agent/api/pra.py` : actions `create`, `import_disk`, `set`, `destroy`, `image_host`, `host_shutdown`, `checkpoint` ;
+  exécution avec contexte (`{{image}}` → `central:<agent>/<nom>` après l'événement `image-received`), pause/reprise
+  (`POST /pra/runs/<id>/resume`), abandon (`/abort {rollback}`), retour après coup (`/rollback`), `auto_rollback`,
+  `parent_run_id` ; `GET …/agents/<id>/images/<src>/<nom>/download` (signé, Range) pour le nœud.
+- Agent 0.5.32 : `vmctl` `create` (qemu/lxc), `import_disk`, `set` (liste blanche d'options), `destroy` (`confirm` = vmid),
+  rattachement du disque importé (`parse_unused`, `build_attach_argv`) ; `Agent.import_disk` (téléchargement signé avec
+  reprise, zstd, importdisk, rattachement, nettoyage) ; `image_host` sous **Linux** (`dd` du disque de la racine `| zstd -T0`
+  vers un stockage séparé, refus si la cible est sur le disque imagé, suivi et transfert comme Disk2vhd).
+- Hub, tuile Contrôle PVE : carte « Migration serveur → virtualisation » (méthode, serveur source parmi tous les agents,
+  nœud, vmid/stockage/pont, mémoire/cœurs, cible de l'image ou modèle, rôle de/vers, retour automatique, purge) → aperçu
+  (étapes + retour) → plan enregistré ; exécution : état « en transition », consigne affichée, boutons Reprendre /
+  Abandonner (± retour) / Retour en arrière, historique avec les retours ; opérations sur VM limitées aux actions
+  unitaires (`VM_OPS`).
+
+Vérifié : `si-agent/agent/tests/test_p2v_migration.py` (4), agent (80), `si-agent/api/test_z_pra.py::PraMigration` (3 :
+plan généré, aperçu/enregistrement/simulation/exécution avec transitions, image par événement, abandon + retour, retour
+rejouable, téléchargement signé), central (32), hub Node 295 (+3) avec les 2 échecs préexistants (`view:personal` #638,
+pastilles emoji), `@babel/parser`, pas de couleur en dur.
+Non vérifié : Proxmox réel (`qm create/importdisk/set`, OVMF + TPM), `dd | zstd` sur un vrai serveur, Disk2vhd, rendu
+navigateur. Limite connue : les transitions vivent dans le processus du central (relancer le plan après un redémarrage).
+
+Fichiers : `si-agent/api/{migration.py,pra.py,app.py,Dockerfile,test_z_pra.py}`, `si-agent/agent/si_agent/{vmctl.py,
+imagectl.py,agent.py,__init__.py}`, `si-agent/agent/tests/test_p2v_migration.py`, `si-agent/README.md`,
+`hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,hub.css}`, `hub/tests/pveOpsLib.test.mjs`, `BACKLOG.md`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Sondes Wi-Fi Raspberry : kit collecteur Pi 3B + satellite Pi Zero 2 W pour un audit continu d'une journée (livraison #657)
+
+Demande : « une image et un installeur rpi3b et rpi0W2 avec pilotes et outils pour la sonde wifi, premier test simple avec
+un rpi3b et un satellite rpi0W2 pour un audit continu sur une journée ». Pas d'image binaire à reconstruire : Raspberry Pi
+Imager écrit Raspberry Pi OS Lite (64-bit), le kit `netprobe/rpi/` dépose les fichiers de **premier démarrage** sur la
+carte, le Pi s'installe seul (même mécanisme `systemd.run` que l'Imager).
+
+- `netprobe/rpi/make-boot-files.sh` : `si-probe.env` (rôle collecteur/satellite, nom d'hôte, jeton partagé, collecteur,
+  interface, iperf, SSID de path-probe), `firstrun-si.sh`, `report-wifi-day.py`, `si-agent-kit.tar.gz` (agent + central local
+  + make-archive), crochet `cmdline.txt` idempotent.
+- `netprobe/rpi/firstrun-si.sh` : outils (iw, wireless-tools, wavemon, tcpdump, iperf3, mtr, dig, jq), firmwares (brcm80211
+  intégré + Realtek/Atheros/misc pour dongle USB), économie d'énergie Wi-Fi coupée ; collecteur = service `si-local-central`
+  (jeton imposé, historique JSONL, plugins wifi-probe / path-probe / dns-observe) + agent local ; satellite = agent enrôlé
+  sur le collecteur (archive, CA épinglée).
+- `si-agent/local-central/local_central.py` : `--history auto|fichier` (toutes les mesures en JSONL, l'audit d'une journée
+  a besoin de l'historique, pas de la dernière mesure), `--token` (jeton choisi à la préparation).
+- `netprobe/rpi/report-wifi-day.py` : rapport HTML + Markdown depuis l'historique — constats des sondes, courbes SVG
+  (RSSI, occupation du canal, débit négocié, latence/pertes, HTTP réel), synthèse par heure, bornes vues ; `--since/--until`.
+- `netprobe/rpi/README.md` : procédure en 4 étapes, limites (pas de mode moniteur sur le Wi-Fi intégré, satellite
+  administré par le SSID audité, remontée vers le hub principal = installation classique des agents).
+
+Vérifié : `netprobe/rpi/test_report.py` (calculs purs, rapport, CLI), `si-agent/local-central/test_local_central.py` (3),
+`make-boot-files.sh` sur une fausse partition (fichiers, env, crochet idempotent, refus sans collecteur), `bash -n`.
+Non vérifié : **aucun Raspberry dans la session** — premier démarrage réel à faire par la personne (journal
+`/var/log/si-probe-firstrun.log`), noms de paquets Bookworm supposés stables.
+
+Fichiers : `netprobe/rpi/{README.md,make-boot-files.sh,firstrun-si.sh,report-wifi-day.py,test_report.py}`,
+`si-agent/local-central/local_central.py`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — DNS éditable (OVH, Scaleway, intranet en fallback), bascule de rôle par DNS et keepalived (livraison #656)
+
+Choix de la personne : (2) bascule de rôle = DNS avec DNS secondaire en fallback, et keepalived ; (3) DNS éditable = OVH et
+Online/Scaleway avec cache, intranet en fallback (Nebula plus tard, côté relais du hub local au campus).
+
+- Nouveau module `dns/` (`dns-api`) : zones avec fournisseurs ordonnés, fournisseurs OVH (signature API), Scaleway
+  (Domains API) et BIND intranet (nsupdate/dig TSIG) ; cache local avec divergences ; modification appliquée partout
+  avec fallback et rejeu ; journal réversible. Tour de contrôle › Réseau : panneau « DNS éditable » (zones, relecture,
+  édition, suppression, journal avec annulation, rejeu) — `TowerDnsPanel.jsx`, `dnsClient.js`.
+- Rôles : mécanismes `dns` (dns-api, `DNS_API_URL` sur si-agent-api) et `keepalived` (agent 0.5.31 : commande `vrrp_set`,
+  `si_agent/vrrpctl.py`, priorité haute sur l'élu / basse sur les autres, `keepalived -t` puis reload, sauvegarde) ;
+  fiche de rôle du hub complétée.
+- Compose : `dns-api`, `VITE_DNS_API_BASE_URL`, `DNS_API_URL` ; `.env.example` `DNS_DATA_DIR` ; tls-proxy `/api/dns/` ;
+  `.gitignore` ; `logsLib.js`.
+
+Vérifié : `dns/api/test_dns.py` (4), `si-agent/api` (42), `si-agent/agent` (79), `@babel/parser`, pas de couleur en dur.
+Non vérifié : fournisseurs réels, keepalived réel, rendu navigateur, build. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build dns-api si-agent-api hub tls-proxy`.
+
+Fichiers : `dns/{README.md,api/app.py,api/providers.py,api/test_dns.py,api/requirements.txt,api/Dockerfile}`,
+`si-agent/agent/si_agent/{vrrpctl.py,agent.py,__init__.py}`, `si-agent/agent/tests/test_vrrpctl.py`, `si-agent/api/{pra.py,app.py,store.py,test_z_pra.py}`,
+`hub/src/{TowerDnsPanel.jsx,dnsClient.js,TowerNetworkTab.jsx,ControlTowerView.jsx,PveOpsView.jsx,App.jsx,logsLib.js,hub.css}`,
+`docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Tour de contrôle : onglet Réseau — DNS, routage, flux → trafic, en lecture seule (livraison #655)
+
+Demande : « une tour de contrôle : dns, routage, flux → traffics ». Livré dans la tour de contrôle existante (#586) :
+onglet « 🕸 Réseau » qui AGRÈGE en lecture seule ce que les modules savent déjà, sans dupliquer leurs actions.
+
+- DNS : entrées de services (service-watch : IP résolues, état, alertes) + divergences de résolution relevées par la
+  sonde dns-observe des agents (#639), synthèse (entrées, en défaut, alertes).
+- Routage : par routeur MikroTik, table de routage (`GET /mikrotik/routers/<name>/routes`, nouveau, lecture seule :
+  destination, passerelle, distance, état, commentaire), passerelles par défaut, règles NAT résumées (#587/#606).
+- Flux → trafic : échanges « d'où vers où, combien » du segment choisi (network-agent `/links`, #250/#414), accès aux
+  ressources vus par les sondes resource-access (#640).
+- `hub/src/TowerNetworkTab.jsx` (+ `towerNetworkLib.js` testé, `mikrotikClient.js` : `fetchRoutes`, `fetchNatRules`),
+  `ControlTowerView.jsx` (onglet + prop `network`), `App.jsx`, `hub.css` (`tn-*`). Chaque panneau charge seul et
+  affiche son erreur ; un module non configuré l'indique sans bloquer les autres.
+- Non couvert, à cadrer (BACKLOG 114) : DNS **éditable** (serveur à choisir), routes Cisco (module #508 n'expose pas
+  encore la table de routage), modification de routes depuis la tour (volontairement absente : lecture seule).
+
+Vérifié : `mikrotik/tests` (OK, transport SSH simulé), `node --test` (292 verts, 1 échec préexistant `view:personal`),
+`@babel/parser`, aucune couleur en dur. Non vérifié : rendu navigateur, routeur réel. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build mikrotik-api hub`.
+
+Fichiers : `mikrotik/{app.py,README.md,tests/test_api_ssh.py}`, `hub/src/{TowerNetworkTab.jsx,towerNetworkLib.js,ControlTowerView.jsx,mikrotikClient.js,App.jsx,hub.css}`,
+`hub/tests/towerNetworkLib.test.mjs`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Contrôle PVE : état des réplications, plans déclenchés par la perte d'un nœud, rôles et bascule « celui qui répond » (livraison #654)
+
+Suite de #653 sur « continue » : les points de la demande qui se cadraient sans choix externe. Reste des items 112-114
+(serveurs → virtualisation, DNS éditable, tour de contrôle) inchangé.
+
+- Agent 0.5.30 : état des jobs de réplication pvesr par VM (plugin proxmox) ; tuile : colonnes Réplication (✔/✘, échecs,
+  âge) et dernière sauvegarde.
+- Déclencheurs : un plan désigne un agent d'hyperviseur ; à sa perte (chien de garde du central), le plan est proposé par
+  événement notifié, ou lancé automatiquement si la personne l'a choisi pour ce plan (délai de garde). Événements
+  `pra-suggested` / `pra-triggered`.
+- Rôles « celui qui répond » : candidats ordonnés, mécanisme manuel ou règle NAT MikroTik (module #587, `MIKROTIK_API_URL`
+  ajoutée à si-agent-api), bascule avec vérification HTTP du service, bouton « vérifier », étape de plan `role_switch`
+  (simulée et exécutée par le central), événement `role-switch`.
+- Hub `PveOpsView.jsx` : réplication/sauvegarde par VM, déclencheur dans la fiche de plan, panneau Rôles (fiche, bascule,
+  vérification, ajout au plan en cours) ; `pveOpsLib.js` (`replSummary`, `roleStepText`).
+
+Vérifié : agent 77 tests, central 40 tests, Node 290 verts (1 échec préexistant `view:personal`), `@babel/parser`.
+Non vérifié : Proxmox et MikroTik réels, rendu navigateur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build si-agent-api hub` puis agents en 0.5.30.
+
+Fichiers : `si-agent/agent/plugins/proxmox/proxmox.py`, `si-agent/agent/tests/test_proxmox_plugin.py`, `si-agent/agent/si_agent/__init__.py`,
+`si-agent/api/{pra.py,app.py,test_z_pra.py}`, `si-agent/README.md`, `hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,hub.css}`,
+`hub/tests/pveOpsLib.test.mjs`, `docker-compose.yml`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Contrôle PVE : migration, sauvegarde, disques, clonage, réplication, plans de reprise (livraison #653)
+
+Demande : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ; réplication / pra »
+(suite : serveurs/services, migration vers virtualisation, bascule de rôle, tour de contrôle dns/routage/flux — voir
+BACKLOG items 111-114, à cadrer). Première brique livrée sur le socle existant (agents sur les hyperviseurs, commande
+`vm_action` #572, tuile Proxmox #488) : **opérations d'exploitation** et **plans** simulés puis exécutés pas à pas.
+
+- Agent 0.5.29 (`si_agent/vmctl.py`) : `migrate`, `backup` (vzdump), `move_disk`, `clone`, `replicate` / `unreplicate`
+  (pvesr) — paramètres validés par motifs fermés, délai 3600 s ; 4 tests (`tests/test_vmctl_ops.py`), suite agent 76 verts.
+- Central `si-agent-api` (`pra.py`, routes `/pra/*`) : plans (PRA, maintenance, bascule, migration), simulation
+  (agents connus, commandes qui seraient envoyées, rien d'envoyé), exécution séquentielle avec acquittement et arrêt
+  à la première erreur (`continue_on_error` en option), historique ; `test_z_pra.py` (agent simulé) ; suite 38 verts.
+- Hub : tuile Supervision/Réseau → « Contrôle PVE (opérations, PRA) » (`PveOpsView.jsx`, `pveOpsLib.js` testé) : VM par
+  hyperviseur avec formulaire d'opération (cibles = autres nœuds remontés, stockages du nœud), « Exécuter maintenant »
+  (suivi de l'acquittement) ou « Ajouter au plan en cours », éditeur de plan (ordre, libellés), Simuler / Exécuter,
+  exécution suivie étape par étape, historique. `hubThemes.js`, `hubBusiness.js`, `siAgentClient.js`, `hub.css` (`pv-*`).
+
+Vérifié : tests agent (76) et central (38, dont le `test_z_pra` nommé pour passer après `test_si_agent_api` qui fixe
+l'environnement de la suite), `node --test` (289 verts, 1 échec préexistant `view:personal`), `@babel/parser`.
+Non vérifié : sur un vrai Proxmox, rendu navigateur, build. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build si-agent-api hub` puis mise à jour des
+agents des hyperviseurs en 0.5.29 (tuile Agents hôtes → Mises à jour).
+
+Fichiers : `si-agent/agent/si_agent/{vmctl.py,__init__.py}`, `si-agent/agent/tests/test_vmctl_ops.py`,
+`si-agent/api/{pra.py,app.py,Dockerfile,test_z_pra.py}`, `si-agent/README.md`, `hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,App.jsx,hubThemes.js,hubBusiness.js,hub.css}`,
+`hub/tests/pveOpsLib.test.mjs`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Synchronisation centrale : liaison unidirectionnelle des sources vers un SGBD central, supervision, analyse, recherches (livraison #652)
+
+Demande : « une liaison de synchronisation unidirectionnelle depuis les différents serveurs/appli/sql vers un sgbd central
+sur le hub, pour les phases de transition de déploiement et pour la remontée vers un système d'agrégation (indexation,
+traitement transversal) » — cinq points : liaison concentrique (une source → le central = une API source centrale),
+supervision des remontées (présence, statistiques), analyse schéma/étiquette/champ/contenu, recherche plein texte
+transversale, recherche relationnelle sur les relations déduites. Nouveau module `datasync/` + tuile Données →
+« Synchronisation centrale ».
+
+- `datasync/api/app.py` : sources à jeton (empreinte en base, rotation), `/ping` `/schema` `/rows` (lots complets avec
+  retrait des lignes disparues, incrémentaux), stockage en lignes génériques JSON + FTS5, statistiques et journal par
+  table, profils de colonnes, analyse (correspondances de champs, relations déduites intra et inter-sources) avec
+  validation proposé/confirmé/rejeté et liens manuels, `/search` (préfixes, expressions, `champ:valeur`, filtres,
+  extraits), `/rows/<src>/<table>/<pk>/related` (1–3 niveaux, deux sens), parcours des tables.
+- `datasync/api/matching.py` (pur) : normalisation des noms avec synonymes, profils de format (courriel, téléphone,
+  date, identifiant…), recouvrement des valeurs, correspondances, déduction des relations, contenu indexé.
+- `datasync/connector/connector.py` : connecteur autonome (stdlib + pymysql/psycopg2/sqlite3), ping périodique,
+  déclaration du schéma, synchronisation complète ou incrémentale (watermark, état local), `--once`, exemple de config.
+- `hub/src/DataSyncView.jsx` (+ `datasyncClient.js`, `datasyncLib.js`) : quatre volets — Sources (présence, lignes,
+  lots, erreurs, journal, jeton affiché une fois avec la configuration du connecteur à copier, tables), Analyse (lancer,
+  relations et correspondances par statut avec confirmer/rejeter, lien manuel, profils des colonnes), Recherche (plein
+  texte, extraits surlignés, saut vers les relations), Relations (exploration à N niveaux groupée par niveau/source/table,
+  parcours d'une table). Styles `ds-*` sur les variables du thème.
+- `docker-compose.yml` : `datasync-api` (+ `VITE_DATASYNC_API_BASE_URL`) ; `.env.example` : `DATASYNC_DATA_DIR`,
+  `DATASYNC_PRESENCE_S`, `DATASYNC_MAX_BATCH_MB` ; tls-proxy `/api/datasync/` ; `.gitignore` ; `hubThemes.js`,
+  `hubBusiness.js`, `logsLib.js`.
+
+Vérifié : `datasync/api/test_datasync.py` (4 scénarios : matching, ingestion/présence/statistiques, analyse +
+plein texte + relationnel, connecteur réel sur SQLite contre l'API servie dans un thread), `node --test
+hub/tests/datasyncLib.test.mjs` (4), `@babel/parser`, aucun setter sans `useState`, aucune couleur en dur.
+`node --test hub/tests/*.test.mjs` : 286 verts, 1 échec préexistant (`view:personal`, #638).
+Non vérifié : build de l'image, rendu navigateur, pilotes MySQL/PostgreSQL du connecteur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build datasync-api hub tls-proxy`.
+
+Fichiers : `datasync/README.md`, `datasync/api/{app.py,matching.py,test_datasync.py,requirements.txt,Dockerfile}`,
+`datasync/connector/{connector.py,config.example.json}`, `hub/src/{DataSyncView.jsx,datasyncClient.js,datasyncLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js,hub.css}`,
+`hub/tests/datasyncLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Tests QA en ligne d'un site déployé : scénarios Playwright, ticket incident/évolution, non-régression (livraison #651)
+
+Demande : « construit aussi un module de test en ligne d'un site déployé y compris d'autres sites non portés / des
+tests en mode qa → ticket incident ou évolution → test traversant de non régression ». Nouveau module `qa/` (API)
++ tuile Données → « Tests QA en ligne » (aussi sous Services › métier et Supervision › incidents).
+
+- `qa/api/app.py` : sites (URL de base, étapes de connexion jouées avant chaque scénario, mot de passe masqué en
+  lecture), scénarios pas à pas (13 actions : aller à, saisir, cliquer, choisir, cocher, touche, attendre,
+  vérifier visible / texte / URL / valeur / absent, capture), exécution dans Chromium avec capture par navigation et à
+  chaque échec (`runner.py`, injectable), historique, campagne (non-régression ou tout), **ticket incident ou
+  évolution depuis une exécution** via tickets-api (déroulé pas à pas ✔/✘ dans la description, type résolu par
+  libellé, source `qa`) — le scénario passe alors en « non-régression », un seul ticket par exécution,
+  reconnaissance d'une page (formulaires, champs, liens) pour écrire les étapes d'un site inconnu.
+- `qa/api/qa_steps.py` (pur) : validation des étapes, synthèse d'une exécution, rédaction du ticket.
+- `hub/src/QaView.jsx` (+ `qaClient.js`, `qaLib.js`) : liste des sites, fiche site avec éditeur d'étapes de
+  connexion, reconnaissance et proposition des étapes de connexion, scénarios avec éditeur d'étapes (action,
+  sélecteur, valeur, note, réordonner), exécution avec tableau des étapes et vignettes de capture, boutons « Ticket
+  incident » / « Ticket évolution » avec commentaire, campagne de non-régression avec synthèse, historique.
+  L'éditeur d'étapes est un composant de module (un sous-composant défini dans la vue ferait perdre le focus à
+  chaque frappe). Styles `qa-*` sur les seules variables du thème.
+- `docker-compose.yml` : `qa-api` (image Playwright officielle, `TICKETS_API_INTERNAL_URL`), `VITE_QA_API_BASE_URL` ;
+  `.env.example` : `QA_DATA_DIR`, `QA_STEP_TIMEOUT_MS` ; tls-proxy `/api/qa/` ; `.gitignore` `qa/data/` ;
+  `hubThemes.js`, `hubBusiness.js`, `logsLib.js`.
+
+Vérifié : `qa/api/test_qa.py` (3 scénarios test_client avec runner et tickets-api simulés : masquage et
+conservation du mot de passe, validation, exécution et captures, échec → ticket incident → non-régression → 409,
+campagne, ticket évolution, suppression en cascade) ; `runner.py` réel joué contre une application déployée
+(connexion, navigation, vérification en échec avec capture, reconnaissance) ; `node --test hub/tests/qaLib.test.mjs`
+(3) ; `@babel/parser` ; aucun setter sans `useState` ; aucune couleur en dur dans les nouveaux fichiers.
+`node --test hub/tests/*.test.mjs` : 282 verts, 1 échec préexistant (`view:personal`, #638).
+Non vérifié : build de l'image Playwright, rendu navigateur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build qa-api hub tls-proxy`.
+
+Fichiers : `qa/README.md`, `qa/api/{app.py,qa_steps.py,runner.py,test_qa.py,requirements.txt,Dockerfile}`,
+`hub/src/{QaView.jsx,qaClient.js,qaLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js,hub.css}`,
+`hub/tests/qaLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-03 — Portage PHP → Python : création d'un projet de portage avec import du code et des données (livraison #650)
+
+Demande : « construit une interface de création de projet de portage avec import code et données » — et, posé juste
+avant : le portage du site et la gestion de tickets ne doivent pas apparaître dans le git ; l'IA de portage, elle,
+peut vivre en projet indépendant ou en extension du hub. Choix : **extension du hub qui pilote le projet indépendant**
+(`portage-kit`, monté par volume, jamais copié ici) — le hub produit les projets, le kit reste seul dépositaire de la
+méthode. Nouveau module `portage/` (API) + tuile Data → « Portage PHP → Python ».
+
+- `portage/api/app.py` : projets (SQLite `/data/portage.db`), import du code (zip/tgz, dossier racine unique remonté,
+  chemins `../` refusés, type et fichier d'entrée détectés : Fat-Free ou monolithe `switch($mode)`), import du dump
+  (`.sql`/`.sql.gz`, chargé dans `portage-db` → base `port_<projet>` recréée, charset du projet), génération du
+  `apps/<projet>.yml` attendu par le kit, exécution des étapes dans un thread (journal `run.log`, statut suivi par le
+  hub), rapports (PORT_SPEC, schéma mesuré, fumée, inventaire, journal, yml), colonne « décision » du PORT_SPEC lue
+  et réécrite (`portspec.py`, pur), archive zip du port généré, suppression (fichiers + base).
+- `portage/api/portspec.py` : logique pure — slug, yml, décisions, détection du type d'application.
+- `hub/src/PortageView.jsx` (+ `portageClient.js`, `portageLib.js`) : liste des projets, fiche (type, charset,
+  préfixe, compte de test, table des utilisateurs/domaines pour la connexion du port), dépôts de fichiers, cases à
+  cocher des étapes (celles qui exigent la base sont décochées sans dump), journal en direct pendant l'exécution,
+  tableau des unités avec sélecteur de décision et enregistrement groupé, rapports, tableau des routes du test de
+  fumée (vert/rouge), lien vers l'archive. Styles `pt-*` sur les seules variables du thème.
+- `docker-compose.yml` : `portage-api` (+ `VITE_PORTAGE_API_BASE_URL` du hub), `portage-db` (MariaDB dédiée, non
+  publiée, volume `portage_db_data`) ; `.env.example` : `PORTAGE_KIT_DIR`, `PORTAGE_DATA_DIR`, `PORTAGE_DB_ROOT_PASSWORD`,
+  `PORTAGE_MAX_UPLOAD_MB` ; tls-proxy : `/api/portage/` ; `.gitignore` : `portage/data/`, `portage/kit/` ;
+  `hubThemes.js` (entrée Data, première livraison 650), `logsLib.js`.
+- Au passage : l'entrée #649 citait l'application pilote du jeu d'icônes ; reformulée (« conçu pour l'IA de portage »)
+  pour respecter la règle énoncée ce jour.
+
+Vérifié : `portage/api/test_portage.py` (4 scénarios `test_client`, dont les refus), chaîne complète
+`inventory → smoke` jouée via l'API avec le vrai kit et une vraie MariaDB sur l'application d'exemple du kit
+(6 unités, 4 routes portées, fumée 3×200 / 1×500 attendu sans décision), `node --test hub/tests/portageLib.test.mjs`
+(4), syntaxe `@babel/parser` sur les trois fichiers, aucun setter sans `useState`, aucune couleur en dur.
+`node --test hub/tests/*.test.mjs` : 279 verts, 1 échec PRÉEXISTANT (`hubBusiness` : `view:personal` de #638 n'a qu'un chemin
+métier ; pas touché ici, à traiter séparément). La tuile Portage est déclarée sous Services › métier et Cortex › apprentissage.
+Non vérifié : rendu navigateur (pas de `npm run build` depuis le shell), build de l'image `portage/api`,
+déploiement (`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build portage-api portage-db hub tls-proxy`
+puis `git clone` du kit dans `portage/kit` avant le premier lancement d'étapes).
+
+Fichiers : `portage/README.md`, `portage/api/{app.py,portspec.py,test_portage.py,requirements.txt,Dockerfile,entrypoint.sh}`,
+`hub/src/{PortageView.jsx,portageClient.js,portageLib.js,App.jsx,hubThemes.js,logsLib.js,hub.css}`,
+`hub/tests/portageLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
+## 2026-10-02 — Pastilles d'icônes du hub : jeu Lucide sur disques colorés, icônes réseau (livraison #649)
+
+Demande : « applique le jeu d'icônes dans supervision_si en ajoutant des icônes réseau du même style » — le jeu
+conçu pour l'IA de portage (pictogrammes Lucide, licence ISC, trait blanc sur pastille). Quatrième jeu de
+la charte (#410) à côté des emoji, symboles et traits : il remplace les emoji des titres de thèmes, sections de
+menu et groupes de l'arbre du hub, sans toucher aux données (les champs `icon:` gardent leur emoji ; une table de
+correspondance les résout, et un emoji inconnu s'affiche comme avant).
+
+- `hub/src/hubIconSet.js` (pur, généré par portage-kit) : 78 pastilles — les 37 emoji en usage + icônes réseau
+  (routeur, serveur, Wi-Fi et Wi-Fi coupé, câble, port Ethernet, parabole, radar, prise/débranché, processeur,
+  disque, cloud, terminal, scan, waypoints, route, branche, conteneur, tour de contrôle, jauge, bug, empreinte…).
+- `hub/src/HubIcon.jsx` : rendu SVG inline ; charte respectée — la pastille porte une couleur d'IDENTITÉ
+  (`--hub-icon-teal/orange/purple/brick/green/slate`, définies dans `hub.css` pour les deux thèmes), les icônes
+  d'état seules utilisent `--ok/--warning/--danger` ; trait `--hub-icon-fg` ; aucune couleur en dur dans les tracés.
+- `App.jsx` : quatre sites de rendu passent par `<HubIcon>` (titres de thèmes, titres de sections de menu, groupes
+  et sous-groupes de l'arbre).
+- Vérifié : `hub/tests/hubIconSet.test.mjs` (4 tests : corps et tons valides, tous les emoji des champs `icon:`
+  résolus, `resolveIcon`, `toneVar`) ; syntaxe `@babel/parser` sur App.jsx/HubIcon.jsx/hubIconSet.js ;
+  275/276 tests du hub verts — l'échec `hubBusiness.test.mjs` (« chaque tuile déclarée a un chemin valide… ») est
+  antérieur à cette livraison (reproduit sur HEAD sans mes changements), à regarder à part.
+- Non vérifié : `npm run build` (impossible depuis ce shell), rendu réel dans le navigateur.
+- Fichiers : hub/src/hubIconSet.js, hub/src/HubIcon.jsx, hub/src/App.jsx, hub/src/hub.css, hub/tests/hubIconSet.test.mjs,
+  docs/charte-icones-hub.md, hub/README.md, shared/DELIVERY_NUMBER.
+
+## 2026-09-28 — Installation d'agent depuis un poste sans accès à python.org (livraison #648)
+
+Pour poser l'agent sur un poste qui ne joint que le hub public en 443 (VLAN
+cloisonné, pas d'Internet général — cas du PC contrôleur d'écrans) : le hub
+sert lui-même le Python et une page d'install atteignable depuis le poste.
+
+- `GET /deploy/python` : le hub récupère une fois la distribution Python
+  embarquée (le serveur a Internet) et la met en cache (`/data`), le poste la
+  télécharge depuis le hub. Bootstrap Windows et `.cmd` silencieux passent
+  `-PythonUrl <base>/deploy/python` à install.ps1 → agent + Python 100 % depuis
+  le hub, plus de dépendance à python.org.
+- `GET /install?token=` : page (protégée par le jeton) ouverte dans le
+  navigateur du poste, qui donne la ligne à coller (script téléchargé puis
+  exécuté, pas de `iex` → antivirus-friendly) et les liens. Aucune option à
+  taper ; l'agent communique via `-Central` (supervision.optline.fr), modifiable.
+
+Variables : `SI_AGENT_PYTHON_EMBED_URL`, `SI_AGENT_PYTHON_EMBED_CACHE`
+(docker-compose + .env.example). Vérifié : 23 tests API (dont
+DeployInstallTests : service Python simulé, `-PythonUrl` dans le bootstrap,
+page /install jeton valide→200 / invalide→403), non-régression du `.cmd`
+silencieux mise à jour. Non vérifié : téléchargement réel depuis python.org
+côté serveur, rendu navigateur de la page. Fichiers : si-agent/api/app.py,
+test_si_agent_api.py, README.md, docker-compose.yml, .env.example.
+
+## 2026-09-28 — Portail LDAP : lisibilité des champs en thème sombre (livraison #647)
+
+Les champs de saisie du portail Gestion OpenLDAP n'avaient ni `background` ni
+`color` explicites : en thème sombre le texte apparaissait en noir sur gris
+foncé, illisible (signalé par capture). Règle ajoutée sur tous les champs
+(`.ldap-shell input/select/textarea` + écran de déverrouillage) : `background:
+var(--bg)` et `color: var(--text)`, placeholders en `var(--muted)` -- lisible
+dans les deux thèmes. Rappel : les nouveaux onglets « Créer un compte » et
+« Groupes » (#645) n'apparaissent qu'après reconstruction du portail
+(`ldap-admin-portal`).
+
+Vérifié : variables de thème uniquement (aucune couleur en dur ajoutée), CSS
+relu. Non vérifié : rendu navigateur. Fichier : ldap-admin/portal/src/ldap.css.
+
+## 2026-09-28 — install.sh : garde-fou Python >= 3.7 + option --python (livraison #646)
+
+Suite à un agent installé sur un vieux Proxmox (Debian 9 / Python 3.5) qui
+bouclait en crash (`ImportError: ThreadingHTTPServer`, plus f-strings et
+`subprocess.run(text=)` en 3.7) : `install.sh` refuse maintenant proprement
+sous 3.7, avec un message expliquant la marche à suivre (Python autonome).
+
+Nouvelle option `--python <chemin>` (ou `SI_AGENT_PYTHON`) : interpréteur
+d'EXÉCUTION de l'agent, distinct du `python3` système. La vérification de
+version a lieu AVANT l'enrôlement (ne consomme pas de jeton, ne crée pas
+d'agent à moitié sur un hôte non supporté). Le service systemd est rendu avec
+cet interpréteur (`ExecStart`). Les scripts d'amorçage (enrôlement, vérif CA)
+restent volontairement compatibles 3.5. Nouvelle doc `docs/agent-python-autonome.md`
+(Python autonome via uv ou archive standalone, puis `install.sh --python`).
+
+Vérifié : `bash -n` (syntaxe), gate accepte le python du conteneur (>=3.7) et
+refuse un python 3.5 simulé (message + sortie en erreur), réécriture de
+l'ExecStart par sed en conservant les arguments. Non vérifié : installation
+complète réelle (root/systemd) ni sur un hôte 3.5 réel. Fichiers :
+si-agent/agent/install.sh, si-agent/agent/README.md, docs/agent-python-autonome.md.
+
+## 2026-09-28 — Portail LDAP : création de comptes + affectation aux groupes (livraison #645)
+
+Deux pages dans le portail « Gestion OpenLDAP » (onglets « ➕ Créer un compte »
+et « 👥 Groupes ») pour la tâche récurrente d'ajout d'utilisateurs, en
+remplacement du script (qui restait silencieux sur une partie des erreurs).
+
+Création : type interne (`uid=…,ou=accounts,dc=exemple,dc=fr`) ou externe
+(`uid=…,ou=external,ou=accounts,…`), schéma `top`+`posixAccount`+`inetOrgPerson`,
+**uidNumber alloué automatiquement** (max+1), mot de passe haché par le serveur,
+refus si l'uid existe déjà. Affectation : **sélecteur** des groupes sous
+`ou=groups,ou=accounts`, attribut d'appartenance déduit de la classe du groupe
+(member/uniqueMember/memberUid). Chaque écriture : sauvegarde préalable, droit
+`manage`, et **erreur ldapmodify affichée telle quelle** (fini le silence).
+
+Nouveaux endpoints : `GET /accounts/config`, `POST /accounts`, `GET /groups`,
+`POST /groups/member`. Variables : `LDAP_ACCOUNTS_DN`, `LDAP_EXTERNAL_DN`,
+`LDAP_GROUPS_DN`, `LDAP_DEFAULT_GID`, `LDAP_DEFAULT_SHELL`, `LDAP_UID_FLOOR`
+(docker-compose + .env.example). Nouveau module `ldap_accounts.py` (ajouté au
+COPY du Dockerfile).
+
+Vérifié : logique pure `ldap_accounts` (9 tests) ; routes via test_client avec
+ldapsearch/ldapmodify simulés, dont la remontée d'erreur en 502 et l'uidNumber
+auto (6 tests) ; JSX du portail parsé (@babel/parser). Non vérifié : pas de
+navigateur (rendu des pages), pas de serveur LDAP réel, pas de `npm run build`.
+Fichiers : ldap-admin/api/{ldap_accounts.py,app.py,ldap_client.py,Dockerfile,
+test_accounts.py,test_routes.py}, ldap-admin/portal/src/{App.jsx,ldap.css},
+docker-compose.yml, .env.example, ldap-admin/README.md.
+
+## 2026-09-27 — Bande passante Proxmox affichée dans le hub + runbook démo Numeria (livraison #644, item 107)
+
+La bande passante par tranche horaire, déjà collectée par le plugin proxmox
+(#641, `measure["bandwidth"]` : nœud + par VM), était **perdue** avant le
+hub : `store.latest_proxmox` ne la laissait pas passer. Corrigé (champ
+`bandwidth`), et **graphe ajouté dans la tuile Proxmox** (`ProxmoxView`,
+composant `BandwidthSection`) : barres des tranches (moyenne + repère de pic,
+survol détaillé), pic et total du nœud, fenêtre unitaire estimée, et tableau
+des VM les plus consommatrices avec leur profil horaire. Complète l'item 107
+côté visualisation. 1 test (passe-plat `bandwidth` sur `/proxmox`). JSX
+vérifié (esbuild). Ajout de `docs/demo-numeria-runbook.md` : runbook de
+préparation de la démo campus (central local sur le minipc, jeton, sondes
+pc-numeria, install prudente de l'agent Proxmox, activation surveillée du
+plugin, inventaire VM, kill switches).
+
+## 2026-09-27 — Panneau « Observabilité réseau » dans la tuile Agents hôtes (livraison #643, items 105-106)
+
+Nouvel onglet **Observabilité réseau** de `SiAgentView` (tuile Agents hôtes),
+qui regroupe sur toute la flotte (filtrable par site) les deux sondes réseau
+natives : **dns-observe (105)** — constats de divergence de résolution triés
+par gravité, plus un détail dépliable « qui résout quoi, et vers quoi » par
+poste (issu de `learned`) ; **resource-access (106)** — constats (accès en
+clair, nouvelle ressource, gros consommateur) et tableau des principales
+ressources externes agrégées entre postes (clients, flux, volume, ports en
+clair surlignés). Nouvelle route `GET /network-observability?site=` +
+helpers `store.latest_dns_observe` / `latest_resource_access` (dernière
+mesure par agent, motif `latest_*` existant). L'onglet étant dans
+`SiAgentView`, il est aussi servi par le front autonome d'un site (pile
+`si-agent/standalone`) : lecture des relevés sur place, sans route vers le
+hub. 1 test de route (`NetworkObservabilityTests`), JSX vérifié (esbuild).
+
+## 2026-09-27 — dns-observe : contrôle « le résolveur du segment doit être sa passerelle » (livraison #642, item 105)
+
+Option `--expected-gateway` : la sonde détecte la passerelle par défaut de
+chaque interface et signale (`dns-not-gateway`) un DNS distribué qui n'est
+pas cette passerelle -- encode la règle du campus où le firewall (172.16.x.1,
+une patte par VLAN) est passerelle ET DNS sur chaque segment. Repère un DHCP
+qui distribue un autre résolveur, ou un segment qui ne pointe pas le firewall.
+1 test.
+
+## 2026-09-27 — Bande passante par tranche horaire + fenêtre unitaire estimée (livraison #641, item 107)
+
+`shared/bandwidth.py` (pur, 4 tests) : d'une série de compteurs d'interface
+(API), calcule les débits (gère les remises à zéro), agrège **par tranche
+horaire** (avg/pic/octets/part active), et **estime automatiquement la
+fenêtre temporelle unitaire** = la plus petite durée d'activité continue
+(10e centile des plages, seuil de repos auto), avec un pas d'agrégation
+lisible suggéré. Branché sur **Proxmox** (rrddata réseau du nœud et des VM en
+marche via `pvesh -timeframe`) : la mesure du plugin porte désormais
+`bandwidth` (par heure + fenêtre estimée), nœud et par VM. Analyse copiée de
+façon compacte dans le plugin (comme protocol.py) ; à valider sur un PVE réel
+(champs netin/netout). Tests Proxmox mis à jour.
+
+## 2026-09-27 — Sonde « accès aux ressources » : qui accède à quoi, façon ntopng mais native (livraison #640, item 106)
+
+Nouveau plugin `resource-access` (famille explorer, privilégié) : lit la table
+conntrack du poste (`/proc/net/nf_conntrack`, sinon `conntrack -L`) et restitue
+QUI (client, source locale) accède à QUOI (ressource externe dst:port/proto),
+avec volumes, protocole et noms DNS (`--names-map`). Pas de conteneur ntopng :
+natif, dans le modèle de sécurité du projet. Observe ce qui passe par ce poste
+(vue réseau sur passerelle/miroir, sinon ce poste seul — signalé dans la
+mesure). Constats en événements : `resource-new`, `resource-cleartext`
+(HTTP/FTP/Telnet en clair), `talker-heavy`, `resource-silent`. Lecture seule,
+stdlib. Enregistré dans PROBE_TASKS. 5 tests.
+
+## 2026-09-27 — Sonde « observabilité DNS » : divergences de résolution par source (livraison #639, item 105)
+
+Nouveau plugin `dns-observe` (famille explorer, privilégié) : pour une liste
+de noms, interroge depuis CHAQUE interface (et connexion Wi-Fi en rotation)
+chaque DNS distribué + les DNS publics, enregistre la réponse (IP, rcode,
+latence), puis **apprend** les résolutions et **compare les répartitions par
+source (interface/VLAN/route) et par destination (IP)**. Constats repris en
+événements : `dns-divergent` (même nom, IP différentes selon la source),
+`dns-partial-nxdomain` (résout ici, échoue là), `dns-all-down`,
+`dns-unexpected-resolver` (`--expected-dns`), `dns-answer-changed` (depuis le
+passage précédent, état local). Cible l'incident campus « la ressource marche
+depuis un segment, pas depuis un autre ». Lecture seule, stdlib, codec DNS A/AAAA.
+Enregistré dans PROBE_TASKS (constats→notifications). 5 tests.
+
+## 2026-09-27 — Tuile « Données personnelles » : journal catégorisé de nos interactions + accès au hub (livraison #638)
+
+Nouvelle tuile (réservée aux administrateurs) : **frise** de nos livraisons
+lue dans le CHANGELOG et catégorisée (Sécurité & accès, IA, Réseau & infra,
+Agent & postes, Hub & ergonomie, Exploitation), filtrable par catégorie et
+recherche ; **comptes-rendus** par jour/semaine/mois (« minutes » = synthèses,
+pas de durée — non journalisée) ; **accès au hub** via le journal de connexions
+Keycloak existant (#612). Backend : `accounts/api/interactions.py` (pur, 4
+tests) + route `/interactions` ; CHANGELOG cuit dans l'image accounts-api au
+build (rafraîchi à chaque déploiement, aucun volume). Aucune donnée inventée
+ni confidentielle client : seulement le CHANGELOG du projet et les connexions.
+
+## 2026-09-27 — Tuile Proxmox : MAC des VM (livraison #637)
+
+L'agent Proxmox extrait la ou les MAC de chaque VM depuis sa config
+(`net0..netN`), toujours disponibles même sans qemu-guest-agent
+(contrairement aux IP, qui exigent l'agent invité) ; affichées sous les IP
+dans la tuile. `extract_macs`, 1 test.
+
+## 2026-09-26 — Agent 0.5.28 : Bureau à distance, mise à jour de l'agent depuis le serveur (livraison #636, items 100/104)
+
+`remote_desktop` {action: status|enable|disable, nla?} (`win/rdp.ps1`) :
+active/désactive le RDP INTÉGRÉ de Windows (service Terminal Server +
+règle de pare-feu « Remote Desktop »), NLA exigée par défaut ; état
+(activé, pare-feu, NLA, port, utilisateurs autorisés). AUCUN compte ni mot
+de passe créé ou stocké : l'administrateur se connecte avec ses propres
+identifiants ; chaque bascule émet `command-rdp`. Mise à jour de l'agent
+sans intervention sur le poste : bouton dans le central local qui pousse
+`update {version, sha256, url}` (mécanisme #522 -- téléchargement par le
+canal signé de l'agent, SHA-256 vérifié, installeur `--upgrade` détaché) ;
+la version de l'archive servie est lue depuis son nom. Boutons RDP dans la
+section Poste du hub et l'onglet système du central local. `rdp.ps1` en
+UTF-8 BOM. Rappels honnêtes dans l'UI : un antivirus tiers (AVG) ne se
+coupe pas par script ; le RDP se connecte avec un compte déjà autorisé.
+2 tests sysctl.
+
+## 2026-09-26 — Agent 0.5.27 : image écrite directement sur un partage du serveur (livraison #635, item 101)
+
+`image_host` {…, share: {unc, user, password, domain?}} : l'agent (SYSTEM)
+monte le partage avec identifiants par `WNetAddConnection2` (aucune ligne
+de commande, mot de passe nulle part), Disk2vhd écrit directement sur l'UNC
+(la cible doit être sous le partage), le partage est démonté à la fin ;
+plus de copie locale ni de transfert -- la voie pour les postes sans disque
+libre (campus). Mot de passe masqué dès l'envoi (central local et API).
+Champs « partage du serveur » dans l'onglet image du central local et le
+bloc Image du hub. Côté serveur : Samba sur le mini-PC Linux (compte
+dédié, dossier p2v), Partage de fichiers SMB sur le Mac -- voir README.
+Suite : provisionnement automatique du partage (compte jetable par image)
+par le central Linux. 1 test.
+
+## 2026-09-26 — Agent 0.5.26 : transfert de l'image P2V vers le serveur (livraison #634, item 101)
+
+`image_host` {…, transfer: true, delete_after?} : une fois Disk2vhd terminé,
+l'agent envoie le VHDX au central (Mac du test, mini-PC Linux du site) par
+son canal habituel -- HTTPS, morceaux de 8 Mo SIGNÉS (HMAC sur le condensé de
+chaque morceau), reprise sur coupure (`GET …/status`), clôture avec taille et
+SHA-256 vérifiés, puis suppression locale sur demande. Fil d'exécution à
+part : la boucle de l'agent continue ; événements `image-upload-started /
+progress (5 min, débit, reste) / finished / failed`. `image_transfer`
+{path, delete_after?} relance ou reprend une image déjà sur le poste.
+Réception : `si_agent/imagestore.py` (partagé), central local sous
+`data/images/<agent>/`, si-agent-api sous `/data/images` (`SI_AGENT_IMAGES_DIR`),
+`GET /images` pour le hub, événement `image-received`. Cases « transférer
+ensuite » / « supprimer après transfert » et liste des images reçues dans
+l'onglet image du central local et le bloc Image du hub. Vérifié de bout en
+bout avec l'agent réel (reprise après coupure, condensé). 3 + 1 + 1 tests.
+
+## 2026-09-26 — Agent 0.5.25 : Windows Update, pare-feu / Defender, logiciels, commandes programmées (livraison #633, item 104)
+
+Onglet « système » du central local. `windows_update` {action: status|install,
+kbs?, reboot?} : API COM Microsoft.Update (`win/winupdate.ps1`, sans module) --
+mises à jour en attente, historique, redémarrage requis, réglage auto ;
+installation DÉTACHÉE suivie par `update-started / update-finished`, mesure
+`winupdate`, redémarrage forcé après coup sur demande. `protection`
+{firewall?: on|off, profiles?, defender?: on|off} (`win/protection.ps1`) :
+état et bascule du pare-feu par profil et de Defender temps réel (refus
+explicite si la protection contre les falsifications est active) ; un
+antivirus tiers est signalé, jamais piloté ; mesure `protection`.
+Logiciels : `software_action` (existant) exposé. Différé générique : tout
+`params.at` (heure locale du poste) reporte l'exécution -- acquittée
+« programmée », conservée dans l'état de l'agent, exécutée à l'heure dite
+(`deferred-run`), pour les mises à jour nocturnes, redémarrages et images
+hors heures. Page : les blocs dépliés le restent au rafraîchissement.
+`sysctl.py` pur, 6 tests ; test du différé dans test_si_agent.
+
+## 2026-09-26 — Central local : retour visuel sur chaque clic, formulaires stables (livraison #632, item 103)
+
+Script de la page sorti dans `ui.js` (relu à chaque affichage). Formulaires
+rendus une seule fois par onglet, seules les zones dynamiques sont
+rafraîchies : plus aucun champ vidé, plus de blocage quand un champ a le
+focus. Chaque bouton passe en « ⏳ » jusqu'à l'acquittement ; bandeaux
+(toasts) « envoyé (id) → ✅ résultat / ❌ erreur » (erreur affichée jusqu'au
+clic) ; pastille des commandes en attente ; « ⏳ en attente » dans
+l'historique. Lecteurs `C:` par défaut pour l'image.
+
+## 2026-09-26 — Central local : navigation dans l'arborescence réparée, chemin manuel avec curl.exe (livraison #631, item 103)
+
+Les boutons du parcours (lecteur, sous-dossier, parent, choisir) portaient
+le chemin sérialisé dans l'attribut `onclick` : les guillemets et les
+« \\ » cassaient l'attribut, rien ne réagissait après la liste des
+lecteurs. Les chemins sont rangés dans un tableau, l'attribut ne porte qu'un
+indice. Chemin manuel : ligne `curl.exe -k -o … /package` (fourni par
+Windows) ajoutée devant `tar` et `install.ps1`.
+
+## 2026-09-26 — Agent 0.5.24 : ligne Disk2vhd corrigée, garde-fou contre un Disk2vhd bloqué (livraison #630, item 101)
+
+Sur le poste réel, Disk2vhd restait vivant sans rien écrire : options passées
+après les volumes (`-c -v`, `-v` inexistant) -> boîte d'usage invisible sous
+SYSTEM. Ligne rétablie : `disk2vhd64.exe -accepteula -h -c <volumes> <cible>`
+(`-h` VHDX, `-c` cliché VSS), `tool_args` pour remplacer les options si
+Sysinternals les change. Garde-fou : processus vivant mais aucun fichier créé
+après 3 min -> processus tué, `image-failed` explicite, au lieu de
+« 0 Go écrits » sans fin.
+
+## 2026-09-26 — Agent 0.5.23 : instance unique, espace utilisé lu sur la vraie sortie fsutil (livraison #629, items 101/103)
+
+Retours du poste réel : trois instances d'agent en vie après des relances
+de l'installeur (la tâche relancée ne tuait pas l'ancienne, qui bouclait en
+401 avec un secret périmé) -> verrou d'instance `si-agent.lock` (msvcrt /
+fcntl, sortie code 3 si déjà tenu) et l'installeur arrête la tâche puis les
+`python.exe` restants du dossier d'installation. `fsutil volume diskfree`
+en français : « Nombre total d'octets réservés » écrasait le total (espace
+utilisé négatif) -> `used_bytes()` lit « Octets utilisés » quand la ligne
+existe, sinon total − libre en ignorant quota / réservé / pool. Sortie
+réelle ajoutée aux tests.
+
+## 2026-09-26 — Agent 0.5.22 : redémarrer et rouvrir la session UNE fois, sans autologon permanent (livraison #628, item 100)
+
+`power_action` {action: reboot, autologon: {user, password, domain?}} :
+Winlogon `AutoAdminLogon=1` + `AutoLogonCount=1` (mécanisme natif, celui de
+Sysprep/MDT) -- la session s'ouvre au démarrage suivant, Windows efface
+lui-même le mot de passe et l'autologon ; l'agent vérifie au démarrage
+suivant (`autologon-cleared`) et nettoie si le redémarrage a échoué.
+Registre écrit par `winreg` (jamais de ligne de commande). Le mot de passe
+ne fait que passer : masqué dans le stockage du central dès l'acquittement
+et dans tout ce que voit le hub, jamais journalisé ni acquitté. Champs
+« rouvrir la session (une fois) » dans la section Poste du hub et dans le
+central local. Module pur `autologon.py`, 4 tests. Central local : en-tête
+d'agent lisible avec la mesure `host` Windows (`system.hostname`).
+
+## 2026-09-26 — Agent 0.5.21 : parcours de l'arborescence du poste pour choisir une cible (livraison #627, items 101/103)
+
+Commande `browse` {path?} (module pur `browsectl.py`, 3 tests) : lecteurs
+avec espace libre, sous-dossiers d'un chemin ou d'un partage UNC, lecture
+seule, bornée. Bouton « Parcourir depuis le poste… » dans le bloc Image du
+hub (`PathBrowser`) et dans l'onglet image du central local, avec choix du
+dossier comme cible. Le central local impose `commands_poll_seconds` (5 s,
+réglable `--commands-poll`) pour un parcours interactif ; le hub laisse la
+cadence du poste. Central local : les boutons retirent le focus du champ
+avant d'envoyer, pour que le rafraîchissement reprenne.
+
+## 2026-09-26 — Retours du premier poste Windows réel (livraison #626, items 100/103)
+
+Central local : champs du panneau conservés entre deux rafraîchissements
+(la case « forcer » se décochait), « Oublier » déplacé en zone sensible,
+chemin de déploiement manuel affiché (archive par le navigateur +
+`install.ps1`) pour les postes dont l'antivirus bloque la ligne
+« téléchargement + exécution » (AVG IDP.HELU) ; même chemin dans l'onglet
+Déploiement du hub (`windows_manual`, `package`). `install.ps1` /
+`uninstall.ps1` en UTF-8 avec BOM (PowerShell 5.1 lisait les accents en
+ANSI). Agent : indice d'horloge dans le journal quand TLS échoue sur la
+validité du certificat (poste en double amorçage 2 h en retard :
+« certificate is not yet valid »), événement `clock-skew` au retour du
+contact. Validé sur Windows 11 réel : `-EnrollToken`/`-CaFingerprint` en
+PowerShell 5.1, Python embarqué, tâche planifiée, redémarrage forcé.
+
+## 2026-09-26 — Agent 0.5.20 : cible du prochain démarrage sur un poste multi-amorçage (livraison #625, item 100)
+
+`power_action` {action: reboot, target: windows|linux|firmware} : la cible est
+choisie via le firmware UEFI (BootNext, une seule fois), jamais via les
+fichiers de GRUB (ext4 illisible depuis Windows, et fragile). Windows :
+`bcdedit /set {fwbootmgr} bootsequence {bootmgr}` (saute GRUB) ou entrée
+Linux trouvée dans `bcdedit /enum firmware` (toute langue), `/fw` pour les
+réglages UEFI ; Linux : `efibootmgr -n <Windows Boot Manager>`, `systemctl
+reboot --firmware-setup`. Sélecteur dans la section Poste du hub et dans le
+central local. Cas d'usage : portable de test GRUB + Windows qui reste sur le
+menu GRUB (recordfail) après un redémarrage. 1 test (8 cas).
+
+## 2026-09-26 — Central local de test : piloter l'agent Windows sans le hub (livraison #624, item 103)
+
+`si-agent/local-central/local_central.py` (stdlib) remplace le hub sur un
+Mac ou un Linux : PKI auto-signée épinglée, archive de l'agent, jeton et
+ligne d'amorçage Windows/Linux, face agents identique à si-agent-api
+(protocol.py / control.py importés, réponses et plugins signés), interface
+sur / : poste (redémarrage, réveil, banc), image P2V à chaud avec suivi et
+aide-mémoire Proxmox, lanceurs, chien de garde, sondes, commandes brutes.
+Vérifié de bout en bout avec l'agent réel (TLS, enrôlement, plugin
+web-audit, mesures, commande acquittée). 2 tests.
+
+## 2026-09-26 — Réveil réseau : agent relais seul, MikroTik abandonné pour les sites Zyxel/Nebula (livraison #623, item 100)
+
+Le réveil d'un poste passe par un autre agent du même segment (paquet
+magique, livré en #613) ; le réveil par `/tool wol` du MikroTik n'est plus
+prévu pour Numeria (postes derrière un pare-feu Zyxel géré par Nebula).
+Piste Nebula Open API notée au backlog (abonnement Pro/Plus requis).
+Aide de la section Poste ajustée.
+
+## 2026-09-26 — Sonde front-access : journal du frontal public résumé dans le hub (livraison #622, item 99)
+
+Agent sur la VM frontale + sonde `front-access` : codes (401 A0, 403
+périmètre, 5xx hub injoignable), clients par IP publique, chemins,
+lenteurs, erreurs 5xx, latence (`%D` ajouté au vhost par
+front-reverse-proxy.sh), 4 constats. Section « Accès publics (frontal) »
+dans la fiche agent. 3 tests.
+
+## 2026-09-26 — Agent 0.5.19 : image complète du poste à chaud (Disk2vhd, VSS) pour virtualisation (livraison #621, item 101)
+
+Commande `image_host` depuis la section Poste : contrôles (image en cours,
+BitLocker, espace cible), outil téléchargé et vérifié, Disk2vhd lancé
+détaché, suivi par événements (lancée, en cours, terminée avec mode
+d'emploi Proxmox, échouée). `imagectl.py` pur (4 tests).
+
+## 2026-09-26 — A1 : périmètre de site par groupe Keycloak, vérifié côté API (livraison #620)
+
+Item 97 : un compte client ne voit que son site. Garde commune
+`shared/site_scope.py` (6 tests) dans 7 API (si-agent, netprobe, mikrotik,
+licences, glpi, équipements réseau, pixel-grid) : sur requête avec jeton,
+`?site=` hors périmètre → 403, absent → injecté, `/agents/<id>` d'un autre
+site → 403 ; réglage `SITE_SCOPE_GROUPS` / `SITE_SCOPE_FULL_GROUPS`. Hub :
+`GET /site-scopes`, `?site=` ajouté aux GET par l'intercepteur, pastille
+« site : … » dans l'en-tête (apiAuth 5 tests).
+
+## 2026-09-26 — Pied de page (hauteur visible réelle) ; test updater remis d'aplomb (livraison #619)
+
+- Hub : `.hub-shell` en `100dvh` (repli `100vh`) — hauteur réellement visible
+  du navigateur, pour le pied de page (numéro de version) coupé signalé sur
+  Firefox / Mac ; si le symptôme persiste, c'est la fenêtre qui déborde de
+  l'écran (Fenêtre → Zoom).
+- si-agent : `tests/test_updater.test_run_update` échouait depuis #576
+  (signature `spawn(cmd, mode, log_path)`) — test aligné.
+
+## 2026-09-26 — Sonde web-trace : capture pktmon / tcpdump analysée sur le poste (livraison #618)
+
+Demandé : « idem en mode tcpdump pour relever les URL, les protocoles, les
+erreurs, les latences ». Sonde `web-trace` : capture bornée (pktmon natif
+Windows 10/11, tcpdump ailleurs) puis analyse locale stdlib (pcap/pcapng,
+SNI TLS, HTTP en clair, DNS) — serveurs nommés, protocoles, connexions sans
+réponse, RST, retransmissions, RTT, DNS, HTTP, TLS, 11 constats ; seul le
+résumé remonte. Section « Trace réseau du poste » dans la fiche agent.
+5 tests.
+
+## 2026-09-26 — Sonde web-audit : dysfonctionnement partiel d'une application web vu du poste (livraison #617)
+
+Demandé : « un module sur sonde Windows permettant d'auditer un
+dysfonctionnement partiel d'application web ». Sonde `web-audit` (stdlib,
+toutes plateformes) : DNS / TCP / TLS / premier octet / total / code /
+redirections par URL, puis sous-ressources (scripts, styles, images, cadres)
+avec code et durée ; 13 constats. Fiche agent : section détaillée ; tuile
+Agents : onglet Audit web, matrice URL × poste (`GET /web-audit`). 4 tests.
+
+## 2026-09-26 — Agents : déploiement en masse par jeton de site, introspection et banc de charge (livraison #616, agent 0.5.18)
+
+Pour la démonstration Numeria : « sondes Windows pour un maximum de PC » et
+« banc de test lourd … introspection ».
+
+- Onglet *Déploiement* : jetons d'enrôlement par site (bornés, révocables),
+  une ligne PowerShell / shell identique pour tous les postes (GPO, Intune,
+  PsExec), agent nommé d'après la machine, secret délivré à l'enrôlement ;
+  `GET /deploy/<windows|linux>?token=`, `POST /api/v1/enroll`, installeurs
+  `-EnrollToken` / `-SystemCa` (Windows) et variables d'environnement
+  (Linux) ; CA système par nom public, CA interne par adresse LAN.
+- Introspection : mesure `agent-self` (CPU de l'agent et de ses sondes,
+  mémoire, durée par tâche, file) ; colonne *Impact agent* dans la flotte,
+  section *Empreinte* dans la fiche ; commande `bench` (cadence forcée
+  N minutes, comparaison banc / normal, événement de synthèse).
+- 7 tests (enrôlement, introspection) ; frontal : exemptions `deploy` et
+  `enroll` ; test agent-self ajouté aux passages complets.
+
+## 2026-09-26 — A0 : jeton Keycloak exigé sur toutes les API depuis Internet (livraison #615)
+
+Décidé après le constat de l'item 97 : les lectures des API n'étaient pas
+authentifiées. Fait à la frontière pour tenir le délai : sur le frontal
+public, `mod_auth_openidc` vérifie la signature du jeton d'accès Keycloak
+(JWKS du realm) sur tout `/api/`, faces machine des agents exceptées ;
+côté hub, `apiAuth.js` (4 tests) ajoute le jeton à tous les appels d'API
+par un intercepteur `fetch` unique. LAN inchangé. Limites : `/app`,
+`/tickets`, `/vault` depuis Internet (clients sans jeton) ; garde par API
+et périmètre de site (A1) à suivre.
+
+## 2026-09-25 — Comptes : réglages Keycloak depuis le hub, en liste blanche (livraison #614, item 98)
+
+Demandé : « rester (ou créer une interface) dans le hub pour modifier la
+configuration du Keycloak, en limitant ou protégeant les parties
+névralgiques ». Onglet « Réglages Keycloak » : général, page de connexion,
+sessions et jetons, protection force brute, politique de mots de passe,
+conservation des événements — types et bornes côté API
+(`accounts/api/kcsettings.py`, 5 tests), simulation avant / après puis
+application, journalisée. Origines des clients OIDC (ajout dérivé de
+l'origine interne, aperçu, sans redémarrage) ; fédération LDAP
+(synchronisation changements / complète, secret jamais lu). Realm master,
+clients de service, rôles, comptes hors de portée. accounts-api :
+`GET/PUT /keycloak-settings`, `POST /keycloak-settings/origins`,
+`POST /keycloak-settings/ldap-sync` ; compose `HUB_INTERNAL_ORIGIN`.
+
+## 2026-09-25 — Agent : redémarrage / arrêt, réveil réseau, lanceurs au démarrage, chien de garde applicatif (livraison #613, agent 0.5.17)
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ».
+
+- Section « Poste » de la fiche agent : Redémarrer / Arrêter (délai,
+  message, forcer ; refus si session console sans forcer) / Annuler ;
+  réveil par un autre agent du site (paquet magique, MAC préremplie) ;
+  lanceurs Windows (Run, dossier Démarrage, tâches, services) avec
+  Activer / Désactiver ; chien de garde : liste d'applications (processus,
+  commande de relance, plage, repos, quota), état en direct. Chaque bouton
+  suit l'acquittement de l'agent.
+- Agent 0.5.17 : `powerctl.py`, `startupctl.py`, `watchdog.py`,
+  `win/startup.ps1` ; commandes `power_action`, `wol`, `startup_action`,
+  `watchdog_config` ; mesures `startup`, `watchdog` ; événements
+  `command-power`, `command-wol`, `command-startup`, `app-down`,
+  `app-restarted`, `app-restart-failed`, `app-recovered`. 13 tests ;
+  test des plugins livrés remis à jour (#567/#595).
+- Central : types de commandes et validation, catégorie d'alertes
+  « Applications surveillées ». Backlog item 100 réalisé (reste : WoL par le
+  MikroTik depuis le hub, vérification sur Windows réel).
+
+## 2026-09-25 — Comptes : journal des connexions Keycloak ; cadres pleine largeur partout (livraison #612)
+
+Demandé : « y a-t-il un log des échecs de connexion côté proxy et côté
+Keycloak ? peut-on en créer un visible sur le hub ? » et « le contenu
+déborde du cadre, c'est le cas dans plein d'écrans ».
+
+- Onglet « Connexions » (Comptes) : événements Keycloak du realm (connexion,
+  échec, déconnexion, échec client, échec de rafraîchissement) avec
+  utilisateur, IP, client, raison traduite ; filtre début de mot, type ou
+  « échecs seulement », résumé ; conservation activable (30 j) sans purge.
+  accounts-api `GET /events`, `POST /events/enable` ; `events.py` (4 tests).
+- Cadres : `.hub-card` était plafonné à 420 px et centré (écran de
+  connexion) alors que 58 vues l'utilisent comme cadre principal — désormais
+  pleine largeur et aligné à gauche, le plafond ne s'applique que sous
+  `.hub-center` ; classes `hub-fill-column` / `hub-fill-scroll` (tableau qui
+  défile dans le cadre, en-tête fixé).
+- Backlog : item 99 (journal du frontal dans le hub), item 100 (agent
+  Windows : reboot, WoL, lanceurs, chien de garde).
+
+## 2026-09-25 — Keycloak : URL de redirection poussées dans le realm vivant sans purge (livraison #611)
+
+Mise en service du frontal public : « paramètre invalide : redirect_uri »
+après `KEYCLOAK_EXTRA_ORIGINS` + `render.py` — Keycloak n'importe le realm
+qu'au premier démarrage et la seule voie était `reset-keycloak` (perte des
+sessions, réglages manuels, comptes locaux démo et compte de service).
+`keycloak/sync_clients.py` (4 tests) : compare le realm rendu au realm
+vivant via l'API Admin (compte de service, realm master) et ajoute les
+`redirectUris` / `webOrigins` manquants, sans retrait, `--dry-run`. Doc
+frontal + README Keycloak.
+
+## 2026-09-25 — Frontal public : poignée de main TLS vers le hub, staging → réel (livraison #610)
+
+Mise en service réelle d'un frontal `front-reverse-proxy.sh` : `500 Proxy
+Error`, journal `AH00898 Error during SSL Handshake with remote server`.
+Cause : `ProxyPreserveHost On` fait présenter le nom public en SNI au hub,
+dont le certificat interne ne porte que HOST_IP/localhost ; avec `HUB_CA`
+Apache exigeait ce nom. Correctif : chaîne vérifiée par le CA
+(`SSLProxyVerify require`), nom non contrôlé. Le script remplace aussi de
+lui-même un certificat Let's Encrypt de test quand on relance sans
+`STAGING`. Doc : le bon CA est `${PKI_DIR}/ca/ca.crt` (deux autres CA du
+dépôt portent le même CN), commandes à passer à travers `ssh -t`, hairpin.
+
+## 2026-09-25 — Keycloak : recréer le compte de service depuis la ligne de commande (401 dans Comptes) (livraison #609)
+
+Constat réel : « authentification du compte de service refusée (401) »
+dans la tuile Comptes — le secret de `.env` ne correspond plus au compte
+créé au premier démarrage. `./gateway/scripts/run.sh service-account
+[client-id]` : `kc.sh bootstrap-admin service` sur la base existante,
+vérification du jeton, sans console. Item 98 (réglages Keycloak depuis le
+hub, liste blanche) noté au backlog.
+
+## 2026-09-25 — Comptes : utilisateurs de démonstration activables / désactivables depuis le hub (livraison #608)
+
+Demandé : « pour les besoins de démo il faudrait des utilisateurs démo ;
+leur configuration activable / désactivable sur le hub ; ils doivent
+pouvoir se connecter par le processus normal ».
+
+- `accounts/api/demo.py` (pur, 2 tests) : profils (préfixe `demo-`
+  obligatoire), mot de passe généré lisible, état croisé avec Keycloak.
+- accounts-api : `GET /demo`, `POST /demo/enable` (création ou
+  réactivation, groupes créés au besoin, `reset_passwords`), `POST
+  /demo/disable` (désactivation + fermeture des sessions), `DELETE /demo` ;
+  comptes Keycloak locaux, hors LDAP ; `ACCOUNTS_DEMO_PROFILES`.
+- Hub, tuile Comptes → onglet **Démo** : état (active / partielle /
+  inactive), Activer, Activer + nouveaux mots de passe, Désactiver,
+  Supprimer ; mots de passe affichés une seule fois avec « copier ».
+- Tests : accounts 3 + 2, hub 267.
+
+## 2026-09-25 — Agents : filtres d'alertes par agent et par groupe (postes éteints hors heures ouvrées), catégories d'événements ; liens plus clairs (livraison #607)
+
+Demandé : filtrage des alertes agents (case par agent, groupes de filtres,
+catégories, paramétrage fin ; besoin immédiat : postes de travail éteints
+hors 8 h 30 – 18 h) et « design : toujours des liens trop sombres ».
+
+- `si-agent/api/alertfilters.py` (pur, 4 tests) : catégories, groupes par
+  défaut, `in_hours` (fuseau, jours, plage), `evaluate`,
+  `normalize_groups`. `_event()` marque `muted` / `muted_by` et ne notifie
+  pas ; `list_events(include_muted)`, synthèse sans les filtrées + compte
+  `muted` ; colonnes `agents.filter_enabled / filter_group`,
+  `events.muted / muted_by` (migrations) ; `GET/PUT /alert-filters`,
+  `POST /alert-filters/test` ; `SI_AGENT_ALERT_TZ`.
+- Hub, tuile Agents hôtes : onglet **Filtres d'alertes** (par agent : case
+  + groupe ; éditeur de groupes et de règles ; test à blanc), case et groupe
+  dans les réglages de l'agent, « afficher les filtrées » dans le journal
+  (lignes atténuées, raison au survol).
+- Liens : variable `--link` (hub sombre `#8fc6f7`, clair `#1b5e93` ; pages
+  MikroTik et ProjeQtOr-bridge `#7ab8f5`) — règle design 10 ; page
+  MikroTik : réponse non JSON → message lisible au lieu de
+  « JSON.parse: unexpected character ».
+- Tests : si-agent-api 17 + 4, hub 267.
+
+## 2026-09-25 — Redirections NAT : carte de tous les routeurs (entrée → routeur → cible), conflits, activer / désactiver (livraison #606)
+
+Demandé : « un outil de visualisation des redirections NAT ». Avant : les
+règles n'étaient visibles que routeur par routeur, en liste, dans la tuile
+MikroTik (#587).
+
+- `mikrotik/natmap.py` (pur, 2 tests) : `normalize`, `build` (routeurs,
+  flux, cibles, conflits, comptes), `conflicts`, `filter_flows`.
+- mikrotik-api : `GET /mikrotik/nat-map[?site=]`.
+- Hub : tuile **Redirections NAT** (`NatMapView.jsx`) — schéma SVG à trois
+  colonnes, cibles nommées par les agents (`/fleet`), conflits en rouge,
+  désactivées en pointillé, filtre, tableau, activer / désactiver, lien
+  tuile MikroTik. Chemins métier : Routeurs, Entrées d'Internet.
+- Tests : mikrotik 15, hub 267.
+
+## 2026-09-24 — Accueil en arbre par défaut : rappel des catégories fixé à gauche, étiquettes en avant, boutons légers, sans icônes (livraison #605)
+
+Demandé : « super l'arbre, mets-le par défaut ; mettre en avant les
+étiquettes (fonte double, italique pour le reste) et un bouton léger (cadre
+avec effet épaisseur) ; à gauche un rappel des catégories fixé, toujours
+visible, cliquable, qui positionne la partie défilante sur l'arbre
+déployé ; pas besoin des icônes, elles ne font pas pro ».
+
+- Mode d'accueil `tree` par défaut (`normalizeHomeMode`) ; Tuiles /
+  thématiques toujours disponibles par le sélecteur.
+- `HomeTree.jsx` : colonne gauche fixe (racines + branches de premier
+  niveau, compte d'outils) → clic = ouvre la branche et ses parents,
+  positionne la zone défilante dessus, branche courante encadrée ;
+  racines ×2, branches ×1,5, compléments (comptes, descriptions, aperçus,
+  « aussi sous ») en italique ; feuilles = boutons à cadre et bord épais
+  (enfoncement au clic) ; plus aucune icône dans l'arbre, le rappel ni le
+  sélecteur.
+- Hub 267 tests.
+
+## 2026-09-24 — Licences : glisser-déposer partout où on importe, export déposé sur le compte vendeur, cartes de formulaire pleine largeur (livraison #604)
+
+Constat réel (capture) : compte vendeur « export du vendeur (fichier) » sans
+endroit où déposer le fichier ; cadre du formulaire plus étroit que ses
+champs (`.hub-card` limité à 420 px, centré). Demandé : « prévoir un drag
+and drop partout où on importe ».
+
+- `hub/src/DropZone.jsx` (réutilisable) : dépôt ou clic, fichier retenu
+  affiché ; règle design 9.
+- Contrats & catalogue → Importer : zone de dépôt ; Vendeurs : sur chaque
+  compte « export du vendeur », zone de dépôt qui importe l'export
+  (détection du format) **pour ce compte** — `POST /import` accepte
+  `vendor_account` (contrats créés rattachés au compte, dernière
+  synchronisation et relevé du compte mis à jour).
+- `.lic-card` / `.lic-form` : formulaires de la tuile sur toute la largeur,
+  champs à 100 %.
+- Tests : licenses-api 23, hub 267.
+
+## 2026-09-24 — Accueil en arbre dépliable (vue JSON du menu) avec sélecteur Tuiles / Arbre (livraison #603)
+
+Demandé : « une page alternative à celle des tuiles (accueil) où placer le
+contenu du menu déroulant (à conserver) sous forme de vue dépliable du type
+de la vue JSON, avec un sélecteur on/off arbre / tuiles ».
+
+- `hub/src/HomeTree.jsx` : arbre ▸ / ▾ par branche (état mémorisé par
+  navigateur), feuilles cliquables, compte d'outils, aperçu des enfants
+  quand replié, « aussi sous … », filtre début de mot, tout déplier /
+  replier ; sélecteur **▦ Tuiles / ⌥ Arbre** en tête de l'accueil dans
+  tous les modes (+ bascule thématiques / toutes les tuiles conservée).
+- Source de l'arbre = celle du menu déroulant (Vue métier #599 ou
+  Disposition #516, choix partagé avec le menu) ; le menu « Menu ▾ » reste.
+- Troisième mode d'accueil `tree` (`HOME_MODES`, action « Accueil :
+  thématiques / tuiles / arbre » cycle sur les trois, choix mémorisé).
+- Hub 267 tests ; aucun hook après les retours anticipés (leçon #601).
+
+## 2026-09-24 — Licences : import « contrats » (une ligne par contrat) et compte administrateur Microsoft 365 (connexion par code ou e-mail / mot de passe) (livraison #602)
+
+Demandé : « préparer un import pour le hub » (les trois contrats Microsoft
+analysés depuis les factures) et « un module permettant avec un paramétrage
+e-mail / mot de passe de récupérer depuis la gestion Microsoft en ligne ».
+
+- `rules.import_contracts` + `detect_format` → `contracts` : « Logiciel |
+  Éditeur | Site | Libellé | Type | Quantité | Début | Fin | Coût / an |
+  Compte vendeur | SKU | Référence | Notes | Personnes » ; type en mot ;
+  ré-import = mise à jour (`created.updated`). Fichier d'import fourni à
+  part (données client, hors dépôt).
+- `vendors.py` : type `microsoft-account` — `ropc_token` (e-mail + mot de
+  passe, accès du coffre), `device_code_start` / `device_code_poll` /
+  `refresh_token` (connexion par code, compatible MFA), `sync_with_token`,
+  messages traduits des refus Microsoft (MFA exigée, flux désactivé…).
+- licenses-api : `/vendors/<n>/connect`, `/connect/status`, `/disconnect` ;
+  `account_token` (jeton de rafraîchissement en base hors dépôt, jamais
+  renvoyé) ; `sync` pour ce type ; `connected` / `connected_as` dans
+  `GET /vendors`.
+- Hub : type « compte administrateur » dans le formulaire (tenant, accès du
+  coffre facultatif), bouton « Se connecter par code » avec le code et le
+  lien, suivi automatique, « déconnecter » ; import : format contrats dans
+  la liste et dans l'analyse.
+- Tests : licenses-api 23, hub 267.
+
+Limite : l'e-mail / mot de passe est refusé par Microsoft pour un compte
+administrateur soumis à la MFA (cas général depuis 2025) — la connexion par
+code est la voie normale ; les factures ne sont pas accessibles par l'API.
+
+## 2026-09-24 — Hub : correctif du menu métier (hooks après un retour anticipé → « Rendered more hooks ») (livraison #601)
+
+Constat réel (console Firefox) : `Rendered more hooks than during the
+previous render` dès la connexion — les hooks du menu métier (#599)
+étaient déclarés après les retours anticipés de connexion. Déplacés en
+tête ; le graphe est calculé sans `useMemo` après le catalogue et les
+thématiques (ordre de déclaration respecté). Hub 267 tests.
+
+## 2026-09-24 — Licences : connecteur ownCloud (ancienne version) pour les fiches utilisateurs et les « anciens utilisateurs » (livraison #600)
+
+Demandé : « dans notre ownCloud principal nous avons aussi une gestion des
+secrets utilisateurs avec toutes les clés de licence, les emails… un
+connecteur ownCloud old version pour accéder à un dossier et y prendre les
+fiches (texte) de configuration ; un sous-dossier "anciens utilisateurs" ;
+tout ça paramétrable dans le hub » — « l'idée étant toujours de croiser et
+valider les infos, les droits, les répartitions de licence ».
+
+- `licenses/api/owncloud.py` (3 tests) : WebDAV (`webdav_root`,
+  `parse_propfind`, `OwnCloud.list/read`), `parse_fiche` (champs
+  `label : valeur`, adresses, clés de licence reconnues, valeurs secrètes
+  masquées, logiciels détectés), `scan` (racine du dossier + sous-dossier
+  des anciens).
+- licenses-api : réglages `owncloud` (table `settings`), `/owncloud`,
+  `/owncloud/test`, `/owncloud/sync` (rapprochement adresse / nom, création
+  « info » sinon, `fiche` masquée, `fiche_path`, `fiche_former`),
+  `/users/<login>/fiche` (texte complet à la demande, journalisé),
+  relecture périodique dans le fil d'analyse croisée ; `rules.user_alert`
+  / `user_gaps` : fiche « anciens » = ancien, écart `user-former-active`.
+- Hub : carte « ☁ Fiches ownCloud » (paramétrage, test, lecture, état),
+  colonne « Fiche ownCloud » (résumé masqué dépliable, bouton « afficher
+  la fiche complète (journalisé) »).
+- Tests : licenses-api 21, hub 267.
+
+Non vérifié : ownCloud 9.1.8 réel (PROPFIND sur `remote.php/webdav` avec
+compte de service ; si l'instance n'accepte que `remote.php/dav/files/<user>`,
+mettre cette adresse complète dans « Adresse ownCloud »).
+
+## 2026-09-24 — Menu principal en graphe métier déployé : cinq racines, une tuile sous chacun de ses chemins (livraison #599, item 94 étape 1)
+
+Demandé : « dans la prochaine version livrée, mettre en place le menu
+principal arborescent » (analyse `docs/menu-graphe-metier.md`).
+
+- `hub/src/hubBusiness.js` (pur, 3 tests) : cinq racines — Équipements
+  (réseau : routeurs, switchs, Wi-Fi, tunnels ; hôtes / VM / conteneurs ;
+  sondes matérielles ; postes et logiciels ; inventaire), Services (hub,
+  entrées d'Internet, métier, données, messagerie), Droits et accès
+  (personnes, accès, coffres, licences, qui voit quoi), Supervision et
+  états (maintenant, incidents, feux, journaux, notifications, demandes),
+  Cortex et IA — et `PATHS` : chaque tuile (vue, front, action) rattachée à
+  un ou plusieurs chemins ; `businessTree` déploie le graphe en arbre
+  (feuille répétée sous chaque chemin, `also` = ses autres chemins,
+  branches vides retirées, repli « Autres » sous la racine de sa thématique
+  pour une tuile sans chemin), `filterBusinessTree` (début de mot sur
+  feuilles et branches), `pathsOfLeaf`, `reachability`.
+- Menu « Menu ▾ » de l'en-tête : barre **Vue métier / Disposition**
+  (choix mémorisé, vue métier par défaut) ; en vue métier : filtre début de
+  mot, branches dépliables (celle de la vue courante ouverte), feuille
+  avec « · aussi sous … », description de chaque racine. La disposition
+  #516 reste accessible, inchangée.
+- Hub 267 tests.
+
+Étape 2 (arêtes calculées depuis compose, registres, agents, Cortex,
+notifications, droits ; pages pivot par objet) : item 94.
+
+## 2026-09-24 — Licences : analyse croisée automatique avec l'annuaire (présence, groupes, « anciens »), lien vers la gestion chez le vendeur (livraison #598)
+
+Demandé : « une analyse croisée automatique qui va vérifier dans le LDAP
+général si l'utilisateur est bien présent et dans quels groupes ; on va
+créer un groupe anciens où apparaîtront ceux qui ne travaillent plus avec
+nous et afficher une alerte dans la table utilisateur type logiciel » ;
+« le lien vers la gestion des licences chez le vendeur ».
+
+- `users` : `groups`, `missing`, `synced_at` ; `sync_directory()` (groupes
+  relevés, comptes disparus marqués, jamais supprimés) ; fil
+  `directory-sync` (`LICENSES_DIRECTORY_INTERVAL`, 3600 s) ; notification
+  `licenses.gap` critique quand la liste des anciens avec licences change.
+- `rules.user_gaps` / `user_alert` : `user-former` (critique),
+  `user-missing`, `user-disabled` (alertes), `user-unknown` (info) — dans
+  `GET /gaps` (tableau de bord) et `GET /users` (`alert`, `alert_label`,
+  `former_groups`, `last_sync`, `sync_error`). `LICENSES_FORMER_GROUPS`.
+- Attribution manuelle d'un utilisateur : la personne rejoint la table
+  (annuaire ou info).
+- Vendeurs : `portal` (`vendors.PORTALS` par type, `config.url` sinon) ;
+  lien « gérer chez le vendeur ↗ » sur le compte et sur les contrats liés.
+- Hub : onglet Utilisateurs — colonne Alerte (🚫 ancien / ⚠ absent / ⛔
+  désactivé / ℹ hors annuaire, licences à retirer), groupes, lignes
+  colorées, filtre « alertes seulement », état de la dernière analyse.
+- Tests : licenses-api 17.
+
+## 2026-09-24 — Licences : personnes des tableurs prises en compte, table utilisateurs / site adossée à l'annuaire (livraison #597)
+
+Constat réel : l'analyse et l'import ignoraient les personnes (marques
+autres que x / n / oui, noms en en-tête fusionné). Demandé : « ajouter ça et
+en profiter pour renseigner une table utilisateurs / site » ; cadre donné :
+« toute notre architecture utilisateur passe par le LDAP ; il n'est pas la
+seule source, certaines applications ont une table à part, la plupart ont
+les deux ; l'authentification passe forcément par le LDAP, les autres
+utilisateurs sont simplement des infos ».
+
+- `rules.import_matrix` : toute cellule non vide (hors non / 0 / -) vaut
+  attribution ; noms pris sur la ligne d'en-tête ou celle du dessus ;
+  colonne « Personnes / Utilisateurs » (noms séparés) lue ; comparatif idem.
+- Table `users` (login, nom, adresse, site, source, annuaire, alias) :
+  `POST /users/sync` prend l'annuaire (comptes Keycloak fédérés LDAP via
+  accounts-api) comme référence ; les personnes des imports / vendeurs sont
+  des infos rattachées au compte LDAP quand il existe
+  (`rules.resolve_person` : login, adresse, Prénom Nom ↔ prenom.nom,
+  M. NOM, initiales, alias) — attributions déplacées avec elles ; le site
+  n'est jamais écrasé. `GET/POST /users`, `DELETE /users/<login>`.
+- Analyse d'import : nombre de personnes, personnes absentes de
+  l'annuaire, login résolu par logiciel ; import : `users` créés comptés.
+- Hub : onglet **Utilisateurs** (🗂 annuaire / ℹ info, site éditable en
+  ligne, alias, « Synchroniser l'annuaire » avec état), grille = tous les
+  utilisateurs du site, nom affiché à côté du login.
+- Tests : licenses-api 16, hub 264.
+
+## 2026-09-24 — Licences : import en un bouton avec prise en compte visible ; règle design n° 8 (livraison #596)
+
+Constat réel : « Importer » cliqué directement ne faisait rien (bouton
+inactif tant que l'analyse n'était pas faite, sans explication). Désormais
+un seul bouton : « 1. Analyser le fichier » → « ⏳ analyse… » → « Importer N
+logiciel(s) sur <site> » (+ annuler) → « ⏳ import… » → « ✓ importé : … »
+affiché sous le bouton (et « rien de nouveau : déjà importé » si tout
+existait). Changer de fichier ou de format remet à l'étape 1.
+
+- `docs/ergonomie-redesign.md`, note design permanente, règle 8 : tout
+  bouton de traitement montre sa prise en compte et son déroulement ; un
+  enchaînement obligatoire tient en un seul bouton dont le libellé avance.
+- Hub 264 tests.
+
+## 2026-09-24 — Licences logicielles par site : inventaire des postes, comptes vendeurs, grille d'affectation, installeur (livraison #595)
+
+Demandé : « un gestionnaire de licences logicielles par site : recueillir
+les infos sur le réseau et les postes ; une série de gestionnaires
+utilisant les accès sur les sites des vendeurs ; une grille d'affectation
+poste / utilisateur ; un installeur / désinstalleur depuis une tuile du hub
+(licences logicielles) ». Les tableurs fournis ont servi de structure
+seulement (aucune donnée nominative dans le dépôt). Voir `licenses/README.md`.
+
+- Agent **0.5.16** : sonde `software-inventory` (dpkg / rpm / flatpak /
+  snap, `/Applications` / Homebrew, clés Uninstall Windows + Office
+  click-to-run, comptes de session ; désactivée par défaut, 6 h) ; commande
+  `software_action` (`si_agent/swctl.py` : apt-get / dnf / brew / winget /
+  choco, paquet validé, jamais de shell). Central : `GET /software-inventory`.
+- **licenses-api** (nouveau conteneur, SQLite `licenses/data`, routé
+  `/api/licenses/`) : catalogue de logiciels (motifs de reconnaissance,
+  paquets par gestionnaire), contrats par site (6 types, quantité, dates,
+  coût, compte vendeur + SKU), attributions utilisateur / poste (dépassement
+  notifié), installations (rapprochement motifs ↔ relevés, bruit système
+  exclu), écarts (9 sortes, 3 sévérités), grille, import `.xlsx` / `.csv`
+  (matrice, export Microsoft 365, comparatif ; analyse puis import,
+  idempotent), comptes vendeurs (**Microsoft Graph** via un accès du
+  coffre ; export ; manuel), actions installer / désinstaller (confirmation
+  = identifiant de l'agent, suivi de la commande). Lecture libre, écritures
+  = jeton Keycloak vérifié (groupe `LICENSES_ADMIN_GROUPS`).
+- Hub : tuile **Licences logicielles** (Données & référentiels) — sélecteur
+  de site, Tableau de bord, Contrats & catalogue (+ import), Grille
+  d'affectation (✓ attribué / ● installé), Postes & installations (détail,
+  « vus mais absents du catalogue », installer / désinstaller, actions),
+  Vendeurs, Journal. Liens vers les sondes des agents et le coffre.
+- Notifications : `licenses.contract`, `licenses.assignment`,
+  `licenses.action`, `licenses.gap`.
+- Tests : licenses-api 13, agent +7, hub 264.
+
+Non vérifié : relevés Windows réels, Graph avec une vraie application,
+winget sous le service Windows (session 0 ; `choco` en repli).
+
+## 2026-09-24 — Hôte du hub : l'hyperviseur Proxmox qui porte la VM (stockages, pools ZFS, mémoire) (livraison #594)
+
+Demandé : « connaître l'état des racines du hub (super) avec une info sur
+le host si c'est possible ». L'agrandissement / partitionnement centralisé
+(phase chantier, limité aux Proxmox et à la VM du hub, avec droits et
+sauvegardes) est mis de côté : BACKLOG item 95 reformulé.
+
+- `lights.hypervisor_summary` (pur) : VM du hub retrouvée par nom dans les
+  mesures Proxmox, stockages (ceux qui portent la VM signalés), pools ZFS
+  (capacité, `health`), mémoire du nœud → lampe et texte.
+- `services-api` : `/host` → `hostname` (de `/host/etc/hostname`) et
+  `hypervisor` (via `si-agent-api /proxmox`), intégré à la lampe globale et
+  au bandeau ; `SERVICES_SI_AGENT_URL`, `SERVICES_VM_NAME`.
+- Carte « Hôte du hub » : bloc « Hyperviseur pveXX » (Proxmox, VM, disque
+  virtuel, RAM, instantanés, barres des stockages et pools, disques de la
+  VM → volumes), ou explication si la VM n'est vue par aucun agent.
+- Tests : services-api 33.
+
+## 2026-09-24 — Hôte du hub : alerte visuelle et sonde charge / mémoire / espace disque, nettoyage Docker (livraison #593)
+
+Constat réel : `/var` saturé sur super → `NS_ERROR_NET_PARTIAL_TRANSFER`
+sur `App.jsx` (nginx ne pouvait plus bufferiser). Demandé : « une alerte
+visuelle sur le hub et une sonde de supervision charge / espace ».
+
+- `services/api/lights.py` : `disk_light`, `load_light`, `mem_light`,
+  `host_summary`, `human` (purs, testés).
+- `services/api/app.py` : `GET /host` (partitions via `/proc/self/mounts` +
+  `statvfs` sous `/host`, charge, mémoire, `docker df`), `GET /host/public`
+  (bandeau, sans jeton, sans chiffres), `POST /host/prune` (images non
+  utilisées, cache de build, conteneurs orphelins en option, jamais les
+  volumes), `check_host()` dans le fil de la tour : événement + notification
+  `tower.host.disk` / `tower.host.load` à chaque changement d'état.
+- `docker-compose.yml` : `/:/host:ro` (lecture seule) + `SERVICES_HOST_ROOT`.
+- Hub : `HostHealthBanner.jsx` en tête de toutes les pages (orange / rouge,
+  lien tour, masquable) ; tour → Services : carte « Hôte du hub » avec
+  barres par partition, Docker et boutons de nettoyage.
+- Tests : services-api 32 (statvfs et Docker simulés), hub 260.
+
+Non vérifié : sur super — d'abord libérer `/var` à la main (voir ci-dessous),
+puis déployer ; le bandeau doit apparaître tant que /var ≥ 85 %.
+
+## 2026-09-24 — Registres Cisco / MikroTik saisis directement dans leurs tuiles (adresse IP, transport, accès du coffre) (livraison #592)
+
+Constat réel : « où met-on l'adresse IP ? pourquoi la tuile ne voit pas
+l'accès « bureau » du coffre ? » — le coffre ne porte que identifiant + mot
+de passe ; l'adresse, le transport et le port sont dans le registre du
+module, jusqu'ici éditable seulement dans la tour de contrôle ou le fichier.
+
+- `shared/registry_edit.py` (commun) : lecture (local puis exemple),
+  validation (nom, hôte, transport, port, accès, site, description), ajout /
+  mise à jour par nom, retrait, écriture atomique de `*.local.json` avec le
+  propriétaire du dossier ; les entrées `exemple-*` du dépôt ne migrent pas.
+- mikrotik-api : `POST /mikrotik/routers`, `DELETE /mikrotik/routers/<n>`,
+  `GET /mikrotik/credentials` (noms des accès du coffre, sans secret) ;
+  `/mikrotik/routers` renvoie transport, accès, site. Page : formulaire
+  « Ajouter / modifier un routeur » (IP, SSH recommandé / REST, port, accès
+  du coffre en liste, site, description), liens modifier / retirer, et sur
+  une erreur SSL : « passer en SSH ? ».
+- cisco-api : `POST /cisco/switches`, `DELETE /cisco/switches/<n>`,
+  `GET /cisco/credentials` ; page : même formulaire (+ plateforme, accès
+  enable).
+- `docker-compose.yml` : dossiers `cisco/` et `mikrotik/` montés en
+  écriture (fichiers `.local.json` seulement, relus sans redémarrage).
+- Tests : `shared/test_registry_edit.py` (3), cisco 15, mikrotik 12.
+
+## 2026-09-24 — Notifications : serveur SMTP réglé dans la tuile (STARTTLS / SSL / aucune, compte, expéditeur) (livraison #591)
+
+Constat réel (test d'envoi) : « 554 5.7.1 Client host rejected: Access
+denied » — le serveur de mail refuse de relayer depuis l'adresse du hub sans
+authentification ; demandé : « le serveur est en STARTTLS ; ajouter le
+paramétrage dans Réglages ».
+
+- `notify/api/app.py` : `smtp_config()` = base (tuile) puis `.env` ;
+  `PUT /settings {smtp: {host, port, security (starttls | ssl | none), user,
+  password, from, clear_password}}`, mot de passe en écriture seule (jamais
+  renvoyé, vide = conservé), `GET /settings` → `smtp{…, password_set}` ;
+  envoi : `SMTP_SSL` pour ssl, `starttls()` après EHLO, `login` si
+  utilisateur ; erreurs explicites (destinataire refusé avec le code du
+  serveur, authentification refusée) ; disjoncteur refermé à chaque
+  nouveau réglage.
+- Tuile Réglages : formulaire Serveur SMTP avec explication du refus 554
+  (compte SMTP ou IP du hub à autoriser côté serveur de mail), résultat du
+  test d'envoi affiché.
+- Tests : notify-api 12.
+
+## 2026-09-24 — Notifications par courriel et gestionnaire d'envoi détaché : actions → groupes / méta-groupes → adresses (livraison #590)
+
+Backlog item 92, demandé le jour même : « notifications mail pour les
+actions sur les routeurs et tout ce qui impacte le SI local et les clients ;
+groupes et méta-groupes ; table action → groupe → emails, groupe par défaut
+généré automatiquement ; gestionnaire d'envoi détaché (engorgement,
+emballement, erreur, liste noire) utilisable par d'autres services, y
+compris externes (GED) ».
+
+- `notify/api/core.py` (pur) : validation, groupe par défaut par module,
+  résolution action → groupes → adresses (méta récursif, liste noire),
+  clé de regroupement, backoff, rafale, disjoncteur, débit.
+- `notify/api/app.py` : SQLite (actions, groupes, affectations,
+  consommateurs, liste noire, file, réglages, journal), `POST /notify`
+  (202, jamais bloquant), `POST /actions/register`, administration par
+  jeton Keycloak (groupe administrateurs), fil d'envoi SMTP (regroupement,
+  rafales retenues + résumé, débit, backoff, disjoncteur, abandon,
+  renvoi, libération), jetons de consommateurs externes (hachés).
+- `shared/notify_client.py` : client des producteurs ; branchés MikroTik,
+  Cisco, tour de contrôle (fin de job notifiée, échec = critique).
+- Hub : tuile « 📣 Notifications » (Sécurité & accès) : Affectations
+  (matrice actions × groupes par module, règle `module.*`), Groupes
+  (adresses, membres, défauts non supprimables), File & journal (états,
+  raisons, renvoyer / abandonner / libérer, détail, état SMTP et
+  disjoncteur), Consommateurs & liste noire (jeton montré une fois,
+  révocation), Réglages (débit, regroupement, emballement, disjoncteur,
+  tentatives, test d'envoi).
+- `docker-compose.yml`, `tls-proxy` (`/api/notify/`), `.env.example`
+  (`NOTIFY_*`, repli `SECRETS_ALERT_SMTP_*`), cohortes, `.gitignore`.
+- Tour de contrôle : `gateway/ldap-seed/*` conservé (droits d'un autre
+  utilisateur, constat rsync).
+- Tests : notify-api 11, tour 29, cisco 14, mikrotik 11, hub 260.
+
+Non vérifié : sur super (`NOTIFY_INTERNAL_TOKEN` à générer dans le .env,
+SMTP, `up -d --build notify-api mikrotik-api cisco-api services-api hub`,
+passerelle à recharger pour `/api/notify/`).
+
+## 2026-09-24 — Tour de contrôle : droits par groupe Keycloak, gérés dans le hub (livraison #589)
+
+Constat réel : connecté « francois », refus « utilisateur non autorisé sur le
+bastion » (message hérité de #454) — la tour n'admettait que
+`SERVICES_ADMIN_USERS` du `.env`. Demandé : « gestion des droits en interne ? ».
+
+- `si-proxy/admin/auth.py` (vérificateur partagé) : `allowed_groups` (claim
+  `groups` du jeton, `/` de tête toléré) en plus des utilisateurs, libellé
+  `what` (« la tour de contrôle »), message avec le groupe attendu.
+- services-api : `SERVICES_ADMIN_GROUPS` (défaut `administrateurs`) → un
+  membre du groupe Keycloak est admis ; gestion depuis la tuile **Comptes et
+  groupes**, sans toucher au `.env`. Hub : carte de Paramètres visible pour
+  les administrateurs ; message d'erreur avec le lien vers Comptes et groupes.
+- Le bastion (si-proxy-admin-api) reste réservé à sa liste d'utilisateurs.
+
+Non vérifié : sur super — en attendant, `SERVICES_ADMIN_USERS=freg,francois`
+dans le `.env` marche aussi.
+
+## 2026-09-24 — Tour de contrôle : sonde TCP avant HTTP, auto-réparation limitée aux pannes dures (livraison #588)
+
+Constat réel (super, journal de services-api) : l'auto-réparation a
+redémarré pixel-grid-postgres, projeqtor-db, tickets-postgres, si-proxy et
+vault-admin-portal — « port injoignable : connexion refusée » — parce que la
+sonde parlait HTTP à des ports qui n'en parlent pas (Postgres, MySQL, relais
+TLS) et qu'une réponse fermée était prise pour un refus.
+
+- `services/api/app.py` : `_tcp_open` (connexion TCP d'abord : refus ou délai
+  = vraie panne) puis HTTP ; une connexion acceptée puis fermée = « port
+  ouvert (protocole non HTTP) » → **vert** (`lights.classify`, `tcp_only`).
+- `lights.hard_red` : panne « dure » = conteneur arrêté / en boucle /
+  healthcheck en échec ; `tower.heal_decide` ne compte que celles-là — un
+  test HTTP en échec sur un conteneur en marche n'entraîne **jamais** de
+  redémarrage automatique (le geste humain « Redémarrer les rouges » les
+  inclut toujours). Champ `hard` dans `/services`.
+- Tests : 28 (port non HTTP vert, rouge HTTP non réparé automatiquement).
+
+Non vérifié : sur super (déposer ce zip dans la tour, ou dernier rsync).
+
+## 2026-09-24 — MikroTik par SSH, transparent pour le routeur : statut, relevés et règles NAT ip:port → ip:port (livraison #587)
+
+Demandé : « les routeurs sont sous la responsabilité d'un administrateur qui
+ne veut rien faire évoluer, le hub doit être transparent ; j'y accède par
+ssh ; un module d'accès ssh pour les commandes de statut et de paramétrage
+(j'ai le droit de modifier des NAT ip:port/ip:port) ».
+
+- `mikrotik/ssh_client.py` : `RouterOSSsh` (paramiko, `user+ct`, une
+  commande par appel), lecture des objets par `:put [/x get $i]`
+  (`parse_kv_list`, v6 et v7), même surface que le client REST (get /
+  patch / post_action → résumé, interfaces, ping, reboot inchangés),
+  `nat_list/add/set/remove/move`, `read_only_command`.
+- `mikrotik/natrules.py` : validation pure des règles (chaînes, actions,
+  protocoles, IP / réseaux / plages, ports et listes, interfaces,
+  commentaire, cohérence dst-nat ↔ dstnat), `describe`.
+- `mikrotik/app.py` : `"transport": "ssh"` dans le registre (port 22),
+  routes `GET/POST …/nat`, `PATCH/DELETE …/nat/<*id>` (confirmation
+  REMOVE), `POST …/command` (lecture seule, SSH), `GET /mikrotik/commands`.
+- Page MikroTik : sections « Règles NAT » (liste, activer / désactiver,
+  cible…, supprimer, formulaire d'ajout) et « Relevés » (liste proposée +
+  commande libre en lecture seule).
+- Tour de contrôle : champ `transport` (rest / ssh) dans le registre
+  MikroTik ; exemple `exemple-ssh` dans `routers.json`.
+- Tests : 11 (parseurs, session simulée, injections refusées, règles,
+  routes) + tour 10.
+
+Non vérifié : sur super, contre le routeur 192.168.0.253 (v6 attendu).
+
+## 2026-09-24 — Tour de contrôle : tout depuis le hub — livraisons (zip → plan → build), registres JSON, auto-réparation (livraison #586)
+
+Demandé : « il faut qu'on puisse tout faire par le hub, même l'import de conf
+json, et que le hub fasse quand il faut les update/reload/build : une tour de
+contrôle automatisée ».
+
+- `services/api/tower.py` (pur) : chemins sûrs d'archive, fichiers protégés /
+  conservés, sources COPY/ADD des Dockerfile, correspondance fichiers →
+  services (build / montages), **plan** (sync-env, `up -d --build`, `up -d`
+  si compose modifié, `restart`, passerelle — services en marche seulement),
+  schéma + validation + fusion des registres Cisco / MikroTik, décision
+  d'auto-réparation (seuil, plafond horaire, abandon, retour au vert).
+- `services/api/app.py` : `/settings`, `/events`, `/configs`, `/deliveries`
+  (+ `/apply`), `/jobs`, `/services/<s>/rebuild`, `/gateway/reload` ; jobs
+  exécutés par un **conteneur runner détaché** (même image) ; fil
+  d'auto-réparation ; services « non surveillés » (gris) ; feu étendu à la
+  passerelle (tls-proxy, keycloak). Image : CLI Docker + compose, git, PyYAML.
+- `docker-compose.yml` : dépôt monté au même chemin (`${PWD}:${PWD}`),
+  `SERVICES_PROJECT_DIR`, `SERVICES_HOST_IP`, `SERVICES_EXTRA_PROJECTS`,
+  `SERVICES_HEAL_INTERVAL` ; `.gitignore` : `services/data/`.
+- Hub : `ControlTowerView.jsx` (onglets Services / Livraisons & jobs /
+  Configurations / Automatismes / Journal, bouton Passerelle, journal de job
+  en direct avec reprise pendant les reconstructions et invite à recharger),
+  `towerLib.js`, client étendu ; ServicesView embarquable + « Reconstruire » ;
+  carte « 🗼 Tour de contrôle » dans Paramètres, entrée `action:control`,
+  `?view=control` (`?view=services` conservé).
+- Pages Cisco / MikroTik : lien vers « Configurations » de la tour
+  (règle « activer X → lien »).
+- Tests : services-api 28 (dont zip réel, `.env` jamais écrasé, zip slip,
+  retour arrière gardé, runner simulé), hub 257.
+
+Non vérifié : sur super (premier passage manuel, voir services/README.md ;
+le runner réel : CLI docker/compose de l'image, `run.sh` depuis le runner).
+
+## 2026-09-24 — Cisco : enable vérifié ; registres locaux hors dépôt (Cisco, MikroTik) ; liens visibles sur fond sombre (livraison #585)
+
+Constats réels (routeur du bureau, telnet) : relevé OK mais « commande
+refusée par l'équipement : show running-config » et sauvegarde en échec ;
+le routeur venait d'être effacé du registre par le déploiement (rsync du
+zip) ; un MikroTik ajouté au coffre n'apparaissait pas ; lien « le coffre
+des accès » violet (visité) sur fond sombre.
+
+- `cisco/ssh_client.py` : `enable()` vérifie l'invite après le mot de
+  passe (« % Bad secrets », « Access denied » ou invite restée « > » →
+  erreur explicite « mot de passe enable refusé … vérifier l'accès
+  enable_credential ») au lieu de supposer le mode enable acquis -- cause
+  du `show running-config` refusé en mode utilisateur. Test
+  `test_enable_refused`.
+- Registres locaux (#585) : `cisco/switches.local.json` et
+  `mikrotik/routers.local.json`, ignorés par git, prioritaires sur
+  l'exemple versionné ; les dossiers `cisco/` et `mikrotik/` sont montés
+  (`/app/registry`) à la place des fichiers → relus sans redémarrage,
+  jamais écrasés par un déploiement. `CISCO_REGISTRY_LOCAL`,
+  `MIKROTIK_REGISTRY_LOCAL`.
+- Pages Cisco et MikroTik : `a, a:visited { color: var(--accent) }`.
+
+Non vérifié : sur super (créer les `.local.json`, `up -d --build
+cisco-api mikrotik-api`).
+
+## 2026-09-24 — Paramètres → « Services du hub » : feu tricolore et redémarrage de toutes les API / fronts (livraison #584)
+
+Demandé : « ajoute une sous-tuile dans paramétrage pour redémarrer et
+vérifier toutes les api/front avec un joli feu tricolore ».
+
+- `services/api/` : **services-api** — inventaire des conteneurs du projet
+  compose (état Docker, healthcheck, requête HTTP interne `/health` puis
+  `/` sur le port exposé, en parallèle, cache 20 s), classement
+  vert / orange / rouge (`lights.py`, pur), `POST /services/<s>/restart`
+  (start si arrêté), `POST /services/restart-red` (jamais tls-proxy,
+  keycloak, hub, services-api), `GET /services/<s>/logs`. Jeton Keycloak
+  vérifié (auth.py de #454 partagé) + `SERVICES_ADMIN_USERS`.
+- `docker-compose.yml` (service, socket Docker, `VITE_SERVICES_*`),
+  `tls-proxy/render_nginx_conf.py` (route `/api/services/`),
+  `.env.example`, `deploy/cohorts.json`, `shared/EXPOSURE.json`.
+- Hub : `ServicesView.jsx` (feu tricolore à trois lampes avec comptes,
+  verdict, tableau à en-tête figé : lampe, service, rôle, conteneur,
+  depuis, vérification, actions ; journal ; filtre début de mot ;
+  « problèmes seulement »), `servicesClient.js`, `servicesLights.js`
+  (tri, filtre, résumé, durées) ; carte « 🚦 Services du hub » dans
+  Paramètres, entrée « Services du hub (feu tricolore) » du groupe
+  Paramètres de l'arbre (`action:services`), vue `?view=services`.
+- Tests : `services/api/test_lights.py` + `test_app.py` (9, Docker
+  simulé), hub `tests/servicesLights.test.mjs` (4) — 253 tests hub verts.
+
+Non vérifié : sur super (`./scripts/run.sh up -d --build services-api
+tls-proxy hub`, puis Paramètres → Services du hub).
+
+## 2026-09-23 — Bastion : publication de port par un shim host, accès web au Proxmox d'un site distant depuis le hub (livraison #583)
+
+Demandé : « sur le hub je trouve où l'accès au pve du campus ? ». Jusqu'ici
+l'accès passait par le client `siproxy` sur le poste (proxy local +
+navigateur réglé dessus). Le relais publie maintenant un port du hub
+renvoyé vers une cible par un shim host nommé (#575), donc par le tunnel
+SSH du site : rien en direct, plus de client ni de réglage de proxy.
+
+- `si-proxy/siproxy/proto.py` : `parse_publication("PORT=SHIM:HOTE:PORT")`.
+- `si-proxy/siproxy/relay.py` : `--publish` (env `SI_PROXY_PUBLISH`,
+  virgules) et `--publish-allow` (IP/CIDR, env `SI_PROXY_PUBLISH_ALLOW`) ;
+  écouteurs TCP bruts (le TLS de la cible traverse), `handle_published`,
+  ouverture de session factorisée (`_open_session`, mode `raw` : ni HELLO
+  ni jeton, la cible authentifie), garde-fou et audit (client
+  `publication:<port>`, cible `hôte:port@shim`), shim absent → fermeture ;
+  `/status` → `publications[{port, via, target, up}]`, `publish_allow`.
+- `docker-compose.yml` / `.env.example` : `SI_PROXY_PUBLISH`,
+  `SI_PROXY_PUBLISH_ALLOW`, ports 6488/6489 publiés
+  (`SI_PROXY_PUBLISH_n_PORT`). `si-proxy/admin/summary.py` : `hosts`,
+  `publications` transmis. `hub/src/SiProxyView.jsx` : « publications :
+  6488 → hôte:port via campus [ouvrir ↗] » ; tuile Proxmox : lien
+  « interface web » via `VITE_PROXMOX_WEB_URLS=<agent>=https://<hub>:6488`.
+- Docs : `si-proxy/README.md` (section « Publications de port »),
+  `tls-proxy/README.md` (préférer ceci aux RELAYn pour un site distant).
+- Tests : `tests/test_proto.py` (`Publication`), `tests/e2e_local.py` test 9
+  (port publié via « campus » sans client ni jeton → page de la cible ;
+  shim absent → fermé ; liste d'IP ; état de contrôle) — tout vert (bac à
+  sable), unitaires OK sur le Mac.
+
+Non vérifié : sur super (`.env` : `SI_PROXY_PUBLISH=6488=campus:<pve>:8006`,
+`SI_PROXY_PUBLISH_ALLOW=<LAN admin>/24`, `VITE_PROXMOX_WEB_URLS`, puis
+`./scripts/run.sh up -d --build si-proxy si-proxy-admin-api hub`).
+
+## 2026-09-23 — Bastion : CA propre avec extensions (OpenSSL ≥ 3), certificats serveur/client typés (livraison #582)
+
+Constat réel (shim du campus) : « CA cert does not include key usage
+extension » — la CA générale du projet (#495) signait le relais.
+
+- `si-proxy/setup-certs.sh` : CA du bastion dans `si-proxy/certs/`
+  (basicConstraints, keyUsage keyCertSign ; `--new-ca` pour la remplacer),
+  relais avec `extendedKeyUsage serverAuth`, clients `clientAuth` ;
+  `docker-compose.yml` : relais et admin-api montent cette CA. Vérifié :
+  `openssl verify` des certificats émis, extensions présentes.
+
+Non vérifié : sur super (régénération + recopie de ca.crt sur les shims).
+
+## 2026-09-23 — Cisco : relevé tolérant (un routeur ancien n'est plus « injoignable » pour une commande refusée) (livraison #581)
+
+Constat réel : routeur du bureau en telnet — session ouverte, puis
+« commande refusée par l'équipement : show logging » et carte
+« injoignable ».
+
+- `cisco/app.py` : chaque `show` du relevé est indépendant ; les commandes
+  refusées sont listées dans `unavailable` (affiché « Non disponible »),
+  l'équipement reste joignable ; interfaces : repli `show ip interface
+  brief` (routeurs sans « show interfaces status »), `parsers.
+  parse_ip_interface_brief` (test).
+
+Vérifié : 13 tests cisco. Non vérifié : sur le routeur réel.
+
+## 2026-09-23 — Coffre des accès : genres cisco, enable et telnet (livraison #580)
+
+Demandé : « dans la liste des genres il n'y a pas cisco ».
+
+- `credentials/api/store.py`, `static/index.html` : genres `cisco` (IOS /
+  NX-OS, SSH ou telnet), `enable` (secret enable), `telnet` ajoutés ; le
+  genre reste indicatif (aucun consommateur ne le vérifie : un accès déjà
+  créé en `routeros` ou `other` fonctionne tel quel). Messages et README
+  alignés.
+
+Vérifié : tests. Non vérifié : sur super.
+
+## 2026-09-23 — Cisco : transport telnet pour les IOS anciens (livraison #579)
+
+Demandé : « termine l'api pour les accès telnet » (routeur du bureau,
+ancien, joignable en telnet sur sa patte interne).
+
+- `cisco/ssh_client.py` : `TelnetChannel` (socket, négociation IAC
+  minimale, même interface que le canal paramiko), `CiscoSession(…,
+  protocol="telnet")` avec login Username/Password ou Password seule,
+  refus d'authentification détecté ; `cisco/app.py` : clé de registre
+  `"transport"` (ssh par défaut, telnet → port 23) ; exemple dans
+  `switches.json` ; README (mise en garde : mot de passe en clair, patte
+  interne seulement).
+- Tests : équipement telnet simulé (login, enable, show), refus, registre
+  (12 tests cisco au vert).
+
+Vérifié : tests. Non vérifié : sur le routeur réel.
+
+## 2026-09-23 — Lien vers la tuile Accès d'équipements partout où un accès du coffre manque (livraison #578)
+
+Demandé (capture Cisco : « accès « cisco » absent du coffre ») : « il manque
+le lien vers la tuile accès équipements » — règle 7 de la charte.
+
+- `cisco/static/index.html` : l'erreur « absent du coffre » et le bandeau
+  d'aide renvoient vers `../credentials/` (comme MikroTik le faisait déjà).
+- `hub/src/NetworkEquipmentView.jsx` (accès SNMP), `service-watch`
+  (comptes du canari) : lien « créer / voir » vers le coffre.
+
+Vérifié : syntaxe. Non vérifié : sur super.
+
+## 2026-09-23 — Mise à jour automatique : archive hors du /tmp privé, faux échec après passage manuel, limite mémoire des sondes (livraison #577)
+
+Journaux fournis (postes Linux passés en 0.5.14 à la main) : marqueur de
+0.5.13 « non appliquée », journal vide ; sonde docker-containers en échec
+« failed to reserve page summary memory ».
+
+- Agent 0.5.15 (`updater.py`, tests) : extraction dans le dossier d'état
+  (`<state>/update/`) au lieu de /tmp — le service a `PrivateTmp=true`,
+  l'unité `systemd-run` ne voyait pas le script ; version courante plus
+  récente que la cible = réussite ; `plugin_max_memory_mb` 512 → 4096
+  (RLIMIT_AS, binaires Go).
+
+Vérifié : tests. Non vérifié : mise à jour automatique réelle 0.5.15 →
+suivante (ce sera le vrai test, dès la prochaine version servie).
+
+## 2026-09-23 — Mises à jour d'agents restées sans effet : statut corrigé, journal de l'installeur, échec signalé (livraison #576)
+
+Demandé : « l'agent i9freg (mon poste) (les autres non plus sauf le mac)
+ne se met pas à jour ».
+
+- `si-agent/api/updates.py` : le statut de commande testé était `acked`
+  alors que le central note `done` / `failed` → la mise à jour lancée
+  retombait en « à planifier » (renvoyée à chaque passage) sans jamais
+  signaler l'échec ; nouvel état `stalled` (installeur lancé, agent
+  toujours en ancienne version après 15 min) affiché dans le hub.
+- Agent 0.5.14 (`updater.py`, `agent.py`, tests) : sortie de l'installeur
+  dans `update-<ts>.log` à côté de `state.json`, marqueur avec le chemin du
+  journal, `check_stalled` toutes les 60 s → événement
+  `agent-update-failed` avec la fin du journal ; lancement impossible refusé
+  immédiatement.
+
+Vérifié : tests (updates, api, agent). Non vérifié : cause réelle sur les
+postes (le journal la dira après un passage manuel en 0.5.14).
+
+## 2026-09-23 — Bastion multi-shims : un site client joint par le poste de son agent, tout par l'entrée du SI (livraison #575)
+
+Demandé : « rien ne doit transiter directement et tout doit passer par
+l'entrée https ou ssh (ou un autre port si nécessaire) du routeur supervisé
+du LAN » — la route statique proposée en #574 est retirée du mode d'emploi.
+
+- `siproxy/relay.py` : shims nommés (`hosts`), session ouverte par le shim
+  `via` demandé, refus explicite sinon ; `proto.shim_name` (test) ;
+  `hostshim.py` : `--name`, `--server-name` ; `client.py` : `--via` /
+  `SI_PROXY_VIA` ; `SiProxyView` : liste des shims connectés.
+- `install-host.sh` : `--name`, `--ssh-jump user@hôte:port`, `--ssh-key`
+  → `si-proxy-jump.service` (tunnel SSH permanent vers l'entrée du SI, clé
+  restreinte `permitopen`), le shim joint 127.0.0.1 en vérifiant le nom du
+  relais.
+- `tests/e2e_local.py` : deux shims, `--via campus` OK, `--via` inconnu
+  refusé — tout vert dans le bac à sable.
+- Le relais HTTPS #574 reste utile pour un service que le hub voit ; pour
+  le site, la voie est : Mac → saut SSH → relais → shim campus → cible.
+
+Vérifié : tests unitaires et e2e hors ligne. Non vérifié : installation du
+shim sur le poste de l'agent, clé de saut restreinte.
+
+## 2026-09-23 — Relais HTTPS sur port dédié : interface Proxmox d'un site via le tunnel de l'agent (livraison #574)
+
+Demandé : interface web du Proxmox du site joignable seulement en deux
+sauts (poste → agent → hôte), « pas de route vers mon LAN depuis les VLAN
+sauf le 20 ».
+
+- `tls-proxy/render_nginx_conf.py` : `RELAYn_PORT` / `RELAYn_TARGET` /
+  `RELAYn_LABEL` → un `server` TLS par relais, proxy vers `https://cible`
+  (tunnel ssh-tunnels-api), websockets, cible validée ; test.
+- `gateway/docker-compose.yml` : ports 6486 / 6487 publiés (rien n'y écoute
+  sans cible) ; `.env.example` ; `hub/src/ProxmoxView.jsx` : lien
+  « interface web ↗ » par hyperviseur (`VITE_PROXMOX_WEB_URLS`).
+
+Vérifié : rendu nginx (test). Non vérifié : sur super (tunnel + relais
+réels), et que super joint bien le poste de l'agent en SSH.
+
+## 2026-09-23 — Test « prioriser et automatiser » : les propositions de Supervision SI classées par l'IA interne (livraison #573)
+
+Demandé : « l'IA, qu'en penses-tu pour prioriser et automatiser ? On fait
+un test ? ».
+
+- `assistant/rag.py` `build_prioritize_messages` + `ACTION_CATALOG`,
+  `assistant/app.py` `POST /prioritize` (journalisé, test).
+- `hub/src/SupervisionSiView.jsx` : bloc « Prioriser par l'IA interne »
+  dans l'onglet Propositions — capacité du jour, synthèse, groupes de même
+  cause, tableau P1-P4 avec raison et action proposée (⚙ automatisable
+  quand l'action est dans le catalogue du hub), « Retenir les N
+  premières » ; `App.jsx` passe `assistantUrl`.
+
+Vérifié : tests (249 hub, assistant au vert). Non vérifié : qualité du
+classement sur le modèle réel (les 522 propositions de vigilance
+« croissance_volume » devraient sortir en un groupe P3/P4 avec une action
+« régler le seuil »).
+
+## 2026-09-23 — Contrôle des VM Proxmox depuis le hub, par l'agent (livraison #572)
+
+Demandé : « une interface de gestion/contrôle des VM d'un Proxmox depuis le
+hub en passant par l'agent » (interface web Proxmox injoignable, SSH ok).
+
+- Agent 0.5.13 : commande `vm_action` (`si_agent/vmctl.py`, 2 tests) —
+  start / shutdown / reboot / stop / reset / suspend / resume / snapshot /
+  rollback / delsnapshot via `qm` ou `pct`, paramètres validés (vmid
+  entier, action connue, nom de snapshot sûr), événement `command-vm`,
+  refus si agent bloqué.
+- Central : type `vm_action` dans `COMMAND_TYPES` (params vmid + action
+  requis).
+- Hub : `ProxmoxView.jsx` — barre Actions par VM (confirmation pour les
+  actions brutales), snapshots (créer / revenir / supprimer), suivi de la
+  commande jusqu'au résultat, rechargement ; `siAgentClient.js`
+  (`vmAction`, `fetchCommand`).
+
+Vérifié : tests (249 hub, 16 si-agent-api, 2 vmctl). Non vérifié : sur un
+hôte réel (pousser l'agent 0.5.13 depuis Mises à jour).
+
+## 2026-09-23 — Fiches du campus : IP, import en fusion, extraction par l'IA interne (livraison #571)
+
+Demandé : intégrer les cinq postes de contrôle de l'allée immersive
+(fichier fourni à part, hors dépôt) ; « passer par une IA interne pour ce
+type d'import et de classement des infos sensibles ».
+
+- `nebula/api/campus.py` : champ `Adresse IP` reconnu, rapprochement
+  Nebula par IP en plus de MAC / nom (test) ; `hub/src/campusCards.js` :
+  rapprochement des hôtes windows-probe par IP, `recordsToCsv`.
+- `CampusView.jsx` : choix « remplacer tout / fusionner (compléter) » à
+  l'import.
+- IA interne : `assistant/rag.py` `build_extract_messages` (schémas asset /
+  service, champs sensibles, remarques), `assistant/app.py` `POST
+  /extract` (journalisé) ; `hub/src/CampusExtract.jsx` : coller un texte →
+  fiches relisibles et modifiables, champs sensibles signalés → import en
+  fusion. BACKLOG item 88 pour les suites (classement de colonnes,
+  étiquette de sensibilité, OCR, dédoublonnage).
+
+Vérifié : tests (249 hub, 20 nebula, assistant au vert). Non vérifié :
+extraction réelle sur le modèle local (qualité selon le modèle : qwen3:8b
+suffit pour ce format tabulaire), import des cinq postes.
+
+## 2026-09-23 — Règle « activer X » = lien vers l'endroit du hub ; fiches non identifiées non écrasées (livraison #570)
+
+Demandé : « d'une manière générale quand le hub indique "activer" quelque
+chose, mets le lien vers l'endroit dans le hub où on active la chose (ici
+la sonde de l'agent → lien vers l'agent) ».
+
+- `hub/src/hubLinks.js` : `hubLink(view, params)` / `viewParams()` ;
+  `SiAgentView` accepte `?view=si-agent&agent=<id>&section=plugins`
+  (agent sélectionné, section Sondes ouverte). Liens posés dans Accès
+  Windows et Annonces réseau (un lien par agent du site) et dans Proxmox
+  (installation / sondes). Règle 7 de `docs/ergonomie-redesign.md`, à
+  appliquer à toute nouvelle consigne.
+- `nebula/api/campus.py` : les matériels sans nom ni numéro de série
+  gardent une fiche chacun (clé par rang de ligne) — 220 fiches au lieu de
+  193 pour l'inventaire du campus (test ajusté).
+
+Vérifié : tests. Non vérifié : sur super (réimporter l'inventaire pour
+retrouver les 220 fiches).
+
+## 2026-09-23 — Plan RDC vectoriel depuis le PDF du DCE ; aucun plan de client dans le dépôt (livraison #569)
+
+Demandé : « si je trouve les dxf pourras-tu les utiliser ? » — reçu le PDF
+vectoriel du DCE (lot CFO, RDC bas, 1/100).
+
+- `nebula/tools/plan_from_pdf.py` (pymupdf) : garde l'architecture (traits
+  gris/noirs, noms de salles en vrai texte, orientation de page respectée),
+  écarte symboles de lots (couleurs), cotes et cartouche, retire les mots
+  interdits. Le SVG du campus (3,3 Mo, 59 000 tracés, 119 textes) est
+  livré à part, à déposer dans Nebula → Plan du site.
+- `nebula/plans/default.svg` (plan photographié vectorisé, #561) retiré du
+  dépôt : un plan de bâtiment identifie le client — même règle que les IP
+  et les noms. Le mécanisme « plan livré avec l'image » reste pour une
+  installation privée. Le fichier retiré reste dans l'historique git jusqu'à
+  la prochaine purge (BACKLOG item 2).
+
+Vérifié : rendu du SVG hors ligne (murs, mobilier, escaliers, textes
+droits). Non vérifié : dépôt sur super.
+
+## 2026-09-23 — Sonde « annonces réseau » (broadcast/multicast passif) et onglet Annonces réseau (livraison #568)
+
+Demandé : « il me faudra aussi une vue (sonde et/ou nebula ou à imaginer)
+des annonces broadcast et autres ».
+
+- `si-agent/agent/plugins/broadcast-probe/` (+ `test_broadcast_probe.py`, 4
+  tests) : capture brute AF_PACKET (repli UDP sans privilège) d'une fenêtre,
+  analyseurs ARP / IPv4-UDP / IPv6 / LLDP / CDP / STP / mDNS-LLMNR (noms,
+  services) / SSDP / NetBIOS / DHCP, agrégation par protocole et par
+  annonceur, constats (DHCP multiple, RA IPv6, conflit ARP, STP, rafale).
+- `si-agent/api` : `GET /broadcasts?site=`, sonde dans `PROBE_TASKS`.
+- Hub : `BroadcastView.jsx` (onglet « Annonces réseau » du volet Campus :
+  constats, protocoles, annonceurs rapprochés des fiches).
+
+Vérifié : tests (248 hub, 16 si-agent-api, 4 sonde), sonde exécutée hors
+ligne en repli UDP. Non vérifié : capture brute sur le LAN du site.
+
+## 2026-09-23 — Sonde « postes Windows » (NetBIOS, SMB, RDP, AnyDesk…) et onglet Accès Windows dans Nebula (livraison #567)
+
+Demandé : « dans la tuile nebula il me faudra une supervision orientée
+windows : netbios, smb… pour relier ensuite d'accès anydesk ou rdp ou… ».
+
+- `si-agent/agent/plugins/windows-probe/` (+ `test_windows_probe.py`, 4
+  tests) : balayage des /24 du poste ou de cibles données, ports SMB / RDP /
+  AnyDesk / VNC / WinRM / SSH / HTTP(S), NBSTAT (nom, groupe, MAC), SMB2
+  negotiate (dialecte, signature) + essai SMB1, X.224 RDP (NLA / TLS),
+  constats → `alerts` (événements #530). Bibliothèque standard, aucune
+  authentification.
+- `si-agent/api` : `GET /windows-hosts?site=` (`store.latest_windows_hosts`,
+  fusion entre agents), sonde reconnue dans `PROBE_TASKS`.
+- Hub : `WindowsHostsView.jsx` (onglet « Accès Windows » du volet Campus :
+  hôtes, fiche rapprochée par MAC ou nom, liens RDP (.rdp téléchargé),
+  AnyDesk (`anydesk:ip`), partage (`smb://`, copie `\\ip`), VNC, SSH,
+  WinRM, SMB/RDP négociés, constats), `campusCards.js`
+  (`matchWindowsHosts`, `accessLinks`, tests) ; `VITE_NEBULA_AGENT_SITE`.
+
+Vérifié : tests (248 hub, 16 si-agent-api, 4 sonde), sonde exécutée hors
+ligne (hôte local, port ouvert détecté). Non vérifié : sur le LAN du site
+(activer la sonde sur l'agent du campus).
+
+## 2026-09-23 — Tuile Nebula@site : volets Nebula / Campus, fiches Matériels et Services importées, lien synoptique (livraison #566)
+
+Demandé : titre « Nebula@<site> », deux volets (Nebula, Campus), onglets
+Matériels et Services/logiciels alimentés par les tableurs du site (fiches),
+mise à jour par import, lien vers les infos Nebula (synoptique visuel et
+tableau d'état) ; prévoir une sonde logiciel/protocoles pour les postes de
+l'allée immersive (réponse et spécification : BACKLOG item 87).
+
+- `nebula/api/campus.py` (+ tests) : lecture xlsx (openpyxl) / ods (XML) /
+  csv, fiches normalisées (`assets`, `services`, héritage des cellules
+  fusionnées), rapprochement MAC/nom avec les clients Nebula ; `app.py` :
+  table `campus_records` (/data), `GET /campus/<coll>`, `PUT
+  /campus/<coll>/import` (replace / merge).
+- Hub : `CampusView.jsx` (fiches par lab, filtre début de mot, import,
+  état Nebula, boutons synoptique / tableau d'état), `campusCards.js` (+
+  test), `NebulaView.jsx` (titre `VITE_NEBULA_TILE_TITLE`, volets),
+  `NebulaTopo.jsx` (`focus` : sélection et dépliage depuis une fiche).
+- `.env.example`, `docker-compose.yml` : `VITE_NEBULA_TILE_TITLE`.
+- Les deux tableurs fournis ne sont PAS dans le dépôt (données du client) :
+  à importer depuis la tuile.
+
+Vérifié : tests (247 hub, 19 nebula), rendu hors ligne avec les vrais
+tableurs (220 matériels, 32 services, 103 avec MAC). Non vérifié : sur super.
+
+## 2026-09-23 — Synoptique Nebula : audit des ports de bornes (PVID, « all ») (livraison #565)
+
+Demandé : « côté hub/nebula peut-on vérifier la configuration actuelle ? »
+(après ouverture de tous les VLAN sur la cascade du campus).
+
+- `nebula/api/vlanmap.py`, `topology.py` : les liaisons portent le réglage du
+  port côté parent (`parent_pvid`, `parent_all`, `parent_allowed`).
+- `hub/src/nebulaTree.js` (`apPortAudit`, test) et `NebulaTopo.jsx` : sous
+  le synoptique, repli « Ports des bornes » — borne, commutateur, port,
+  PVID, VLAN autorisés ; PVID attendu = majoritaire, « all » requis, écarts
+  en rouge et repli ouvert d'office s'il y en a.
+
+Vérifié : tests (246 hub, 16 nebula). Non vérifié : sur super.
+
+## 2026-09-23 — Page publiée par l'agent : export CSV, impression/PDF, historique par thématique (livraison #564)
+
+Demandé : « sur la page de l'agent il faudrait un export pdf/csv et un
+historique par thématique ».
+
+- `si-agent/api/publish.py` : `device_theme` (passerelle / commutateur /
+  borne / autre d'après le modèle), `board_payload` avec `theme` par appareil
+  et `events` (transitions d'état de la fenêtre) ; `app.py` :
+  `_publish_board` rapporte aussi les transitions nebula-api par site.
+- `si-agent/agent/si_agent/publish.py` (agent 0.5.12) : boutons « Exporter
+  CSV » et « Imprimer / PDF » (CSS d'impression), section « Historique par
+  thématique » repliable.
+- Tests si-agent-api (16) au vert.
+
+Vérifié : tests. Non vérifié : sur super (agent 0.5.12 à pousser depuis
+l'onglet Mises à jour ; l'aperçu du hub montre déjà la nouvelle page).
+
+## 2026-09-23 — Publication de la page d'état réglable depuis la tuile Agents hôtes (livraison #563)
+
+Demandé : « l'agent n'est pas configuré » (la page publiée ne se réglait que
+par l'API). Formulaire « Page d'état publiée sur le réseau du site » dans les
+réglages de l'agent : publier, port, titre, site Nebula, fenêtre, lien vers
+le hub (`hub_url`, #559). Enregistré avec les autres réglages, appliqué par
+l'agent à sa prochaine lecture de configuration (agent ≥ 0.5.10 ; 0.5.11
+pour le lien vers le hub).
+
+Vérifié : syntaxe, tests hub. Non vérifié : sur super.
+
+## 2026-09-23 — Note design appliquée : page sans défilement, en-têtes de tableau fixes, gabarit de page, filtre « début de mot », site d'agent en aperçu et en réel (livraison #562)
+
+Demandé (note design « à appliquer partout ») : en-tête de tableau fixé,
+contraste fort, pied de page fixe et page qui ne défile pas (cadres et
+tbody défilent), template généralisé à division verticale/horizontale
+(menus gauche/droit fixes, options déroulantes), filtre texte priorisant le
+début de mot, hub présentant en preview et en réel le site d'un agent.
+
+- `hub/src/hub.css`, `App.jsx` : `.hub-shell` à 100vh sans défilement,
+  `<main class="hub-main">` seule zone déroulante, pied de page sorti de la
+  grille pour toutes les vues ; vues à cadres (grille, onglets, Supervision
+  SI, paramètres) remplissent `.hub-main` au lieu de `calc(100vh - 60px)` ;
+  `thead th` collant partout ; classes `.hub-page*`.
+- `hub/src/PageFrame.jsx` : gabarit (titre, cadres latéraux verticaux ou
+  horizontaux à titre fixe / options déroulantes, centre déroulant, pied).
+- `hub/src/textFilter.js` (`rankFilter`, tests) : début de mot d'abord ;
+  appliqué à `universeEntries` (Univers du hub).
+- `hub/src/AgentPageView.jsx` : vue « Site publié par un agent » (aperçu
+  calculé par si-agent-api / réel servi par l'agent, en cadre ; lien
+  « ouvrir le réel ») depuis le menu Pages ouvertes → « voir ».
+- `docs/ergonomie-redesign.md` : la note design comme règle permanente.
+
+Vérifié : 245 tests hub, rendu hors ligne d'AgentPageView. Non vérifié : sur
+super (le gabarit touche toutes les vues : vérifier le défilement des
+paramètres, de l'exploration réseau et des onglets ; le cadre « réel » peut
+être bloqué par le navigateur en http dans une page https).
+
+## 2026-09-22 — Plan du campus vectorisé comme fond par défaut, liste des propositions qui défile (livraison #561)
+
+Demandé : « vectoriser et aligner le plan (il s'inscrit dans un rectangle)
+depuis le jpg et le rendre interactif », « nettoyer le plan jpg du Vous êtes
+ici et de sa flèche », « mettre le plan vectorisé comme fond de placement par
+défaut », « la liste ne défile pas alors qu'elle affiche 7 items sur 500 ».
+
+- `nebula/plans/default.svg` (≈1 Mo, 6 couches potrace) : photo nettoyée
+  (« Vous êtes ici », point rouge, flèche — le mur diagonal traversé par la
+  flèche est redessiné), redressée et recadrée ; servi par nebula-api quand
+  aucun plan n'a été déposé pour le site (#560). Script
+  `nebula/tools/plan_vectorize.py`. L'interactivité (pastilles de santé,
+  clic → équipement, glisser pour placer) est celle de l'onglet Plan du site.
+- `hub/src/hub.css` : `.ss-proposals` en colonne flex — la liste des
+  propositions de Supervision SI défile (522 items étaient coupés à 7).
+
+Vérifié : rendu du SVG hors ligne. Non vérifié : sur super (le plan doit
+apparaître dans Nebula → Plan du site sans rien déposer).
+
+## 2026-09-22 — Liens lisibles en sombre, menus qui se ferment, aide au secret Keycloak, plan par défaut livré avec l'image (livraison #560)
+
+Demandé : « caractères foncés sur fond sombre : pas lisible » ; « menus qui
+restent ouverts même quand on clique ailleurs » ; « derrière l'erreur en rouge
+mettre le lien vers la saisie du secret » ; « mettre le plan vectorisé comme
+fond de placement par défaut ».
+
+- `hub/src/theme.css` : liens en couleur d'accent dans les deux thèmes (le
+  bleu marine par défaut du navigateur disparaissait en sombre).
+- `hub/src/App.jsx` : les menus d'en-tête se ferment au clic ailleurs et à
+  Échap.
+- `hub/src/AccountsView.jsx`, `accounts/api/app.py` : sous « authentification
+  du compte de service refusée », lien vers la console Keycloak (Clients →
+  client de service → Credentials) et marche à suivre (`.env`
+  `KEYCLOAK_SERVICE_CLIENT_SECRET`, redémarrage d'accounts-api) ; `/info`
+  renvoie `service_client_id`.
+- `nebula/api/app.py`, `nebula/plans/` : plans livrés avec l'image
+  (`<site_id>.svg` ou `default.svg`) servis quand aucun plan n'a été déposé ;
+  un plan déposé prime ; DELETE ne touche jamais un plan livré. Le plan
+  vectorisé du campus arrive dans la livraison suivante (JPG à fournir).
+- `nebula/tests/test_poll.py` : aligné sur la table MAC désactivée par défaut
+  (#558).
+
+Vérifié : tests. Non vérifié : sur super.
+
+## 2026-09-22 — Matrice des droits : toutes les tuiles × groupes et personnes, application réelle, lien hub sur la page de l'agent (livraison #559, item 86)
+
+Demandé : « une interface de gestion des droits pour toutes les interfaces et
+actions du hub : un tableau déclinant tout ce qui doit être paramétré et
+permettant d'associer des utilisateurs et des groupes » ; « donner accès à
+la tuile Nebula sur le portail de l'agent du campus au groupe du client ».
+
+- `rights/api/store.py` : sujets `user:<login>` (`subjects_of`), tables
+  `restricted_subjects` et `catalog`, `is_restricted` (login restreint, ou
+  tous les groupes restreints ; admin_hub/administrateurs jamais),
+  `visible_ids`, `set_catalog`/`get_catalog`, `set_grant` idempotent.
+  `rights/api/app.py` : `POST /visible`, `PUT /catalog`, `GET/PUT /matrix`,
+  `GET/PUT /restrictions` ; `user` accepté par `/check` et `/filter`.
+- Hub : `rightsCatalog.js` (catalogue depuis les thématiques, actions
+  `manage` des API connues, état des cases, colonnes), `RightsMatrix.jsx`
+  (onglet « Matrice des droits », défaut de la tuile Droits ; groupes et
+  comptes depuis accounts-api), `rightsClient.js` ; `App.jsx` : `POST
+  /visible` au chargement, vues et fronts filtrés quand la personne est
+  restreinte, tuile non accordée non ouvrable même par `?view=` ; lien
+  profond `?view=<vue>` accepté pour toute vue.
+- si-agent (0.5.11) : `publish.hub_url` (normalisé, http(s)), contenu
+  publié avec `hub_url`, page locale avec le lien « Tableau de bord complet ».
+- Tests : `rights/tests/test_rights_matrix.py` (2), `rightsCatalog.test.mjs`
+  (3), `PublishHubLink` ; 244 tests hub, 16 si-agent-api au vert ; rendu de
+  la matrice vérifié hors ligne.
+
+Vérifié : tests, rendu. Non vérifié : sur super (publication du catalogue à
+l'ouverture de la tuile Droits, restriction réelle d'un groupe).
+
+## 2026-09-22 — Synoptique Nebula lisible : étiquettes entières, arbre horizontal façon d3, étages (livraison #558, item 85)
+
+Demandé : « permettre d'afficher et de lire l'étiquette complète des
+équipements (le texte déborde) ; prendre plus en hauteur en inclinant les
+étiquettes ou en les disposant en étages successifs ; regarder les exemples
+d3 pour ce type de données ».
+
+- `hub/src/nebulaTree.js` : `labelWidth` (boîte à la taille du texte),
+  `treeLayout` avec `orientation` horizontal (profondeur en colonnes, une
+  ligne par feuille, parent centré) ou vertical avec `stagger` étages
+  (répartition par rangée, premier étage sans chevauchement), marges pour ne
+  rien couper ; pastilles de clients à slot d'appareil.
+- `hub/src/NebulaTopo.jsx` : sélecteur Disposition / Étages (mémorisé),
+  liaisons et ports dessinés dans les deux sens, noms jamais tronqués,
+  libellé « voisins LLDP hors inventaire ».
+- `nebula/api/app.py` : table MAC non demandée par défaut
+  (`NEBULA_MAC_TABLE`), fin du message d'erreur répété.
+- Tests `nebulaTree.test.mjs` (4) ; vérifié hors ligne sans chevauchement
+  pour 2, 3 et 4 étages sur 18 appareils et 45 clients.
+
+Vérifié : tests, rendu. Non vérifié : sur super.
+
+## 2026-09-22 — Comptes et groupes : tuile pilotant Keycloak (livraison #557, item 86)
+
+Demandé : « créer une interface de gestion des utilisateurs/groupes
+commandant le keycloak ».
+
+- `accounts/api/` (nouveau service `accounts-api`) : `kc.py` (client API
+  Admin REST : groupes, comptes, appartenance rendue égale, mot de passe,
+  invitation, déconnexion ; erreurs présentables), `app.py` (routes, écriture
+  réservée à `administrateurs`/`admin_hub`, journal partagé). Compte de
+  service de bootstrap existant.
+- Hub : `AccountsView.jsx` (comptes : recherche, filtre par groupe, création
+  avec mot de passe temporaire ou invitation, activation, groupes par cases à
+  cocher, mot de passe, suppression ; groupes : création, suppression,
+  membres), `accountsLib.js` (filtre, validation, comptes par groupe),
+  entrée « Comptes et groupes » dans Sécurité & accès (réservée aux
+  administrateurs), source de journaux.
+- Câblage : `docker-compose.yml` (service, `VITE_ACCOUNTS_API_BASE_URL`),
+  tls-proxy `/api/accounts/`, `deploy/cohorts.json` (cohorte core),
+  `shared/EXPOSURE.json`, `.env.example` (`ACCOUNTS_ADMIN_GROUPS`).
+- Tests : `accounts/tests/test_accounts.py` (2, Keycloak simulé),
+  `hub/tests/accountsLib.test.mjs` (3) ; 240 tests hub au vert.
+
+Vérifié : tests. Non vérifié : contre un vrai Keycloak (droits du compte de
+service sur `manage-users`, fédération LDAP en lecture seule).
+
+## 2026-09-22 — Anomalies Nebula en tableau, règles lisibles pour l'IA, validation applicable (livraison #556, items 83 et 85)
+
+Demandé : « présente la liste des anomalies en tableau de la largeur de la
+fenêtre aligné à gauche avec les colonnes action proposée, bouton masquer,
+bouton valider (si l'API le permet), un bouton général démasquer » ;
+« préparer un ensemble d'apprentissage ou de ressources pour l'IA intégrée
+avec des règles humainement compréhensibles et configurables ».
+
+- `rules/` (nouveau) : `README.md` (format), `reseau-nebula.md` (R-NET-01 à
+  05), `services.md` (R-SVC-01/02) — règles en Markdown : Quand, Gravité,
+  Action avec {champs}, Applicable, Pourquoi, Vérifier, Exemples. Monté dans
+  nebula-api (`/rules`) et dans l'assistant (indexé comme documents).
+- `nebula/api/vlanmap.py` : anomalies typées (`anomalies_detail`, id stable),
+  liste plate conservée. `nebula/api/rules.py` : lecture des règles,
+  application (tri par gravité, champs remplacés, type sans règle « à
+  qualifier »).
+- `nebula/api/app.py` : `GET /sites/<id>/anomalies`, hide/unhide/unhide-all,
+  `validate` (droit manage ; application réelle si applicable +
+  `NEBULA_ALLOW_WRITE=1` + confirmation ; sinon validation enregistrée) ;
+  `_apply_fix` pour `link_missing_vlan` ; table `nebula_anomaly_state`.
+  `nebula_client.sw_set_port_settings` (seul appel d'écriture du module,
+  vérifié contre la doc OpenAPI : POST port-settings, objet complet).
+- Hub : `NebulaAnomalies.jsx` (tableau pleine largeur, aligné à gauche,
+  « pourquoi ? » dépliant la règle, Masquer/Démasquer, Valider ou « Valider
+  et appliquer » avec confirmation, Tout démasquer, voir les masquées) ;
+  groupes et identifiant transmis à la tuile Nebula.
+- `docker-compose.yml`, `.env.example` : `RULES_DIR`, `NEBULA_ALLOW_WRITE`
+  (0 par défaut), volumes `./rules`.
+- Tests : `nebula/tests/test_rules.py` (3, dont la validité des fichiers du
+  dépôt) ; 16 tests nebula, 237 tests hub au vert ; rendu du tableau vérifié
+  hors ligne.
+
+Vérifié : tests, rendu. Non vérifié : application réelle d'une correction
+sur Nebula (à faire d'abord sur une anomalie sans conséquence, écriture
+activée le temps du test).
+
+## 2026-09-22 — Nebula : synoptique en arbre façon Nebula, clients rattachés, plan du site (livraison #555, item 85)
+
+Demandé : « la logique de la carte semble faussée, regarde celle présentée
+par Nebula, il faudrait s'en approcher, et un plan pour affecter les
+équipements, spots et clients ».
+
+- `nebula/api/vlanmap.py` : `links_from_lldp(..., others)` reconnaît les
+  voisins LLDP parmi tous les appareils (bornes, passerelle) par nom, MAC
+  (±8) ou nom contenu ; liaisons `device` sans calcul de VLAN manquants ;
+  voisins inconnus avec `sysname`/`chassis`.
+- `nebula/api/topology.py` (nouveau) : `build_tree` (racine passerelle,
+  parent par largeur d'abord, commutateurs avant bornes, ports amont/aval,
+  appareils non reliés rattachés à la racine et marqués) ; `attach_clients`
+  (champ `connectedTo` = devId en réel, tolérant aux autres noms, BSSID le
+  plus proche ; nom lisible depuis `osHostname.hostname`).
+- `nebula/api/app.py` : `GET /sites/<id>/topology` (cache 2 min, `?period`),
+  `GET /sites/<id>/clients-raw`, plan `GET/PUT/DELETE /sites/<id>/plan`
+  (fichier dans `/data/plans`), `GET/PUT /sites/<id>/placements` (table
+  `nebula_placements`) ; Dockerfile copie `topology.py`.
+- Hub : `nebulaTree.js` (arbre, parent centré, clients au milieu des
+  enfants, pastilles dépliables, tons des liaisons) et `NebulaTopo.jsx`
+  réécrit (période des clients, déplier/replier, détail nœud et client,
+  clients sans appareil, voisins non reconnus) ; `nebulaPlan.js` +
+  `NebulaPlan.jsx` (dépôt du plan, pose par clic, glisser, anneau de
+  clients, retrait) ; onglet « Plan du site » dans `NebulaView.jsx` ;
+  `nebulaTopo.js` et son test retirés.
+- Tests : `nebula/tests/test_topology.py` (3), `hub/tests/nebulaTree.test.mjs`
+  (3), `nebulaPlan.test.mjs` (3) ; 13 tests nebula et 237 tests hub au vert.
+- Rendu vérifié hors ligne (esbuild + Chromium) sur un site fictif de 18
+  appareils et 48 clients, et sur une photo de plan.
+
+Vérifié : tests, rendu hors ligne. Non vérifié : sur super avec les données
+réelles (rattachement des bornes par LLDP, 92 clients, dépôt du plan).
+
+## 2026-09-22 — Hub : menu arborescent, pages ouvertes en menu, tuiles triées, en-tête (livraison #554, item 76)
+
+Demandé : menu arborescent à la place des menus thématiques ; « Pages
+ouvertes » en menu déroulant avec les liens des sites publiés par les
+agents ; tuiles en ordre alphabétique ; titre « Hub SI » plié, rôles en
+initiales.
+
+- `hub/src/hubTree.js` : `splitHeader` (Aide/Onglets épinglés, Paramètres à
+  part, tout le reste dans l'arbre), `sortTiles` ; `hub/src/lib.js` :
+  `roleInitials` (uniques, allongées si besoin) ; `hub/src/publicLinks.js` :
+  `agentPublishedLinks`.
+- `hub/src/App.jsx` : en-tête Aide · Onglets · Menu ▾ (arborescent, nœuds
+  dépliables, thématique courante ouverte) · Pages ouvertes ▾ (sans
+  connexion + agents, Ouvrir/Copier, flotte relue toutes les 5 min) ·
+  Paramètres ▾ · Univers ▾ ; tuiles triées ; section Pages ouvertes de
+  l'accueil retirée ; rôles en initiales avec info-bulle.
+- `hub/src/hub.css` : titre 24 px jamais plié, styles du menu arborescent
+  et du menu des pages.
+- Tests : `hubTree.test.mjs`, `publicLinks.test.mjs`, `roleInitials.test.mjs`
+  (234 tests hub au vert).
+
+Vérifié : tests, syntaxe. Non vérifié : rendu (`./scripts/run.sh up -d
+--build hub`).
+
+## 2026-09-22 — Nebula : synoptique cliquable du réseau (livraison #553, item 85)
+
+Demandé : « une vraie carte façon synoptique avec des liens et des nœuds
+cliquables ».
+
+- `hub/src/nebulaTopo.js` (pur) : `buildGraph` (nœuds de l'inventaire,
+  voisins LLDP rattachés par nom ou créés, arêtes dédoublonnées avec ton),
+  `assignTiers` (largeur d'abord depuis la passerelle, sinon le nœud le plus
+  connecté ; isolés en bas), `layout` (niveaux, repli des niveaux larges en
+  rangées), `edgeCarries`, `nodeSummary`.
+- `hub/src/NebulaTopo.jsx` : SVG défilant, nœuds colorés par état, liaisons
+  étiquetées (rouge = VLAN manquant, pointillé = sans VLAN), panneau de
+  détail au clic (nœud : VLAN par port / SSID / interfaces ; liaison : VLAN
+  de chaque côté, manquants), filtre par VLAN ; placé en tête de l'onglet
+  « Carte des VLAN ».
+- `nebula/api/app.py` : `vlan-map` renvoie `devices` ; `vlan-raw` inclut
+  cinq clients bruts (diagnostic `sw-clients`).
+- Tests `hub/tests/nebulaTopo.test.mjs` (3) ; 231 tests hub au vert.
+
+Vérifié : tests, rendu Chromium sur un jeu fictif (18 équipements, deux
+rangées de bornes, liaison rouge, filtre VLAN). Non vérifié : dans le hub
+réel (`./scripts/run.sh up -d --build nebula-api hub`).
+
+## 2026-09-22 — Agents hôtes : lien vers la page publiée par l'agent (livraison #552, item 85)
+
+Demandé : « dans les agents, ajoute un lien vers la page/site publiée par
+l'agent ».
+
+- `hub/src/siAgent.js` : `publishedPageUrl(agent)` --
+  `http://<hôte ou dernière IP>:<port>/` quand la publication est active.
+- `hub/src/SiAgentView.jsx` : lien « page publiée ↗ » sous l'identifiant
+  dans la liste des agents ; dans la fiche, « ouvrir sur le site » (depuis
+  le réseau du site) et « aperçu depuis le hub ».
+- Tests `hub/tests/siAgent.test.mjs` (+1).
+
+Vérifié : tests. Non vérifié : rendu (`./scripts/run.sh up -d --build hub`).
+
+## 2026-09-22 — Nebula : passerelle sans adresses, sous-réseaux déduits des clients (livraison #551, item 85)
+
+En réel, `interface-settings` de l'USG FLEX 700H nomme ses interfaces LAN
+(`VLAN20`, `VLAN30`, `VLAN40`, `VLAN99`…) mais renvoie des adresses vides.
+
+- `nebula/api/vlanmap.py` : l'interface de passerelle est reconnue par son
+  nom (le VLAN est « routé ici ») ; le sous-réseau est déduit des adresses
+  des clients du VLAN (le /24 le plus fréquent, marqué `subnet_inferred`) ;
+  l'anomalie « sans interface de passerelle » ne se déclenche plus quand
+  l'interface existe sans adresse.
+- `hub/src/NebulaVlan.jsx` : « (déduit) » et nom de l'interface.
+- Tests `nebula/tests/test_vlanmap.py`.
+
+Vérifié : tests. Non vérifié : relecture réelle (`?refresh=1`).
+
+## 2026-09-22 — Nebula : type de passerelle « GWH » reconnu (livraison #550, item 85)
+
+- `nebula/api/app.py` : l'USG FLEX 700H est de type `GWH` dans
+  l'inventaire OpenAPI (constaté en réel) ; la carte des VLAN et le
+  diagnostic `vlan-raw` l'acceptent désormais (GW, GWH, FIREWALL, GATEWAY,
+  USG), donc les sous-réseaux de la passerelle remontent.
+
+Vérifié : tests. Non vérifié : sous-réseaux réels (`vlan-raw` → `gateway`).
+
+## 2026-09-22 — Nebula : carte des VLAN recalée sur l'API réelle ; page publiée visible depuis le hub (livraison #549, item 85)
+
+Premier passage réel de la carte des VLAN (1 site, 4 commutateurs, 16 VLAN,
+5 liaisons LLDP) : la carte sort juste ; trois ajustements.
+
+- `nebula/api/nebula_client.py` : `sw-clients` n'accepte que
+  `featrues: ["mac_address"]` (énumération non documentée) ; la table MAC
+  (`l2-mac-table`) est refusée par l'API elle-même (validation de
+  `portNum` côté Zyxel) -- tolérée, colonne MAC vide.
+- `nebula/api/vlanmap.py` : une liaison sans aucun VLAN des deux côtés
+  (membre d'un agrégat LACP ou lien inutilisé -- deux liens par commutateur
+  d'accès en réel) donne une seule ligne au lieu d'une anomalie par SSID ;
+  les anomalies de liaison nomment les ports ; `gateway_networks` tolère
+  liste plate, sections `vlan`/`bridge`, clés `vlanId`/`vid`/`name`/`ip`.
+- `si-agent/api/app.py` : `GET /agents/<id>/publish/preview` et
+  `/publish/board.json` -- la page exacte que l'agent publie, servie par le
+  central ; `Dockerfile` copie `publish.py` de l'agent ;
+  `hub/src/SiAgentView.jsx` : lien « voir la page telle que publiée » dans
+  la fiche de l'agent.
+- Tests `nebula/tests/test_vlanmap.py`, `si-agent/api/test_si_agent_api.py`.
+
+Vérifié : tests, carte des VLAN contre l'API réelle. Non vérifié :
+sous-réseaux de la passerelle (réponse `interface-settings` de l'USG FLEX
+700H à confirmer avec `vlan-raw`), aperçu depuis le hub
+(`./scripts/run.sh up -d --build nebula-api si-agent-api hub`).
+
+## 2026-09-22 — Nebula : carte des VLAN depuis l'OpenAPI (livraison #548, item 85)
+
+Demandé : « dresser une carte des VLAN à partir de l'API Nebula, ou des
+exports ».
+
+- `nebula/api/nebula_client.py` : `sw_port_settings`, `sw_lldp_neighbors`,
+  `sw_mac_table`, `sw_ip_status`, `sw_uplink`, `gw_interface_settings`,
+  `ap_wlan_settings`, `sw_clients`.
+- `nebula/api/vlanmap.py` (pur) : `parse_vlan_list` (listes, plages,
+  « all »), `switch_vlans`, `gateway_networks`, `links_from_lldp`
+  (liaisons dédoublonnées, VLAN manquants par côté), `build_vlan_map`
+  (VLAN, liaisons, anomalies en phrases), `to_csv_rows`.
+- `nebula/api/app.py` : `GET /sites/<id>/vlan-map` (cache 10 min,
+  `refresh`, `format=csv`), `GET /sites/<id>/vlan-raw` (diagnostic, MAC et
+  clés masquées) ; collecte tolérante (`errors`).
+- `hub/src/NebulaVlan.jsx`, `NebulaView.jsx` : onglet « Carte des VLAN »
+  (tableau VLAN × commutateurs U/T, liaisons avec manquants en rouge,
+  anomalies, export CSV).
+- Tests `nebula/tests/test_vlanmap.py` (5), `test_poll.py` (collecte avec
+  un appel en échec, clé Wi-Fi jamais dans la carte).
+
+Vérifié : tests. Non vérifié : contre l'API réelle (noms de champs pris
+dans la documentation OpenAPI ; `vlan-raw` sert à les confirmer) ;
+`./scripts/run.sh up -d --build nebula-api hub`.
+
+## 2026-09-22 — Agents hôtes : publication locale du tableau de santé du réseau (livraison #547, item 85, agent 0.5.10)
+
+Demandé : « l'agent mini-PC (sur le réseau du campus) devrait porter un
+service web qui le publie ».
+
+- `si-agent/api/publish.py` (pur) : `normalize_publish` (réglage borné),
+  `board_payload` (contenu sans identifiant interne) ; `store.py` :
+  colonne `agents.publish`, dans la configuration signée et son empreinte ;
+  `app.py` : `PUT /agents/<id>` accepte `publish`, route agent signée
+  `GET /api/v1/agents/<id>/publish` (nebula-api `health-board`, site ou
+  tous) ; `NEBULA_API_URL` sur si-agent-api.
+- `si-agent/agent/si_agent/publish.py` : `PublishServer` (http.server en
+  fil d'exécution, `/` page charte Simple sans dépendance, `/board.json`
+  avec âge et drapeau `stale`), `with_age`, `render_page` ; `agent.py` :
+  `publish_tick` (démarrage/arrêt selon la configuration, relevé toutes
+  les `interval_seconds`, vérification de signature, événements
+  publish-started/-stopped/-failed) ; agent 0.5.10.
+- Tests : `agent/tests/test_publish.py` (3), `api/test_si_agent_api.py`
+  (+1) ; liste des sondes livrées corrigée dans `test_si_agent.py`.
+- `si-agent/README.md` : section et commande de réglage.
+
+Vérifié : tests agent et central. Non vérifié : sur le mini-PC du campus
+(mettre à jour l'agent en 0.5.10 depuis l'onglet Mises à jour, activer
+`publish`, ouvrir `http://<mini-pc>:8081/`).
+
+## 2026-09-22 — Nebula : API réelle, relevé d'état à la minute, tableau de santé (livraison #546, item 85)
+
+Première connexion réelle à l'OpenAPI Nebula (organisation en Pro Pack,
+clé générée en libre-service dans NCC ; 18 équipements listés).
+
+- `nebula/api/health.py` (pur) : `normalize_status`, `diff_statuses`
+  (transitions seulement), `availability` (taux, secondes hors ligne,
+  incidents sur une fenêtre), `health_board` (phrases, lignes par
+  appareil, tri hors ligne d'abord).
+- `nebula/api/app.py` : sondeur `online-status` par site toutes les
+  `NEBULA_POLL_SECONDS` (60), inventaire toutes les
+  `NEBULA_INVENTORY_SECONDS` (3600), tables `nebula_status_current`,
+  `nebula_status_transitions`, `nebula_poll_runs` ; verrou fichier pour un
+  seul sondeur par service ; routes `GET /health-board`,
+  `GET /sites/<id>/health-board`, `GET /sites/<id>/transitions`,
+  `POST /poll/now`, `GET /poll/status`.
+- `hub/src/NebulaHealth.jsx`, `NebulaView.jsx` : onglet « Santé du
+  réseau » (par défaut), fenêtre 1 h / 24 h / 7 j, phrases, disponibilité,
+  incidents, derniers changements ; message de la tuile corrigé.
+- `docker-compose.yml`, `.env.example`, `nebula/api/Dockerfile`.
+- `nebula/README.md` : prérequis corrigés (clé en libre-service, chemin
+  exact, piège du bloqueur de scripts), règle d'échantillonnage.
+- Tests `nebula/tests/test_health.py` (4), `test_poll.py` (1, client
+  Nebula simulé).
+
+Vérifié : tests, connexion réelle (organisations, sites, appareils). Non
+vérifié : sondeur et onglet sur super (`./scripts/run.sh up -d --build
+nebula-api hub`, puis `GET /api/nebula/poll/status`).
+
+## 2026-09-22 — Espace Simple : Cortex et agents hôtes comme sources d'état (livraison #545, item 84)
+
+- `projeqtor-bridge/simple.py` : `etats_depuis_cortex` (incidents ouverts
+  ou pris en charge touchant une clé d'entité déclarée → panne / dégradé,
+  message selon la prise en charge), `etats_depuis_agents` (agent hors
+  ligne → panne, « la machine ne répond plus »), `pire_etats` (fusion des
+  sources automatiques, la pire l'emporte).
+- `projeqtor-bridge/app.py` : `etat.json` interroge aussi
+  `CORTEX_API_INTERNAL_URL` (`/incidents?state=open`) et
+  `SI_AGENT_API_INTERNAL_URL` (`/fleet`) ; sources affichées.
+- `docker-compose.yml`, `data/services.json` : variables et exemples
+  (`sources.cortex`, `sources.si_agent`).
+- Tests `tests/test_simple.py` : 6.
+
+Vérifié : tests. Non vérifié : avec Cortex et si-agent réels
+(`./scripts/run.sh up -d --build projeqtor-bridge`).
+
+## 2026-09-22 — Hub : vue « Aujourd'hui » pour un responsable non technicien (livraison #544, item 84)
+
+- `hub/src/today.js` (pur) : `servicesSummary`, `ticketsSummary`,
+  `incidentsSummary`, `overall` -- des phrases, jamais un sigle ni une
+  couleur seule.
+- `hub/src/TodayView.jsx`, `hub/src/hub.css` : charte Simple dans le hub,
+  trois blocs (état des services, demandes, incidents) avec une action
+  chacun, rafraîchis chaque minute ; sources absentes = phrase honnête.
+- `hub/src/App.jsx`, `hub/src/hubThemes.js` : vue `aujourdhui`, première
+  entrée de Supervision, `SINCE` 544.
+- Tests `hub/tests/today.test.mjs` : 4 (227 tests hub au vert).
+- `hub/README.md` : section.
+
+Vérifié : tests, analyse syntaxique. Non vérifié : rendu dans le hub
+(`./scripts/run.sh up -d --build hub`).
+
+## 2026-09-22 — Charte Simple sur le formulaire complet et le tableau ; accueil : la panne avant le formulaire (livraison #543, item 84)
+
+- `projeqtor-bridge/static/form.html` : charte Simple (`simple.css`),
+  étiquettes en capitales, sans icône ni emoji, numéro de suivi après
+  l'envoi, pied de page vers les autres écrans (l'ancien thème sombre du
+  hub disparaît de cette page publique).
+- `projeqtor-bridge/static/tableau.html` : le chrome (titre « Plusieurs
+  demandes d'un coup », boutons, messages, pied) suit la charte ; la
+  feuille garde le look « Excel en ligne » demandé en #500.
+- `accueil.html` : la panne connue s'affiche en encart AVANT les portes
+  (« À savoir avant de signaler : … »), avec lien vers l'état ; sinon
+  « Aucune panne connue en ce moment ».
+- `simple.css` : `.notice`, détails des services en graisse normale.
+- `rapide.html` : pied de page aligné (tableau, formulaire complet, suivi).
+
+Vérifié : rendu Chromium des six pages (captures : accueil, état,
+formulaire, tableau, suivi, rapide) sur données fictives. Non vérifié :
+sur super avec le pont réel.
+
+## 2026-09-22 — Espace Simple : états vivants depuis service-watch (livraison #542, item 84)
+
+- `projeqtor-bridge/simple.py` : `etats_depuis_service_watch` (pire entrée
+  → panne / dégradé, date du dernier passage, entrées disparues ignorées),
+  `fusion_etats` (l'exploitation l'emporte sur l'automatique).
+- `projeqtor-bridge/app.py` : `etat.json` interroge
+  `SERVICE_WATCH_API_INTERNAL_URL` (8 s, panne tolérée) et affiche la
+  source (« supervision automatique, exploitation ») ; date = fichier ou
+  maintenant.
+- `docker-compose.yml`, `data/services.json` : variable et exemple
+  (`sources.service_watch`).
+- Tests `tests/test_simple.py` : 5.
+
+Vérifié : tests. Non vérifié : avec un service-watch réel
+(`./scripts/run.sh up -d --build projeqtor-bridge`).
+
+## 2026-09-22 — Redesign pour les non-initiés : brief d'ergonomie et espace « Simple » (livraison #541, item 84)
+
+Demandé : « un redesign de l'interface avec pour objectifs lisibilité,
+simplicité, logique métier / dépendances ; des écrans à présenter aux
+non-initiés dans la prolongation de l'écran externe de gestion de
+tickets ; se cultiver sur l'ergonomie et penser client dans le besoin ou
+dans la confusion ».
+
+- `docs/ergonomie-redesign.md` : repères (Bastien & Scapin, Nielsen, Krug,
+  Norman, charge cognitive, loi de Hick, WCAG), les trois situations de la
+  personne en difficulté et ce qu'elles imposent, parti pris visuel
+  (prolonger le « tabloïd » #500), carte des écrans, ce qu'on ne fait pas,
+  protocole de mesure à cinq personnes.
+- `projeqtor-bridge/static/` : `simple.css` (charte), `accueil.html`
+  (quatre portes), `suivi.html` (numéro → état en français), `etat.html`
+  (services, états datés, dépendances) ; `rapide.html` affiche le numéro
+  de suivi après l'envoi et renvoie à l'accueil.
+- `projeqtor-bridge/simple.py` (pur) : `public_ref` / `ref_matches`,
+  `plain_status` (reçue / en cours / résolue, attente, conseil),
+  `impacted` (propagation dans les dépendances, cycles tolérés),
+  `etat_des_services` (phrases « X : en panne, donc Y ne marche pas »).
+- `projeqtor-bridge/app.py` : routes `/demande/accueil|suivi|etat|simple.css`,
+  `GET /demande/etat.json`, `GET /demande/suivi/<ref>` (via `/queue` de
+  tickets-api, état seulement), `reference` dans la réponse du dépôt.
+- `projeqtor-bridge/data/services.json`, `etats.json` : exemples fictifs ;
+  `docker-compose.yml` : `ETAT_SERVICES_FILE`, `ETAT_ETATS_FILE` dans
+  `/data` ; `Dockerfile` : `simple.py`.
+- `hub/src/publicLinks.js` : l'espace Simple en tête des pages ouvertes.
+- Tests : `projeqtor-bridge/tests/test_simple.py` (4), hub 223 au vert.
+
+Vérifié : tests, client Flask (etat.json calculé, suivi 503 sans
+tickets-api, pages 200). Non vérifié : rendu navigateur et suivi réel
+(`./scripts/run.sh up -d --build projeqtor-bridge hub`).
+
+## 2026-09-22 — Assistant IA : journal avec le produit et l'attendu (livraison #540, item 81)
+
+Demandé : « assistant IA / PoC interne / journal : ajouter le résultat
+produit et l'attendu ».
+
+- `assistant/app.py` : `result` (JSON extrait ou texte tronqué) dans
+  chaque ligne de journal ; en évaluation, une ligne `eval` par cas avec
+  `case`, `usage`, `expected`, `score`, `detail`, sans doublon (`log=False`
+  sur les usages appelés par `run_eval`).
+- `assistant/static/index.html` : onglet Journal -- colonnes Demandé /
+  Produit / Attendu / Note.
+- Tests `assistant/tests/test_rag.py` : 13 (journal d'évaluation).
+
+Vérifié : tests unitaires. Non vérifié : rendu de l'onglet
+(`./scripts/run.sh up -d --build assistant-api`).
+
+## 2026-09-22 — Vox-cortex : cadrage de l'IA au centre du hub (livraison #539, item 83, doc seulement)
+
+Nouvel item 83 au BACKLOG : portée (résolution de tickets techniques,
+supervision autonome réseau/services, optimisation, assistance
+documentaire, minutes et rapports de réunion, correction des données SIG),
+principes (l'IA propose, le hub journalise, une personne confirme ;
+autonomie action par action ; réversible ; aucun secret par le modèle),
+six étapes mesurées, socle existant (assistant #536, Cortex, agents,
+coffre, modules équipements). Le chantier personnel Néopays est mis de
+côté ; ses conclusions (paliers, SMA sur machines recyclées) restent
+valables ici.
+
+## 2026-09-22 — Hub : menu invariant « Univers du hub » (livraison #538, item 82)
+
+Demandé : « un menu invariant qui donne accès à tous les outils, tuiles,
+onglets, fonctions… un menu déroulant "Univers du hub" qui liste tout par
+ordre alphabétique ou par ordre d'ajout dans le hub ».
+
+- `hub/src/hubTree.js` : `universeEntries(catalog, {sort, since, query})`
+  -- toutes les feuilles du catalogue sauf les liens automatiques, tri
+  `alpha` (ordre français) ou `added` (livraison d'apparition, inconnus à
+  la fin), filtre sans accents.
+- `hub/src/hubThemes.js` : table `SINCE` (vue/front/action → livraison
+  d'apparition, relevée dans git et le CHANGELOG ; 105 = au plus tard).
+- `hub/src/App.jsx`, `hub/src/hub.css` : dernier menu de l'en-tête, hors
+  de l'arbre de disposition, avec filtre, boutons A→Z / Ajout (choix
+  mémorisé `hub.universe.sort`), nature et numéro de livraison par ligne.
+- Tests `hub/tests/hubTree.test.mjs` : +1 (223 tests hub au vert).
+- `hub/README.md` : section « Univers du hub ».
+
+Vérifié : tests Node, analyse syntaxique des sources. Non vérifié :
+rendu dans le navigateur (`./scripts/run.sh up -d --build hub`).
+
+## 2026-09-22 — Assistant IA : passage réel #536 consigné (livraison #537, item 81)
+
+Quatrième passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée,
+65 fichiers du dépôt) : classification 10/10, résumés 4,5/5, questions
+5/5 (0/5 en #533, 2/5 en #534, 0,5/5 en #535), 38 à 68 s par question.
+Les cinq questions ont reçu leur passage ; le modèle 8b répond juste
+quand les extraits sont bons. Documentation seulement.
+
+- `assistant/README.md` : tableau des quatre passages ; suite = cas réels
+  hors dépôt (tickets, GED) et mesure sur GPU.
+- `BACKLOG.md` item 81 : état.
+
+Vérifié : passage réel. Rien à déployer.
+
+## 2026-09-22 — Assistant IA : recherche rejouée hors ligne, mots vides, titres de section, composés (livraison #536, item 81)
+
+Le réglage #535 a fait reculer les questions (0,5/5). Rejeu de la recherche
+hors ligne sur les 65 fichiers du dépôt (présence des mots attendus dans
+les extraits, sans le modèle) : jetons interrogatifs rares surpondérés,
+titres Markdown absents des morceaux, composés non décomposés.
+
+- `assistant/rag.py` : mots vides étendus (interrogatifs, verbes creux),
+  clitiques ôtés (`teste-t-elle` → `teste`), composés indexés avec leurs
+  parties ; `chunk_markdown` -- découpage par section, chaque morceau
+  préfixé du fil des titres ; `max_per_doc` désactivé par défaut.
+- `assistant/app.py` : index construit avec `chunk_markdown`.
+- `assistant/eval/cases.json` : a03 reformulé (le README ne dit pas
+  « version minimale »).
+- Tests `assistant/tests/test_rag.py` : 13 (jetons, découpage par titres).
+- `assistant/README.md` : analyse et résultat hors ligne (5/5 à k=5).
+
+Vérifié : tests unitaires (13/13), rejeu hors ligne 5/5, et passage réel
+sur la VM (#537) : classification 10/10, résumés 4,5/5, **questions 5/5**,
+38 à 68 s par question.
+
+## 2026-09-21 — Assistant IA : réglage du RAG après le second passage (livraison #535, item 81)
+
+Second passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée, 65
+fichiers du dépôt indexés) : classification 10/10, résumés 4,75/5,
+questions 2/5, 47 à 62 s par question. Les trois questions ratées avaient
+reçu presque uniquement des morceaux du CHANGELOG et du BACKLOG (longs,
+répétant les mots des questions), jamais le README qui porte la réponse.
+
+- `assistant/rag.py` : `BM25.search` -- `weight` du morceau multiplie le
+  score, au plus `max_per_doc` (2) morceaux d'un même document ; titre du
+  morceau compté triple à l'indexation.
+- `assistant/app.py` : `ASSISTANT_JOURNAL_WEIGHT` (défaut 0,4) appliqué aux
+  morceaux de `CHANGELOG.md` / `BACKLOG.md`.
+- Tests `assistant/tests/test_rag.py` : 11 (poids, titre, plafond par
+  document).
+- `assistant/README.md` : section « Second passage et réglage du RAG ».
+
+Vérifié (#536) : déployé, troisième passage : questions 0,5/5 -- pire ; le
+plafond par document chassait les bons passages. Corrigé en #536.
+
+## 2026-09-21 — Assistant IA : documentation du dépôt indexée, réflexion coupée par défaut (livraison #534, item 81)
+
+Premier passage réel de l'évaluation (VM 6 vCPU / 16 Go, `qwen3:8b`) :
+classification 9,3/10, résumés 5/5, questions 0/5, 51 à 91 s par cas. Les
+questions échouaient faute de sources (seul `docs/` était indexé ; les
+réponses sont dans les README des modules, CHANGELOG, BACKLOG) et la
+latence venait du mode réflexion de Qwen3.
+
+- `assistant/Dockerfile` : étape `repodocs` -- `*/README.md` (renommés
+  `<module>.md`), `README.md`, `CHANGELOG.md`, `BACKLOG.md` copiés dans
+  `/repo-docs` de l'image (rien d'autre du contexte n'y passe).
+- `assistant/app.py` : `REPO_DOCS_DIR` indexé (source `repo`, ids
+  `repo:<fichier>`) ; `LLM_THINK` (défaut `false`) -- sur un Ollama
+  (`LLM_BASE_URL` en `…/v1`), appel de l'API native `/api/chat` avec
+  `think: false`, `format: json` pour les usages JSON, jetons/s pris dans
+  `eval_count` / `eval_duration` ; réponses OpenAI et natives analysées
+  par `parse_chat_response` ; `status` expose `think` et la source `repo`.
+- `docker-compose.yml`, `.env.example` : `LLM_THINK`.
+- Tests `assistant/tests/test_rag.py` : 10 (URL native, deux formes de
+  réponse, appel natif sans réflexion, source `repo` dans l'index et la
+  recherche).
+- `assistant/README.md` : section « Premier passage réel ».
+
+Vérifié (#535) : image reconstruite et déployée, 65 fichiers du dépôt
+indexés, second passage : classification 10/10, résumés 4,75/5, questions
+2/5, 47 à 62 s par question. Tests unitaires 10/10.
+
+## 2026-09-18 — Doc : infrastructure d'inférence de l'assistant IA (item 81)
+
+`docs/assistant-ia-infrastructure.md` : ce qui fixe la vitesse (bande
+passante mémoire), palier 1 sans achat (VM 6 vCPU / 16 Go sur l'hyperviseur
+existant sous la règle des 2/3, poste i9 détourné pour le 30B-A3B, commandes
+`qm create` en q35/OVMF, réglages Ollama), palier 2 contraint par un châssis
+rack 2U demi-hauteur (cartes low profile ≤ 75 W : RTX 2000 Ada 16 Go en
+référence, Arc Pro B50 16 Go en variante économique, alternatives tour),
+procédure de passthrough, critères de décision. Backlog item 81 et README
+assistant renvoient vers ce document. Aucune valeur d'exploitation.
+
+## 2026-09-18 — Assistant IA interne, PoC palier 1 : assistant-api + ollama (livraison #532, item 81)
+
+« Prépare le premier test d'IA interne » -- la démarche de l'étude item 81,
+étape 1, prête à lancer : mesurer jetons/s et qualité sur 20 cas avant toute
+décision GPU.
+
+- `assistant/` : `assistant-api` (Flask) -- index BM25 en mémoire sur les
+  documents locaux (`./docs` par défaut), les dépôts de test, les tickets
+  (`/queue`) et la GED (versions textuelles) ; question avec sources
+  (invite « uniquement à partir des extraits, cite [n] »), classement d'un
+  document GED (JSON : type, site, titre, résumé, mots-clés, date,
+  confiance), résumé d'une demande (JSON : résumé, catégorie, urgence,
+  actions, questions) ; jeu d'évaluation de 20 cas fictifs
+  (`eval/cases.json`, remplaçable par `/data/cases.json` réel) noté
+  automatiquement (mots-clés, JSON valide et champs, sources) avec jetons/s
+  et durées, rapports conservés ; journal des requêtes. Page autonome
+  `/assistant/` (question, classer, résumer, évaluation, journal).
+- Compose : services `ollama` (API compatible OpenAI, modèles hors dépôt,
+  limite mémoire) et `assistant-api` sous le **profil `assistant`** --
+  jamais démarrés par un `up -d` ordinaire ; serveur externe possible par
+  `LLM_BASE_URL`. Tuile « Assistant IA (PoC) » (Documents & ENT,
+  admin/technicien) ; tls-proxy ; `.env.example` (`LLM_*`, `OLLAMA_*`,
+  `ASSISTANT_*`). README : pas à pas du premier test, repères attendus,
+  critère de passage au palier 2.
+
+Vérifié : 7 tests (découpage, BM25, invites, extraction JSON tolérante,
+notation, API avec modèle simulé, évaluation), 222 tests Node, syntaxe
+JSX/JS, rendu nginx. Non vérifié : build Docker, tirage d'un modèle et
+mesure réelle (c'est l'objet du test de demain).
+
+## 2026-09-17 — Entrées de services vues d'Internet : service-watch (livraison #531, item 80)
+
+Première réalisation de la spécification item 80 (phases 1, 2, 4-mail et
+une version texte de la phase 3) : « superviser toutes nos entrées-sorties
+en termes de services, surtout les entrées visibles d'Internet ».
+
+- `service-watch/` (Flask, un worker + planificateur) : inventaire (import
+  d'une zone DNS BIND ou d'une liste de noms, entrées disparues datées ;
+  registre versionné `entries.json` sans secret ; ajout manuel),
+  qualification périodique (résolution, ports, certificat TLS, HTTP :
+  statut, redirection, titre, serveur, délai, page d'hébergeur / parking),
+  classement web/mail/ged/ssh/autre/silencieux, scénarios HTTP
+  déclaratifs avec compte de test révélé par le coffre credentials-api,
+  empreinte du contenu visible (zones volatiles masquées) et différence
+  mot à mot avec validation de référence journalisée, canaris mail
+  (SMTP externe -> IMAP interne : délai, SPF/DKIM/DMARC, intégrité).
+  Constats -> événements -> notifications `SECRETS_ALERT_*` au changement
+  seulement. Page autonome `/service-watch/` (entrées, détail, canaris,
+  événements, import).
+- Hub : tuile « Entrées de services » (thématique Supervision, rôles
+  admin / technicien / supervision) ; compose, tls-proxy, `.env.example`
+  (`SERVICE_WATCH_*`).
+
+Vérifié : 13 tests (zone DNS, classement, empreinte/diff, scénario avec
+session simulée -- aucun secret dans le résultat --, en-têtes canari,
+constats, API avec sonde simulée : référence, alerte notifiée une fois,
+disparitions), 222 tests Node, syntaxe JSX/JS, rendu nginx. Non vérifié :
+build Docker et passage réel sur un vrai domaine ; canari mail réel.
+
+## 2026-09-17 — Constats des sondes notifiés, profil horaire Wi-Fi (livraison #530)
+
+Fin du point en cours du backlog item 78 (la source Nebula est mise de
+côté : à présenter au client d'abord).
+
+- Central si-agent-api : les constats warning/critical des mesures
+  `plugin:wifi-probe` et `plugin:path-probe` deviennent des événements
+  (source central) à chaque changement -- `probe-alert` (nouveaux
+  constats, sévérité la pire, message regroupé) et `probe-recovered`
+  (constats disparus, info) -- donc des notifications par les canaux
+  configurés (SMS, courriel, webhook ; seuil et anti-tempête inchangés).
+  Un constat qui persiste n'est pas répété. `store.probe_state_changes`.
+- Hub, section Wi-Fi : volet « Profil horaire » -- les passages regroupés
+  par heure de la journée (passages, non associés, occupation moyenne et
+  max, signal moyen, retransmissions / gigue / pertes max, constats), pire
+  créneau en résumé (`hourlyProfile`).
+
+Vérifié : 16 tests si-agent-api (+2), 222 tests Node (+1), syntaxe JSX.
+Non vérifié : notification réelle (aucun canal configuré sur le central).
+
+## 2026-09-17 — Utilisation des canaux par borne dans le temps, sonde wifi-probe v3 (livraison #529)
+
+Demandé le 17 sept. devant une borne à 50 % d'utilisation 5 GHz sans aucun
+client : « trouver un moyen de superviser cette info en continu ».
+Première source (a) du backlog item 78 : la sonde côté client.
+
+- `wifi-probe` v3 : à chaque scan, liste des RADIOS visibles (5 premiers
+  octets du BSSID) avec le SSID le plus fort, canal, signal, nombre de SSID,
+  et la charge annoncée par leurs balises (BSS Load : stations, utilisation
+  du canal) -- `neighbourhood.radios`, 40 radios max. Constat
+  `idle-busy-radio` : borne à ≥ 40 % d'utilisation avec ≤ 1 station, vue à
+  ≥ -78 dBm (interférence ou co-canal, pas de charge utilisateur).
+- Hub : dans la section « Wi-Fi vu du poste », volet « Bornes vues du
+  poste » -- une ligne par radio sur la fenêtre d'historique : SSID, canaux
+  vus, signal, stations et utilisation du dernier passage, max et moyenne
+  d'utilisation, max de stations, nombre de passages « occupé sans
+  client », et en résumé le nombre de bornes par canal (`radioSeries`,
+  `channelCrowd`).
+- Agent **0.5.9** ; README agent ; backlog item 78.
+
+Vérifié : 14 tests Python, 221 tests Node, syntaxe JSX. Non vérifié :
+lecture réelle sur le poste du campus (la borne à 50 % sans client doit
+ressortir en « occupé sans client » dès le premier scan).
+
+## 2026-09-17 — Correctif : `--upgrade` macOS et Windows effaçait la configuration (livraison #528)
+
+Constaté en réel sur un Mac : `install-macos.sh --upgrade` (#522) réécrivait
+`agent.json` avec un identifiant, un secret et un central vides -- l'agent
+ne redémarrait plus (« champ 'agent_id' manquant »). Même défaut dans
+`windows/install.ps1 -Upgrade` (le commentaire promettait la conservation,
+le code écrasait). `install.sh` Linux était correct.
+
+- `install-macos.sh` : le bloc d'écriture de la configuration est sauté en
+  `--upgrade` (même garde que Linux) ; `windows/install.ps1` : idem
+  (`if (-not $Upgrade)`), les droits du dossier sont toujours réappliqués.
+- Agent **0.5.8** (ce sont les installeurs de l'archive qui portent le
+  correctif : un agent macOS/Windows déjà en 0.5.7 doit être mis à jour à
+  partir de la 0.5.8 ; ceux passés par l'auto-mise à jour 0.5.7 sur
+  macOS/Windows ont perdu leur configuration : les réenrôler avec « Nouveau
+  secret » depuis la fiche agent).
+
+Vérifié : `bash -n`, relecture du PowerShell. Non vérifié : passage réel
+`--upgrade` sur macOS et Windows (à faire avec la 0.5.8).
+
+## 2026-09-17 — Sonde « chemin de service » path-probe (livraison #527)
+
+Demandé après l'incident Wi-Fi du jour (DNS interne mort + VLAN absents
+des liaisons inter-switchs, puis un poste « sans Internet » alors que le
+réseau était validé) : « rendre ça durable côté supervision : bail + DNS
+relais + DNS public + HTTP réel par chaque SSID, toutes les minutes » --
+« JE VEUX !!!! ».
+
+- `si-agent/agent/plugins/path-probe/` (python stdlib, privilégiée, toutes
+  les minutes, désactivée par défaut) : par interface IPv4 du poste --
+  bail (adresse, serveur DHCP, passerelle et DNS reçus, âge / durée ;
+  statique signalé), ping de la passerelle, requête DNS brute (UDP/53,
+  sans `dig`) vers CHAQUE serveur distribué puis vers 8.8.8.8 / 1.1.1.1,
+  GET HTTP d'une page de test (portail captif : redirection ou contenu
+  inattendu) et HTTPS (certificat vérifié). Sockets liés à l'adresse de
+  l'interface ; interface sans route par défaut : table de routage
+  temporaire (`ip rule` / `ip route table`) posée puis retirée. Option
+  `--connections c1,c2` : rotation des connexions NetworkManager, un vrai
+  échange DHCP par SSID à tour de rôle. Constats : no-ip, conn-up-failed,
+  gw-unreachable / gw-loss / gw-slow, dns-none, dns-single,
+  dns-server-down (le scénario du jour : un DNS distribué muet parmi
+  d'autres), dns-all-down, dns-slow, dns-public-down, http-/https-failed,
+  captive-portal, http-/https-slow.
+- Hub : section « Chemin de service vu du poste » de la fiche agent
+  (`PathProbeSection.jsx`, `pathLib.js`) -- tableau par chemin, constats,
+  historique par chemin avec pires valeurs et comptes d'échecs.
+- Agent **0.5.7** (nouvelle sonde livrée dans l'archive → auto-mise à
+  jour) ; README agent ; backlog item 78.
+
+Vérifié : 11 tests Python (analyseurs nmcli/ping, requête et réponse DNS
+brutes, constats, rotation), 220 tests Node, syntaxe JSX. Non vérifié :
+passage réel sur le poste du campus (la VM de travail n'a pas d'interface
+IPv4) -- à activer sur le mini PC avec `--connections <conn-ssid-1>,<conn-ssid-2>`.
+
+## 2026-09-17 — Sonde wifi-probe v2 après premier retour terrain (livraison #526)
+
+Première mesure réelle (poste sur le LAN d'un campus, borne Zyxel, pilote
+mt76) : trois valeurs fausses ou vides, corrigées.
+
+- Passerelle : le Wi-Fi n'ayant pas de route par défaut (voulu), le repli
+  prenait `.1` du 3e octet -- faux sur un /23. Désormais option DHCP
+  `routers` (NetworkManager), sinon adresse réseau + 1.
+- Débit négocié / retransmissions : au repos le pilote annonce 6 Mbit/s et
+  quelques trames ; le ping est lancé AVANT la lecture du lien et de la
+  station, et l'alerte « débit bas » exige un échantillon (≥ 50 trames).
+- Co-canal compté par borne (radio : 5 premiers octets du BSSID) et non par
+  SSID -- 22 BSS sur un canal = 10 bornes ; les SSID de notre propre borne ne
+  comptent pas. `co_channel_radios`, `co_channel_bss`.
+- Balises sans élément BSS Load (Zyxel) : ligne « notre borne » masquée au
+  lieu de « ? stations ». Survey à zéro (pilote sans relevé) : mention
+  explicite, temps d'antenne du poste (`tx/rx duration`) affiché en
+  complément.
+- Agent **0.5.6**.
+
+Vérifié : 12 tests Python, 217 tests Node, syntaxe JSX. Non vérifié :
+occupation du canal sur ce pilote (compteurs à zéro : à confirmer avec
+`iw survey dump` après un scan).
+
+## 2026-09-16 — Sonde Wi-Fi « expérience client » wifi-probe (livraison #525)
+
+Demandé : « comment observer le réseau Wi-Fi et reconnaître les lenteurs de
+transmission » (plainte récurrente : lenteur du cast Wi-Fi sur les écrans
+d'un amphi) -- « on active le module de l'agent wifi et on observe ».
+
+- `si-agent/agent/plugins/wifi-probe/` (v1, python stdlib, privilégiée,
+  toutes les minutes, désactivée par défaut) : le poste est associé comme un
+  utilisateur au SSID observé, sans route par défaut. Mesures : lien (borne,
+  canal/bande, RSSI, débits négociés, retransmissions et échecs sur le delta
+  du passage précédent, réassociation détectée), occupation du canal
+  (survey : occupé / émission / réception / autres, delta si compteurs
+  cumulés), voisinage (bornes par canal, co-canal, autres bornes du même
+  SSID, *BSS Load* : stations et utilisation annoncées par la borne),
+  chemin (ping vers la passerelle du Wi-Fi : latence, gigue, pertes),
+  flux UDP type cast optionnel (`iperf3 -u -b 20M`, argument `--iperf`).
+  Constats : non associé, RSSI, retransmissions, canal saturé, débit bas,
+  gigue, pertes, borne chargée, 2,4 GHz, co-canal ; seuils surchargeables.
+  Passerelle détectée (route de l'interface, puis NetworkManager, puis .1).
+- Hub : section « Wi-Fi vu du poste » dans la fiche agent
+  (`WifiProbeSection.jsx`, `wifiLib.js`) -- dernière mesure, constats,
+  historique des passages (pires valeurs, bornes utilisées, « plus
+  d'historique »).
+- Agent **0.5.5** ; README (famille *explorer*).
+
+Vérifié : 10 tests Python (analyseurs iw link / station / survey / scan,
+ping, iperf3, constats), 217 tests Node, syntaxe JSX. Non vérifié : sur le
+poste réel (formats `iw` du pilote, scan en root, rendu navigateur) --
+prochaine étape : associer le mini PC au SSID (bail DHCP à régler dans
+Nebula) puis activer la sonde depuis la fiche agent.
+
+## 2026-09-16 — Agent : détection Proxmox à l'installation, redémarrage systématique (livraison #524)
+
+Demandé : « pour l'installation de l'agent Proxmox, ajouter automatiquement
+`--enable-plugin proxmox --plugins-user root` … ou en le détectant ».
+
+- `si-agent/agent/install.sh` : sur un hôte Proxmox VE (`/etc/pve` présent
+  et `pvesh` disponible) le plugin `proxmox` est activé et les sondes
+  s'exécutent en root (`pvesh`/`qm`/`zpool` l'exigent), avec message
+  explicite ; `--plugins-user` explicite l'emporte, `--no-detect` désactive
+  la détection ; rien ne change sur un autre hôte (`nobody`, aucun plugin).
+  La ligne copiée depuis le hub suffit donc telle quelle.
+- Correctif révélé par l'installation sur deux hyperviseurs : `systemctl
+  enable --now` ne redémarre pas un service déjà lancé, si bien qu'une
+  réinstallation laissait tourner l'ancien process avec l'ancienne
+  configuration (agent démarré sous un autre identifiant, TLS « unable to
+  get local issuer » jusqu'au `systemctl restart`). Le service est
+  désormais toujours redémarré en fin d'installation. Avertissement « HTTP
+  clair » supprimé en `--upgrade` (central non fourni).
+- Agent **0.5.4** (archive reconstruite par le central : premier vrai test
+  de l'auto-mise à jour #522 -- bêta sur un agent, puis activation).
+
+Vérifié : `bash -n`, scénarios d'installation avec `systemctl`/`pvesh`
+simulés (hôte normal, Proxmox détecté, `--plugins-user` explicite,
+`--no-detect`, `--upgrade`). Non vérifié : sur un vrai hôte Proxmox.
+
+## 2026-09-16 — Infos synthèse SI : DNS, IP OVH, IPAM, services, recoupés et interactifs (livraison #523)
+
+Demandé : « présenter la synthèse (DNS + IPAM) dans une page “infos
+synthèse SI” de la tuile documentation, interactive pour accéder aux
+équipements, outils et autres ; maintien automatique ; liens vers ipam, la
+gestion des IP OVH, les zones DNS, Online ».
+
+- `synthese/generate.py` : lit les exports déposés dans `synthese/data/`
+  (HORS dépôt : données réelles ; `synthese/data.example/` = jeu fictif)
+  -- classeur xlsx (une feuille par source) ou csv/txt, sources reconnues
+  par leur contenu (dump de zone BIND avec hébergeur déduit OVH/Online,
+  blocs d'IP OVH, services OVH avec échéances, sous-réseaux IPAM,
+  équipements IPAM) -- et écrit `synthese/generated/synthese.json` avec un
+  INDEX par adresse recoupant DNS ↔ OVH ↔ IPAM ↔ équipements. Liens
+  (IPAM réel dans `data/links.json`, gabarits OVH/Online par défaut).
+  3 tests sur le jeu fictif ; parsing vérifié sur le classeur réel
+  (2 zones, 137 enregistrements, 19 IP, 21 services, 1 sous-réseau,
+  2 équipements, 46 adresses recoupées -- rien de réel dans le dépôt).
+- prefs-api `GET /synthese` (fichier lu tel quel), `scripts/synthese-si.sh`
+  (cron), `.gitignore` : `synthese/data/`, `synthese/generated/`.
+- Hub : vue « Infos synthèse SI » (Documents & ENT, donc aussi dans le
+  catalogue de disposition #516) -- recherche transversale, clic sur une IP
+  = « à quoi sert-elle ? » (noms DNS, bloc et service OVH, hôte IPAM,
+  équipement), sections repliables (IP OVH et services rattachés, zones
+  DNS par hébergeur, sous-réseaux IPAM, équipements, échéances OVH avec
+  alerte à 60 jours, sources), liens IPAM / IP OVH / zone OVH ou Online /
+  services OVH / console Online, boutons vers Équipements réseau et
+  Exploration du hub. `syntheseLib.js` (3 tests Node), CSS `.sy-*`.
+
+Vérifié : tests (Python 3, Node 214/214), syntaxe. Non vérifié : rendu
+navigateur, URL de recherche phpipam (gabarit `ipam_search` ajustable).
+
+## 2026-09-16 — agents : auto-mise à jour à déploiement contrôlé (livraison #522)
+
+Demandé : « que les agents soient en mesure de s'auto mettre à jour, que
+dans le front on voie l'état des mises à jour, avec un contrôle sur le
+déploiement : un premier qui bêta-teste, puis activation volontaire de
+l'administrateur ; auto-installation mais déploiement contrôlé depuis le
+central ».
+
+- Central : `si-agent/api/updates.py` (logique pure, 3 tests) -- réglages
+  `beta_agents` / `general_enabled` / `auto` / `retry_after_s`, statut par
+  agent (up-to-date, pending, started, failed, eligible, not-eligible…) ;
+  routes `GET/PUT /updates`, `POST /updates/apply` ; commande `update`
+  créée pour les agents éligibles (automatiquement à leur inventaire,
+  ou par le bouton) ; événements `update-settings`, `update-scheduled`.
+  Version cible = archive construite dans l'image (#518) -- dont le
+  branchement dans `app.py` et le `Dockerfile`, non écrits à l'époque,
+  sont rétablis ici (`/package`, `/package/info`, statut, fiche).
+- Agent 0.5.3 : `si_agent/updater.py` (3 tests) -- téléchargement par le
+  TLS habituel (`HttpClient.get_raw`), SHA-256 vérifié, extraction sûre,
+  installeur `--upgrade` détaché (`systemd-run` / nouvelle session /
+  processus détaché), marqueur puis événement `agent-updated` ou
+  `agent-update-failed` au redémarrage. `install.sh`, `install-macos.sh`,
+  `windows/install.ps1` : mode `--upgrade` / `-Upgrade` (configuration,
+  secret, CA et sondes conservés).
+- Tuile Agents hôtes : onglet « Mises à jour » (version servie, état par
+  agent, cases bêta, activation générale avec confirmation, auto,
+  « Appliquer maintenant », mise à jour unitaire).
+
+Vérifié : tests unitaires (agent et central), tests d'intégration Flask
+(12/12) et enchaînement réel des routes sur une base de test (réglages
+→ commande `update` créée → fiche et archive servies), syntaxe JSX, bash.
+Non vérifié : mise à jour de bout en bout sur un hôte réel (à faire sur
+le PC bêta), redémarrage détaché macOS / Windows.
+
+## 2026-09-16 — agent : CA interne sans keyUsage acceptée par Python 3.13 (livraison #521)
+
+Constaté sur le premier poste d'un site client (Linux, Python 3.13) :
+`CERTIFICATE_VERIFY_FAILED … CA cert does not include key usage
+extension` -- la CA interne d'origine (#495) n'a pas d'extension
+`keyUsage` et OpenSSL 3 en mode strict la refuse (même défaut que sur
+macOS). Quand l'agent utilise sa CA ÉPINGLÉE (jamais le magasin
+système), il relâche `VERIFY_X509_STRICT` : l'épinglage par empreinte
+fait déjà foi. Agent 0.5.2. Vérifié en réel : l'agent est apparu en
+ligne dans la tuile. La bascule de CA (#496) reste la correction de fond.
+
+## 2026-09-16 — agents : contrôle et alertes antivirus Windows / macOS (livraison #520)
+
+Demande SAV : « un contrôle / alerte sur les antivirus des Windows et des
+Mac ». Nouveau module `si_agent/antivirus.py` (forme commune aux deux
+plateformes, logique pure, 6 tests) ; Windows : Centre de sécurité
+(`root/SecurityCenter2`, tout antivirus enregistré, état codé décodé,
+Defender conservé), macOS : produits reconnus par fichiers + démons
+(Bitdefender, Microsoft Defender, Sophos, ESET, Kaspersky, Avast,
+Malwarebytes, SentinelOne, CrowdStrike, ClamAV) et protections système
+(XProtect, Gatekeeper, SIP). Risques : aucun antivirus (warning),
+désactivé (critical), définitions périmées (warning), Gatekeeper/SIP
+désactivés (warning), XProtect > 60 j (info) ; jamais « aucun
+antivirus » quand la collecte a échoué. Tuile Agents hôtes : ligne
+« Antivirus » dans la section Système. Agent 0.5.1 (archive servie par
+le central, #518). Vérifié : 59 tests agent, syntaxe JSX. Non vérifié :
+Centre de sécurité et produits réels sur vos postes -- la première
+mesure d'un Windows avec GravityZone dira si le décodage de
+`productState` est juste (sinon « état inconnu », jamais une fausse
+alerte).
+
+## 2026-09-16 — agent Proxmox : santé de l'hyperviseur (livraison #519)
+
+Demandé après un Proxmox « à genoux », IO dans le rouge, redémarrage
+comme seule issue : mesurer sur l'hôte ce qui l'étouffe et nommer la VM
+responsable (backlog item 72, objectifs du 16 sept.).
+
+- Plugin `proxmox` v4 (`si-agent/agent/plugins/proxmox/proxmox.py`),
+  section `host_health` de la mesure, sans dépendance (pas de sysstat) :
+  IO par disque physique ET par zvol -- donc par VM -- depuis
+  `/proc/diskstats` échantillonné deux fois (2 s : r/s, w/s, Kio/s,
+  % d'occupation, attente moyenne), lien zvol → disque de VM par
+  `/dev/zvol`, VM les plus actives ; mémoire et swap de l'hôte
+  (`/proc/meminfo`) ; ARC ZFS (taille, plafond, taux de hit) ; pools
+  (état, remplissage, `zpool iostat`) ; pour chaque VM qemu (config lue
+  pour toutes, plus seulement celles en marche) : ballooning et options
+  des disques (cache, discard, iothread, contrôleur).
+- Alertes : swap utilisé, pool > 80 % / > 90 %, pool non ONLINE, disque
+  saturé (≥ 85 % ou attente ≥ 50 ms) avec la VM propriétaire du zvol,
+  VM la plus écrivante à cet instant. Recommandations (affichées, jamais
+  appliquées) : relever `zfs_arc_max` si l'ARC est au plafond avec de la
+  mémoire libre, `balloon: 0` sur les VM ≥ 8 Go, `cache=none`,
+  `discard=on`, `iothread=1`.
+- Tuile Proxmox : bloc « Santé de l'hyperviseur » par nœud (alertes,
+  mémoire/swap/ARC, pools avec IO, disques les plus occupés avec la VM,
+  VM les plus actives, réglages à examiner repliés) ;
+  `proxmoxLib.hostHealthSummary`.
+- Tests : 6 cas Python (meminfo/arc, diskstats et débits, zvols, zpool
+  iostat, options des disques, collecte avec alertes et
+  recommandations, collecte sans ZFS) -- 22/22 ; Node 211/211.
+
+Vérifié : tests, syntaxe JSX. Non vérifié : formats réels de vos deux
+hôtes (zpool iostat -H -p, arcstats) et rendu de la tuile ; le plugin
+v4 est poussé aux agents par le catalogue de sondes (signature HMAC).
+
+## 2026-09-16 — agents : archive de déploiement servie par le central, lien de téléchargement (livraison #518)
+
+Demandé : « ajouter un lien de téléchargement pour le transfert du paquet
+sur l'hôte de l'agent ». L'archive `si-agent-agent-<version>.tar.gz`
+(sans secret) est construite dans l'image de si-agent-api
+(`make-archive.sh` au build) et servie par `GET /package` ;
+`/package/info` et `/status` donnent nom, version, taille et SHA-256.
+La fiche d'un agent (« Commande d'installation ») montre désormais
+1. le lien de téléchargement et la ligne à coller sur l'hôte
+(`curl -k … && sha256sum -c && tar xzf … && cd …`, l'empreinte affichée
+fait foi puisque le certificat est interne), 2. la commande
+d'installation. `si-agent/api/package.py` (logique pure, 3 tests).
+Vérifié : tests, syntaxe ; non vérifié : construction de l'image et
+téléchargement réels.
+
+## 2026-09-16 — agents hôtes en mode autonome, aiguillage sur super (livraison #517)
+
+Demandé : « le hub même allégé met à genoux le Proxmox et la VM super ;
+déployer la gestion des agents en mode indépendant mais compatible
+(liste des agents, données remontées), un bouchon à la place de
+Keycloak, authentification locale / mode dégradé ; les IP et le NAT ne
+bougent pas : un proxy sur super aiguille vers une VM d'un autre
+Proxmox ».
+
+- `si-agent/standalone/docker-compose.yml` (projet `si-agent-standalone`,
+  VM légère) : `si-agent-api` (même image, même dossier de données
+  `SI_AGENT_DATA_DIR`, même CA), `memcached` 64 Mo, `front` nginx :
+  interface « Agents hôtes » = la tuile du hub (`hub/src/SiAgentView.jsx`
+  importée telle quelle, jamais copiée) construite en STATIQUE par Vite
+  au build de l'image (`Dockerfile.front`, pas de serveur de
+  développement à l'exécution), servie sous `/agents/` ; auth basique
+  locale (`SI_STANDALONE_USER` / `SI_STANDALONE_PASSWORD`, htpasswd
+  généré par `run.sh`) sur l'interface et les routes de gestion ; routes
+  des agents (`/api/si-agent/api/v1/…`, `/ca`, `/health`) sans auth
+  basique -- signature HMAC comme aujourd'hui, préfixe retiré comme le
+  fait tls-proxy.
+- `si-agent/standalone/edge/` (projet `si-agent-edge`, sur super) : un
+  nginx seul sur le port de la passerelle avec le certificat `pki/server`,
+  qui renvoie tout vers `SI_STANDALONE_UPSTREAM` (ip:port du front) --
+  les agents gardent `https://<super>:6443/api/si-agent/…` et la même
+  CA épinglée. Refuse de démarrer si tls-proxy tient déjà le port.
+- `run.sh up|down|ps|logs…` / `run.sh edge …` : lit le `.env` de la
+  racine clé par clé, rend absolus `PKI_DIR` et `SI_AGENT_DATA_DIR`.
+- Retour au hub : `edge down`, `down`, puis mode réparti #513 (cohorte
+  `agents` sur cette VM) -- mêmes données, rien à migrer.
+- `.env.example` : `SI_STANDALONE_USER`, `SI_STANDALONE_PASSWORD`,
+  `SI_STANDALONE_HTTP_PORT=6480`, `SI_STANDALONE_UPSTREAM`.
+- Tests : `si-agent/standalone/tests/test_standalone.py` (5 : templates
+  rendus sans variable oubliée, régimes d'auth, compose, run.sh).
+
+Vérifié : tests, build Vite de l'interface autonome (217 Ko JS + CSS,
+chemins `/agents/assets/…`). Non vérifié : images Docker et nginx en
+réel, auth basique dans le navigateur, agents à travers l'aiguillage.
+
+## 2026-09-16 — disposition du hub en arborescence, glisser-déposer (livraison #516)
+
+Demandé : « paramétrer totalement la position des tuiles, des menus, des
+outils sous forme d'arborescence JSON, en glisser-déposer, avec une
+racine hub ; n'importe quel outil/tuile/menu/option peut aller n'importe
+où et plusieurs fois pour des regroupements de contexte ».
+
+- `hub/src/hubTree.js` (logique pure) : catalogue des feuilles
+  disponibles (vues internes, fronts externes, actions du hub, liens
+  externes automatiques -- mêmes conditions d'URL et de rôle que les
+  tuiles) ; arbre `{ version, root }` de groupes et de références
+  (une référence = un pointeur vers une feuille, réutilisable à volonté) ;
+  arbre par défaut généré depuis `hubThemes.js` (identique à l'accueil
+  #457) ; résolution défensive (feuille absente omise, groupe vide
+  supprimé) ; opérations immuables (insérer, déplacer, dupliquer,
+  renommer, retirer) ; import/export JSON normalisé.
+- `App.jsx` : l'en-tête et l'accueil par thématiques se construisent
+  depuis l'arbre résolu -- un groupe de premier niveau = un menu
+  déroulant et une super-tuile (sous-groupes = sections du menu, outils
+  en onglets), une feuille de premier niveau = un bouton et une tuile
+  seule. Ordre de résolution : arbre personnel (préférences, clé
+  `hubTree`) > arbre du site (app-settings `hub`, administrateur) >
+  défaut. Les liens externes des administrateurs arrivent par la feuille
+  `auto:external-links`.
+- `HubTreeView.jsx` (Paramètres → « Disposition du hub ») : arbre à
+  gauche, catalogue à droite ; glisser une feuille du catalogue l'ajoute
+  (autant de fois que voulu), glisser un nœud le déplace (Alt : duplique) ;
+  haut d'une ligne = avant, corps d'un groupe = dedans ; nouveau groupe,
+  icône, renommage (double-clic), duplication, retrait ; JSON visible,
+  copiable, appliquable ; « Enregistrer pour moi », « pour tout le monde »
+  (admin), « Charger le défaut / l'arbre du site », « Revenir au défaut »,
+  « Retirer l'arbre du site ».
+- `settingsClient.js` : `fetchHubTree` / `saveHubTree` (blob
+  /preferences, fusion superficielle côté prefs-api, aucun changement
+  de schéma). `hub.css` : styles `.hub-tree*`, `.hub-nav-section*`.
+- Tests : `hub/tests/hubTree.test.mjs` (8) -- catalogue, défaut,
+  résolution, feuille référencée plusieurs fois, sous-groupes, édition et
+  garde-fous, import défensif ; suite complète 210/210.
+
+Vérifié : tests Node, syntaxe JSX. Non vérifié : rendu et glisser-déposer
+dans le navigateur (à essayer sur super après reconstruction du hub).
+
+## 2026-09-16 — si-agent-api : « database is locked » (livraison #515)
+
+Constaté sur super : après 29 h de marche, toutes les routes de
+si-agent-api répondaient `sqlite3.OperationalError: database is locked`
+(tuile Agents hôtes en 500, agents « hors ligne » alors qu'ils
+déposaient). `store.py` : connexions avec `timeout=30` (au lieu de 5 s)
+et journal WAL activé à l'initialisation du schéma (les lectures ne
+bloquent plus sur une écriture en cours). Vérifié : schéma créé en WAL,
+`list_agents` sur base neuve. Non vérifié : reproduction de la
+contention réelle (à observer sur super après reconstruction) ; en
+attendant, `./scripts/run.sh restart si-agent-api` libère le verrou.
+
+## 2026-09-16 — installeur : marqueur de construction lié à la version (livraison #514)
+
+Constaté sur super : après passage des sources en #513, le hub restait
+en #512 -- `deploy/generated/install.done` marquait l'image comme
+construite. Le marqueur devient `install.done.<DELIVERY_NUMBER>` : chaque
+livraison reconstruit ce qui a changé (cache Docker pour le reste).
+Vérifié : syntaxe bash. Non vérifié : lancement réel.
+
+## 2026-09-16 — répartition par nœud : Swarm retiré, agent de nœud, migration compose (livraison #513)
+
+Demandé : « un mécanisme de migration géré par un module indépendant sur
+chaque nœud », « répartition contrôlée et modulaire avec migration sans
+perte de données ». Avant le premier test Swarm sur super, relecture du
+profil `super` : volumes nommés recréés vides sous le préfixe `si_`
+(Keycloak, bases PostgreSQL), bind mounts relatifs résolus par rapport à
+`deploy/generated/`, réseau `supervision-si-net` bridge (run.sh) contre
+overlay (Swarm), passerelle lancée en compose puis dans la pile. Swarm
+n'apportait rien d'utilisé : retiré (`swarm-init.sh`, `build-push.sh`,
+`deploy.sh`, `migrate.sh`, registre, `SI_REGISTRY`/`SI_TAG`).
+
+- `deploy/cohorts.py override <nœud>` : override compose du nœud
+  (`deploy/generated/node.override.yml`, ajouté automatiquement par
+  `scripts/run.sh`) — services locaux publiés sur l'adresse VPN (port
+  stable par service), un relais `relay-<service>` (socat, alias DNS =
+  nom du service) par service distant utilisé ici ; ports internes
+  déduits de la table tls-proxy, des URL, de `*_HOST/*_PORT`, d'`expose`
+  et de l'image ; `gateway.override.yml` publie Keycloak sur le VPN pour
+  la bordure OVH ; `cohorts.py node <nœud>` liste les services du nœud.
+- `deploy/node_agent.py` (bibliothèque standard, service systemd
+  `si-node-agent`, écoute sur le VPN, jeton `SI_NODE_TOKEN`) : `status`,
+  `apply` (nodes.json → override → `compose up -d --no-deps` locaux +
+  relais, arrêt de ce qui n'est plus affecté, réseau hôte à part),
+  `stop`, `export`/`import` d'une cohorte (bind mounts + volumes nommés
+  en tar, chemins et volumes contrôlés).
+- `deploy/repartition.py` (manager) : `status`, `plan`, `apply`,
+  `migrate <cohorte> <nœud>` (zone, isolation, `core` protégé ; arrêt
+  source → copie par les agents → nodes.json → apply partout ; retour
+  arrière si la copie échoue).
+- `scripts/install.sh` : profil `node` (alias super/lan/ovh-hub/ovh) —
+  override, passerelle si `core` (tls-proxy seul sur une bordure),
+  images des services locaux par lots, agent systemd, `apply`, état ;
+  `SI_NODE_TOKEN` généré s'il manque. `.env.example` : `SI_NODE_TOKEN`,
+  `SI_NODE_PORT=6460`.
+- `deploy/README.md` réécrit ; `deploy/tests/test_deploy.py` (12 tests :
+  dépendances, ports, override manager/worker/bordure, cohorte non
+  affectée, données d'une cohorte, import refusant chemins sortants et
+  volumes inattendus, `.env` non sourçable).
+
+Vérifié : tests unitaires (12/12), `cohorts.py check` et `override` sur
+les quatre nœuds de l'exemple, syntaxe bash des scripts. Non vérifié :
+exécution réelle (agent, relais socat, migration) — premier test prévu
+sur super seul en profil `node`, puis une VM LAN.
+
+## 2026-09-16 — installeur : lecture du `.env` clé par clé (livraison #512)
+
+Constaté au premier lancement réel sur super : `./.env: ligne 298 :
+organizationalPerson : commande introuvable` — le `.env` n'est pas
+sourçable par bash (valeurs avec espaces non citées, déjà connu de
+`run.sh`). `install.sh`, `deploy.sh` et `build-push.sh` lisent désormais
+le fichier clé par clé (`load_env`, guillemets retirés). Vérifié sur un
+`.env` de test ; à relancer sur super.
+
+## 2026-09-15 — installeur interactif : light / super / secondaire LAN / hub OVH / secondaire OVH (livraison #511)
+
+Demandé : « le déploiement ne se termine jamais bien ; un installeur
+interactif permettant au choix un standalone light (dernières
+évolutions et dépendances), la VM super selon le découpage, une VM
+secondaire LAN, une VM hub OVH, une VM secondaire OVH ».
+
+- `scripts/install.sh` : menu ou fichier de réponses, cinq profils,
+  noyau commun (prérequis, `.env`, passerelle) et **construction par
+  lots avec reprise** (`--resume`, journal `deploy/generated/install.*`),
+  isolement du service dont la construction échoue.
+- `deploy/cohorts.py services <cohortes>` : liste des services d'un
+  jeu de cohortes avec la fermeture de leurs dépendances (compose
+  principal / passerelle séparés, host network exclu) — base du light.
+- Vérifié : logique de lots et de reprise sur un faux `docker`
+  (échec d'un lot → retente service par service → arrêt sur le fautif
+  → relance qui saute les 4 déjà construits), `services` sur le dépôt
+  réel (light par défaut : 36 services), syntaxe. Non vérifié : aucune
+  exécution réelle (Docker absent ici) — commencer par `light` sur super.
+
+## 2026-09-15 — bordure : tls-proxy sur super et jumeau OVH (livraison #510)
+
+Décision : « le proxy hub reste sur super et peut avoir un jumeau sur une
+VM OVH (DNS et NAT obligent) ». `tls-proxy` devient un service de bordure
+(`edge_services`, mode global sur les nœuds `si.edge=true` : super et
+vm-ovh), mêmes backends par l'overlay ; labels posés par `swarm-init.sh`
+(`edge` dans `nodes.json`) ; procédure certificats/frontal public dans
+`deploy/README.md`. Vérifié : stack régénérée (mode global). Non vérifié
+sur VM.
+
+## 2026-09-15 — déploiement réparti : cohortes, Swarm sur VPN WireGuard, migration (livraison #509)
+
+Demandé : « la charge devient trop importante sur la VM hôte du hub :
+revoir l'architecture, répartir les conteneurs sur plusieurs hôtes (deux
+Proxmox locaux, un Proxmox OVH, VPN inter-Proxmox), un gestionnaire de
+répartition/migration qui déploie une tuile et sa cohorte sur un nouvel
+hôte en respectant isolation et dépendances ». Premier incrément
+testable, choix documentés dans `deploy/README.md`.
+
+- `deploy/cohorts.json` : 8 cohortes couvrant les 73 services (core sur
+  le manager, supervision, tickets, externes, donnees, reseau, agents,
+  coffre isolée) ; `deploy/cohorts.py` : cartographie (dépendances
+  déduites, volumes, host network), contrôle, génération de la pile
+  Swarm (placement par label `si.cohort.<n>`, zone local/ovh, registre
+  privé, ports en mode host, `network-agent-api` hors Swarm).
+- VPN WireGuard maillé entre les VM (endpoint public pour OVH, NAT sur
+  site), support des réseaux de contrôle et de données Swarm chiffrés :
+  `deploy/wg-mesh.sh`, `deploy/nodes.example.json`.
+- `swarm-init.sh`, `build-push.sh` (registre + images), `deploy.sh`,
+  `migrate.sh <cohorte> <nœud>` (arrêt, copie des données par le VPN,
+  label, redéploiement). `.env.example` : `SI_REGISTRY`, `SI_TAG`.
+- Vérifié : `cohorts.py check/stack/report` sur le dépôt réel ;
+  syntaxe des scripts. Non vérifié : aucune VM ni Swarm ici — à tester
+  sur une première VM avant d'y mettre des données.
+
+## 2026-09-15 — équipements Cisco : supervision, sauvegarde/restauration des configurations, gestes d'urgence (livraison #508)
+
+Demandé : « compléter les outils de contrôle de routeur/switch par un
+module Cisco intégrant a minima C3750, C3064PQ, c2970 ; superviser
+(disponibilité, état, charge, alertes, log), sauvegarder / restaurer les
+configurations, agir en cas d'urgence ». Nouveau module `cisco/`
+(`cisco-api`, page sous `/cisco/`, tuile « Équipements Cisco » de la
+thématique Réseau, réservée admin/technicien). Voir `cisco/README.md`.
+
+- **Supervision** par SSH (IOS 12.x et NX-OS, canal interactif, enable
+  automatique) : version/modèle/série/uptime, CPU, mémoire, capteurs,
+  interfaces (`show interfaces status`), journal (`show logging`
+  décodé) ; alertes dérivées (CPU/mémoire, capteur en défaut, port
+  err-disabled, messages de sévérité ≤ 3) ; joignabilité mémorisée.
+- **Configurations** : `show running-config` archivé et versionné
+  (dédupliqué hors lignes volatiles), sauvegarde automatique
+  périodique, différences entre versions et avec la courante,
+  **restauration par fusion** avec aperçu obligatoire (lignes envoyées,
+  et ce que la fusion ne retire pas), sauvegarde préalable, `write
+  memory`.
+- **Urgence** : shutdown / no shutdown d'un port, write memory,
+  redémarrage différé annulable (jamais immédiat), commande `show`
+  contrôlée ; confirmation par le nom du switch, journal des gestes.
+- Registre `cisco/switches.json` sans secret ; identifiants par le coffre
+  des accès (genre ssh, `enable_credential` optionnel).
+- Hub : tuile (`lib.js`, `App.jsx`, `hubThemes.js`, `VITE_CISCO_URL`),
+  compose `cisco-api` (un worker), tls-proxy `/cisco/`, `.env.example`
+  (`CISCO_*`), `ENV_CHANGELOG.md`.
+- Vérifié : 9 tests (parseurs sur sorties représentatives 3750 / 2970 /
+  Nexus 3064, canal SSH simulé, API complète avec fausse session).
+- Non vérifié : **aucun équipement réel** (formats `show`, invite,
+  algorithmes SSH des IOS anciens), rendu de la page. Sur super :
+  `sync-env.py`, `--build cisco-api hub tls-proxy`, créer l'accès
+  `cisco` (genre ssh) dans la tuile Accès d'équipements, renseigner
+  `cisco/switches.json`.
+
+## 2026-09-14 — coffre-fort : affichage « tableur », le même design que les demandes de SAV, par défaut (livraison #507)
+
+Demandé : « as-tu simplifié la page du coffre-fort dans le même design
+que les demandes de SAV ? » puis « oui fais-le ». Le mode simple
+(#501/#502) avait le principe (colonne centrale seule, tableau, sans
+icône) mais pas l'apparence des pages de demandes (#500).
+
+- Troisième mode d'affichage **tableur**, nouveau défaut : la liste des
+  codes rendue comme la saisie en tableau des demandes — Calibri,
+  en-tête plein rouge en gras, lettres de colonnes A/B/C, numéros de
+  lignes, quadrillage, fond papier (mêmes valeurs CSS que
+  `projeqtor-bridge/static/tableau.html`). Clic sur la ligne = ouvrir le
+  code. `simple` et `complet` restent disponibles ; le bouton de
+  l'en-tête fait le tour des trois, choix mémorisé par navigateur,
+  `VAULT_UI_MODE=tableur|simple|complet` pour le défaut d'installation
+  (`.env.example` et compose passés à `tableur`).
+- Exception assumée à la règle « jamais de couleur en dur » : le bloc
+  `.vault-sheet*` reproduit une feuille de tableur, identique en thème
+  clair et sombre, comme les pages publiques qu'il imite.
+- Fichiers : `vault/portal/src/{uiMode.js,App.jsx,VaultSearchScreen.jsx,vault.css}`,
+  `vault/portal/tests/uiMode.test.mjs`, `vault/README.md`,
+  `docker-compose.yml`, `.env.example`.
+- Vérifié : 3 tests Node (défaut, mémorisation, cycle des modes),
+  analyse syntaxique des composants.
+- Non vérifié : rendu réel (`npm run build` hors de portée du shell) —
+  à regarder demain avec la version déployée ; `--build vault-portal`
+  nécessaire, et `VAULT_UI_MODE=tableur` dans le `.env` de super
+  (sinon le défaut reste ce qui y est écrit).
+
+## 2026-09-14 — équipements réseau : identification (constructeur, modèle, génération), import Zenoss, profils de supervision SNMP (livraison #506)
+
+Demandé explicitement : « dans l'exploration réseau, identifier côté
+LAN la marque et le modèle d'un routeur sachant que les routeurs récents
+sont les MikroTik et que les autres, s'il en reste, datent de l'origine
+de la boucle locale fibre (~25 ans) ; à partir de la base Zenoss / SNMP
+récupérer ces infos et celles des switchs/équipements niveau 2 ; préparer
+des interfaces de supervision génériques Cisco, HP… ». Choix retenus :
+socle complet, et pour Zenoss « les deux » formats (script zendmd +
+CSV). Nouvelle facette de l'exploration, entrée « Équipements réseau »
+de la thématique Réseau. Voir `network-equipment/README.md`.
+
+- **Nouveau service `network-equipment-api`** (`/api/network-equipment/`) :
+  une fiche par équipement rapprochée par MAC → IP → nom, preuves
+  conservées et identification RECALCULÉE à chaque nouvelle preuve
+  (`identify.merge`, logique pure) : constructeur, modèle, système et
+  version, numéro de série, genre (routeur / switch / pare-feu / point
+  d'accès / hôte / hyperviseur / imprimante / onduleur / stockage),
+  **génération** (récent / ancien avec la raison : famille Cisco
+  d'avant 2005, IOS 11-12, CatOS, ProCurve à révision à une lettre,
+  BayStack, SuperStack…, contre RouterOS / IOS 15+ / Aruba), confiance,
+  sources. Le choix manuel a le dernier mot.
+- **Sources** : exploration réseau (MAC → constructeur par OUI —
+  amorce embarquée de ~400 préfixes avec catégorie réseau /
+  virtualisation / hôte, registre IEEE `oui.csv` chargeable depuis la
+  tuile —, rôle observé, services) ; **SNMP via snmp-api** (sysDescr /
+  sysObjectID parsés pour Cisco IOS et CatOS, MikroTik, HP ProCurve /
+  Aruba / Comware, 3Com, Nortel, Alcatel, Juniper, Netgear, D-Link,
+  Zyxel, Ubiquiti, Fortinet, APC, imprimantes, Linux / Windows ;
+  ENTITY-MIB pour le modèle exact et la série ; voisins **LLDP** et
+  **CDP** ; **table des adresses MAC** BRIDGE/Q-BRIDGE avec noms de
+  ports) ; **Zenoss 2.5** (JSON du nouveau script
+  `connectors/zenoss_legacy/zendmd_export_devices.py` — Python 2.4,
+  lecture seule, communauté omise — ou CSV « Export » de la liste,
+  analyse avant import) ; manuel.
+- **Topologie** : voisins rapprochés des fiches, « appris sur le port X
+  du switch Y » pour chaque MAC connue, liens LLDP/CDP/ports d'accès
+  (`/topology`, onglet Topologie).
+- **Profils de supervision génériques** (`profiles.py`, données) :
+  Cisco IOS (CISCO-PROCESS + OLD-CISCO-CPU pour les IOS 11/12, pools
+  mémoire, ENVMON, CDP), Cisco CatOS, HP ProCurve/Aruba (CPU, mémoire,
+  capteurs), HP/H3C Comware, MikroTik (MIKROTIK-MIB + HOST-RESOURCES),
+  Juniper, hôte net-snmp, générique (IF-MIB, ENTITY, LLDP, table MAC) ;
+  relevé à la demande (`/equipment/<id>/poll`) avec synthèse CPU /
+  mémoire / température / alarmes et interfaces. Tous marqués **non
+  vérifiés** tant qu'un relevé réel ne les a pas confirmés.
+- **Accès SNMP sans secret** : nom d'un accès du coffre (#498, genre
+  snmp, mot de passe = communauté, révélé par jeton interne), cible
+  enregistrée de snmp-api, ou communauté ponctuelle jamais conservée.
+- **snmp-api** : nouvelle route `POST /walk` (sous-arbre borné,
+  GETBULK) ; **vrai bug corrigé** constaté contre un simulateur : cible
+  injoignable → `TypeError` interne de pysnmp (HTTP 500) au lieu d'un
+  502 — transports `retries=1`, filet dans `_run_async`.
+- **Hub** : vue `NetworkEquipmentView.jsx` (statut des sources, filtres,
+  tableau, fiche avec preuves / accès SNMP / relevé / voisins / table
+  MAC / correction manuelle / historique, import exploration et Zenoss
+  avec aperçu, registre OUI, identification en lot), `networkEquipment.js`
+  (pur), `networkEquipmentClient.js`, `.ne-*` dans `hub.css`, entrée dans
+  `hubThemes.js`, `VITE_NETWORK_EQUIPMENT_API_BASE_URL`.
+- Compose (`network-equipment-api`), tls-proxy, `.env.example`
+  (`NETWORK_EQUIPMENT_*`), `ENV_CHANGELOG.md`, `snmp/README.md`.
+- Vérifié : 35 tests Python du service (logique pure + API avec faux
+  snmp-api / exploration / coffre), 4 tests du WALK, **bout en bout réel
+  avec pysnmp 7.1 contre un simulateur SNMP (snmpsim) rejouant un
+  Catalyst 2950** (identification WS-C2950-24 / série / switch / ancien,
+  voisins CDP + LLDP, table MAC, relevé cisco-ios : CPU 12 %, mémoire
+  75 %, alarme alimentation, topologie), 8 tests Node du hub, esbuild.
+- Non vérifié : équipements réels (formats sysDescr d'après
+  documentation), rendu navigateur (`npm run build` hors de portée du
+  shell), `/walk-interfaces` sur le simulateur (IF-MIB compilée), script
+  zendmd (Python 2.4 non disponible ici) — à lancer sur le serveur
+  Zenoss avec le retour d'erreur éventuel.
+- Sur super : `python3 scripts/sync-env.py`, `up -d --build hub snmp-api
+  network-equipment-api tls-proxy`, créer un accès de genre `snmp` dans
+  la tuile « Accès d'équipements » (mot de passe = communauté), puis
+  « Importer l'exploration » et identifier les fiches cochées.
+
+## 2026-09-14 — accueil du hub : pages ouvertes sans connexion, en liste à plat (livraison #505)
+
+Demandé explicitement : « indiquer les liens externes sans
+authentification sur la page d'accueil du hub sous une autre forme que
+les tuiles ». Les tuiles sont des applications que l'utilisateur
+connecté ouvre ; ces pages-ci sont faites pour être TRANSMISES à des
+personnes qui ne se connectent jamais au hub (demandeurs) : ce qui
+compte est l'adresse, lisible et copiable.
+
+- Nouvelle section « Pages ouvertes — sans connexion » en bas de
+  l'accueil (les deux modes, thématiques et classique) : tableau nom /
+  description / adresse (monospace, sans le schéma) / Ouvrir / Copier
+  (presse-papier, repli `execCommand`, retour « Copié » 2 s). Aucune
+  icône, aucune couleur en dur.
+- Contenu déduit des variables déjà présentes, rien à configurer : la
+  racine publique `/demande/` (depuis `VITE_DEMANDE_URL`, qui vise
+  `/demande/admin`) avec ses trois présentations — formulaire classique,
+  saisie rapide (#500), saisie en tableau (#500) — et l'application
+  Supervision SI historique (`VITE_SUPERVISION_FRONTEND_URL`), ouverte
+  sans vérification. Variable absente = pas d'entrée ; aucune entrée =
+  section absente.
+- Fichiers : `hub/src/publicLinks.js` (logique pure : `demandeBase`,
+  `publicLinks`, `displayUrl`), `hub/src/PublicLinks.jsx`,
+  `hub/src/App.jsx` (constante `PUBLIC_LINKS`, insertion dans `<main>`),
+  `hub/src/hub.css` (`.hub-public-links*`), `hub/tests/publicLinks.test.mjs`.
+- Vérifié : 4 nouveaux tests Node (racine déduite de `/demande/admin`,
+  `/demande/admin/`, avec paramètres, déjà racine ; liste complète ;
+  rien sans variable), 194 tests hub au total, analyse syntaxique
+  (`@babel/parser`) de `App.jsx` / `PublicLinks.jsx`.
+- Non vérifié : rendu réel dans le navigateur (`npm run build` impossible
+  depuis ce shell), presse-papier sous HTTPS (API `clipboard` exigeant un
+  contexte sécurisé — repli prévu).
+- Signalé par la personne, en cours de diagnostic (logs demandés) :
+  tuile « Accès d'équipements » en 502 (nginx ne joint pas
+  `credentials-api`, service probablement jamais créé après le build
+  interrompu) et tuile « Agents hôtes » en 500 sur `/api/si-agent/status`.
+
+## 2026-09-14 — agent Proxmox v3 : disponibilité des VM, suivi des sauvegardes, accès et journaux internes (livraison #504)
+
+Demandé explicitement : « un agent proxmox permettant de superviser
+l'état / disponibilité des VM, un suivi des backup/snapshot, le log
+des accès VM (ssh, http/https) et la récupération des logs internes ».
+Prolonge le plugin `proxmox` (#487, #488) plutôt qu'un agent parallèle.
+
+- **Disponibilité** : `GET /proxmox/history` (central, échantillons du
+  plugin sur 7 j par défaut : taux « en marche », transitions) et
+  **événements** `vm-state` / `vm-new` / `vm-gone` à la réception de
+  chaque mesure (arrêt d'une VM en marche = avertissement, reprise =
+  info) — journal et notifications existants.
+- **Sauvegardes** : tâches vzdump (résultat, durée, utilisateur, par VM
+  ou job), jobs planifiés (`/cluster/backup`), OK / échecs 24 h par
+  hyperviseur, 5 dernières exécutions et série d'échecs par VM.
+- **Accès** : journal pveproxy (consoles, modifications, consultations,
+  utilisateurs, adresses par VM ; requêtes et 401 pour l'hôte), SSH de
+  l'hyperviseur, échecs d'authentification pvedaemon/pveproxy.
+- **Journaux internes** : sshd et accès web lus DANS chaque VM en marche
+  par qemu-guest-agent (`agent/exec`, borné 10 s) ou `pct exec` pour
+  les conteneurs — résumés + extraits bornés (16 Ko), tourniquet de
+  15 VM par passage, rien d'écrit dans l'invité, VM sans agent
+  signalée.
+- Tuile Proxmox : colonnes Dispo. 7 j / Sauvegarde / Accès 24 h, fiche
+  dépliée (transitions, exécutions, accès, journaux avec extraits),
+  bandeau d'hyperviseur (sauvegardes, accès, SSH). `proxmoxLib.js`.
+- Vérifié : 16 tests plugin (parseurs sur sorties représentatives,
+  exec invité borné, collecte complète contre faux pvesh/pct/journalctl,
+  pannes partielles listées), 12 tests API (dont disponibilité et
+  événements sur mesures successives), 190 tests Node hub, esbuild.
+  Non vérifié : hyperviseur réel (formats `pveproxy` et `tasks` de PVE 8
+  reproduits de mémoire — surveiller `warnings` au premier relevé),
+  durée réelle d'un passage avec journaux invités.
+
+## 2026-09-14 — agent Linux : stockage — volumes, partitions, systèmes de fichiers, ZFS (livraison #503)
+
+Demandé explicitement : « agent linux déjà existant à compléter sur la
+gestion de Z{volume/partition/fs} ».
+
+- **Section `storage` de la mesure `host`** (`si_agent/storage.py`) :
+  périphériques bloc (`lsblk`, arbre aplati avec parent), LVM (PV, VG,
+  LV, thin pools avec occupation), RAID logiciel (`/proc/mdstat`),
+  ZFS (pools : santé, capacité, fragmentation, erreurs par disque,
+  dernier scrub ; datasets et zvols : utilisé, disponible, quota,
+  compression ; snapshots agrégés par dataset). Chaque couche
+  facultative, jamais une erreur.
+- **Risques** (`risks.evaluate_storage`) : pool dégradé/en panne,
+  capacité ZFS ≥ 80/90 %, erreurs, scrub ancien, dataset proche du
+  quota, thin pool ≥ 85/95 %, md dégradé / en reconstruction — seuils
+  surchargeables.
+- Tuile Agents hôtes : section **Stockage** (pools, datasets/zvols,
+  LVM, RAID, blocs indentés) ; `storageSummary` dans `siAgent.js`.
+- Vérifié : `tests/test_storage.py` (9 tests : parseurs sur sorties
+  représentatives, collecte toutes couches / sans outil / outil en
+  panne, risques), suite agent complète (86 tests) ; tests Node hub ;
+  esbuild. Non vérifié : hôte Linux réel avec ZFS/LVM (à regarder sur
+  super, qui a du LVM, et sur un Proxmox pour ZFS).
+
+## 2026-09-14 — coffre-fort : l'affichage simple devient le défaut (livraison #502)
+
+Demandé explicitement : « inverse le design par défaut du coffre-fort ».
+Le mode *simple* (#501) est désormais le défaut (`uiMode.js`,
+`VAULT_UI_MODE=simple`, valeur inconnue → simple) ; le design complet
+d'origine reste disponible par « Affichage complet » dans l'en-tête, et
+un choix déjà mémorisé par un navigateur est respecté. Test
+`uiMode.test.mjs` mis à jour ; syntaxe validée à l'esbuild.
+
+## 2026-09-14 — coffre-fort : affichage simple en option, design complet conservé par défaut (livraison #501)
+
+Demandé explicitement : « les utilisateurs de cette appli sont habitués
+à des interfaces très simples sans fioriture ; cet écran est trop
+riche, la colonne centrale suffit, sans icône, en tableau tout aligné
+à gauche » — puis « conserve le premier design mais en option
+paramétrable ».
+
+- **Deux modes** dans l'en-tête du portail coffre-fort : *complet*
+  (défaut, design d'origine à trois colonnes) et *simple* (colonne
+  centrale seule, codes en tableau Libellé / Localisation / Collection
+  aligné à gauche, aucun pictogramme dans l'en-tête, les onglets et le
+  filtre ; clic ou Entrée sur la ligne ouvre le code). Filtre, tri et
+  boutons d'ajout conservés.
+- Bascule mémorisée par navigateur (`uiMode.js`, `localStorage`) ;
+  défaut d'installation `VAULT_UI_MODE` (`.env` → `VITE_VAULT_UI_MODE`
+  sur `vault-portal`).
+- Vérifié : `vault/portal/tests/uiMode.test.mjs` (défaut, valeur
+  inconnue, mémorisation, stockage absent/cassé) ; syntaxe `App.jsx` /
+  `VaultSearchScreen.jsx` validée à l'esbuild. Non vérifié : rendu réel
+  du portail (Keycloak et API du coffre nécessaires) — à regarder sur
+  super après `--build` de `vault-portal`.
+
+## 2026-09-14 — saisie publique de demandes : deux présentations sans icône, une clé par demande (livraison #500)
+
+Demandé explicitement : « une page hors hub et non authentifiée (mais
+propulsée par le même httpd/URL) permettant aux utilisateurs de saisir
+rapidement une demande : pas d'icône, deux designs — dépouillé mode
+tabloïd avec un champ détails ouvrant un volet de texte formaté,
+ajoutable plusieurs fois ; look Excel en ligne identique au fichier
+attendu en import ».
+
+- **`/demande/rapide`** (projeqtor-bridge, posture LAN comme `/demande/`) :
+  page papier, une colonne, aucun pictogramme ; **volet « Détails »**
+  (titre + éditeur gras/italique/listes), blocs multiples modifiables ;
+  HTML converti en texte sûr côté service (`html_to_text` : balises et
+  scripts retirés, `**gras**`, `_italique_`, puces).
+- **`/demande/tableau`** : reproduction du fichier (lettres de colonnes,
+  lignes à partir de 9, en-tête rouge gras, mêmes 10 colonnes), listes
+  déroulantes des référentiels, Entrée ajoute une ligne, « Vérifier »
+  (analyse) et « Envoyer » → `POST /demande/import` en JSON
+  (`demands_from_rows`, mêmes tolérances que le fichier).
+- **Une clé par demande** : `externalReference` ProjeQtOr = `source_nom`
+  hub (`source_type` `demande`) → la synchronisation ProjeQtOr → hub
+  reconnaît les demandes entrées par le pont (« déjà connu ») ; avant,
+  une demande en cible `both` finissait deux fois dans les imports à
+  valider (une fois directe, une fois par la sync). `importees` compte
+  désormais des demandes, pas cibles × demandes.
+- `/demande/referentiels` : listes par défaut du format quand ProjeQtOr
+  n'a rien (`source: "defaut"`) au lieu d'un 502. Écran Validation :
+  libellé « demande (formulaire / tableau / import) ».
+- Vérifié : test de fumée du pont (saisie rapide avec détails → texte
+  sans HTML, hub + ProjeQtOr, sync sans doublon, état local perdu ;
+  lignes JSON vérifiées / envoyées / ligne vide ignorée ; référentiels
+  de repli ; ticket natif ProjeQtOr toujours poussé), `test_mapping.py`,
+  rendu réel des deux pages sous Chromium (volet, envoi, tableau) ;
+  tests Node hub. Non vérifié : vrai ProjeQtOr, déploiement sur super
+  (`--build` du pont).
+
+## 2026-09-14 — import de tableaux : fichier réel vérifié (livraison #499)
+
+Le fichier d'exemple de la personne est arrivé après #497 : analysé
+avec le parseur tolérant — format imposé reconnu (en-têtes ligne 8, 1
+demande, 0 avertissement), aller-retour testé contre un faux
+tickets-api et un ProjeQtOr injoignable (cible `both` : 1 ticket hub à
+valider, ProjeQtOr en échec signalé une fois ; réimport en cible
+`tickets` : « déjà connu », aucun doublon). Le fichier lui-même reste
+hors dépôt (nom et contenu réels).
+
+- **Bruit supprimé** : quand les référentiels ProjeQtOr sont
+  illisibles (API injoignable, compte du pont refusé), une seule ligne
+  l'explique au lieu d'un « absent des référentiels » par champ et par
+  demande.
+- Conclusion sur « l'import ne fonctionne pas » : le fichier est
+  conforme ; la cause probable est côté ProjeQtOr (compte `bridge` /
+  `PROJEQTOR_API_PASSWORD` encore à `change-me`, ou API injoignable),
+  ce que la réponse de `/demande/import` nomme désormais explicitement.
+  Avec la cible « Hub seulement », l'import n'en dépend plus.
+- Vérifié : test de fumée du pont (avec `SUIVI_SAMPLE` pointé sur le
+  fichier réel) et `test_mapping.py`. Non vérifié : le vrai ProjeQtOr.
+
+## 2026-09-13 — coffre des accès d'équipements : identifiants MikroTik hors du .env (livraison #498)
+
+Demandé explicitement : « je veux ajouter une gestion des user/password
+des routeurs et autres accès de gestion d'équipement et retirer du .env
+les clés mikrotik, ça doit être géré dans les secrets du hub ».
+
+- **Nouveau service `credentials-api`** (`credentials/`) : un coffre
+  pour les identifiants que les SERVICES du hub utilisent eux-mêmes
+  (RouterOS, SSH, HTTP, SNMP, autre) — distinct du coffre-fort de codes
+  `vault/` (bout en bout, pour les humains). Mots de passe **chiffrés
+  au repos** (`shared/secret_crypto.py`, `CREDENTIALS_PASSPHRASE`
+  générée par sync-env.py, sel conservé dans le volume) ; **sans phrase
+  de passe le service refuse d'enregistrer** (503) plutôt que de
+  stocker en clair ; le mot de passe n'est **jamais renvoyé au
+  navigateur** (liste : `has_password` / `password_encrypted`,
+  modification sans ressaisie = conservé).
+- **Révélation réservée aux services internes** :
+  `GET /credentials/reveal/<nom>` avec `X-Credentials-Token` =
+  `CREDENTIALS_INTERNAL_TOKEN` ; route inexistante (404) sans jeton
+  configuré ou si la requête porte les en-têtes `X-Forwarded-*` de la
+  passerelle (donc un navigateur) ; chaque lecture **journalisée**
+  (service, accès, date, résultat — jamais la valeur), visible dans la
+  tuile. Rechiffrement des valeurs en clair d'une base antérieure.
+- **Tuile « Accès d'équipements »** (thématique Sécurité & accès,
+  administrateurs et techniciens) : liste, création, modification,
+  suppression, bannières d'état (chiffrement, jeton, valeurs en clair),
+  journal des révélations.
+- **MikroTik** : `MIKROTIK_USER` / `MIKROTIK_PASSWORD` (et variantes
+  par routeur) **supprimées** du `.env`, du compose et de la doc ; la
+  clé `"credential"` du registre est le nom de l'accès dans le coffre
+  (`"default"` = accès `mikrotik`) ; cache 60 s invalidé sur refus
+  d'authentification ; accès absent signalé avec lien vers la tuile.
+  Migration : ENV_CHANGELOG (reporter les valeurs dans la tuile).
+- Compose (`credentials-api`, volume `CREDENTIALS_DATA_DIR`,
+  `depends_on` côté mikrotik), tls-proxy (`/credentials/`),
+  `.env.example`, `.gitignore`, `VITE_CREDENTIALS_URL`.
+- Vérifié : `credentials/api/tests/smoke_test.py` (chiffrement réel :
+  refus sans phrase, base sans clair, jeton / passerelle / journal,
+  modification, rechiffrement, phrase changée → 503 sans fuite) ;
+  `mikrotik/tests/smoke_test.py` (faux coffre, cache, accès absent) ;
+  185 tests Node hub (tuile par rôle, thématique) ; syntaxe validée à
+  l'esbuild. Non vérifié : conteneurs reconstruits sur super
+  (`--build` + `sync-env.py` pour les nouvelles clés), routeur réel,
+  sauvegarde totale incluant le nouveau volume (pris par le parseur
+  générique des volumes du compose, non rejoué).
+
+## 2026-09-13 — import de tableaux de demandes SAV : tolérant, branché sur les tickets du hub (livraison #497)
+
+Demandé explicitement (fichier d'exemple annoncé mais non reçu dans la
+session — reconstruit d'après le format documenté en #484) : « l'import
+xls de demandes de SAV ne fonctionne pas et n'est pas branché sur les
+tickets du hub, seulement sur ProjeQtOr ».
+
+- **`projeqtor-bridge` — `POST /demande/import`** réécrit : formats
+  xlsx / **xls** (xlrd) / **csv** reconnus à la signature ; en-têtes
+  cherchés par nom (synonymes) où qu'ils soient, repli sur le format
+  imposé ; dates, durées et accomplissements en texte ou en série Excel
+  acceptés ; chaque décision signalée dans les avertissements, jamais
+  silencieuse.
+- **Cible hub** : chaque ligne devient un ticket À VALIDER (même file
+  que ProjeQtOr #484, ICS #273, e-mails #489) via
+  `/tickets/import-external`, `source_type=tableau`, déduplication par
+  `source_nom` (`<LABEL>:<Id>` ou empreinte) — réimport = « déjà
+  connus ». `target` = `tickets` | `projeqtor` | `both` (défaut) ; une
+  cible en panne n'empêche pas l'autre. **`dry_run=1`** : analyse sans
+  création.
+- **Page `/demande/admin`** : choix de la cible, bouton « Analyser sans
+  importer » avec tableau d'aperçu et avertissements, accept
+  `.xlsx,.xls,.csv`.
+- **Hub — écran Validation** : provenance affichée sous chaque ticket
+  (« source : tableau importé — SUIVI:11 », ProjeQtOr, e-mail, …),
+  description à sauts de ligne conservés ; helper pur
+  `validationSource.js` testé.
+- Prénoms du test de fumée remplacés par des valeurs fictives (règle
+  #467).
+- Vérifié : test de fumée du pont (faux ProjeQtOr + faux tickets-api) —
+  analyse sans création, cible hub seule (2 tickets à valider), les
+  deux cibles avec réimport dédupliqué, xlsx libre à en-têtes
+  renommés et valeurs texte, csv cp1252, refus propres (fichier
+  illisible, cible inconnue) ; parseur exercé sur xls réel généré
+  (xlwt) ; `test_mapping.py` ; 183 tests Node hub. Non vérifié : le
+  fichier réel de la personne (non reçu — l'analyser d'abord avec
+  « Analyser sans importer »), rendu de l'écran Validation, image
+  Docker reconstruite avec `xlrd` (`--build` nécessaire).
+
+## 2026-09-13 — PKI : bascule assistée de la CA sans coupure, `rotate-ca.sh` (livraison #496)
+
+BACKLOG item 3, voie (b) — choix de la personne : « préparer la
+procédure maintenant », exécution planifiée par elle. Décisions du
+même échange : mTLS du frontal public « plus tard » (BACKLOG 69) ;
+purge GitHub par **recréation du dépôt** (BACKLOG item 2, séquence).
+
+- **`pki/scripts/rotate-ca.sh status | prepare | switch --yes |
+  finish`** : CA neuve préparée à côté (`$PKI_DIR/next/ca`, extensions
+  #495) et **bundle ancienne + neuve** (`$PKI_DIR/ca-bundle.crt`) à
+  distribuer AVANT la bascule — agents (`central-ca.crt` par OS +
+  redémarrage), client si-proxy du Mac, dockers à trust store copié,
+  postes — pendant que le hub sert encore l'ancienne CA ; puis bascule
+  (ancienne CA archivée `ca-old-<date>/` clé conservée, cert serveur
+  réémis, pile à redémarrer, `si-proxy/setup-certs.sh` à relancer) ;
+  puis fin de transition (bundle réduit à la neuve). Chaque phase
+  refuse d'avancer sans la précédente (`rotation.state`), `switch`
+  exige `--yes`, retour arrière affiché, aucune clé jamais supprimée,
+  jamais lancé par `run.sh`. Liste des consommateurs imprimée à chaque
+  phase.
+- `pki/README.md` (procédure, pourquoi un bundle), `check-env.py`
+  (script recensé), BACKLOG (item 2 : séquence de recréation GitHub ;
+  item 3 : voie b livrée ; 69 : mTLS frontal).
+- Vérifié (bac à sable, OpenSSL 3.0.2) : chaîne complète ancienne CA
+  sans keyUsage → prepare → cert serveur (ancienne) validé par le
+  bundle → switch → cert réémis validé `-x509_strict` par la neuve et
+  par le bundle → finish (bundle à 1 certificat) ; refus attendus
+  (switch sans prepare, prepare en double, switch sans --yes) ;
+  `ssl.create_default_context(cafile=bundle)` charge le bundle. Non
+  vérifié : exécution sur super avec de vrais agents.
+
+## 2026-09-13 — PKI : CA interne avec basicConstraints/keyUsage, diagnostic `--check` (livraison #495)
+
+BACKLOG item 3, voie (a) — sans risque : la CA sans extension
+`keyUsage` est refusée par OpenSSL ≥ 3 (constaté sur le premier agent
+macOS réel) ; une CA existante n'est jamais modifiée.
+
+- **`pki/scripts/generate-ca.sh`** : les nouvelles CA portent
+  `basicConstraints=critical,CA:TRUE`, `keyUsage=critical,keyCertSign,
+  cRLSign`, `subjectKeyIdentifier=hash` (via `-addext`), série
+  aléatoire (jamais réutilisée entre deux générations).
+- **`--check`** : diagnostic SANS RIEN ÉCRIRE de la CA en place (sujet,
+  dates, série, extensions ; code 0 conforme / 3 à renouveler / 2
+  absente). Sur une CA déjà présente, le script affiche le même
+  diagnostic en avertissement (jamais bloquant pour `run.sh`).
+- `pki/README.md` : section « Extensions de la CA et diagnostic »,
+  ordre de redistribution pour la voie (b) ; BACKLOG item 3 mis à jour.
+- Vérifié (OpenSSL 3.0.2) : génération neuve → `--check` code 0,
+  idempotence, chaîne feuille validée en `openssl verify -x509_strict`,
+  chargement par `ssl.create_default_context` ; CA « ancienne » (sans
+  keyUsage) → `--check` code 3, refusée en strict, laissée intacte.
+  Non vérifié : `run.sh` complet sur super (le script y est appelé à
+  chaque lancement — seul l'avertissement change), agent macOS avec
+  Python OpenSSL 3 contre une CA régénérée (voie b, à planifier).
+
+## 2026-09-13 — anonymisation : le nom du service de support hors du dépôt (livraison #494)
+
+Règle #467 (dépôt personnel destiné à la communauté : aucune
+information précise, personnelle ou professionnelle). Le nom réel du
+service de support était revenu avec les livraisons #484 (pont
+ProjeQtOr) et #489 (tuile, connecteurs IMAP) — dans le code, un nom de
+fichier, la doc, le journal ET deux messages de commit déjà poussés.
+
+- **`projeqtor-bridge`** : le module de format (nommé d'après le
+  service) devient `suivi_format.py` (format « suivi des demandes ») ; le marqueur écrit dans ProjeQtOr
+  (ligne récap `[LABEL] …`, `externalReference` `LABEL:<id>`) n'est
+  plus codé en dur : `PROJEQTOR_BRIDGE_LABEL` (défaut `SUIVI`), lu par
+  `mapping.py` — l'import et l'export relisent le même marqueur.
+  **Instance existante** : mettre dans `.env` le libellé employé
+  jusqu'ici, sinon l'export ne relira plus durée / accomplissement /
+  id des demandes déjà importées (ENV_CHANGELOG).
+- **Hub / imap-connectors / compose / tls-proxy / `.env.example` /
+  CHANGELOG (#484, #489)** : « Demandes (suivi) », « pont « suivi » »,
+  variable `SUIVI_SAMPLE` du test de fumée.
+- **Messages de commit** : les deux messages fautifs sont réécrits
+  (`git filter-branch --msg-filter`, hashes de `dev` changés à partir
+  de #484) → push forcé de `dev` et `main` nécessaire, puis purge côté
+  GitHub (BACKLOG item 2).
+- Vérifié : `python3 projeqtor-bridge/tests/test_mapping.py` (4 tests :
+  défaut, repli, aller-retour import/export avec un libellé, libellé
+  différent non relu) ; `git grep` du motif : 0 résultat sur l'arbre ;
+  182 tests Node hub verts ; syntaxe Python vérifiée (`ast`). Non
+  vérifié : `imap-connectors/tests/test_api.py` (Flask absent de
+  l'environnement de test, code inchangé), test de fumée du pont
+  contre un ProjeQtOr réel.
+
+## 2026-09-13 — cloche : troisième section « Notifications diverses » (livraison #493)
+
+Prolongement de la cloche généralisée (#491) : la cible `notification`
+des connecteurs IMAP (journalisée depuis #489, « socle pour cibles
+futures ») remonte désormais aussi dans la cloche du hub.
+
+- **Troisième section** du panneau : « Notifications diverses » —
+  sujet interprété en titre, expéditeur en extrait (« de … »), ton
+  neutre, lien « Ouvrir Connecteurs IMAP » (déplacé depuis la section
+  SMS, qui n'a plus de pied). Compteur = total des trois cibles ;
+  badge **ambre** dès qu'un SMS *ou* une notification est non lu, la
+  supervision (rouge) prime toujours. Accusé par message ou par
+  section (`targets: ["notification"]`), API déjà générique.
+- `bellTone` prend `notifUnread` ; nouveaux helpers purs
+  `notificationTitle` / `notificationExcerpt` (repli : expéditeur
+  d'enveloppe, puis « ? » / résumé).
+- Aucun changement backend ; README imap-connectors mis à jour.
+- Vérifié : 182 tests Node hub verts (8 sur la cloche, 2 nouveaux) ;
+  syntaxe `NotifBell.jsx` validée à l'esbuild. Non vérifié : rendu
+  réel du panneau avec trois sections sur un hub déployé.
+
+## 2026-09-13 — auto-acquittement des alertes à la résolution, paramétrable (livraison #492)
+
+Demandé explicitement : l'auto-acquittement (« quand une résolution
+Zenoss arrive pour un équipement, ses alertes actives non lues sont
+marquées lues automatiquement ») — « oui mais paramétrable stp ».
+
+- **Option `auto_ack` par connecteur** (cible `zenoss`), activée par
+  défaut : une résolution interprétée ET livrée à pixel-grid avec
+  succès acquitte d'office les alertes actives non lues du même
+  équipement (`json_extract` sur les champs interprétés), ainsi
+  qu'elle-même — la cloche reflète l'état courant, pas l'historique.
+  Une résolution mal routée n'acquitte rien : la boîte reste la file
+  de secours. Option décochée : alertes et résolutions attendent un
+  acquittement manuel.
+- **Formulaire du connecteur** : case « acquitter à la résolution »
+  (visible pour la cible zenoss, avec title d'explication) ; le
+  tableau des connecteurs rappelle « acquittement auto à la
+  résolution » sous la cible.
+- **Migration automatique** : `auto_ack` ajouté par `ensure_schema`
+  (`ALTER TABLE`, défaut 1) — les connecteurs existants héritent de
+  l'option activée, testé sur une base au schéma #489.
+- Tests : 7 tests de chaîne API (nouveaux : auto-ack activé → cloche
+  vidée par la résolution ; désactivé → tout attend l'acquittement
+  manuel ; migration #489 → #492 sans perte) ; 181 tests Node verts ;
+  syntaxe validée à l'esbuild.
+
+## 2026-09-13 — cloche généralisée : alertes supervision Zenoss en rouge + bascule supervision (livraison #491)
+
+Demandé explicitement : « étendre la cloche aux alertes Zenoss
+(badge rouge cette fois, avec bascule directe vers la vue
+pixelgrid) ».
+
+- **Cloche généralisée** (SmsBell → NotifBell) : deux sections dans
+  le panneau — « Alertes supervision » (messages des connecteurs de
+  cible `zenoss`) et « SMS entrants ». Le badge devient **rouge**
+  dès qu'une alerte supervision est non lue (la supervision prime),
+  ambre s'il ne reste que des SMS. Compteur = total des deux.
+- **Lignes Zenoss** : équipement, message, sévérité et localisation
+  interprétés ; ton par ligne — ⛔ critique/error, ⚠ warning, ✔
+  résolution (préfixée « Résolution : », jamais confondue avec une
+  alerte active), neutre si sévérité non reconnue (jamais rouge par
+  défaut sur du texte libre). « Tout marquer lu » par section ;
+  **bascule directe vers la supervision SI** (sa mosaïque
+  pixel-grid affiche l'état remonté par les mêmes événements).
+- Aucun changement backend : `GET /notifications?targets=zenoss` et
+  l'accusé par cible étaient déjà génériques (#490) — la preuve que
+  le contrat tient.
+- Tests : 181 tests Node hub (7 sur les helpers de la cloche :
+  titres/extraits Zenoss, ton par sévérité, priorité rouge > ambre) ;
+  5 tests de chaîne API inchangés et verts ; syntaxe validée à
+  l'esbuild.
+
+## 2026-09-13 — cloche SMS du hub : notification temps réel des SMS entrants (livraison #490)
+
+Demandé explicitement : « brancher les SMS entrants des passerelles
+sur une notification temps réel du hub (cloche + compteur non
+lus) ».
+
+- **Backend imap-connectors** : colonne `ack_at` (accusé de lecture)
+  sur les messages — migration automatique (`ALTER TABLE` si absent)
+  des bases créées en #489 ; `GET /notifications?targets=sms`
+  (compteur de non lus + derniers messages, champs interprétés
+  décodés : expéditeur, texte) ; `POST /notifications/ack` par ids
+  ou en bloc (`{all: true, targets: [...]}`), idempotent, cibles
+  filtrées sur les valeurs connues (jamais de SQL inventé).
+- **Cloche dans la barre d'état du hub** (à côté de l'horloge et du
+  n° de livraison) : badge 🔔 avec compteur ambré dès qu'un SMS est
+  non lu (jamais rouge — un SMS en attente n'est pas une panne),
+  panneau au clic (expéditeur, extrait, temps relatif, connecteur),
+  « marquer lu » par message ou « Tout marquer lu », lien vers la
+  tuile Connecteurs IMAP. Sondage 30 s ; API injoignable = cloche
+  discrète avec title d'explication, jamais bloquant. L'état « lu »
+  est côté serveur : partagé entre navigateurs du LAN.
+- Tests : 5 tests de chaîne API (dont la cloche : non lu → accusé
+  par id → tout marquer lu → garde-fous 400) ; 178 tests Node hub
+  (4 nouveaux sur les helpers purs : temps relatif, titre, extrait,
+  ton) ; syntaxe validée à l'esbuild.
+
+## 2026-09-13 — imap-connectors : boîtes IMAP → tickets/ProjeQtOr/Zenoss/SMS + tuile Demandes (suivi) (livraison #489)
+
+Demandé explicitement : « un gestionnaire de connecteur imap chacun
+sur une adresse de réception pour plusieurs api : demandes
+SAV/Tickets/ProjeQTor, alertes supervision ZenOS et autres, SMS
+entrants sur les passerelles sms, notifications diverses — le tout
+avec log et base de données, statistiques et vue pixelgrid ». Et :
+« je n'ai pas trouvé où on peut importer des demandes de sav sous
+forme de fichier excel ».
+
+- **Module `imap-connectors/`** (nouveau service, un seul worker
+  Gunicorn car le poller est un thread du processus) : chaque
+  connecteur = une boîte IMAP (hôte, identifiants, dossier, SSL) +
+  une cible. Relevé au rythme du connecteur (≥ 30 s), interprétation
+  des non lus, routage, journalisation complète en SQLite (messages,
+  livraisons, erreurs). **La boîte est la file de secours** : un
+  message non interprété ou mal routé reste non lu et sera retenté.
+- **Cinq cibles** : `tickets` (POST tickets-api, source `imap` — la
+  demande arrive dans la liste des imports à valider du hub),
+  `projeqtor` (POST pont « suivi » `/demande/demandes` — inséré dans
+  ProjeQtOr), `zenoss` (corps interprété → événement pixel-grid
+  `alerte_zenoss_email`, backends sqlite ET postgres), `sms` et
+  `notification` (journalisés, socle pour cibles futures).
+- **Vue hub « Connecteurs IMAP »** (thématique Documents) : grille
+  d'activité jour × connecteur (30 j, palette du hub), tableau des
+  connecteurs avec Tester / Relever / Modifier / Supprimer,
+  formulaire CRUD, journal des messages avec livraisons. Le mot de
+  passe d'une boîte n'est jamais ressorti par l'API.
+- **Tuile « Demandes (suivi) »** (thématique ProjeQtOr) : l'import
+  Excel des demandes SAV existait (pont #484, page `/demande/admin`)
+  mais aucune tuile n'y menait — c'est maintenant réparé.
+- Tests : 11 tests interpréteurs + 4 tests de chaîne API (faux IMAP,
+  faux HTTP, vraie SQLite) verts ; 174 tests Node hub verts ; syntaxe
+  validée à l'esbuild. ⚠️ Jamais testé contre une vraie boîte IMAP —
+  surveiller `last_error` au premier relevé réel.
+
+## 2026-09-13 — proxmox : tuile dédiée + apprentissage URLs/services (livraison #488)
+
+Demandé explicitement : « il faudra les apprendre — 25 ans de
+développement à façon dont je n'ai aucune vue globale, d'où
+l'exploration par l'agent » (supervision DNS des URLs entrantes,
+adressage, ports ouverts, activité des services des VM — majoritairement
+GED/cloud).
+
+- **Apprentissage par exploration** (plugin si-agent `proxmox` v2) :
+  pour chaque VM en marche avec IP connue — balayage TCP connect
+  BORNÉ (27 ports courants, 0,4 s/essai, 16 fils, jamais un nmap) ;
+  sondes TLS (certificat lu même auto-signé/expiré : CN, SAN, jours
+  restants — la validité est un constat, pas un filtre) et HTTP
+  (statut, Server, titre, hôte de redirection) ; PTR de chaque IP ;
+  puis **URLs entrantes apprises** (SAN, CN, PTR, redirections) avec
+  résolution DNS interne depuis l'hyperviseur : le nom qui résout vers
+  l'IP de la VM est marqué « → cette VM », le nom qui ne résout pas
+  est rapporté comme trou DNS, jamais masqué. Intervalle porté à
+  30 min (balayage), connecteur injectable — tests sans aucun réseau.
+- **Tuile hub « Proxmox »** (thématique Réseau, vue `proxmox`) : par
+  hyperviseur — version, uptime, CPU/RAM, avertissements ; table des
+  VM (état, IP apprises, CPU/RAM, disque, snapshots avec âge, dernier
+  backup, nombre de services/URLs) avec fiche dépliée (services
+  appris + URLs entrantes avec verdict de résolution) ; stockages ;
+  pools ZFS (santé, capacité, fragmentation, erreurs). Lecture seule.
+- Le bouton d'origine « VM / conteneur » de la supervision SI mène
+  désormais à cette tuile (plus à « Agents hôtes »).
+- Tests : 11 tests plugin (parseurs, collecte, apprentissage contre
+  connecteur factice) ; 174 tests Node hub verts ; syntaxe validée à
+  l'esbuild sur chaque fichier. Échecs pré-existants macOS inchangés.
+- Reste à éprouver en réel : la couche d'apprentissage n'a tourné que
+  contre des connecteurs factices — premier relevé sur un vrai
+  hyperviseur à surveiller (avertissements `warnings` de la mesure).
+
+---
+
+## 2026-09-13 — si-agent : plugin « proxmox », VM dans la supervision SI (livraison #487)
+
+Demandé explicitement : « un agent proxmox qui supervise le host comme
+un agent linux et l'ensemble des vm, snapshot, backup, disques des vm,
+zfs » — 5 hyperviseurs sur le LAN, 3 chez OVH. Architecture validée :
+plugin de si-agent (le host est déjà supervisé par la mesure `host` ;
+le canal signé push couvre LAN et OVH sans rien exposer en entrée).
+
+- **Plugin `proxmox`** (`si-agent/agent/plugins/proxmox/`, privilégié,
+  désactivé par défaut, 15 min) : collecte locale par `pvesh` (aucun
+  mot de passe stocké) — VM/CT (état, CPU, RAM, disques, uptime),
+  snapshots avec âge, dernier backup par VM (stockages `content=backup`),
+  stockages actifs, pools ZFS (`zpool list/status` : santé, capacité,
+  fragmentation, erreurs). Pannes partielles listées dans `warnings`,
+  jamais silencieuses ; sortie en erreur explicite si l'hôte n'est pas
+  un Proxmox.
+- **IP des VM, deux modes** (demandé : « prévois les deux ») :
+  qemu-guest-agent quand il est activé et répond (appel borné à 8 s),
+  interfaces LXC natives sinon ; aucune IP inventée — le hub recoupe
+  par ARP/exploration réseau.
+- **Central** : `store.latest_proxmox` + `GET /proxmox` (même motif
+  que `/netview`), filtre par site.
+- **Supervision SI** : type « VM / conteneur » (origine proxmox) —
+  chaque VM apparaît sur la carte et la table, **fusionnée par IP**
+  avec netprobe/network-agent ; modèles (templates) exclus ; backup
+  absent/ancien (> 7 j) et snapshot oublié (> 30 j) dégradent en
+  avertissement sans passer en critique (risques, pas pannes) ; une
+  VM arrêtée n'est pas un incident. Bouton d'origine → tuile Agents
+  hôtes en attendant la tuile Proxmox dédiée (#488).
+- Tests : parseurs + collecte complète contre un faux `pvesh`/`zpool`
+  (8 tests, `test_proxmox_plugin.py`) ; route `/proxmox` en chaîne
+  signée réelle (`test_si_agent_api.py`) ; fusion et états côté hub
+  (174 tests Node verts). Suites pré-existantes : 3 échecs agent et
+  1 échec API sur macOS, identiques avant ces changements (vérifié
+  par stash) — liés à l'environnement, pas au code.
+- Reste pour #488 : tuile Proxmox dédiée (arbre hôte → VM, ZFS,
+  datastores), apprentissage des URLs entrantes et des ports/services
+  par exploration (« 25 ans de développement à façon, aucune vue
+  globale » — l'agent apprend).
+
+---
+
+## 2026-09-13 — mikrotik : intégration transversale au hub (livraison #486)
+
+Demandé explicitement : « chaque routeur se retrouve sur un schéma du
+réseau et l'accès à un router puisse se faire depuis toutes les
+interfaces du hub qui y font référence, la map, la supervision, les
+tickets ». Pivot retenu : l'**IP** du routeur (déjà la clé de fusion
+de la supervision SI — même IP = un seul équipement).
+
+- **Supervision SI (carte + table)** : nouveau type d'équipement
+  « Routeur MikroTik » (origine mikrotik, `fromMikrotik` dans
+  `supervisedItems.js`, client `mikrotikClient.js`). Chaque routeur du
+  registre apparaît sur la carte et la table, **fusionné par IP** avec
+  ce que netprobe / network-agent voient déjà ; position géographique
+  par le mécanisme commun (nom, site, liens déduits) — rien de spécial
+  à coder, vérifié dans le code avant de promettre.
+- **Liens profonds** : le bouton d'origine de la table ouvre la tuile
+  MikroTik sur `/mikrotik/#router=<nom>` ; l'interface comprend
+  l'ancre (sélection initiale, `hashchange`, `replaceState` à la
+  sélection — ancre partageable).
+- **Tickets** : bouton « Créer un ticket » dans la fiche équipement
+  (cadre Liens) — `source_type="mikrotik"` + `source_nom=<nom>` pour
+  un routeur déclaré (`supervision` sinon) ; le détail du portail
+  tickets affiche « ouvrir le routeur » (lien racine-relatif, même
+  origine tls-proxy, aucun réglage).
+- Aucune nouvelle clé `.env` : la base API est `VITE_MIKROTIK_URL`
+  sans sa barre finale (SPA et API partagent `/mikrotik/`).
+- Tests : `hub/tests/supervisedItems.test.mjs` étendu (états,
+  identifiants absents ≠ incident, fusion netprobe+mikrotik) —
+  173 tests Node verts ; smoke test mikrotik toujours vert. Build
+  Vite local incomplet (react-leaflet absent de node_modules, échec
+  identique AVANT ces changements — vérifié par stash) ; chaque
+  fichier modifié validé individuellement à l'esbuild.
+
+---
+
+## 2026-09-13 — mikrotik : supervision/commande des routeurs MikroTik (livraison #485)
+
+Demandé explicitement : reprendre le volet routeurs de
+l'infrastructure (le backlog l'avait, aucun module n'existait —
+vérifié dans le code ET l'historique git) et l'intégrer au hub.
+
+- **Nouveau service `mikrotik-api`** : client API REST RouterOS v7
+  (www-ssl, Basic auth — v6 non couvert, pas d'API REST), registre
+  dans `mikrotik/routers.json` (versionné, bind mount), identifiants
+  dans `.env` (partagés ou par routeur via `credential`).
+- **Supervision** : identité, version, uptime, CPU/mémoire/disque,
+  santé matérielle quand exposée, interfaces + compteurs.
+- **Commande** (v1 prudente, corps JSON explicite) : toggle
+  interface, ping depuis le routeur (borné à 20), reboot (double
+  confirmation + `{"confirm":"REBOOT"}`).
+- **Interface hub** : tuile « Routeurs MikroTik » de la thématique
+  Réseau, servie sous `/mikrotik/` (route tls-proxy ajoutée).
+- Jamais testé contre un vrai routeur : tout est couvert par
+  `mikrotik/tests/smoke_test.py` (faux RouterOS en mémoire, vert).
+
+---
+
+## 2026-09-12 — projeqtor-bridge : pont « suivi » / ProjeQtOr / hub (livraison #484)
+
+Demandé explicitement (format Excel « Tableau des suivis des demandes —
+Tableau des suivis
+des demandes » imposé par la société) :
+
+- **Import xlsx** : `POST /demande/import` (+ bouton sur
+  `/demande/admin`) — parse le tableau imposé, crée chaque demande
+  dans ProjeQtOr via son API REST ; lignes bancales signalées sans
+  arrêter l'import, noms non résolus conservés en clair.
+- **Export xlsx** : `GET /demande/export` — toutes les demandes
+  ProjeQtOr agrégées au format imposé (colonnes, listes déroulantes,
+  formules, table `Tableau1` A8:K104 — vérifié dans le XML du fichier
+  réel). Round-trip parse→régénère→reparse testé sans avertissement.
+- **Formulaire public LAN** (sans authentification, URI à part —
+  confirmé explicitement) : `https://<hôte>:6443/demande/`, listes
+  déroulantes alimentées par ProjeQtOr (source de vérité).
+- **Sync ProjeQtOr → hub** : boucle bornée
+  (`PROJEQTOR_BRIDGE_SYNC_SECONDS`, 120 s par défaut) → nouvelle route
+  `POST /tickets/import-external` de tickets-api, qui crée le ticket
+  avec `pending_validation=1` (même file « imports à valider » que les
+  imports ICS #273) et **déduplique** par source_type+source_nom —
+  l'état local du pont n'est qu'une optimisation, sa perte ne crée
+  jamais de doublon (testé).
+- **Import utilisateurs LDAP central** (externe au hub) :
+  `docker compose exec projeqtor-bridge python ldap_import.py
+  [--dry-run]` — adresse/compte dans `.env` (`CENTRAL_LDAP_*`,
+  secret), jamais d'écrasement d'un compte existant.
+
+Prérequis : créer une fois le compte ProjeQtOr dédié (`bridge`) et
+reporter son mot de passe dans `.env` (`PROJEQTOR_API_PASSWORD`).
+Routage tls-proxy `/demande/` ajouté (penser au restart tls-proxy,
+piège #151). Smoke test complet : `projeqtor-bridge/tests/smoke_test.py`
+(vert au moment de la livraison).
+
+---
+
+## 2026-09-12 — ProjeQtOr : français par défaut, contenu distant coupé, branding hub (livraison #483)
+
+Première salve d'ergonomie du fork (demandée après vérification du
+thème #477 sur capture) :
+
+- **Français par défaut** : `paramDefaultLocale=fr` dans les défauts
+  d'installation (`db/maintenance.php`, marqueur `SUPERVISION-SI
+  #483`) — cohérent avec le `$defaultLocale` du parameters.php généré
+  par l'entrypoint. Les utilisateurs déjà créés gardent leur langue de
+  profil (à changer dans le profil).
+- **Contenu distant coupé** : `getVersion=NO` aux défauts d'install —
+  aucun appel sortant vers projeqtor.org depuis un outil LAN ; vise le
+  bloc promo « Qlub » du menu et le bandeau de la page de connexion
+  (effet exact à confirmer sur capture).
+- **Branding hub** : logos du hub (badge « SI ») dans
+  `projeqtor/branding/`, écrasés dans l'image Docker APRÈS la copie
+  des sources — `src/` reste strictement identique à l'upstream
+  (`diff -r` propre). Remplace logoBig/logoMedium/logoSmall(White) et
+  le favicon.
+
+---
+
+## 2026-09-12 — Hub : thématique dédiée « ProjeQtOr » (livraison #482)
+
+La tuile ProjeQtOr (#476) tombait dans les « Liens externes » (front
+jamais rattaché à une thématique → leftover). Demandé explicitement :
+« un groupe en plus "projeqtor", visibilité à tous ». Sixième
+thématique d'accueil dédiée (`hub/src/hubThemes.js`), d'un seul outil
+pour l'instant ; la visibilité reste inconditionnelle (aucune
+condition de rôle sur le front, voir `hub/src/lib.js`). Tests Node des
+thématiques mis à jour (6 thématiques, `front:projeqtor` couvert).
+
+---
+
+## 2026-09-12 — Correctif build ProjeQtOr : cache/ et files/ créés au build (livraison #481)
+
+Second échec de build réel sur la VM : « chown: cannot access
+'/var/www/html/projeqtor/cache': No such file or directory ». Les
+dossiers `cache/` et `files/` existent en local dans `projeqtor/src/`
+mais sont VIDES — git ne suit pas les dossiers vides, donc ni le
+dépôt ni le zip de livraison ne les contiennent. Le Dockerfile les
+crée désormais explicitement (`mkdir -p`) avant le `chown`.
+
+---
+
+## 2026-09-12 — Correctif build ProjeQtOr : base php épinglée sur bookworm (livraison #480)
+
+Échec de build réel au premier déploiement de #476+ sur la VM :
+« E: Unable to locate package libc-client-dev ». L'image
+`php:8.3-apache` non qualifiée suit désormais Debian **trixie**, où le
+paquet `libc-client-dev` (UW-IMAP, requis pour compiler l'extension
+PHP `imap` dont ProjeQtOr a besoin pour récupérer les réponses par
+mail) a été retiré. Base épinglée sur `php:8.3-apache-bookworm`
+(bookworm a encore le paquet et est maintenu en LTS jusqu'en 2028).
+
+---
+
+## 2026-09-12 — chantier/run.sh : clés .env manquantes ajoutées automatiquement (livraison #479)
+
+Demandé explicitement après un redéploiement où les nouvelles clés
+`PROJEQTOR_*` avaient dû être recopiées à la main dans le `.env` de la
+VM : `scripts/run.sh` (donc aussi `chantier.sh`, qui lui délègue tout)
+appelle désormais le nouveau **`scripts/sync-env.py`** AVANT
+`check-env.py` — toute clé présente dans `.env.example` mais absente
+du `.env` local est insérée en fin de fichier avec ses commentaires de
+documentation et une valeur par défaut fonctionnelle :
+
+- défaut repris de `.env.example` (vide reste vide = fonctionnalité
+  désactivée documentée) ;
+- placeholder `change-me` (toujours un secret interne, vérifié) →
+  valeur aléatoire générée, comme `generate-env.sh` ;
+- couplage `LDAP_TEST_ADMIN_PASSWORD` ← `LDAP_BIND_PASSWORD` : valeur
+  existante reprise telle quelle (même `change-me`, défaut fonctionnel
+  de l'image osixia/openldap) pour préserver la cohérence avec
+  l'annuaire de test.
+
+**Jamais d'écrasement** d'une clé existante, même vide ; idempotent
+(sans clé manquante, `.env` n'est pas modifié). Usage autonome :
+`python3 scripts/sync-env.py [--check]`.
+
+Conséquence pratique : un redéploiement à partir d'un `.env` d'une
+ancienne livraison n'a plus RIEN à fusionner à la main — les clés
+nouvelles (ex. `PROJEQTOR_*`, `VITE_ALLOWED_HOSTS`) sont ajoutées
+seules au premier `chantier.sh`.
+
+---
+
+## 2026-09-11 — Correctif : VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
+
+Signalé en conditions réelles (test via redirection X11 ET par l'entrée
+externe) : « Blocked request. This host ("super") is not allowed » — le
+serveur Vite des fronts refuse tout nom d'hôte non listé (#472), et le
+défaut vide obligeait à renseigner chaque nom à la main.
+
+Vérifié dans `docker-compose.yml` : **aucun** des 6 fronts Vite (hub,
+frontend, tickets, dba, ldap-admin, vault) ne publie de port direct —
+ils ne sont joignables QUE via tls-proxy, qui est déjà le point de
+contrôle unique. La liste blanche Vite n'apportait donc aucune
+protection réelle dans cette architecture, mais cassait tout accès par
+un nom non listé. `VITE_ALLOWED_HOSTS=*` devient le défaut dans
+`.env.example` (retour arrière documenté : liste explicite) ;
+`docs/acces-public-frontal.md` § 0 simplifié en conséquence.
+**Action requise pour un `.env` existant** : ajouter
+`VITE_ALLOWED_HOSTS=*` puis `./scripts/chantier.sh build` (la variable
+est lue au DÉMARRAGE du conteneur Vite -- un `restart` ne suffit pas,
+voir ENV_CHANGELOG.md).
+
+**Vérifié** : mécanisme `allowedHosts` relu dans les 6
+`vite.config.js` (même logique partout, `"*"` prévu et traduit en
+`true`), absence de port publié pour les 6 fronts ; **non vérifié** :
+rechargement réel d'un front après changement (à confirmer au premier
+accès via le nom « super »).
+
+## 2026-09-11 — Fork ProjeQtOr : thème « hub » par défaut (livraison #477)
+
+Première retouche d'ergonomie du fork (backlog item 68, approche
+« couleurs d'abord » validée avec la personne). Découverte
+structurante : depuis ProjeQtOr V13.0, `isNewGui()` renvoie TOUJOURS
+`true` — l'ancien mécanisme de thèmes CSS (`ProjeQtOrFlat*` etc.) est
+du code mort ; le nouveau GUI dérive toute sa palette de DEUX couleurs
+via `view/js/dynamicCss.js` (`setColorTheming(ref, bis)` → déclinaisons
+HSL en variables CSS `--color-*`, paramètres globaux
+`newGuiThemeColor`/`newGuiThemeColorBis`, surcharge par utilisateur).
+
+- `projeqtor/src/db/maintenance.php` : à la première installation,
+  paramètres globaux = **`2980b9` (accent du hub) / `b7791f` (warning
+  du hub)** au lieu de `545381`/`e97b2c`.
+- `projeqtor/src/view/js/dynamicCss.js` : replis JS (hsl ET hsv)
+  alignés sur ces mêmes couleurs.
+- `projeqtor/src/tool/html.php` : preset `0_hub` dans le sélecteur de
+  thème (retrouver les couleurs du hub en un clic).
+- Discipline de fork vérifiée : `diff -r` contre l'archive officielle
+  = exactement ces 3 fichiers, chaque retouche marquée
+  `SUPERVISION-SI #477` (voir projeqtor/README.md, journal du fork).
+
+Approximation assumée : la « secondaire » ProjeQtOr = `--warning` du
+hub (le hub n'a pas de secondaire à proprement parler) — à ajuster au
+premier retour visuel. **Vérifié** : syntaxe JS (`node --check`), diff
+upstream exhaustif, non-régression inchangée (aucun fichier du hub
+touché) ; **non vérifié** : le rendu visuel réel (pas de navigateur
+ici) — contraste des déclinaisons HSL à regarder au premier
+démarrage, thème réglable ensuite par utilisateur (sélecteur intégré).
+
+## 2026-09-11 — Tuile ProjeQtOr : fork de ProjeQtOr V13.1.0 intégré au hub (livraison #476)
+
+Demandé : « intégrer au hub une tuile de fork de projeqtor — réutiliser
+et contribuer avec une ergonomie revue à ma façon », avec un groupe
+Keycloak `projeqtor` en plus, une tuile visible de tous et une page
+publique. Cadrage validé ensemble avant de coder (4 choix : sources
+vendorées dans le dépôt, MariaDB dédié, LDAP du hub, visibilité tous).
+
+- **Nouveau module `projeqtor/`** : sources officielles V13.1.0
+  vendorées TELLES QUELLES dans `projeqtor/src/` (258 Mo, sha256 du zip
+  consigné dans `projeqtor/README.md`) — base de comparaison propre pour
+  les retouches d'ergonomie à venir et les merges upstream. PHP 8.3
+  (pas 8.4 : l'extension `imap` requise a quitté le noyau).
+- **`projeqtor/Dockerfile` + `docker-entrypoint.sh`** : Apache/PHP avec
+  les extensions requises (gd, imap, ldap, mbstring, mysqli, pdo_mysql,
+  xml, zip, curl) ; `tool/parametersLocation.php` écrit au build →
+  paramètres HORS portée web (`/data/config/parameters.php`, généré au
+  premier démarrage depuis `.env`, jamais régénéré ensuite) ; attente
+  bornée de la base ; `parameters.php` inclut les `paramLdap_*` du hub
+  (uid sous `LDAP_USERS_DN`) quand `LDAP_URL` est renseignée.
+- **Base MariaDB 11.4 dédiée** (`projeqtor-db`, volume
+  `projeqtor_db_data`, aucun port publié) — première MariaDB du stack
+  principal. Mots de passe générés par `scripts/generate-env.sh`
+  (deux nouvelles valeurs distinctes, voir ENV_CHANGELOG.md).
+- **Routage** : `/projeqtor/` dans `tls-proxy/render_nginx_conf.py`
+  (type "spa", préfixe conservé — le docroot Apache contient le dossier
+  `projeqtor/`). ⚠️ `./gateway/scripts/run.sh restart tls-proxy`
+  requis après le premier déploiement (piège #151).
+- **Tuile hub** : `hub/src/lib.js` `buildFrontsList` gagne
+  `projeqtorUrl` (← `VITE_PROJEQTOR_URL`) — visible de TOUS, sans
+  condition de rôle, `embeddable: true` (onglet de la coquille).
+- **Groupe Keycloak `projeqtor`** (+ rôle éponyme, mapping
+  `GROUP_TO_ROLE` hub) : créé pour les filtrages futurs, ne filtre
+  encore rien.
+- **Page publique** : `/projeqtor/` passe par le frontal public comme
+  le reste de la passerelle — documenté avec ses conséquences de
+  sécurité dans `docs/acces-public-frontal.md` § 6 (le compte intégré
+  admin/admin doit être changé immédiatement).
+- `.env.example` (section PROJEQTOR_*), `ENV_CHANGELOG.md`,
+  `.gitignore` (`projeqtor/data/*`), `hub/README.md`, BACKLOG (item :
+  refonte d'ergonomie du fork).
+
+**Vérifié ici** : 17 tests fonctionnels de l'entrypoint (rendu du
+`parameters.php`, échappement, parsing `ldap://`/`ldaps://` ± port,
+idempotence, fail-fast sans mot de passe) ; rendu nginx `--check`
+(route présente) ; 7 tests Node `buildFrontsList`/`groupsToRoles` ;
+non-régression des 29 fichiers de tests du hub ; `generate-env.sh` +
+`check-env.py` sur une copie complète (aucun avertissement nouveau) ;
+validation structurelle YAML du compose (63 services) et JSON du realm
+(9 groupes).
+**NON vérifié ici** (pas de Docker dimensionné ni navigateur) : build
+de l'image et démarrage réels, initialisation de la base au premier
+accès, authentification LDAP réelle, embarquabilité iframe dans la
+coquille, comportement derrière le double proxy du frontal public.
+Procédure de premier démarrage : `projeqtor/README.md`.
+
 ## 2026-09-10 — Premier Mac réel : plugin network-neighbors porté macOS, bruit launchd `-9` écarté (correctif post-#475, à l'occasion d'une livraison)
 
 Premier hôte macOS réel enrôlé (install-macos.sh validé de bout en bout).

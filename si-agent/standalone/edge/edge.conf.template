@@ -1,0 +1,24 @@
+# Aiguillage TLS sur super (livraison #517) : tient le port de la passerelle
+# (6443) pendant que le hub est arrêté et renvoie TOUT vers la VM autonome
+# des agents (SI_STANDALONE_UPSTREAM = ip:port du front). Même certificat
+# que tls-proxy (pki/server) : les agents, qui épinglent l'empreinte de la
+# CA interne, ne voient aucune différence. Les IP/NAT ne bougent pas : c'est
+# super qui aiguille.
+server {
+    listen ${GATEWAY_PORT} ssl;
+    server_name _;
+    ssl_certificate     /etc/nginx/tls/server.crt;
+    ssl_certificate_key /etc/nginx/tls/server.key;
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://${SI_STANDALONE_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+}

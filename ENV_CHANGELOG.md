@@ -12,6 +12,197 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+
+
+## #903 (28/10/2026) — messages-api (blog du hub)
+
+- `MESSAGES_ADMIN_GROUPS` (optionnel, défaut `administrateurs`) : groupes Keycloak dont les membres peuvent supprimer
+  n'importe quel message (sinon, chacun ne supprime que les siens). `MESSAGES_DATA_DIR` (optionnel, défaut
+  `./messages/data`). Aucun secret.
+
+## #894 (28/10/2026) — rsyslog-listener : conservation et émetteurs autorisés
+
+- `RSYSLOG_ALLOWED` (nouveau, **à renseigner**) : adresses ou réseaux autorisés à envoyer du syslog, séparés par
+  des virgules, ex. `RSYSLOG_ALLOWED=192.168.0.182`. Vide = tout émetteur accepté (le port UDP est ouvert sur l'hôte).
+- `RSYSLOG_RETENTION_DAYS` (nouveau, optionnel, 90 par défaut) : durée de conservation des messages reçus.
+- Port inchangé : `RSYSLOG_LISTENER_PORT` (5514/udp par défaut).
+
+## 2026-10-22 — priorités, modèles par usage (livraison #823)
+
+Ajoutée (facultative) : `PRIORITES_LLM_HOTE=` (identifiant de l'agent de l'hôte qui sert le LLM des priorités).
+
+## 2026-10-22 — Parc IA, veille des modèles (livraison #821)
+
+Ajoutées (facultatives) : `MODELES_MACHINES=ia-prod:20,ia-preprod:16` (nom:mémoire GPU en Go de chaque machine
+d'IA -- mettre les vrais noms dans `.env`), `MODELES_THREAD=1`. si-agent-api doit sortir en HTTPS vers
+huggingface.co (sinon les erreurs s'affichent dans Parc IA > Veille des modèles > Réglages).
+
+## 2026-10-21 — veille cyber (livraison #814)
+
+Ajoutées (toutes facultatives) : `VEILLE_SYNTHESE_HEURE=7`, `VEILLE_CONSERVATION_JOURS=365`,
+`VEILLE_LLM_BASE_URL=` et `VEILLE_LLM_MODEL=` (vide = `LLM_BASE_URL` / `LLM_MODEL`). vuln-api reçoit
+`NOTIFY_INTERNAL_TOKEN` (déjà présent dans `.env`) pour la diffusion. `python3 scripts/sync-env.py`
+insère les nouvelles clés.
+
+---
+
+## 2026-09-16 — déploiement réparti par nœud (livraison #513)
+
+Ajoutées : `SI_NODE_TOKEN=` (jeton de l'agent de nœud, généré par
+`scripts/install.sh` profil `node`, même valeur sur tous les nœuds) et
+`SI_NODE_PORT=6460`. Retirées (Swarm abandonné) : `SI_REGISTRY`,
+`SI_TAG` — à supprimer d'un `.env` existant, sans effet sinon.
+`python3 scripts/sync-env.py` insère les nouvelles clés.
+
+---
+
+
+## 2026-09-15 — équipements Cisco (livraison #508)
+
+Ajouts (aucune clé existante modifiée) : `CISCO_API_PORT=`,
+`CISCO_SSH_TIMEOUT=15`, `CISCO_BACKUP_INTERVAL_HOURS=24`,
+`CISCO_KEEP_CONFIGS=60`, `CISCO_DATA_DIR=` ; le service réutilise
+`CREDENTIALS_INTERNAL_TOKEN`. `python3 scripts/sync-env.py` insère les clés.
+
+---
+
+
+## 2026-09-14 — équipements réseau (livraison #506)
+
+Ajouts (aucune clé existante modifiée) :
+
+- `NETWORK_EQUIPMENT_API_PORT=` (vide : pas de port hôte, tls-proxy
+  dispatche `/api/network-equipment/`), `NETWORK_EQUIPMENT_DATA_DIR=`
+  (défaut `./network-equipment/data`, base SQLite + registre OUI),
+  `NETWORK_EQUIPMENT_SNMP_TIMEOUT=5`.
+- Le service réutilise `CREDENTIALS_INTERNAL_TOKEN` (coffre des accès,
+  #498) et `HOST_IP` / `NETWORK_AGENT_HOST_PORT` (exploration).
+
+`python3 scripts/sync-env.py` insère les clés manquantes.
+
+---
+
+
+## 2026-09-14 — coffre-fort, affichage (livraison #501)
+
+- `VAULT_UI_MODE` (défaut `simple` depuis #502) — affichage par défaut du portail
+  coffre-fort : `complet` (design d'origine) ou `simple` (colonne
+  centrale en tableau, sans pictogramme). Optionnelle.
+
+## 2026-09-13 — coffre des accès d'équipements (livraison #498)
+
+Nouvelles clés (insérées par sync-env.py, valeurs aléatoires pour les
+`change-me`) :
+
+- `CREDENTIALS_PASSPHRASE` (générée) — chiffrement des mots de passe
+  d'équipements ; **à consigner dans le PRA**.
+- `CREDENTIALS_INTERNAL_TOKEN` (générée) — jeton des services internes.
+- `CREDENTIALS_SALT` (vide : sel dans le volume), `CREDENTIALS_DATA_DIR`
+  (`./credentials/data`), `CREDENTIALS_API_PORT` (vide, tls-proxy).
+
+Clés **supprimées** : `MIKROTIK_USER`, `MIKROTIK_PASSWORD` (et toute
+variante `MIKROTIK_<NOM>_USER/_PASSWORD`). Reporter leurs valeurs dans
+la tuile **Accès d'équipements** (Sécurité & accès) : un accès nommé
+`mikrotik` pour les routeurs en `"credential": "default"`, un accès du
+nom indiqué pour les autres. Puis retirer ces lignes du `.env`.
+
+## 2026-09-13 — projeqtor-bridge : libellé du pont (livraison #494)
+
+Nouvelle clé (insérée automatiquement par sync-env.py si votre `.env`
+date d'avant) :
+
+- `PROJEQTOR_BRIDGE_LABEL` (défaut `SUIVI`) — marqueur inscrit dans
+  ProjeQtOr par le pont (ligne récap `[LABEL] …`, `externalReference`
+  `LABEL:<id>`). **Si votre instance a déjà importé des demandes avec
+  le pont #484, mettre ici le libellé utilisé jusqu'alors** (l'ancien
+  marqueur codé en dur, nom du service de support) — sinon l'export
+  ne relira plus les colonnes durée/accomplissement/id des anciennes
+  demandes. Le dépôt ne contient plus ce nom (anonymisation #494).
+
+## 2026-09-13 — imap-connectors (livraison #489)
+
+Nouvelles clés (insérées automatiquement par sync-env.py #479 si
+votre `.env` date d'avant) :
+
+- `IMAP_CONNECTORS_API_PORT` (vide, variable tls-proxy — route
+  `/api/imap-connectors/`) ;
+- `IMAP_CONNECTORS_DATA_DIR` (défaut `./imap-connectors/data` — base
+  SQLite des connecteurs, messages et livraisons).
+
+Aucune clé secrète nouvelle : les identifiants des boîtes IMAP sont
+saisis par connecteur dans la vue hub (stockés en base, jamais
+versionnés, jamais ressortis par l'API). Réutilise les clés
+existantes `TICKETS_API_URL`, `PROJEQTOR_BRIDGE_URL`,
+`PIXEL_GRID_BACKEND`, `PIXEL_GRID_DB_PATH` et `PG*` (déjà présentes).
+
+---
+
+## 2026-09-13 — mikrotik (livraison #485)
+
+- `MIKROTIK_USER` / `MIKROTIK_PASSWORD` (vides — secret, identifiants
+  de l'API REST RouterOS, partagés ; surcharge par routeur :
+  `MIKROTIK_<NOM>_USER` / `MIKROTIK_<NOM>_PASSWORD`) ;
+- `MIKROTIK_TLS_VERIFY` (vide = certificats auto-signés acceptés,
+  posture LAN) ; `MIKROTIK_API_PORT` (vide, variable historique
+  tls-proxy).
+
+---
+
+## 2026-09-12 — projeqtor-bridge (livraison #484)
+
+Nouvelles clés (insérées automatiquement par sync-env.py #479 si
+votre `.env` date d'avant) :
+
+- `PROJEQTOR_API_USER` (défaut `bridge`) / `PROJEQTOR_API_PASSWORD`
+  (`change-me` → généré, **à remplacer** par le mot de passe du compte
+  ProjeQtOr dédié, créé une fois dans l'interface) ;
+- `PROJEQTOR_IMPORT_PROFILE` (vide = défaut ProjeQtOr) ;
+- `PROJEQTOR_BRIDGE_SYNC_SECONDS` (défaut 120), `PROJEQTOR_BRIDGE_PORT`
+  (vide, variable historique pour tls-proxy) ;
+- `CENTRAL_LDAP_URL/BIND_DN/BIND_PASSWORD/USERS_DN/FILTER/ATTR_LOGIN/
+  ATTR_NAME/ATTR_MAIL` (toutes vides — secret, à renseigner à la main
+  pour l'import des utilisateurs depuis l'annuaire central ; vides =
+  import LDAP impossible, tout le reste du pont fonctionne).
+
+---
+
+## 2026-09-12 — Fusion manuelle désormais AUTOMATIQUE (livraison #479)
+
+Aucune clé ajoutée/renommée dans `.env.example` à cette livraison —
+mais le « Mode d'emploi » ci-dessus devient superflu : `scripts/run.sh`
+(donc aussi `chantier.sh`) appelle désormais `scripts/sync-env.py`,
+qui insère tout seul dans votre `.env` les clés manquantes (défauts
+repris d'ici, secrets `change-me` générés aléatoirement, jamais
+d'écrasement de vos valeurs). Un `.env` d'ancienne livraison se met
+donc à jour tout seul au premier démarrage.
+
+---
+
+## 2026-09-11 — VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
+
+`VITE_ALLOWED_HOSTS` vaut désormais `*` dans `.env.example` (vide
+avant) : vérifié qu'AUCUN des 6 fronts Vite ne publie de port direct —
+ils ne sont joignables que via tls-proxy, donc la liste blanche Vite
+n'apportait aucune protection mais bloquait tout nom non listé
+(« Blocked request. This host ("super") is not allowed », signalé en
+test via redirection X11 et par l'entrée externe). **Si votre `.env`
+existe déjà** : ajoutez `VITE_ALLOWED_HOSTS=*` (ou une liste explicite
+de noms) puis `./scripts/chantier.sh build` — la variable est lue par
+Vite au démarrage du conteneur, pas au simple `restart`.
+
+## 2026-09-11 — PROJEQTOR_* (livraison #476)
+
+Nouveau module `projeqtor` (fork de ProjeQtOr V13.1.0, gestion de
+projets, tuile hub visible de tous) : `PROJEQTOR_DB_NAME` (projeqtor),
+`PROJEQTOR_DB_USER` (projeqtor), `PROJEQTOR_DB_PASSWORD` et
+`PROJEQTOR_DB_ROOT_PASSWORD` (**générés aléatoirement** par
+`scripts/generate-env.sh` — relancer ce script dans chaque nouvelle
+extraction, comme toujours), `PROJEQTOR_DATA_DIR` (vide =
+`./projeqtor/data`), `PROJEQTOR_DEFAULT_LOCALE` (fr),
+`PROJEQTOR_DEFAULT_TIMEZONE` (Europe/Paris). L'authentification LDAP
+réutilise les variables `LDAP_*` existantes, rien de nouveau à
+renseigner.
+
 ## 2026-09-08 — SI_AGENT_* sécurité / notifications, SECRETS_ALERT_* passés au central (livraison #422)
 
 `si-agent-api` : `SI_AGENT_LOG_LEVEL` (INFO), `SI_AGENT_EVENTS_RETENTION_DAYS`

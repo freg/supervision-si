@@ -1,0 +1,7 @@
+{
+  "uuid": "si-mailbox@exemple.fr",
+  "name": "si-mailbox",
+  "description": "Non lus (total et filtre de / sujet) à côté de la date, relevés par l'agent si-mailbox de la session.",
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "version": 1
+}

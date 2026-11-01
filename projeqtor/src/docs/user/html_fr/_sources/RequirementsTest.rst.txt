@@ -1,0 +1,497 @@
+.. raw:: latex
+
+    \newpage
+    
+.. include:: ImageReplacement.txt
+
+.. title:: Requirements and Tests
+
+.. index:: Requirement
+
+.. _requirement:
+
+######################
+Requirements and tests
+######################
+
+
+
+
+Requirements
+############
+
+
+
+.. sidebar:: Concepts 
+
+   * :ref:`product-concept`
+   * :ref:`planningelem_project`
+
+Requirement is a rule defined for a project or a product.
+
+In most IT projects, requirement can be a functional rule for a software.
+
+It allows to define and monitor cost and delays.
+
+It can be linked to test cases, it's used to describe how you will test that a given requirement.
+
+
+.. figure:: /images/GUI/REQUIREMENT_SCR_Description.png
+   :alt: Requirements screen
+   
+   Requirements screen
+   
+
+Linking requirements to a project will limit the visibility, respecting rights management at project level.
+
+
+Requirement link to test cases
+******************************
+
+
+Test cases can be linked to a requirement in **List of test cases**.
+
+
+.. figure:: /images/GUI/REQUIREMENT_ZONE_ListOfCases.png
+   :alt: List of test cases section
+   
+   List of test cases section
+   
+* Click on |add| to add a test case that will cover the requirement or part of the requirement.
+
+.. figure:: /images/GUI/REQUIREMENT_BOX_AddTestCases.png
+   :alt: Add a test case
+   
+   Add a test case
+   
+* Click on |Search| to search for an item that is not in the list
+
+* Click on |New| to create a new item from the popup
+
+   
+Linking a requirement to a test case will display a summary of test case run (defined in test session). This way, you will have an instant display of test coverage for the requirement.
+
+.. figure:: /images/GUI/REQUIREMENT_ZONE_SumaryTestCase.png
+   :alt: Summary test cases
+   
+   Summary test cases
+   
+
+
+
+.. _summary-test-case-run-status:
+      
+This section summarizes the status of test case runs to requirement and test session.
+
+   
+   * |Planned| **Planned:** No test failed or blocked, at least one test planned.
+   * |Passed| **Passed:** All tests passed.
+   * |Failed| **Failed:** At least one test failed.
+   * |Blocked| **Blocked:** No test failed, at least one test blocked.
+   
+   
+   
+   
+.. rubric:: Requirement
+
+Summarizes the status of test case runs for test cases are linked to the requirement.
+
+Because a test case can be linked to several test sessions, total can be greater than linked to the requirement.
+   
+
+
+.. rubric:: Test session
+
+Summarizes the status of test case runs in the test session.
+
+
+
+Requirement link to tickets
+***************************
+
+* When test case run status is set to **failed**, the reference to a ticket must be defined (reference to the incident).
+* When the requirement is linked to a test case with this run status, ticket is automatically linked to the requirement. 
+
+.. rubric:: Predecessor and successor elements
+
+* Requirements can have predecessors and successors.
+* This defines some dependencies on the requirements.
+* The dependencies don’t have specific effects. It is just an information.
+
+.. rubric:: Monitoring indicator
+
+Possibility to define :ref:`indicators<indicator>` to follow the respect of dates values.
+
+   * Respect of validated end date
+   * Respect of planned end date
+   * Respect of requested start date
+   * Respect of validated start date
+   * Respect of planned start date
+   * % final use of validated costs (revised/validated)
+   * % final use of assigned work (revised/assigned)
+   * % final use of validated work (revised/validated)     
+   * % final use of assigned work (revised/assigned)     
+   * % progress of validated work (real/validated)     
+   * % progress of assignated work (real/assigned)     
+   * % real progress
+
+
+   
+.. note:: 
+
+   **Fields Project and Product**
+
+   * Must be concerned either with a project, a product or both.
+   * If the project is specified, the list of values for field "Product" contains only products linked the selected project.
+
+ 
+   **Field Target version**
+
+   * Contains the list of product versions available according to the project and product selected.
+    
+.. rubric::  Lock
+
+A requirement can be locked to ensure that its definition has not changed during the implementation process.
+
+   **Lock/Unlock requirement**
+
+   * Button to lock or unlock the requirement to preserve it from being changed.
+   * Only the user who locked the requirement or a habilitated user can unlock a requirement.
+
+   **Requirement locked**
+
+   * When a requirement is locked the following fields are displayed.
+
+
+
+
+
+.. _vote-on-requirement:
+
+Vote on requirement
+*******************
+
+It is possible to vote on requirement. 
+In the detail tab of each requirement, find the voting section.
+The target value, current value, number of votes and fill rate are displayed.
+
+Click on the vote button to assign a vote on the selected item. 
+
+.. figure:: /images/GUI/TICKET_ZONE_VoteSection.png
+   :alt: Voting section
+   
+   Voting Section
+   
+In the voting window, several pieces of information such as the maximum point limit of the vote that you can use on the vote of the item in question.
+
+Your personal vote which is not necessarily identical to the maximum points that you can award.
+
+And finally the number of points that you have left to spend in the period of use set upstream in the rules for awarding and using votes.
+
+
+.. figure:: /images/GUI/TICKET_BOX_Vote.png
+   :alt: Voting pop-up
+   
+   Voting pop-up
+   
+   
+.. seealso:: 
+
+   :ref:`Voting attribution rule<voting-attribution-rule>`
+   
+   :ref:`Voting use rule<voting-attribution-rule>`
+
+Once you have validated your vote, if the :ref:`specific access<vote-accesrights>` dedicated to voting have been activated, a table appears to display the names of the voters and the points that each of them has assigned to the element.
+
+If several people have voted, the cumulative number of their points is displayed in the current value.
+
+You continue to see the number of your points already assigned, directly in the vote button or in the table if you have the right to see it.
+
+In the :ref:`specific access<vote-accesrights>`, if the display of the table is deactivated, you can display at least the names of the voters.
+
+In any case, the names of the voters and the points they have assigned are necessarily displayed in the table.
+   
+   
+   
+.. figure:: /images/GUI/TICKET_ZONE_TicketVoteTable.png
+   :alt: Voting table
+   
+   Voting table
+   
+   
+   
+   
+.. index:: Requirement (Dashboard)
+
+.. _requirements-dashboard:
+
+Requirements dashboard
+**********************
+
+Allows user to have a requirement global view of his projects.
+
+Shows several small reports, listing the number of requirements by item.
+
+Filters are available to limit scope.
+
+.. figure:: /images/GUI/REQUIREMENT_SCR_Dashboard.png
+   :alt: Requirement dashboard screen
+
+.. rubric:: Direct access to the list of requirements
+
+* In reports, click on an item to get list of requirement corresponding to this item.
+
+.. rubric:: Parameters
+
+* Click on |Parameter| to access parameters.
+
+.. important:: For **Synthesis by status**, filter clauses are not applicable.
+
+.. figure:: /images/GUI/REQUIREMENT_BOX_Itemdisplay.png 
+   :alt: Dialog box - Ticket dashboard parameters
+   :align: center
+
+* Allows to define reports displayed on the screen.
+* Allows to reorder reports displayed with drag & drop feature. 
+* Using the selector area button |Drag|.
+
+
+.. rubric:: Scope filters
+
+* Filters allow you to restrict the display of saved requirements.
+   
+* By status, period, duration, closed element, linked to the user or no related...
+
+
+.. rubric:: No resolution scheduled 
+
+* Unscheduled: Requirements whose resolution is not scheduled in a next product version (target product version not set). 
+
+
+
+   
+
+.. index:: Test case
+
+.. _test-case:
+
+Test cases
+##########
+
+Test cases are elementary actions executed to test a requirement.
+
+You may define several tests to check a requirement, or check several requirements with one test.
+
+The test case is defined for a project, a product or one these components.
+
+.. figure:: /images/GUI/REQUIREMENT_SCR_TestCase.png
+   :alt: Test cases screen
+   
+   Test cases screen
+   
+   
+Linking test case to a :ref:`project<planningelem_project>` will limit the visibility, respecting rights management at project level.
+
+Test case can have predecessors and successors.
+
+This defines some dependencies on the test case.
+
+Dependencies don’t have specific effects. It is just an information.
+
+
+
+.. rubric:: Fields Project and Product
+
+* Must be concerned either with a project, a product or both.
+
+* If the project is specified, the list of values for field "Product" contains only products linked the selected project.
+
+.. rubric:: Field Version
+
+* Contains the list of product and component versions available according to the project and product selected.
+
+.. rubric:: Field Environment (Context)
+
+* Contexts are initialized for IT Projects as “Environment”, “OS” and “Browser”. 
+
+* This can be easily changed values in :ref:`context` screen.  
+
+.. rubric:: Field Description
+
+* The description of test case should describe the steps to run the test.
+
+
+ 
+.. note:: 
+
+   If **field Prerequisite** left blank and test case has a parent, parent prerequisite will automatically be copied here. 
+
+
+
+
+.. index:: Test case (Run status)
+
+.. _test-case-run-status:
+
+Test case run
+*************
+
+
+.. figure:: /images/GUI/REQUIREMENT_ZONE_TestCaseRun.png
+   :alt: Test case run
+   
+   Test case run
+   
+   
+   
+* |Planned| **Planned:** Test to be executed.
+* |Passed| **Passed:** Test passed with success (result is conform to expected result).
+* |Blocked| **Blocked:** Impossible to run the test because of a prior incident  (blocking incident or incident on preceding test) or missing prerequisite.
+* |Failed| **Failed:** Test has returned wrong result.
+
+This section allows to display a complete list of test case runs. These are links of the test to test sessions. This list also displays the current status of the test in the sessions.
+
+
+.. warning:: **Field Summary**
+
+   * An icon whose presents the run status of the test case.
+   * For detail, see: :ref:`Summary of test case run status<summary-test-case-run-status>`. 
+   * To go, click on the corresponding test session.
+
+
+
+
+
+.. index:: Test session
+
+.. _test-session:
+
+Test sessions
+#############
+
+.. figure:: /images/GUI/REQUIREMENT_SCR_TestSession.png
+   :alt: Test session screen
+   
+   Test session screen
+   
+   
+A test session defines the set of tests to be executed to achieve a given objective, such as covering a requirement.
+
+Define in the test case runs all test cases will be running to this test session.
+
+For each test case run sets the status of test results
+
+The test session is defined for a project, a product or one these components.
+
+.. seealso:: 
+
+   :ref:`Test case run status<test-case-run-status>`
+
+.. rubric:: Rights management
+
+* Linking test session to a :ref:`project<planningelem_project>` will limit the visibility, respecting rights management at project level.
+
+.. rubric:: Test sessions regroupment
+
+* Test session can have parents to regroup test sessions.
+
+.. rubric:: Planning element
+
+* A test session is a planning element like :ref:`activity`.
+* A test session is a task in a :ref:`Gantt type project planning<Gantt_chart>`.
+* Allows to :ref:`assigned<assignment-section>` resource and follow up progress.
+
+.. rubric:: Predecessor and successor elements
+
+* Test sessions can have predecessors and successors.
+* This defines some :ref:`dependencies<dependencylinks>` on test cases or planning constraints.
+
+.. rubric:: Monitoring indicator
+
+* The indicators can be defined in the :ref:`List of Values<list-of-values>`.
+* See: :ref:`health-status` and :ref:`overall-progress`
+
+
+
+.. note:: 
+
+   **Fields Project and Product**
+
+   Must be concerned either with a project, a product or both.
+   
+   If the project is specified, the list of values for field "Product" contains only products linked the selected project.
+
+   **Field Version**
+
+   Contains the list of product and component versions available according to the project and product selected.
+
+
+
+Test case runs
+**************
+
+
+.. figure:: /images/GUI/REQUIREMENT_ZONE_TestCaseRunMain.png
+   :alt: Test case run screen
+   
+   Test case run screen
+   
+   
+This section allows to manage test case runs.
+ 
+You can order the liste of test cases by order, type, id, name, status or tickets.
+  
+  
+.. figure:: /images/GUI/REQUIREMENT_ZONE_TestCaseRun.png
+   :alt: Test case run section
+   
+   Test case run section
+
+* Click on |Add| to add a test case run. The **Test case run dialog box** will be appear.
+* Click on |Edit| to edit a test case run. The **Test case run detail dialog box** will be appear.
+* Click on |Delete| to remove a test case run.
+* Click on |Passed| to mark test case run as passed.
+* Click on |Failed| to mark test case run as failed. The **Test case run detail dialog box** will be appear.
+   
+.. figure:: /images/GUI/REQUIREMENT_BOX_TestCaseRunKO.png
+   :alt: PopUp test failed
+      
+   PopUp PopUp test failed
+      
+      
+When the status is set to failed, the pop-up window allows you to create a ticket (reference to the incident) or a comment.
+      
+If you create a ticket, it is automatically added to Links.
+
+Information about the selected ticket is also displayed and the ticket is clickable to go to its dedicated screen.
+      
+Field ticket appear only whether status of test case run is **failed**.
+      
+* Click on |Blocked| to mark test case run as blocked.
+
+
+
+.. rubric:: Field Test case
+   
+* This icon |Comment| appears when the test case run comment field is filled.
+
+* Moving the mouse over the icon will display the test case run comments.
+
+.. rubric:: Field Detail
+
+* Moving the mouse over the icon |Description| will display the test case description.
+
+* Moving the mouse over the icon |Result| will display the test case expected result.
+
+* Moving the mouse over the icon |Prerequisite| will display the test case prerequisite. 
+
+
+   
+
+
+
+
+
+
+
+

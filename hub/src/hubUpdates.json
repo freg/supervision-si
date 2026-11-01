@@ -1,0 +1,314 @@
+[
+ {
+  "n": 948,
+  "from": 948,
+  "date": "2026-10-30",
+  "title": "BackupPC : lancer / arrêter une sauvegarde aussi quand le serveur est relayé par SSH ; agent 0.6.40"
+ },
+ {
+  "n": 947,
+  "from": 947,
+  "date": "2026-10-30",
+  "title": "Sauvegarde de poste par profil utilisateur (l'agent SYSTEM sauvegardait son propre profil : archives vides) ; restauration vers un utilisateur cible ; agent 0.6.39"
+ },
+ {
+  "n": 946,
+  "from": 946,
+  "date": "2026-10-30",
+  "title": "Gestion à distance (NAS, BackupPC) : le refus renvoie vers l'onglet Commandes à distance de l'agent relais"
+ },
+ {
+  "n": 945,
+  "from": 945,
+  "date": "2026-10-30",
+  "title": "NAS QNAP dans la Flotte (relevé par son agent relais) ; sonde nas-qnap v3 : Time Machine dédoublonné, grappes système QTS, volumes rapprochés ; agent 0.6.38"
+ },
+ {
+  "n": 944,
+  "from": 944,
+  "date": "2026-10-30",
+  "title": "NAS QNAP : propositions et conseils (disques âgés, SMART, RAID sans redondance, volumes, snapshots, Time Machine, applications) avec procédures QTS"
+ },
+ {
+  "n": 943,
+  "from": 943,
+  "date": "2026-10-30",
+  "title": "Diagnostic : plan de remise en état (2 étapes, conseils « faits », bilan des tests), conseils NTFS / graphique / mémoire nommés, encodage du journal ; BackupPC relayé par SSH ; agent 0.6.37"
+ },
+ {
+  "n": 942,
+  "from": 942,
+  "date": "2026-10-30",
+  "title": "Tour : « Reconstruire seulement ce qui a changé » après un git pull manuel ; durée attendue des mises à jour dans le pied de page"
+ },
+ {
+  "n": 941,
+  "from": 941,
+  "date": "2026-10-30",
+  "title": "Inventaire JSON des éléments de configuration par application (clés, chemins, exports mots de passe / favoris / historique, relevé)"
+ },
+ {
+  "n": 940,
+  "from": 940,
+  "date": "2026-10-30",
+  "title": "NAS QNAP : connexions, journaux, aide des outils et gestion à distance par SSH (essai lecture / actions déclarées) ; agent 0.6.36"
+ },
+ {
+  "n": 939,
+  "from": 939,
+  "date": "2026-10-30",
+  "title": "Thématique Sauvegardes à l'accueil ; BackupPC (sonde + lancer/arrêter, intervention) ; NAS QNAP par SSH (snapshots, Time Machine, RAID) ; boutons « en cours » ; agent 0.6.35"
+ },
+ {
+  "n": 938,
+  "from": 938,
+  "date": "2026-10-30",
+  "title": "Conseils de diagnostic : éléments nommés (disque visé interne/externe…) et procédures avec commandes copiables ; agent 0.6.34"
+ },
+ {
+  "n": 937,
+  "from": 937,
+  "date": "2026-10-30",
+  "title": "Tuile « Sauvegardes » : vue d'ensemble des sauvegardes du SI (postes, PBS, copies host/VM, BackupPC, NAS)"
+ },
+ {
+  "n": 936,
+  "from": 936,
+  "date": "2026-10-30",
+  "title": "Fiche agent : onglet Sauvegardes, boutons « Poste Windows » lisibles, Sauvegarde données / image, Boot USB urgence"
+ },
+ {
+  "n": 935,
+  "from": 935,
+  "date": "2026-10-30",
+  "title": "Propositions et conseils sur les points critiques"
+ },
+ {
+  "n": 934,
+  "from": 934,
+  "date": "2026-10-30",
+  "title": "Restauration d'une sauvegarde de poste (intervention)"
+ },
+ {
+  "n": 933,
+  "from": 933,
+  "date": "2026-10-30",
+  "title": "Tests de charge : impression dédiée, export CSV, rétention longue"
+ },
+ {
+  "n": 932,
+  "from": 932,
+  "date": "2026-10-30",
+  "title": "Historique des tests de charge : consultation, comparaison, impression"
+ },
+ {
+  "n": 931,
+  "from": 931,
+  "date": "2026-10-30",
+  "title": "Sauvegarde : poussée vers Proxmox Backup Server (pbs10)"
+ },
+ {
+  "n": 930,
+  "from": 930,
+  "date": "2026-10-30",
+  "title": "Sauvegarde des confs logicielles et des montages d'un poste"
+ },
+ {
+  "n": 929,
+  "from": 929,
+  "date": "2026-10-30",
+  "title": "Fiche agent : « Commandes à distance » (un seul endroit), l'ancien « Commandes » devient « Historique »"
+ },
+ {
+  "n": 928,
+  "from": 928,
+  "date": "2026-10-30",
+  "title": "Analyse de poste : temps d'accès aux services de l'entreprise (brut + authentifié)"
+ },
+ {
+  "n": 927,
+  "from": 927,
+  "date": "2026-10-30",
+  "title": "Tuile NAS : potentiel d'évolution des volumes"
+ },
+ {
+  "n": 926,
+  "from": 926,
+  "date": "2026-10-30",
+  "title": "Analyses à distance en file d'attente, commandes perdues signalées, test processeur interprétable"
+ },
+ {
+  "n": 925,
+  "from": 925,
+  "date": "2026-10-29",
+  "title": "Agent : le test de charge ne part plus tout seul, les sondes longues ne bloquent plus l'agent"
+ },
+ {
+  "n": 924,
+  "from": 924,
+  "date": "2026-10-29",
+  "title": "Info-bulles importantes copiables (mini bouton + fenêtre) ; poste-windows : panne Thunderbird corrigée"
+ },
+ {
+  "n": 923,
+  "from": 923,
+  "date": "2026-10-29",
+  "title": "Postes Windows : accès direct depuis la fiche, résultats complets, sonde poste-windows qui ne plante plus"
+ },
+ {
+  "n": 922,
+  "from": 922,
+  "date": "2026-10-29",
+  "title": "Fiche agent en onglets, tableau des agents résumé"
+ },
+ {
+  "n": 921,
+  "from": 921,
+  "date": "2026-10-29",
+  "title": "Mise à jour automatique des agents Windows : cause trouvée et corrigée"
+ },
+ {
+  "n": 920,
+  "from": 920,
+  "date": "2026-10-29",
+  "title": "Agents Windows : les sondes PowerShell démarrent enfin (environnement) et les accents sont lisibles"
+ },
+ {
+  "n": 919,
+  "from": 919,
+  "date": "2026-10-29",
+  "title": "Analyse technique à distance : commandes PowerShell par l'agent, résultats interprétés dans le hub"
+ },
+ {
+  "n": 918,
+  "from": 918,
+  "date": "2026-10-29",
+  "title": "MAJ auto des agents Windows : l'installeur ne se tue plus avec l'agent"
+ },
+ {
+  "n": 917,
+  "from": 917,
+  "date": "2026-10-29",
+  "title": "Hub bloqué par une accolade manquante dans le CSS de la tuile Hermes"
+ },
+ {
+  "n": 916,
+  "from": 916,
+  "date": "2026-10-29",
+  "title": "Test de charge exécuté en tâche de fond : suivi en direct et arrêt PENDANT le test"
+ },
+ {
+  "n": 915,
+  "from": 915,
+  "date": "2026-10-29",
+  "title": "Agents Windows -SystemCa : poser ca_file (faisceau #682), fin du CERTIFICATE_VERIFY_FAILED"
+ },
+ {
+  "n": 914,
+  "from": 914,
+  "date": "2026-10-29",
+  "title": "Mise à jour auto des agents Windows : arrêt avant copie, fin de la boucle"
+ },
+ {
+  "n": 913,
+  "from": 913,
+  "date": "2026-10-29",
+  "title": "Postes Windows : pilotage des tests de charge en direct"
+ },
+ {
+  "n": 912,
+  "from": 912,
+  "date": "2026-10-29",
+  "title": "Tuile Hermes (supervision) : interface du hub"
+ },
+ {
+  "n": 911,
+  "from": 911,
+  "date": "2026-10-29",
+  "title": "Tuile Hermes (supervision) : service optionnel + route passerelle SSE"
+ },
+ {
+  "n": 910,
+  "from": 910,
+  "date": "2026-10-28",
+  "title": "Parc IA : téléchargement automatique des modèles utilisables, noté /10 par contexte"
+ },
+ {
+  "n": 909,
+  "from": 909,
+  "date": "2026-10-28",
+  "title": "Parc IA : répartition des usages des modèles sur les machines et GPU"
+ },
+ {
+  "n": 908,
+  "from": 908,
+  "date": "2026-10-28",
+  "title": "Parc IA : revue du jour des modèles (urgence et dédicace apprentissage)"
+ },
+ {
+  "n": 907,
+  "from": 907,
+  "date": "2026-10-28",
+  "title": "Sonde sockets : utilisateur résolu par le PID sous Linux"
+ },
+ {
+  "n": 905,
+  "from": 905,
+  "date": "2026-10-28",
+  "title": "Itinérance automatique à l'installation Windows"
+ },
+ {
+  "n": 904,
+  "from": 904,
+  "date": "2026-10-28",
+  "title": "Installation Windows : CA du central public corrigée, et itinérance (central de secours)"
+ },
+ {
+  "n": 903,
+  "from": 903,
+  "date": "2026-10-28",
+  "title": "Tuile Messages : blog interne du hub"
+ },
+ {
+  "n": 902,
+  "from": 902,
+  "date": "2026-10-28",
+  "title": "Fiche agent : diagnostic Windows « rien ne remonte » à copier"
+ },
+ {
+  "n": 901,
+  "from": 901,
+  "date": "2026-10-28",
+  "title": "Keycloak : déconnexion depuis le nom public du hub"
+ },
+ {
+  "n": 900,
+  "from": 900,
+  "date": "2026-10-28",
+  "title": "Fichier d'installation Windows autonome"
+ },
+ {
+  "n": 899,
+  "from": 899,
+  "date": "2026-10-28",
+  "title": "Accueil du hub sans connexion : « Nouvel agent » et « Accès sécurisé »"
+ },
+ {
+  "n": 898,
+  "from": 898,
+  "date": "2026-10-28",
+  "title": "Fichier d'installation Windows (.cmd) : archive trouvée à côté ou en dossier double"
+ },
+ {
+  "n": 897,
+  "from": 897,
+  "date": "2026-10-28",
+  "title": "Agents › Installation : téléchargement de l'archive sous Windows"
+ },
+ {
+  "n": 896,
+  "from": 896,
+  "date": "2026-10-28",
+  "title": "Postes Windows : réinstallation, diagnostic de panne intermittente et tests de charge"
+ }
+]

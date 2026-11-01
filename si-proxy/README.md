@@ -218,6 +218,50 @@ relay.crt --key relay.key --host-token … --client-token … --control-port
 du service `si-proxy-admin-api`. Le port de contrôle 6452 doit alors être
 protégé (jeton + TLS + fail2ban maison, ou restreint à l'IP du hub).
 
+## Plusieurs shims : un site client derrière son propre poste d'agent (#575)
+
+Règle posée : **rien ne transite directement** entre les réseaux ; tout
+passe par l'entrée du SI (`https` 443 / `ssh` 9922 sur le routeur
+supervisé). Un site client (VLAN sans route vers le LAN) est donc joint par
+un **second shim** installé sur le poste de l'agent du site, qui *sort* vers
+le relais : les shims sont nommés (`--name`, défaut `hub`), le relais les
+garde tous (`/status` → `hosts`), et le client choisit lequel ouvre la
+session (`--via campus`, ou `SI_PROXY_VIA`). Audit : cible notée
+`hôte:port@campus`.
+
+Transport du shim de site, sans nouveau port : tunnel SSH permanent vers
+l'entrée SSH du SI (`si-proxy-jump.service`), clé dédiée restreinte côté
+serveur à ce seul port :
+
+```bash
+# sur le poste de l'agent du site (root) -- le relais reste sur super:6450
+sudo ./si-proxy/install-host.sh --name campus --relay super:6450 --token "$HOST_TOKEN" \
+     --ssh-jump saut@<entrée-ssh-du-SI>:9922 --ssh-key /root/.ssh/si-proxy-jump \
+     --shell-user <compte local> --deny 0.0.0.0/0 --deny <sous-réseaux hors périmètre>
+# côté SI, dans ~/.ssh/authorized_keys du compte de saut :
+restrict,port-forwarding,permitopen="super:6450" ssh-ed25519 AAAA… si-proxy-jump-campus
+```
+
+Puis, sur le Mac : `python3 -m siproxy.client proxy --via campus --listen
+127.0.0.1:6453 …` (par le saut SSH habituel) et `https://<proxmox du
+site>:8006` dans le navigateur réglé sur ce proxy — la tuile Bastion
+affiche les shims connectés. Vérifié par `tests/e2e_local.py` (deux shims,
+`--via` inconnu refusé).
+
+## CA propre au bastion (#582)
+
+Le relais était signé par la CA générale du projet, émise sans
+`keyUsage` (#495) : un shim sur un système récent (OpenSSL ≥ 3) le refusait
+(« CA cert does not include key usage extension »). Depuis #582
+`setup-certs.sh` crée **sa propre CA** dans `si-proxy/certs/` (ca.crt /
+ca.key, basicConstraints + keyUsage, 10 ans) et l'utilise pour le relais
+(`extendedKeyUsage serverAuth`) et les certificats clients (`clientAuth`) ;
+le conteneur relais et si-proxy-admin-api montent cette CA. Elle est
+indépendante de la CA des agents : la changer (`--new-ca`) ne touche que le
+bastion. Après (re)génération : `docker compose up -d si-proxy
+si-proxy-admin-api`, recopier `ca.crt` sur chaque shim (`/etc/si-proxy/
+ca.crt`, puis `systemctl restart si-proxy-host`) et sur les postes clients.
+
 ## Durcissement TLS mutuel (recommandé ensuite)
 
 ```bash
@@ -272,3 +316,30 @@ Non vérifié : le déploiement réel sur la VM « super » (systemd, certs de l
 PKI du hub, accès depuis l'extérieur), le TLS mutuel bout-à-bout, et le pont
 contre le vrai Keycloak (JWKS réel) — premier essai à faire côté hub. Le shell sous freg (drop setuid) n'est exercé ici que
 sous l'utilisateur courant de l'environnement de test.
+
+
+## Publications de port (#583)
+
+Sans client `siproxy` sur le poste : le relais écoute un port du hub et
+renvoie chaque connexion TCP vers une cible **par un shim host nommé**
+(#575). Cas d'usage : l'interface web d'un Proxmox sur un site distant,
+joint par le shim du site et son tunnel SSH (`si-proxy-jump`) — rien ne
+transite en direct.
+
+```
+# .env du hub
+SI_PROXY_PUBLISH=6488=campus:192.0.2.10:8006        # PORT=SHIM:HOTE:PORT, virgules
+SI_PROXY_PUBLISH_ALLOW=192.0.2.0/24                  # IP/CIDR admis (vide = toutes)
+VITE_PROXMOX_WEB_URLS=pve-campus=https://hub.exemple:6488   # lien « interface web » de la tuile Proxmox
+cd <dépôt> && ./scripts/run.sh up -d --build si-proxy si-proxy-admin-api hub
+```
+
+Ports publiés : 6488 et 6489 (`SI_PROXY_PUBLISH_n_PORT` pour l'extérieur).
+TCP brut : le TLS de la cible traverse tel quel (le navigateur voit le
+certificat du Proxmox). Pas de HELLO ni de jeton sur ces ports — c'est la
+cible qui authentifie — d'où la liste d'IP, le garde-fou anti-force-brute
+(IP bannies rejetées) et le journal d'audit (client `publication:<port>`,
+cible `hôte:port@shim`). Une publication dont le shim est absent ferme la
+connexion sans réponse. État : `/status` → `publications[{port, via,
+target, up}]`, `publish_allow` ; tuile Bastion : « publications : 6488 →
+… via campus [ouvrir ↗] ». Test : `tests/e2e_local.py`, test 9.

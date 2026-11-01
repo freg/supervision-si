@@ -1,0 +1,559 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Administration &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gestion de la configuration" href="AccessRights.html" />
+    <link rel="prev" title="Paramètres globaux" href="GlobalParameters.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Gestion de la configuration"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="GlobalParameters.html" title="Paramètres globaux"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Administration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="administration-console">
+<span id="admin-console"></span><span id="index-0"></span><h1>Console d’Administration<a class="headerlink" href="#administration-console" title="Lien permanent vers cette rubrique">¶</a></h1>
+<figure class="align-center" id="id1">
+<img alt="Écran d'Administration" src="_images/ADMIN_SCR_Console.png" />
+<figcaption>
+<p><span class="caption-text">Écran d’Administration</span><a class="headerlink" href="#id1" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Les écrans décrits ci-dessous sont réservés aux utilisateurs disposant du Profil administrateur.</p>
+<p>Les utilisateurs avec d’autres Profils ne peuvent pas y accéder, que des droits d’affichage ou d’accès leur soient accordés ou non.</p>
+</div>
+<p>La console d’Administration permet d’exécuter des tâches d’administration sur l’application.</p>
+<section id="background-tasks">
+<span id="background-task"></span><span id="index-1"></span><h2>Tâches en arrière-plan<a class="headerlink" href="#background-tasks" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="the-cron">
+<h3>Le CRON<a class="headerlink" href="#the-cron" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le programme <a class="reference internal" href="Glossary.html#term-CRON"><span class="xref std std-term">CRON</span></a> démarre et arrête les tâches en arrière-plan qui traitent et vérifient périodiquement les indicateurs afin de générer les alertes, avertissements ou même les imports automatiques correspondants si nécessaire.</p>
+<p>Le Cron fonctions un peu comme un Cron Linux</p>
+<p>Ce programme exécute automatiquement des scripts, des commandes ou des logiciels à une date et une heure spécifiées, ou selon un cycle prédéfini.</p>
+<figure class="align-default" id="id2">
+<img alt="Tâches en arrière-plan dans l'Administration" src="_images/ADMIN_ZONE_BackgroundTask.png" />
+<figcaption>
+<p><span class="caption-text">Les tâches en arrière-plan s’exécutent dans la console d’Administration</span><a class="headerlink" href="#id2" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez activer ou désactiver le CRON directement depuis la barre d’informations.</p>
+<figure class="align-default" id="id3">
+<img alt="Bouton CRON" src="_images/ADMIN_ZONE_ButtonCRON.png" />
+<figcaption>
+<p><span class="caption-text">Bouton d’activation du CRON</span><a class="headerlink" href="#id3" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="behavior">
+<h4>Comportement<a class="headerlink" href="#behavior" title="Lien permanent vers cette rubrique">¶</a></h4>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>* * * * *
+│ │ │ │ │ L day of week
+│ │ │ │ L month
+│ │ │ L day of month
+│ │ L hour
+│ L minute
+</pre></div>
+</div>
+<p><strong>Par exemple pour les minutes</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>* * * * * = means every minute every day
+
+5 * * * * = means every hours at 5 minutes (0:05, 1:05, ... to 23:05)
+
+0 5 * * * = means every day at 5:00
+
+*/5 * * * * = means every 5 minutes every, so will run at 0:00, 0:05, 0:10
+
+0 */2 * * * = means every 2 hours at 0 minutes, so will run at 0:00, 2:00, 4:00
+</pre></div>
+</div>
+<p><strong>Pour les minutes</strong> Ceci s’applique à l’exécution du CRON et doit être défini manuellement.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>*/5 : every 5 minutes
+
+*/10 : every 10 minutes
+
+*/15 : every 15 minutes
+
+*/30 : every 30 minutes
+</pre></div>
+</div>
+<p><strong>Pour les heures</strong> Ceci s’applique à l’exécution du CRON et doit être défini manuellement.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>*/2 : every 2 hours
+
+*/3 : every 3 hours
+
+*/4 : every 4 hours
+
+*/6 : every 6 hours
+
+*/8 : every 8 hours
+
+*/12 : every 12 hours
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Gui.html#cron-button"><span class="std std-ref">Le bouton CRON</span></a></p>
+</div>
+</section>
+</section>
+</section>
+<section id="send-an-internal-alert">
+<span id="index-2"></span><h2>Envoyer une alerte interne<a class="headerlink" href="#send-an-internal-alert" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Permet d’envoyer une alerte interne aux utilisateurs.</p>
+<figure class="align-default" id="id4">
+<img alt="Alerte interne" src="_images/ADMIN_ZONE_SendAlertIntern.png" />
+<figcaption>
+<p><span class="caption-text">Alerte interne</span><a class="headerlink" href="#id4" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Des alertes internes peuvent être envoyées aux utilisateurs.</p>
+<p>Vous pouvez définir une date et une heure d’envoi, des destinataires spécifiques ou tous les utilisateurs, ainsi que le type de message que les utilisateurs recevront : information, alerte ou avertissement…</p>
+<p>Cela peut être une bonne pratique pour prévenir les utilisateurs avant un arrêt temporaire de ProjeQtOr pour une mise à jour par exemple.</p>
+<p>Une alerte interne peut être envoyée par l’administrateur ou par les indicateurs de surveillance.</p>
+<p class="rubric">Par l’administrateur</p>
+<p>L’administrateur peut envoyer une alerte interne via la console d’Administration.</p>
+<p>Le message sera reçu par l’utilisateur via une fenêtre pop-up.</p>
+<p class="rubric">Indicateurs de surveillance</p>
+<p>Les indicateurs de surveillance envoient uniquement des messages d’avertissement et d’alerte.</p>
+<p>Le message contient des informations expliquant l’alerte :</p>
+<ul class="simple">
+<li><p>Identifiant et type de l’élément.</p></li>
+<li><p>Description de l’indicateur.</p></li>
+<li><p>Valeur cible.</p></li>
+<li><p>Valeur d’alerte ou d’avertissement.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Les indicateurs sont définis dans l’écran <a class="reference internal" href="ControlAutomation.html#indicator"><span class="std std-ref">Indicateurs</span></a>.</p>
+</div>
+</section>
+<section id="manage-connections">
+<span id="manage-connection"></span><span id="index-3"></span><h2>Gérer les connexions<a class="headerlink" href="#manage-connections" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-default" id="id5">
+<img alt="Gérer les connexions" src="_images/ADMIN_ZONE_ManageConnection.png" />
+<figcaption>
+<p><span class="caption-text">Gérer les connexions</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Permet de forcer la déconnexion des utilisateurs actifs et de fermer l’application aux nouvelles connexions.</p>
+<p class="rubric">Déconnecter tous les utilisateurs</p>
+<ul class="simple">
+<li><p>Le bouton <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">Déconnecter</kbd> <kbd class="kbd docutils literal notranslate">tous</kbd> <kbd class="kbd docutils literal notranslate">les</kbd> <kbd class="kbd docutils literal notranslate">utilisateurs</kbd></kbd> permet de déconnecter tous les utilisateurs connectés à l’exception de votre propre connexion.</p></li>
+<li><p>Le statut de l’application est affiché ci-dessous.</p></li>
+<li><p>La déconnexion sera effective pour chaque utilisateur lorsque son navigateur vérifiera les alertes à afficher.</p></li>
+<li><p>Le délai de déconnexion effective des utilisateurs dépendra du paramètre « délai (en secondes) pour vérifier les alertes » dans l’écran <a class="reference internal" href="GlobalParameters.html#automated-service"><span class="std std-ref">Paramètres globaux</span></a>.</p></li>
+</ul>
+<p class="rubric">Ouvrir/Fermer l’application</p>
+<ul class="simple">
+<li><p>Le bouton <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">Ouvrir/Fermer</kbd> <kbd class="kbd docutils literal notranslate">l'application</kbd></kbd></p></li>
+<li><p>Permet d’ouvrir et de fermer l’application.</p></li>
+<li><p>Lorsque l’application est fermée, le message ci-dessous apparaît sur l’écran de connexion.</p></li>
+</ul>
+</section>
+<section id="consistency-check">
+<span id="index-4"></span><h2>Vérification de cohérence<a class="headerlink" href="#consistency-check" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-center" id="id6">
+<img alt="Vérification de constance" src="_images/ADMIN_ConstencyCheck.png" />
+<figcaption>
+<p><span class="caption-text">Vérification de cohérence</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>sur la séquence WBS : recherche de doublons, trous de séquence, ordre incorrect</p></li>
+<li><p>sur la présence d’une et une seule ligne « PlanningElement » pour les éléments planifiables</p></li>
+<li><p>sur la consolidation du travail des Tickets</p></li>
+<li><p>sur la consolidation du travail sur les Activités</p></li>
+<li><p>sur les Assignations</p></li>
+</ul>
+<p>Vous pouvez programmer la recherche pour la vérification de cohérence ainsi que son exécution.</p>
+<p>Définissez les paramètres de fréquence souhaités et activez le service.</p>
+<span class="target" id="index-5"></span><span class="target" id="index-6"></span></section>
+<section id="maintenance-of-data">
+<span id="index-7"></span><h2>Maintenance des données<a class="headerlink" href="#maintenance-of-data" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’administrateur a la possibilité de :</p>
+<figure class="align-default" id="id7">
+<img alt="Maintenance des données" src="_images/ADMIN_ZONE_DataMaintenance.png" />
+<figcaption>
+<p><span class="caption-text">Maintenance des données</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Fermer et supprimer les e-mails et alertes envoyés.</p></li>
+<li><p>Supprimer l’historique des connexions.</p></li>
+<li><p>Mettre à jour les Références pour tout type d’élément.</p></li>
+</ul>
+<p>Vous pouvez automatiser ces nettoyages en les activant à l’aide des boutons correspondants.</p>
+</section>
+<section id="log-files-maintenance">
+<span id="index-8"></span><h2>Maintenance des fichiers journaux<a class="headerlink" href="#log-files-maintenance" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-center" id="id8">
+<img alt="Maintenance des fichiers journaux" src="_images/ADMIN_Zone_LogFiles.png" />
+<figcaption>
+<p><span class="caption-text">Maintenance des fichiers journaux</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>L’administrateur a la possibilité de choisir le niveau des fichiers journaux parmi : débogage, trace, script et erreurs.</p>
+<ul class="simple">
+<li><p>Supprimer les fichiers sur un nombre de jours donné.</p></li>
+<li><p>Afficher la liste des journaux</p></li>
+<li><p>Afficher la liste des derniers journaux.</p></li>
+</ul>
+<figure class="align-center" id="id9">
+<img alt="Maintenance des fichiers journaux" src="_images/ADMIN_BOX_LogfilesList.png" />
+<figcaption>
+<p><span class="caption-text">Liste des fichiers journaux</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="ordering-projects-by-priority">
+<h2>Classement des projets par priorité<a class="headerlink" href="#ordering-projects-by-priority" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-center" id="id10">
+<img alt="Maintenance des fichiers journaux" src="_images/OrderingProjectPrio.png" />
+<figcaption>
+<p><span class="caption-text">Classement des projets par priorité</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette fonctionnalité d’administration vous permet de lister les projets par ordre de priorité plutôt que par ordre WBS dans un ensemble de Rapports.</p>
+<p>Ce réordonnancement ne peut être effectué qu’au sein du même niveau de projet.</p>
+<p>Les Rapports pouvant bénéficier du classement par priorité comprennent :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Plans de charge de travail (hebdomadaires, mensuels),</p></li>
+<li><p>Rapports de planification (mensuels et annuels, Ressources de projet et Ressources de projet),</p></li>
+<li><p>Planification mensuelle colorée par Ressource (fixe ou non).</p></li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="api-rest-2">
+<span id="api"></span><span id="index-9"></span><h1>API REST 2<a class="headerlink" href="#api-rest-2" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>ProjeQtOr fournit une API pour interagir avec ses éléments. Elle est fournie sous la forme d’un service web REST.</p>
+<p>Les méthodes GET, PUT, POST et DELETE sont utilisées pour les éléments.</p>
+<p>Pour des raisons de sécurité, l’API n’est pas activée par défaut.</p>
+<p>Générez un fichier .htpasswd pour consulter les sujets connexes sur le web. Un modèle est fourni dans /api/.htpasswd, référençant l’utilisateur projeqtor et le mot de passe projeqtor.</p>
+<p>Il est fourni à des fins de test uniquement. Ne l’utilisez pas dans un environnement de production car il exposera l’ensemble de vos données.</p>
+<p>Mettez à jour le fichier .htaccess pour spécifier l’emplacement de votre fichier .htpasswd :</p>
+<p><strong>AuthUserFile « /pathToFile/.htpasswd »</strong> L’emplacement par défaut est le répertoire Apache.</p>
+<section id="how-the-api-works">
+<h2>Fonctionnement de l’API<a class="headerlink" href="#how-the-api-works" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’utilisateur utilisé, celui défini dans le fichier .htpasswd, doit exister en tant qu’utilisateur dans la base de données. Les droits d’accès : lecture, création, mise à jour, suppression, doivent être définis pour cet utilisateur. Cela vous permet de fournir un certain accès à des utilisateurs externes et de contrôler la visibilité qu’ils ont sur vos données.</p>
+<p><strong>MÉTHODES</strong></p>
+<ul class="simple">
+<li><p>GET : lecture</p></li>
+<li><p>PUT : création et mise à jour</p></li>
+<li><p>POST : création, mise à jour</p></li>
+<li><p>DELETE : suppression</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Pour les méthodes PUT, PUSH et DELETE, les données doivent être chiffrées avec l’algorithme AES-256, en utilisant la clé API définie pour l’utilisateur.</p>
+<p>L’administrateur doit fournir cette clé API au consommateur de l’API. Vous pouvez utiliser la bibliothèque AESCRT fournie dans le répertoire /external pour le chiffrement.</p>
+</div>
+<p>Les méthodes PUT et PUSH sont similaires et peuvent toutes deux être utilisées pour créer ou mettre à jour des éléments.</p>
+<p>La seule différence réside dans la façon d’envoyer les données : sous forme de tableau Post pour POST, sous forme de fichier pour PUT.</p>
+<p>La méthode DELETE requiert des données, formatées comme pour un PUT, mais seul l’identifiant est requis.</p>
+<p>Pour PUT, POST et DELETE, vous pouvez fournir :</p>
+<ul class="simple">
+<li><p>Un élément unique : {« id »: « 1 »,…}</p></li>
+<li><p>Une liste d’éléments : {« identified »: « id », « elements »: [{« id »: « 1 »,…}, {« id »: « 2 »,…}]}</p></li>
+<li><p>Le format Json récupéré via GET peut être utilisé pour PUT, POST et DELETE.</p></li>
+<li><p>Un fichier pour la classe pièce jointe (voir exemples) afin d’ajouter un fichier joint</p></li>
+</ul>
+</section>
+<section id="queries-in-json">
+<h2>Requêtes en Json<a class="headerlink" href="#queries-in-json" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Quelques exemples de requêtes au format Json.</p>
+<p class="rubric">GET</p>
+<ul>
+<li><p><strong>URL: http://myserver/api/{objectclass}/{objectid}</strong> - <em>(EX: http://myserver/api/Project/1)</em></p>
+<blockquote>
+<div><p>Description complète de l’objet de la classe donnée avec l’identifiant donné</p>
+</div></blockquote>
+</li>
+<li><p><strong>URL: http://myserver/api/{objectclass}/all</strong> - <em>(EX: http://myserver/api/Project/all)</em></p>
+<blockquote>
+<div><p>Description complète de tous les objets de la classe donnée</p>
+</div></blockquote>
+</li>
+<li><p><strong>URL: http://myserver/api/{objectclass}/filter/{filterid}</strong> - <em>(EX: http://myserver/api/Project/filter/1)</em></p>
+<blockquote>
+<div><p>Description complète de tous les objets de la classe donnée correspondant au filtre enregistré. L’identifiant du filtre peut être récupéré lors de l’enregistrement du filtre. L’utilisation d’un filtre d’une classe différente peut produire des résultats inattendus</p>
+</div></blockquote>
+</li>
+<li><p><strong>URL: http://myserver/api/{objectclass}/search/{crit1}/{critN}</strong> - <em>(EX: http://myserver/api/Activity/search/idProject=1/name like “%error%”)</em></p>
+<blockquote>
+<div><p>Description complète de tous les objets de la classe donnée correspondant aux critères donnés. Vous pouvez fournir autant de critères que vous le souhaitez, ils seront inclus dans la clause where avec l’opérateur AND. Contrairement à l’exemple, les critères doivent être « encodés en URL » ; utilisez par exemple la fonction PHP urlencode()</p>
+</div></blockquote>
+</li>
+<li><p><strong>URL: http://myserver/api/{objetcclass}/updated/{start date}/{end date}</strong> - <em>(EX: http://myserver/api/Project/updated/20231101000000/20231231235959)</em></p>
+<blockquote>
+<div><p>Description complète de tous les objets mis à jour entre la date de début et la date de fin. Le format de date est YYYYMMDDHHMMSS. Date &gt;= « date de début » et date &lt; « date de fin »</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">POST</p>
+<ul>
+<li><p><strong>URL: http://myserver/api/{objectclass}</strong></p>
+<blockquote>
+<div><p><em>EX : Données fournies au format json en tant que valeur POST</em></p>
+<p>Description complète des objets mis à jour ou créés avec 2 champs supplémentaires : apiResult : statut de mise à jour et apiResultMessage</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">PUT</p>
+<ul>
+<li><p><strong>URL: http://myserver/api/{objectclass}</strong></p>
+<blockquote>
+<div><p><em>EX : Données fournies au format json sous forme de fichier</em></p>
+<p>Description complète des objets mis à jour ou créés avec 2 champs supplémentaires : apiResult : statut de mise à jour et apiResultMessage</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">DELETE</p>
+<ul>
+<li><p><strong>URL: http://myserver/api/{objectclass}</strong></p>
+<blockquote>
+<div><p><em>EX : Données fournies au format json sous forme de fichier</em></p>
+<p>Description complète des objets mis à jour ou créés avec 2 champs supplémentaires : apiResult : statut de mise à jour et apiResultMessage</p>
+</div></blockquote>
+</li>
+</ul>
+<hr class="docutils" />
+<p>Voici un exemple de code PHP appelant l’API pour une requête PUT et POST (création, mise à jour).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Notez que par défaut l’API ProjeQtOr utilise une clé de chiffrement de 128 bits, c’est pourquoi dans les exemples la fonction AesCtr::encrypt utilise 128 comme dernier paramètre.</p>
+<p>Si vous souhaitez le modifier, vous pouvez forcer l’API à utiliser une longueur de clé de chiffrement différente, il suffit d’ajouter dans parameters.php</p>
+<p>$aesKeyLength=256; // Les valeurs possibles sont 128, 192, 256</p>
+<p>(Le chiffrement 256 bits peut être illégal dans certains pays)</p>
+</div>
+<p>Cette requête liste tous les Tickets :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Ticket/list/all&quot;;
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<p>Avec DELETE permettant de supprimer le Ticket avec l’identifiant #1 :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Ticket&quot;;
+$data=&#39;{&quot;id&quot;:&quot;1&quot;}&#39;;
+$data=AesCtr::encrypt($data, &#39;ApiKeyForUserProjeqtor&#39;, 128);
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_CUSTOMREQUEST, &quot;DELETE&quot;);
+curl_setopt($curl, CURLOPT_POST, true);
+curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<p>Avec PUT et POST (création ou mise à jour) permettant de mettre à jour le nom du Ticket avec l’identifiant #1 :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Ticket&quot;;
+$data=&#39;{&quot;id&quot;:&quot;1&quot;, &quot;name&quot;:&quot;name to be changed for Ticket 1&quot;}&#39;;
+$data=AesCtr::encrypt($data, &#39;ApiKeyForUserProjeqtor&#39;, 128);
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_CUSTOMREQUEST, &quot;PUT&quot;);
+curl_setopt($curl, CURLOPT_POST, true);
+curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Ticket&quot;;
+$data=&#39;{&quot;id&quot;:&quot;1&quot;, &quot;name&quot;:&quot;name to be changed for Ticket 1&quot;}&#39;;
+$data=AesCtr::encrypt($data, &#39;ApiKeyForUserProjeqtor&#39;, 256);
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_CUSTOMREQUEST, &quot;POST&quot;);
+curl_setopt($curl, CURLOPT_POST, true);
+curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<p>Avec PUT et POST pour ajouter au Ticket #1 une pièce jointe avec un fichier :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Attachment&quot;;
+$data=&#39;{&quot;id&quot;:&quot;&quot;, &quot;refType&quot;:&quot;Ticket&quot;,&quot;refId&quot;:&quot;1&quot;, &quot;fileName&quot;:&quot;test.zip&quot;,&quot;description&quot;:&quot;test file&quot;,&quot;type&quot;:&quot;file&quot;}&#39;;
+$data=AesCtr::encrypt($data, &#39;ApiKeyForUserProjeqtor&#39;, 256);
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_CUSTOMREQUEST, &quot;POST&quot;);
+curl_setopt($curl, CURLOPT_POST, true);
+curl_setopt($curl, CURLOPT_POSTFIELDS, array(&#39;data&#39;=&gt;$data, &#39;file&#39;=&gt;file_get_contents($filename)));
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$fullUrl=&quot;http://myserver/api/Attachment&quot;;
+$data=&#39;{&quot;id&quot;:&quot;&quot;, &quot;refType&quot;:&quot;Ticket&quot;,&quot;refId&quot;:&quot;1&quot;, &quot;fileName&quot;:&quot;test.zip&quot;,&quot;description&quot;:&quot;test file&quot;,&quot;type&quot;:&quot;file&quot;}&#39;;
+$data=AesCtr::encrypt($data, &#39;ApiKeyForUserProjeqtor&#39;, 256);
+$curl = curl_init($fullUrl);
+curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+curl_setopt($curl, CURLOPT_USERPWD, &quot;projeqtor:projeqtor&quot;);
+curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_CUSTOMREQUEST, &quot;POST&quot;);
+curl_setopt($curl, CURLOPT_POST, true);
+$postFields =
+curl_setopt($curl, CURLOPT_POSTFIELDS, array(&#39;data&#39;=&gt;$data, &#39;file&#39;=&gt;new CURLFile($&quot;test.zip&quot;, mime_content_type($&quot;test.zip&quot;),basename($&quot;test.zip&quot;)));
+$curl_response = curl_exec($curl);
+echo $curl_response;
+curl_close($curl);
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Notez que les deux structures pour CURLOPT_POSTFIELDS peuvent toutes deux être utilisées pour POST et PUT</dt><dd><ul class="simple">
+<li><p>PUT avec les deux méthodes enverra les données et le fichier dans l’entrée (php://input) séparés comme un encodage multipart</p></li>
+<li><p>POST avec la première méthode inclura le contenu du fichier dans un champ POST simple ($_REQUEST[“file”])</p></li>
+<li><p>POST avec la seconde méthode utilisera la méthode d’encodage multipart ($_FILES[“file”])</p></li>
+<li><p>La dernière est préférable pour les fichiers volumineux</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Console d’Administration</a><ul>
+<li><a class="reference internal" href="#background-tasks">Tâches en arrière-plan</a><ul>
+<li><a class="reference internal" href="#the-cron">Le CRON</a><ul>
+<li><a class="reference internal" href="#behavior">Comportement</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#send-an-internal-alert">Envoyer une alerte interne</a></li>
+<li><a class="reference internal" href="#manage-connections">Gérer les connexions</a></li>
+<li><a class="reference internal" href="#consistency-check">Vérification de cohérence</a></li>
+<li><a class="reference internal" href="#maintenance-of-data">Maintenance des données</a></li>
+<li><a class="reference internal" href="#log-files-maintenance">Maintenance des fichiers journaux</a></li>
+<li><a class="reference internal" href="#ordering-projects-by-priority">Classement des projets par priorité</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api-rest-2">API REST 2</a><ul>
+<li><a class="reference internal" href="#how-the-api-works">Fonctionnement de l’API</a></li>
+<li><a class="reference internal" href="#queries-in-json">Requêtes en Json</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="GlobalParameters.html"
+                          title="Chapitre précédent">Paramètres globaux</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="AccessRights.html"
+                          title="Chapitre suivant">Gestion de la configuration</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Gestion de la configuration"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="GlobalParameters.html" title="Paramètres globaux"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Administration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

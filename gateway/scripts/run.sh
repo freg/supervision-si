@@ -23,6 +23,8 @@
 #     jour depuis -- même principe que reset-keycloak ci-dessus).
 #   ./gateway/scripts/run.sh restore-groups
 #     Réapplique la dernière capture des appartenances aux groupes.
+#   ./gateway/scripts/run.sh service-account [client-id]
+#     (#609) Recrée le compte de service d'administration (401 dans Comptes).
 #
 # Prompt "realm Keycloak changé" (livraison #155) : si le fichier
 # realm-template.json semble différent du dernier import ET qu'aucun
@@ -93,8 +95,13 @@ compose() {
     --env-file "$PROJECT_ROOT/.env" \
     --project-directory "$PROJECT_ROOT" \
     -f "$HERE_DIR/docker-compose.yml" \
+    $GATEWAY_OVERRIDE \
     "$@"
 }
+# #513 : override généré par deploy/cohorts.py override <nœud> (Keycloak
+# publié sur le VPN pour la bordure distante) -- absent sur un seul hôte.
+GATEWAY_OVERRIDE=""
+[ -f "$PROJECT_ROOT/deploy/generated/gateway.override.yml" ] && GATEWAY_OVERRIDE="-f $PROJECT_ROOT/deploy/generated/gateway.override.yml"
 
 # --- Réseau Docker PARTAGÉ avec le stack principal ------------------
 # Créé de façon IDEMPOTENTE -- voir gateway/docker-compose.yml,
@@ -131,8 +138,24 @@ docker volume create "$KEYCLOAK_VOLUME_NAME" >/dev/null 2>&1 || true
 # silencieusement, laissant HOST_IP vide -- voir ce fichier pour le
 # détail complet.
 source "$PROJECT_ROOT/shared/detect-host-ip.sh"
+# #672 : HOST_IP du .env AVANT la détection automatique -- sinon la valeur
+# choisie (nom public, IP fixe) y est documentée mais jamais lue : le
+# script exportait l'IP détectée, qui primait sur .env dans compose et
+# dans le rendu du realm (URLs Keycloak différentes entre un lancement à
+# la main et un job de la tour, vu sur super).
+if [ -z "${HOST_IP:-}" ] && [ -f "$PROJECT_ROOT/.env" ]; then
+  HOST_IP="$(grep -E '^HOST_IP=' "$PROJECT_ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)"
+fi
 if [ -z "${HOST_IP:-}" ]; then
   HOST_IP="$(detect_host_ip)"
+else
+  # #674 : valeur du .env ou du shell différente de l'IP détectée -- souvent un .env recopié d'une autre machine
+  # ou d'un ancien réseau (vu en réel : Keycloak recréé avec un KC_HOSTNAME faux, hub injoignable).
+  _detected="$(detect_host_ip 2>/dev/null || true)"
+  if [ -n "$_detected" ] && [ "$_detected" != "$HOST_IP" ] && [ ! -f /.dockerenv ]; then   # #676 : dans le runner de la tour, l'IP détectée est celle du conteneur
+    echo "⚠️  HOST_IP=$HOST_IP (.env ou shell) alors que l'IP détectée de cette machine est $_detected" >&2
+    echo "    -- normal si HOST_IP est un nom public ou une autre interface voulue ; sinon corriger HOST_IP dans .env." >&2
+  fi
 fi
 export HOST_IP
 
@@ -289,6 +312,40 @@ if [ "${1:-}" = "reset-ldap-test" ]; then
   exit 0
 fi
 
+# --- #609 : (re)créer le compte de service Keycloak sans la console ------
+# Cas réel : « authentification du compte de service refusée (401) » dans la
+# tuile Comptes -- le secret de .env ne correspond plus au compte créé au
+# tout premier démarrage (bootstrap appliqué une seule fois, .env régénéré
+# depuis). Keycloak 26 fournit `kc.sh bootstrap-admin service` : crée un
+# compte de service d'administration (realm master) sur une base EXISTANTE,
+# avec le client id / secret pris dans l'environnement du conteneur (les
+# mêmes variables que .env). Si le client existe déjà : passer un autre
+# identifiant en argument et reporter KEYCLOAK_SERVICE_CLIENT_ID dans .env.
+#   ./gateway/scripts/run.sh service-account [client-id]
+if [ "${1:-}" = "service-account" ]; then
+  ENV_CID="$(grep -E '^KEYCLOAK_SERVICE_CLIENT_ID=' "$PROJECT_ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2-)"
+  CID="${2:-${ENV_CID:-supervision-si-service}}"
+  echo "Création du compte de service Keycloak « $CID » (secret = KEYCLOAK_SERVICE_CLIENT_SECRET de .env)..."
+  # Base H2 embarquée (start-dev) : verrouillée par le serveur -> Keycloak est ARRÊTÉ le
+  # temps de la commande (une minute), puis relancé. Conteneur éphémère sur le même volume.
+  compose stop keycloak
+  if compose run --rm --no-deps -T keycloak bootstrap-admin service --client-id "$CID" --client-secret:env KC_BOOTSTRAP_ADMIN_CLIENT_SECRET; then
+    echo "✅ compte « $CID » créé"
+  else
+    echo "❌ échec (si « already exists » : relancer avec un autre identifiant, ex. ${CID}-2, puis KEYCLOAK_SERVICE_CLIENT_ID=${CID}-2 dans .env)" >&2
+  fi
+  compose up -d keycloak
+  echo "Attente du redémarrage de Keycloak puis vérification du jeton (realm master)..."
+  for i in $(seq 1 24); do
+    sleep 5
+    CODE=$(compose exec -T keycloak sh -c 'curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/auth/realms/master/protocol/openid-connect/token -d client_id="'"$CID"'" -d client_secret="$KC_BOOTSTRAP_ADMIN_CLIENT_SECRET" -d grant_type=client_credentials' 2>/dev/null || echo "000")
+    [ "$CODE" = "200" ] && { echo "✅ jeton obtenu : compte de service opérationnel -- puis : cd $PROJECT_ROOT && ./scripts/run.sh up -d --force-recreate accounts-api tickets-api keycloak-backup"; exit 0; }
+    [ "$CODE" = "401" ] && { echo "❌ 401 : le secret de .env n'est pas celui du compte « $CID » -- relancer avec un nouvel identifiant" >&2; exit 1; }
+  done
+  echo "⚠️  pas de réponse 200 en 2 min (code $CODE) -- Keycloak encore en démarrage ou curl absent : tester depuis la tuile Comptes"
+  exit 0
+fi
+
 if [ "${1:-}" = "restore-groups" ]; then
   echo "Restauration des appartenances aux groupes depuis la dernière capture..."
   echo "(nécessite que Keycloak tourne ET que les utilisateurs concernés aient"
@@ -389,6 +446,28 @@ check_keycloak_realm_change() {
   echo "    lui-même (mots de passe LDAP corrigés à la main, appartenances"
   echo "    aux groupes réajustées après incident, sessions actives...)."
   echo ""
+
+  # #671 : sans terminal (job de la tour de contrôle, cron, mise à jour
+  # depuis le hub), impossible de poser la question -- `read` échouait
+  # sur EOF et, sous `set -e`, faisait tomber tout le job (vu sur une
+  # mise à jour en cascade). On garde le volume tel quel, on continue,
+  # et le marqueur n'est pas mis à jour : la question reviendra au
+  # prochain lancement À LA MAIN du script (ou GATEWAY_REALM_ANSWER=marquer).
+  if [ ! -t 0 ] || [ -n "${GATEWAY_REALM_ANSWER:-}" ]; then
+    case "${GATEWAY_REALM_ANSWER:-non}" in
+      marquer|MARQUER|m|M)
+        echo "    (sans terminal, GATEWAY_REALM_ANSWER=marquer) Volume conservé, ce contenu de realm marqué comme accepté."
+        ;;
+      *)
+        echo "    (sans terminal) Volume Keycloak conservé tel quel -- le stack continue avec l'ANCIEN realm."
+        echo "    Pour purger/réimporter ou marquer ce realm comme accepté : lancer ce script depuis un terminal,"
+        echo "    ou relancer avec GATEWAY_REALM_ANSWER=marquer pour ne plus voir ce message."
+        REALM_PURGE_DECLINED=1
+        ;;
+    esac
+    echo ""
+    return 0
+  fi
 
   check_ldap_placeholder_and_block
 

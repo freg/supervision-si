@@ -1,0 +1,216 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Risk &amp; Issue Management &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gestion des Tickets" href="Ticket.html" />
+    <link rel="prev" title="Exigences et tests" href="RequirementsTest.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Ticket.html" title="Gestion des Tickets"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="RequirementsTest.html" title="Exigences et tests"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Risk &amp; Issue Management</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="risks-and-issues-management">
+<span id="risk"></span><span id="index-0"></span><h1>Gestion des risques et problèmes<a class="headerlink" href="#risks-and-issues-management" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>La gestion des risques et des problèmes est un processus d’identification et d’évaluation des risques associés à un projet, dans le but de gérer leur impact sur le projet.</p>
+<section id="risks">
+<h2>Risques<a class="headerlink" href="#risks" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un risque est toute menace d’un événement pouvant avoir un impact négatif sur le projet, et qui peut être neutralisé, ou du moins minimisé, grâce à des actions prédéfinies.</p>
+<p>Possibilité de définir des indicateurs pour suivre le respect des valeurs de dates.</p>
+<p><strong>Le plan de gestion des risques est un point clé de la gestion de projet :</strong></p>
+<ul class="simple">
+<li><p>Identifier les risques et estimer leur gravité et leur probabilité.</p></li>
+<li><p>Identifier les actions d’atténuation.</p></li>
+<li><p>Identifier les opportunités.</p></li>
+<li><p>Actions de suivi.</p></li>
+<li><p>Identifier les risques qui finissent par survenir (devenant un problème).</p></li>
+</ul>
+<p class="rubric" id="index-1">Réserve de contingence</p>
+<ul class="simple">
+<li><p>La réserve de contingence est définie selon l’impact monétaire et la probabilité d’occurrence.</p></li>
+<li><p>La réserve de contingence pour les risques et le gain potentiel pour les opportunités permettent de définir la réserve du projet.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Champ Criticité :</strong> Calculée automatiquement à partir des valeurs de Gravité et de Probabilité. La valeur peut être modifiée.</p>
+<p><strong>Champ Coût réservé du projet :</strong> Calculé automatiquement à partir du pourcentage défini pour la probabilité sélectionnée. (Voir : <a class="reference internal" href="ListsOfValues.html#likelihood"><span class="std std-ref">Probabilités</span></a>)</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#project-reserve"><span class="std std-ref">Réserve du projet</span></a></p>
+<p><a class="reference internal" href="#criticality-calculation"><span class="std std-ref">Calcul de la valeur de criticité</span></a></p>
+</div>
+</section>
+<section id="opportunities">
+<span id="opportunity"></span><span id="index-2"></span><h2>Opportunités<a class="headerlink" href="#opportunities" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Une opportunité peut être vue comme un risque positif. Ce n’est pas une menace mais l’opportunité d’avoir un impact positif sur le projet.</p>
+<p class="rubric">Gain potentiel</p>
+<p>Le gain potentiel est défini selon le montant attendu et la probabilité d’occurrence.</p>
+<p>La réserve de contingence pour les risques et le gain potentiel pour les opportunités permettent de définir la réserve du projet.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Champ Criticité :</strong> Calculée automatiquement à partir des valeurs de Significance et de Probabilité. Voir : <a class="reference internal" href="#criticality-calculation"><span class="std std-ref">Calcul de la valeur de criticité</span></a> - La valeur peut être modifiée.</p>
+<p><strong>Champ Gain réservé du projet :</strong> Calculé automatiquement à partir du pourcentage défini pour la probabilité sélectionnée. (Voir : <a class="reference internal" href="ListsOfValues.html#likelihood"><span class="std std-ref">Probabilités</span></a>)</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#project-reserve"><span class="std std-ref">Réserve du projet</span></a></p>
+</div>
+<section id="criticality-value-calculation">
+<span id="criticality-calculation"></span><h3>Calcul de la valeur de criticité<a class="headerlink" href="#criticality-value-calculation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La valeur de criticité est calculée automatiquement à partir des valeurs de <strong>Gravité (Significance)</strong> et de <strong>Probabilité</strong>.</p>
+<p>Les valeurs de Criticité, Gravité (Significance) et Probabilité sont définies dans les écrans de listes de valeurs.</p>
+<p>Dans les écrans précédents, un nom de valeur est défini avec une valeur numérique.</p>
+<p>La valeur numérique de criticité est déterminée par une équation simple comme suit :</p>
+<p>Des valeurs par défaut sont déterminées. Vous pouvez modifier ses valeurs en respectant l’équation définie ci-dessus.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Équation</strong></p>
+<ul class="simple">
+<li><p>[Valeur de criticité] = [Valeur de gravité] X [Valeur de probabilité] / 2</p></li>
+<li><p>Par exemple : Critique (8) = Élevé (4) X Élevé (4) / 2</p></li>
+</ul>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfValues.html#criticality"><span class="std std-ref">Criticités</span></a>, <a class="reference internal" href="ListsOfValues.html#severity"><span class="std std-ref">Sévérités</span></a> et <a class="reference internal" href="ListsOfValues.html#likelihood"><span class="std std-ref">Probabilités</span></a> écrans.</p>
+</div>
+</section>
+</section>
+<section id="issues">
+<span id="issue"></span><span id="index-3"></span><h2>Problèmes<a class="headerlink" href="#issues" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un problème est un incident qui survient pendant le projet.</p>
+<p>Si le plan de gestion des risques a été correctement géré, les problèmes doivent toujours être des risques identifiés qui surviennent.</p>
+<p>Des actions doivent être définies pour résoudre le problème.</p>
+<p>Possibilité de définir des indicateurs pour suivre le respect des valeurs de dates.</p>
+</section>
+<section id="actions">
+<span id="action"></span><span id="index-4"></span><h2>Actions<a class="headerlink" href="#actions" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Une action est une tâche ou une activité qui est mise en place afin de :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Réduire la probabilité d’un risque</p></li>
+<li><p>ou réduire l’impact d’un risque</p></li>
+<li><p>ou résoudre un problème</p></li>
+<li><p>ou construire un plan d’action post-réunion</p></li>
+<li><p>ou simplement définir une « liste de tâches ».</p></li>
+</ul>
+</div></blockquote>
+<p>Les actions sont les principales activités du plan de gestion des risques.</p>
+<p>Elles doivent être régulièrement suivies.</p>
+<p>Les actions privées permettent de gérer une liste de tâches personnelle.</p>
+<p>Possibilité de définir des indicateurs pour suivre le respect des valeurs de dates.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gestion des risques et problèmes</a><ul>
+<li><a class="reference internal" href="#risks">Risques</a></li>
+<li><a class="reference internal" href="#opportunities">Opportunités</a><ul>
+<li><a class="reference internal" href="#criticality-value-calculation">Calcul de la valeur de criticité</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#issues">Problèmes</a></li>
+<li><a class="reference internal" href="#actions">Actions</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="RequirementsTest.html"
+                          title="Chapitre précédent">Exigences et tests</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Ticket.html"
+                          title="Chapitre suivant">Gestion des Tickets</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Ticket.html" title="Gestion des Tickets"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="RequirementsTest.html" title="Exigences et tests"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Risk &amp; Issue Management</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

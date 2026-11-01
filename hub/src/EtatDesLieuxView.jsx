@@ -1,0 +1,296 @@
+// Migration › « État des lieux » (livraison #857) : systèmes actifs (nœuds, CT, VM) -- système et fin de support,
+// dernière mise à jour, correctifs en attente, versions obsolètes, services inclus, usage, exposition, interactions et
+// dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
+// version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl, fetchEtatPlan, saveEtatPlan, saveEtatRegroupement } from "./siAgentClient.js";
+import { hubLink } from "./hubLinks.js";
+import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
+
+import IpPing from "./IpPing.jsx";
+import EtatBareme from "./EtatBareme.jsx";   // #882
+import OsActions from "./OsActions.jsx";   // #880
+function Tendance({ t }) {
+  if (!t || t.length < 2) return <span className="infra-muted">Suivi commencé : la courbe apparaît à partir du deuxième jour.</span>;
+  const cles = ["urgent", "à planifier", "à surveiller"];
+  const m = maxTendance(t, cles);
+  return (
+    <span><svg width="320" height="64" style={{ verticalAlign: "middle" }} aria-label="évolution">{cles.map((k) => <polyline key={k} points={points(t, k, 320, 64, m)} fill="none" stroke={COULEUR[k]} strokeWidth="2" />)}</svg>
+      <span className="infra-muted"> {t[0].jour} → {t[t.length - 1].jour} · {cles.map((k) => <span key={k} style={{ color: COULEUR[k], marginRight: 8 }}>■ {k}</span>)}</span></span>
+  );
+}
+
+// #877 : fiche d'un système en fenêtre rapide, format page (Échap ou clic hors de la fenêtre pour fermer).
+// #879 : rattacher un système à sa référence (copie, clone, préparation, test), le garder à part, ou revenir à l'automatique.
+function Rattachement({ l, siAgentApiBase, onDone }) {
+  const [r, setR] = useState({ de: l.variante_de?.name || "", role: l.variante_de?.role || "copie", note: "" });
+  const [msg, setMsg] = useState("");
+  const envoyer = async (corps) => {
+    setMsg("enregistrement…");
+    const x = await saveEtatRegroupement(siAgentApiBase, { key: l.key, ...corps });
+    setMsg(x?.error || "enregistré : la liste se met à jour");
+    if (!x?.error) onDone?.();
+  };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+      <span className="infra-muted">rattacher à</span>
+      <input value={r.de} onChange={(e) => setR({ ...r, de: e.target.value })} placeholder="nom du système de référence (ex. serv3)" style={{ minWidth: 200 }} />
+      <select value={r.role} onChange={(e) => setR({ ...r, role: e.target.value })}>{["clone", "préparation de migration", "copie", "test", "ancienne version"].map((x) => <option key={x}>{x}</option>)}</select>
+      <input value={r.note} onChange={(e) => setR({ ...r, note: e.target.value })} placeholder="note (ex. plusieurs cartes réseau physiques)" style={{ minWidth: 220 }} />
+      <button type="button" onClick={() => envoyer({ de: r.de, role: r.role, note: r.note })} disabled={!r.de.trim()}>Rattacher</button>
+      <button type="button" className="secondary" onClick={() => envoyer({ seul: true })} title="ne pas le rattacher malgré son nom">Garder à part</button>
+      <button type="button" className="secondary" onClick={() => envoyer({ retirer: true })} title="revenir au rattachement automatique (nom, numéro)">Automatique</button>
+      <span className="infra-muted">{msg}</span>
+    </div>
+  );
+}
+
+function FicheSysteme({ l, noms, onClose, lib, setLib, enregistrerLib, decl, setDecl, enregistrerDecl, manuels, siAgentApiBase, onReload }) {
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") fermer.current(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
+  const bloc = (titre, contenu) => (contenu ? <section className="edl-fiche-bloc"><h4>{titre}</h4>{contenu}</section> : null);
+  const ligne = (k, v) => (v || v === 0 ? <div><span className="infra-muted">{k} : </span>{v}</div> : null);
+  return (
+    <div className="edl-fiche-fond" onClick={onClose}>
+      <div className="edl-fiche" role="dialog" aria-label={`fiche ${l.name}`} onClick={(e) => e.stopPropagation()}>
+        <header>
+          <div><h3 style={{ margin: 0 }}>{l.libelle || l.name || l.key} <span className="infra-muted" style={{ fontSize: 14 }}>{l.type} · {l.key}</span></h3>
+            <span className={`np-tone ${TON[l.niveau]}`}><b>{l.niveau}</b></span>{l.score ? <span className="infra-muted"> · score {l.score} · impact {l.impact}</span> : null}
+            {l.expose ? <span className="np-tone warn"> · exposé sur Internet</span> : null}
+            {" "}<OsActions small={false} label={l.type === "nœud" ? l.name : l.type === "CT" || l.type === "VM" ? l.name : l.name} ip={(l.ips || [])[0]}
+              node={l.type === "CT" || l.type === "VM" ? l.node : l.type === "nœud" ? l.name : undefined} ct={l.type === "CT" ? l.vmid : undefined} /></div>
+          <button type="button" className="secondary" onClick={onClose} title="fermer (Échap)">✕</button>
+        </header>
+        {l.representant && <div className="np-tone warn" style={{ margin: "6px 0" }}>{l.representant.note}</div>}
+        {l.variante_de && <div className="infra-muted" style={{ margin: "6px 0" }}><b>{l.variante_de.role}</b>{l.variante_de.key ? ` de ${l.variante_de.name} : listé pour la forme, hors compteurs et planning` : " : listé pour la forme"}{l.variante_de.note ? ` — ${l.variante_de.note}` : ""}</div>}
+        {bloc("Copies, clones, préparations rattachés", (l.variantes || []).length ? <table className="infra-table"><thead><tr><th>Système</th><th>Rôle</th><th>Où</th><th>État</th><th>Système d'exploitation</th></tr></thead>
+          <tbody>{l.variantes.map((v) => <tr key={v.key}><td>{v.name} <span className="infra-muted">{v.key}</span></td><td>{v.role}</td><td>{v.node}{v.vmid ? ` / ${v.vmid}` : ""}</td><td>{v.status}</td><td>{v.os || "—"}</td></tr>)}</tbody></table> : null)}
+        {bloc("Rattachement", <Rattachement l={l} siAgentApiBase={siAgentApiBase} onDone={onReload} />)}
+        {bloc("Pourquoi, que faire", <>{(l.raisons || []).map((x, i) => <div key={i}>• {x}</div>)}{l.actions?.length ? <div style={{ marginTop: 6 }}><b>→ {l.actions.join(" ; ")}</b></div> : null}{!l.raisons?.length && !l.actions?.length ? "—" : null}</>)}
+        <div className="edl-fiche-cols">
+          {bloc("Système", <>
+            <div className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}</div>
+            {ligne("fin des correctifs", l.os?.fin ? `${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut)}
+            {ligne("noyau", l.noyau)}{ligne("source", l.source)}{ligne("note", l.note)}
+            {ligne("dernière mise à jour", l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : null)}
+            {l.attente != null && <div className={l.attente_secu ? "np-tone bad" : ""}>{l.attente} mise(s) à jour en attente{l.attente_secu ? `, dont ${l.attente_secu} de sécurité` : ""}</div>}
+            {(l.source === "aucune" || l.source === "déclaré") && (decl?.key === l.key ? (
+              <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
+                <input placeholder="version (12, 22.04, 2019…)" value={decl.version} onChange={(e) => setDecl({ ...decl, version: e.target.value })} />
+                <input placeholder="nom affiché (facultatif)" value={decl.nom} onChange={(e) => setDecl({ ...decl, nom: e.target.value })} />
+                <label className="infra-muted">dernière mise à jour <input type="date" value={decl.maj} onChange={(e) => setDecl({ ...decl, maj: e.target.value })} /></label>
+                <input placeholder="note (ex. appliance, relevé du 26/10)" value={decl.note} onChange={(e) => setDecl({ ...decl, note: e.target.value })} />
+                <div><button onClick={() => enregistrerDecl()}>Enregistrer</button> {l.source === "déclaré" && <button className="secondary" onClick={() => enregistrerDecl(true)}>Retirer</button>} <button className="secondary" onClick={() => setDecl(null)}>Annuler</button></div>
+              </div>
+            ) : <button type="button" className="secondary" style={{ marginTop: 6 }} onClick={() => { const m = manuels[l.key] || {}; setDecl({ key: l.key, famille: m.famille || "debian", version: m.version || "", nom: m.nom || "", maj: m.maj || "", note: m.note || "" }); }}>
+              {l.source === "déclaré" ? "modifier la déclaration" : "déclarer le système à la main"}</button>)}
+          </>)}
+          {bloc("Libellé pour les décideurs", lib?.key === l.key
+            ? <div><input value={lib.texte} onChange={(e) => setLib({ ...lib, texte: e.target.value })} placeholder="libellé pour les décideurs" /> <button onClick={enregistrerLib}>OK</button></div>
+            : <button type="button" className="secondary" onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</button>)}
+          {bloc("Rôle et usage", <>{ligne("rôle", (l.roles || []).join(", ") || "—")}{ligne("usage", l.usage)}
+            {ligne("clients", l.usage_detail?.clients)}{ligne("requêtes", l.usage_detail?.requetes)}{ligne("CPU moyen", l.usage_detail?.cpu_moy_pct != null ? `${Math.round(l.usage_detail.cpu_moy_pct)} %` : null)}</>)}
+          {bloc("Adresses", (l.ips || []).length ? (l.ips || []).map((ip) => <div key={ip}><IpPing os={false} ip={ip} /></div>) : "—")}
+          {bloc("Versions clés", (l.composants || []).length ? (l.composants || []).map((c) => <div key={c.nom + c.version} className={`np-tone ${TON_OS[c.statut] || "neutral"}`}>{c.nom} {c.version} <small>({c.statut}{c.fin ? ` · fin ${jour(c.fin)}` : ""}{c.note ? ` ; ${c.note}` : ""})</small></div>) : "—")}
+          {bloc("Dépendances", <>{ligne("utilise", l.utilise?.length ? l.utilise.map((k) => noms[k] || k).join(", ") : "—")}{ligne("utilisé par", l.dependants?.length ? l.dependants.map((k) => noms[k] || k).join(", ") : "—")}</>)}
+        </div>
+        {bloc("Ports écoutés", (l.ecoute || []).length ? (l.ecoute || []).map((e) => `${e.port} (${e.proc})`).join(" · ") : "—")}
+        {bloc("Services actifs", (l.services || []).length ? (l.services || []).join(", ") : null)}
+        {bloc("Vu du réseau (audit)", (l.reseau || []).length ? <table className="infra-table"><thead><tr><th>Port</th><th>Service</th><th>Logiciel et version</th></tr></thead>
+          <tbody>{l.reseau.map((p) => <tr key={p.port}><td>{p.port}</td><td>{p.service || "—"}</td><td>{p.logiciel || "—"}</td></tr>)}</tbody></table> : null)}
+      </div>
+    </div>
+  );
+}
+
+// #878 : temps estimés (marge, personnes, début) -- repris dans l'Excel (feuille « Planning ») et la page d'audit.
+function PlanReglages({ siAgentApiBase }) {
+  const [p, setP] = useState(null);
+  const [r, setR] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [bareme, setBareme] = useState(false);   // #882
+  const recharger = () => fetchEtatPlan(siAgentApiBase).then((x) => { setP(x); setR(x?.hypotheses ? { ...x.hypotheses } : null); }).catch(() => {});
+  useEffect(() => { fetchEtatPlan(siAgentApiBase).then((x) => { setP(x); setR(x?.hypotheses ? { ...x.hypotheses } : null); }).catch(() => setP(null)); }, [siAgentApiBase]);
+  if (!p || !r) return null;
+  const enregistrer = async () => {
+    setMsg("calcul…");
+    const x = await saveEtatPlan(siAgentApiBase, { marge: r.marge, personnes: r.personnes, debut: r.debut });
+    if (x?.error) setMsg(x.error); else { setP(x); setMsg("enregistré"); }
+  };
+  return (
+    <div className="infra-muted" style={{ marginTop: 6 }}>
+      Planning estimé : <b>{String(p.total?.jours ?? 0).replace(".", ",")} jours</b> de travail, fin le {p.total?.fin ? jour(p.total.fin) : "—"}
+      {" "}({(p.phases || []).map((x) => `phase ${x.phase} : ${String(x.jours).replace(".", ",")} j`).join(" · ")}) —
+      marge ×<input type="number" min="1" max="10" step="0.5" value={r.marge} onChange={(e) => setR({ ...r, marge: e.target.value })} style={{ width: 56 }} />
+      {" "}personnes <input type="number" min="1" max="20" value={r.personnes} onChange={(e) => setR({ ...r, personnes: e.target.value })} style={{ width: 48 }} />
+      {" "}début <input type="date" value={r.debut || ""} onChange={(e) => setR({ ...r, debut: e.target.value })} />
+      {" "}<button type="button" className="secondary" onClick={enregistrer}>Recalculer</button>
+      {" "}<button type="button" className="secondary" onClick={() => setBareme(true)} title="points par type d'action, catégories, automatisable, vélocité">⚖ Barème des estimations</button> {msg}
+      {bareme && <EtatBareme siAgentApiBase={siAgentApiBase} onClose={() => setBareme(false)} onSaved={recharger} />}
+    </div>
+  );
+}
+
+export default function EtatDesLieuxView({ siAgentApiBase }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState(null);
+  const [f, setF] = useState({ texte: "", niveau: "", type: "", noeud: "" });
+  const [ouvert, setOuvert] = useState({});
+  const [lib, setLib] = useState(null);      // {key, texte}
+  const [eol, setEol] = useState(null);
+  const [decl, setDecl] = useState(null);    // #858 : {key, famille, version, nom, maj, note}
+  const [decis, setDecis] = useState(null);  // #862 : décisions à prendre (liste en édition)
+  const [phases, setPhases] = useState(null); // #863 : fiches « où, quand, combien » par phase (en édition)
+  const [note, setNote] = useState(null);
+  const [fiche, setFiche] = useState(null);   // #877 : clé du système dont la fiche est ouverte
+  const load = useCallback(() => fetchEtat(siAgentApiBase).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
+  useEffect(() => { load(); const id = setInterval(load, 300000); return () => clearInterval(id); }, [load]);
+  if (!d) return <p className="infra-muted">{err || "lecture de l'état des lieux…"}</p>;
+  const lignes = filtrer(d.systemes, f);
+  const noms = Object.fromEntries((d.systemes || []).map((l) => [l.key, nom(l)]));
+  const ficheL = fiche ? (d.systemes || []).find((l) => l.key === fiche) : null;   // #877
+  const r = d.resume || {};
+  const enregistrerLib = async () => {
+    const libelles = { ...(d.libelles || {}) };
+    if (lib.texte.trim()) libelles[lib.key] = lib.texte.trim(); else delete libelles[lib.key];
+    const x = await saveEtatLibelles(siAgentApiBase, libelles);
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Libellé enregistré."]);
+    setLib(null); load();
+  };
+  const enregistrerDecl = async (effacer = false) => {
+    const { key, ...fiche } = decl;
+    const x = await saveEtatManuel(siAgentApiBase, key, effacer ? null : fiche);
+    setNote(x?.error ? ["ko", x.error] : ["ok", effacer ? "Déclaration retirée." : `Système de ${key} déclaré.`]);
+    if (!x?.error) { setDecl(null); load(); }
+  };
+  const enregistrerDecis = async () => {
+    const x = await saveEtatDecisions(siAgentApiBase, decis.filter((y) => y.titre.trim()));
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Décisions enregistrées : elles figurent dans l'Excel et dans l'audit."]);
+    if (!x?.error) { setDecis(null); load(); }
+  };
+  const enregistrerPhases = async () => {
+    const x = await saveEtatPhases(siAgentApiBase, phases);
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Organisation du chantier enregistrée : elle figure dans l'Excel et dans l'audit."]);
+    if (!x?.error) { setPhases(null); load(); }
+  };
+  const enregistrerEol = async () => {
+    let o; try { o = JSON.parse(eol); } catch (e) { setNote(["ko", `JSON invalide : ${e.message}`]); return; }
+    const x = await saveEtatEol(siAgentApiBase, o);
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Dates de fin de support enregistrées."]);
+    if (!x?.error) { setEol(null); load(); }
+  };
+  return (
+    <div>
+      {err && <p className="infra-error">{err}</p>}
+      {err && (d.liens?.length || d.manuel) && (
+        <div className="prep-liens">{(d.liens || []).map((l) => <a key={l.label} className="button-link" href={hubLink(l.view, l.params)}>{l.label} →</a>)}
+          {!d.liens?.length && d.manuel && <p className="infra-muted">⚠ {d.manuel}</p>}</div>)}
+      <div className="infra-card mig-controls">
+        {NIVEAUX.map((n) => <span key={n} className={`np-tone ${TON[n]}`} style={{ marginRight: 10 }}><b>{r[n] ?? 0}</b> {n}</span>)}
+        <span className={r.inconnus ? "np-tone warn" : "infra-muted"}>· {r.inconnus ?? 0} système(s) non identifié(s)</span>
+        {/* #873 : audit réseau */}
+        <span className="infra-muted" title="copies, clones, préparations de migration et VM de test : rattachés à leur système, listés en fin, hors compteurs et planning">· {r.variantes ?? 0} copie(s) / essai(s) en fin de liste </span>
+        <span className={r.decouverts ? "np-tone warn" : "infra-muted"} title="appareils vus par l'audit réseau (sonde lan-audit) et suivis par aucun autre outil">· {r.decouverts ?? 0} appareil(s) découvert(s) sur le réseau</span>
+        <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
+        <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
+        <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatAuditUrl(siAgentApiBase)} target="_blank" rel="noreferrer">Audit obsolescence et support (page à imprimer) ↗</a>
+        <PlanReglages siAgentApiBase={siAgentApiBase} />
+      </div>
+      <div className="infra-card"><b>Évolution :</b> <Tendance t={d.tendance} /></div>
+      {note && <p className={`np-tone ${note[0] === "ok" ? "good" : "bad"}`}>{note[1]}</p>}
+      <div className="mig-controls">
+        <input placeholder="nom, rôle, système" value={f.texte} onChange={(e) => setF({ ...f, texte: e.target.value })} />
+        <select value={f.niveau} onChange={(e) => setF({ ...f, niveau: e.target.value })}><option value="">tous les niveaux</option>{NIVEAUX.map((n) => <option key={n}>{n}</option>)}</select>
+        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">tous les types</option>{["nœud", "CT", "VM", "serveur", "poste", "découvert"].map((n) => <option key={n}>{n}</option>)}</select>
+        <select value={f.noeud} onChange={(e) => setF({ ...f, noeud: e.target.value })}><option value="">tous les nœuds</option>{[...new Set((d.systemes || []).map((l) => l.node))].map((n) => <option key={n}>{n}</option>)}</select>
+      </div>
+      {/* #877 : lignes compactes (2 lignes de texte au plus), clic -> fiche ; cadre déroulant dans les deux sens */}
+      <div className="edl-cadre"><table className="infra-table edl-table">
+        <thead><tr><th>Niveau</th><th>Système</th><th>Rôle</th><th>Système d'exploitation</th><th>Mise à jour</th><th>Versions clés</th><th>Usage</th><th>Dépendances</th><th>Pourquoi / que faire</th></tr></thead>
+        <tbody>{lignes.map((l) => {
+          const comp = l.composants || [];
+          const pire = comp.find((c) => c.statut === "obsolète") || comp[0];
+          return (
+            <tr key={l.key} onClick={() => setFiche(l.key)} title="ouvrir la fiche" className={l.variante_de ? "edl-variante" : ""}>
+              {l.variante_de ? <td><div className="edl-l"><i>{l.variante_de.role}</i></div><div className="edl-l infra-muted">{l.variante_de.key ? `de ${l.variante_de.name}` : "pour la forme"}</div></td>
+                : <td className={`np-tone ${TON[l.niveau]}`}><div className="edl-l"><b>{l.niveau}</b></div><div className="edl-l infra-muted">{l.score ? `score ${l.score} · impact ${l.impact}` : ""}{l.variantes?.length ? ` · +${l.variantes.length} copie(s)` : ""}</div></td>}
+              <td><div className="edl-l"><b>{l.libelle || l.name || l.key}</b> <span className="infra-muted">{l.type}</span></div><div className="edl-l infra-muted">{l.key}{l.ips?.length ? ` · ${l.ips[0]}` : ""}</div></td>
+              <td><div className="edl-l">{(l.roles || []).join(", ") || "—"}</div><div className="edl-l">{l.expose ? <span className="np-tone warn">exposé sur Internet</span> : null}</div></td>
+              <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}><div className="edl-l">{l.os?.nom || "non relevé"}</div>
+                <div className="edl-l infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}{l.source && l.source !== "relevé" ? ` · ${l.source}` : ""}</div></td>
+              <td><div className="edl-l">{l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : "—"}</div><div className={`edl-l ${l.attente_secu ? "np-tone bad" : "infra-muted"}`}>{l.attente != null ? `${l.attente} en attente${l.attente_secu ? `, ${l.attente_secu} sécu.` : ""}` : ""}</div></td>
+              <td>{pire ? <div className={`edl-l np-tone ${TON_OS[pire.statut] || "neutral"}`}>{pire.nom} {pire.version} <small>({pire.statut})</small></div> : <div className="edl-l">—</div>}
+                <div className="edl-l infra-muted">{comp.length > 1 ? `+ ${comp.length - 1} autre(s)` : ""}</div></td>
+              <td><div className="edl-l">{l.usage}</div><div className="edl-l infra-muted">{l.usage_detail?.clients ? `${l.usage_detail.clients} client(s)` : ""}{l.usage_detail?.requetes ? ` · ${l.usage_detail.requetes} req.` : ""}</div></td>
+              <td><div className="edl-l">{l.utilise?.length ? `utilise ${l.utilise.length}` : "—"}</div><div className={`edl-l ${l.dependants?.length ? "np-tone warn" : "infra-muted"}`}>{l.dependants?.length ? `utilisé par ${l.dependants.length}` : ""}</div></td>
+              <td className="edl-pourquoi"><div className="edl-2l"><small>{(l.raisons || []).join(" ; ") || "—"}</small>{l.actions?.length ? <> <b>→</b> {l.actions.join(" ; ")}</> : null}</div></td>
+            </tr>);
+        })}</tbody>
+      </table></div>
+      {ficheL && <FicheSysteme l={ficheL} noms={noms} onClose={() => setFiche(null)}
+        lib={lib} setLib={setLib} enregistrerLib={enregistrerLib} decl={decl} setDecl={setDecl} enregistrerDecl={enregistrerDecl} manuels={d.manuels || {}}
+        siAgentApiBase={siAgentApiBase} onReload={load} />}
+      <div className="infra-card">
+        <b>Interactions entre systèmes ({(d.dependances || []).length})</b>
+        <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>
+          <tbody>{(d.dependances || []).map((x, i) => <tr key={i}><td>{noms[x.de] || x.de}</td><td>{noms[x.vers] || x.vers}</td><td>{x.nature}</td><td>{x.n}</td></tr>)}</tbody></table>
+        <p className="infra-muted">Relevées à partir des connexions établies au moment du relevé (toutes les 15 min) : une interaction rare peut manquer.</p>
+      </div>
+      <div className="infra-card">
+        <b>Où, quand, combien (pour les décideurs)</b>
+        {(d.chantiers?.infrastructure || []).length > 0 && (
+          <table className="infra-table"><thead><tr><th>Serveur</th><th>Site</th><th>Machines</th><th>Capacité</th><th>Occupé</th><th>Disque de secours</th><th>État</th></tr></thead>
+            <tbody>{d.chantiers.infrastructure.map((x) => <tr key={x.nom}><td>{x.nom}{x.dans ? <span className="infra-muted"> (dans {x.dans})</span> : null}</td><td>{x.site || "—"}</td><td>{x.machines}</td>
+              <td>{x.espace_to ? `${x.espace_to} To` : "—"}</td><td>{x.occupe_pct != null ? `${x.occupe_pct} %` : "—"}</td><td className={x.secours === "non" ? "np-tone bad" : ""}>{x.secours}</td>
+              <td className={x.etat !== "normal" ? "np-tone bad" : ""}>{x.etat}</td></tr>)}</tbody></table>)}
+        <div style={{ overflowX: "auto" }}><table className="infra-table" style={{ marginTop: 8 }}>
+          <thead><tr><th>Phase</th><th>Quand</th><th>Où (de → vers)</th><th>Volume (Go)</th><th>Débit (Mo/s)</th><th>Durée estimée</th><th>Coupure de service</th><th>Contraintes</th><th>Avancement</th></tr></thead>
+          <tbody>{(d.chantiers?.organisation || []).map((x) => {
+            const f = phases ? (phases[x.id] || {}) : null;
+            const champ = (k, w) => (f ? <input style={{ width: w }} value={f[k] ?? ""} onChange={(e) => setPhases({ ...phases, [x.id]: { ...f, [k]: e.target.value } })} /> : (x[k] || "—"));
+            return (<tr key={x.id} style={{ verticalAlign: "top" }}><td>{x.titre}</td><td>{champ("quand", 120)}</td><td>{champ("ou", 140)}</td><td>{champ("volume_go", 70)}</td>
+              <td>{f ? champ("debit_mo_s", 60) : (x.debit_mo_s || "—")}</td><td>{x.duree || "—"}</td><td>{champ("coupure", 120)}</td><td>{champ("contraintes", 200)}</td>
+              <td>{x.etat} <span className="infra-muted">({x.faites} / {x.total})</span></td></tr>);
+          })}</tbody></table></div>
+        {phases ? <div style={{ marginTop: 6 }}><button onClick={enregistrerPhases}>Enregistrer</button> <button className="secondary" onClick={() => setPhases(null)}>Annuler</button></div>
+          : <div style={{ marginTop: 6 }}><button className="secondary" onClick={() => setPhases(JSON.parse(JSON.stringify(d.phases || {})))}>Compléter (quand, où, volume, coupure, contraintes)</button>
+            <span className="infra-muted"> La durée est calculée : volume ÷ débit (par défaut le plafond des copies de la phase). Serveurs : relevé de la sonde copies-inventory.</span></div>}
+      </div>
+      <div className="infra-card">
+        <b>Décisions à prendre (pour les décideurs)</b> {!decis && <button className="secondary" onClick={() => setDecis((d.decisions || []).map((y) => ({ ...y })).concat([{ titre: "", detail: "", montant: "", echeance: "" }]))}>Modifier</button>}
+        {decis ? (
+          <div>
+            {decis.map((y, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 3fr 1fr 1fr auto", gap: 6, marginTop: 6 }}>
+                {["titre", "detail", "montant", "echeance"].map((k) => <input key={k} placeholder={{ titre: "objet", detail: "pourquoi (en clair)", montant: "montant", echeance: "échéance" }[k]} value={y[k] || ""}
+                  onChange={(e) => setDecis(decis.map((z, j) => (j === i ? { ...z, [k]: e.target.value } : z)))} />)}
+                <button className="secondary" onClick={() => setDecis(decis.filter((_, j) => j !== i))}>✕</button>
+              </div>))}
+            <div style={{ marginTop: 6 }}><button className="secondary" onClick={() => setDecis([...decis, { titre: "", detail: "", montant: "", echeance: "" }])}>+ ligne</button> <button onClick={enregistrerDecis}>Enregistrer</button> <button className="secondary" onClick={() => setDecis(null)}>Annuler</button></div>
+          </div>
+        ) : (d.decisions || []).length ? <ul>{d.decisions.map((y, i) => <li key={i}><b>{y.titre}</b>{y.montant ? ` · ${y.montant}` : ""}{y.echeance ? ` · ${y.echeance}` : ""}<div className="infra-muted">{y.detail}</div></li>)}</ul>
+          : <p className="infra-muted">Aucune décision saisie. Elles apparaissent dans l'Excel (feuille Chantiers) et dans l'audit, avec l'avancement des chantiers tiré du Journal des chantiers et du plan de migration.</p>}
+      </div>
+      <div className="infra-card">
+        <b>Serveurs utilisés mais non suivis ({(d.non_suivis || []).length})</b>
+        <table className="infra-table"><thead><tr><th>Adresse</th><th>Services</th><th>Utilisé par</th><th>dont postes</th><th>Connexions</th></tr></thead>
+          <tbody>{(d.non_suivis || []).map((x) => <tr key={x.ip}><td><IpPing ip={x.ip}><b>{x.ip}</b></IpPing> <span className="infra-muted">{x.interne ? "réseau interne" : "Internet"}</span></td>
+            <td>{x.natures.join(", ")} <span className="infra-muted">({x.ports.join(", ")})</span></td><td>{x.clients} système(s) <span className="infra-muted">{x.utilise_par.map((k) => noms[k] || k).join(", ")}</span></td>
+            <td>{x.postes}</td><td>{x.connexions}</td></tr>)}</tbody></table>
+        <p className="infra-muted">Relevés à partir des connexions des systèmes et des postes suivis. Un serveur interne de cette liste (serveur de fichiers, NAS…) s'ajoute au suivi dans <code>/etc/si-agent/systemes-remote.json</code> de l'agent qui le joint (sonde systemes) -- pas de lien : opération manuelle.</p>
+      </div>
+      <div className="infra-card">
+        <b>Dates de fin de support (références)</b> {!eol && <button className="secondary" onClick={() => setEol(JSON.stringify({ debian: d.eol?.debian, php: d.eol?.php }, null, 2))}>Corriger une date</button>}
+        {eol ? <div><textarea rows={12} style={{ width: "100%", fontFamily: "monospace" }} value={eol} onChange={(e) => setEol(e.target.value)} />
+          <button onClick={enregistrerEol}>Enregistrer</button> <button className="secondary" onClick={() => setEol(null)}>Annuler</button></div>
+          : <p className="infra-muted">Familles suivies : {Object.keys(d.eol || {}).join(", ")}. Un paquet de la distribution reste « maintenu » tant que le système l'est.</p>}
+      </div>
+    </div>
+  );
+}

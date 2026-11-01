@@ -1,0 +1,479 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Gestion de la configuration &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Liste des types" href="ListsOfTypes.html" />
+    <link rel="prev" title="Console d’Administration" href="Administration.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="ListsOfTypes.html" title="Liste des types"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Administration.html" title="Console d’Administration"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Gestion de la configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="configuration-management">
+<span id="acces-right"></span><span id="index-0"></span><h1>Gestion de la configuration<a class="headerlink" href="#configuration-management" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="module-management">
+<span id="index-1"></span><span id="id1"></span><h2>Gestion des modules<a class="headerlink" href="#module-management" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>La gestion des modules permet de choisir le(s) module(s) qui apparaîtront dans l’interface. Chaque module peut être activé/désactivé individuellement.</p>
+<p>Ceci active ou désactive un groupe cohérent de fonctionnalités.</p>
+<figure class="align-default" id="id10">
+<img alt="Écran de gestion des modules" src="_images/ACCESSRIGHT_SCR_ManagementModule.png" />
+<figcaption>
+<p><span class="caption-text">Écran de gestion des modules</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le menu en haut de la page vous permet d’afficher tous les modules ou d’afficher les modules correspondant à une partie du périmètre de la gestion de projet.</p>
+<p>Lorsque vous avez sélectionné l’un de ces menus, les modules sont affichés ci-dessous.</p>
+<ul class="simple">
+<li><p>Cliquez sur un module pour afficher sa description, ainsi que la liste des écrans qui seront activés ou désactivés.</p></li>
+<li><p>Cliquez sur les cases à cocher pour activer ou désactiver le module.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>La désactivation de certains modules masquera également les rapports, tous les paramètres associés et certains champs.</p>
+<p>Par exemple, les champs de dépenses de projet et d’activité sont masqués lorsque le module financier/dépenses est désactivé.</p>
+</div>
+</section>
+</section>
+<section id="access-rights">
+<h1>Droits d’accès<a class="headerlink" href="#access-rights" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="profiles">
+<span id="index-2"></span><span id="id2"></span><h2>Profils<a class="headerlink" href="#profiles" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Le profil est un groupe de droits. Chacun avec des droits d’accès spécifiques à la base de données.</p>
+<p>Ainsi, chaque utilisateur est lié à un profil qui définit les données qu’il peut voir et éventuellement gérer.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Concept.html#profiles-definition"><span class="std std-ref">Concept</span></a></p>
+</div>
+<figure class="align-center" id="id11">
+<img alt="Écran des profils" src="_images/ACCESSRIGHT_SCR_Profiles.png" />
+<figcaption>
+<p><span class="caption-text">Écran des profils</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Valeur du champ « Nom »</p>
+<ul class="simple">
+<li><p>La valeur du champ « Nom » n’est pas le nom affiché, mais c’est un code dans la table de traduction.</p></li>
+<li><p>La valeur du champ « Nom » doit être un nom significatif et ne doit pas contenir d’espaces ou de caractères spéciaux.</p></li>
+<li><p>Le nom affiché à droite du champ est le nom traduit.</p></li>
+<li><p>lorsque le nouveau profil est créé, il apparaît dans la liste des profils existants dans la liste déroulante.</p></li>
+<li><p>Il reste entre crochets car il n’existe pas dans <a class="reference internal" href="#translatable-name"><span class="std std-ref">Nom traduisible</span></a>.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Idéalement, la valeur du champ devrait commencer par « profile » pour être facilement identifié dans la table de traduction.</p>
+</div>
+<figure class="align-center" id="id12">
+<img alt="Description du profil avec nom traduisible" src="_images/ACCESSRIGHT_ZONE_ProfilesDescription.png" />
+<figcaption>
+<p><span class="caption-text">Description du profil avec nom traduisible</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Champ Code de profil</p>
+<p>Vous pouvez insérer les abréviations dont vous avez besoin et elles n’ont pas d’impact sur la plupart des profils.</p>
+<p>Cependant, pour les administrateurs et les chefs de projet, vous devez respecter ces codes afin que l’application les reconnaisse.</p>
+<ul class="simple">
+<li><p><strong>ADM:</strong> désignera l’administrateur.</p></li>
+<li><p><strong>PL:</strong> désignera le chef de projet.</p></li>
+</ul>
+<p class="rubric">Ordre de tri</p>
+<p>L’ordre de tri est important dans les profils car il permet de placer le profil le plus important en haut des listes déroulantes.</p>
+<p>Lorsqu’un chef de projet assigne une ressource, il peut lui attribuer un profil, en partant de son propre profil et en descendant jusqu’au plus bas.</p>
+<figure class="align-default" id="id13">
+<img alt="ordre de tri avec l'administrateur en dessous du chef de projet" src="_images/ACCESSRIGHT_ZONE_SortOrder.png" />
+<figcaption>
+<p><span class="caption-text">ordre de tri avec l’administrateur en dessous du chef de projet</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Si le profil administrateur est, en raison de son ordre de tri, en dessous du chef de projet dans la liste, dans ce cas, le chef de projet pourrait attribuer le profil administrateur à n’importe quelle ressource sur le projet en question.</p>
+<figure class="align-default" id="id14">
+<img alt="Le chef de projet peut assigner une ressource avec le profil administrateur" src="_images/ACCESSRIGHT_ZONE_SortOrderManager.png" />
+<figcaption>
+<p><span class="caption-text">Le chef de projet peut assigner une ressource avec le profil administrateur</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Zone de restriction</p>
+<p>La zone de restriction offre deux types de restriction :</p>
+<ul class="simple">
+<li><p>Par type basé sur les éléments ProjeQtOr (actions, activités, factures, catalogue…)</p></li>
+<li><p>Par versions de produit</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfTypes.html#type-restriction-section"><span class="std std-ref">Types de restriction</span></a></p>
+</div>
+</section>
+<section id="access-to-forms">
+<span id="index-3"></span><span id="id3"></span><h2>Accès aux formulaires<a class="headerlink" href="#access-to-forms" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran de paramètres vous permet de définir l’accès aux écrans d’éléments pour chaque profil.</p>
+<p>Les utilisateurs qui ont accès à cet écran ne peuvent pas modifier leurs propres droits d’accès aux écrans.</p>
+<p>La case à cocher est en lecture seule pour s’assurer qu’au moins un profil puisse toujours y accéder.</p>
+<p>Seul un autre profil ayant accès à l’écran pourra décocher cette case.</p>
+<figure class="align-center" id="id15">
+<img alt="Écran d'accès aux formulaires" src="_images/ACCESSRIGHT_SCR_AccesTOforms.png" />
+<figcaption>
+<p><span class="caption-text">Écran d’accès aux formulaires</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur la case à cocher pour autoriser ou révoquer l’accès à un écran de profil.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir toutes les sections</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconMinus.png"><img alt="moins" src="_images/iconMinus.png" style="width: 19.2px; height: 19.2px;" /></a> pour fermer toutes les sections</p></li>
+</ul>
+</section>
+<section id="access-modes">
+<span id="access-mode"></span><span id="index-4"></span><h2>Modes d’accès<a class="headerlink" href="#access-modes" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Le mode d’accès définit une combinaison de droits pour Créer, Lire, Mettre à jour ou Supprimer des éléments.</p>
+<p>Ce sont les DROITS CRUD :</p>
+<ul class="simple">
+<li><p>Droits de création</p></li>
+<li><p>Droits de lecture</p></li>
+<li><p>Droits de mise à jour</p></li>
+<li><p>Droits de suppression</p></li>
+</ul>
+<p>Chaque accès est défini comme portée de visible et/ou modifiable, qui peut être, par type d’éléments.</p>
+<section id="project-dependant">
+<h3>Dépendant du projet<a class="headerlink" href="#project-dependant" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Par défaut, ProjeQtOr propose 10 modes d’accès différents.</p>
+<p>Chaque accès définit la visibilité qui peut être appliquée par type d’éléments dépendant d’un projet (activité, ticket, action, …).</p>
+<p>Vous pouvez choisir parmi plusieurs niveaux de visibilité pour chaque droit CRUD.</p>
+<ul class="simple">
+<li><p><strong>Aucun élément:</strong> Aucun élément n’est visible et modifiable.</p></li>
+<li><p><strong>Éléments propres:</strong> Uniquement les éléments créés par l’utilisateur.</p></li>
+<li><p><strong>Éléments dont il est responsable:</strong> Uniquement les éléments dont l’utilisateur est responsable.</p></li>
+<li><p><strong>Éléments de son propre projet:</strong> Uniquement les éléments des projets auxquels l’utilisateur/ressource est affecté.</p></li>
+<li><p><strong>Tous les éléments sur tous les projets:</strong> Tous les éléments, quel que soit le projet.</p></li>
+</ul>
+<p class="rubric">Valeur du champ « Nom »</p>
+<ul class="simple">
+<li><p>La valeur du champ « Nom » n’est pas le nom affiché, mais c’est un code dans la table de traduction.</p></li>
+<li><p>La valeur du champ « Nom » doit être un nom significatif et ne doit pas contenir d’espaces ou de caractères spéciaux.</p></li>
+<li><p>Le nom affiché à droite du champ est le nom traduit.</p></li>
+<li><p>lorsque le nouveau profil est créé, il apparaît dans la liste des profils existants dans la liste déroulante.</p></li>
+<li><p>Il reste entre crochets car il n’existe pas dans <a class="reference internal" href="#translatable-name"><span class="std std-ref">nom traduisible</span></a>.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Idéalement, la valeur du champ devrait commencer par « accessProfile » pour être facilement identifiée dans la table de traduction.</p>
+</div>
+</section>
+<section id="not-project-dependant">
+<h3>Non dépendant du projet<a class="headerlink" href="#not-project-dependant" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les éléments non dépendants d’un projet, tels que les organisations, les paramètres, les listes de valeurs, les outils ou même les contrôles et automatismes peuvent également être définis avec des droits CRUD.</p>
+<p>Ces éléments doivent être visibles. Le droit de lecture est donc accordé de manière basique.</p>
+<p>ProjeQtOr propose 5 modes d’accès différents où vous pouvez définir les droits de création, de mise à jour et de suppression.</p>
+<ul class="simple">
+<li><p><strong>Oui:</strong> autorise le droit de…</p></li>
+<li><p><strong>Non:</strong> n’autorise pas le droit de…</p></li>
+<li><p><strong>Éléments propres:</strong> Uniquement les éléments créés par l’utilisateur.</p></li>
+<li><p><strong>Éléments dont il est responsable:</strong> Uniquement les éléments dont l’utilisateur est responsable.</p></li>
+</ul>
+<p>Vous pouvez ensuite définir un mode correspondant aux droits de visibilité que vous souhaitez accorder sur chaque profil dans l’accès aux données non dépendantes du projet.</p>
+</section>
+</section>
+<section id="access-to-data">
+<span id="index-5"></span><h2>Accès aux données<a class="headerlink" href="#access-to-data" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran permet de définir le mode d’accès aux éléments pour chaque profil.</p>
+<p>Permet de définir la portée de visibilité et/ou de mise à jour des données dans les éléments pour les utilisateurs et les ressources.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir toutes les sections</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconMinus.png"><img alt="moins" src="_images/iconMinus.png" style="width: 19.2px; height: 19.2px;" /></a> pour fermer toutes les sections</p></li>
+</ul>
+<section id="access-mode-to-data-project-dependant">
+<span id="index-6"></span><span id="id4"></span><h3>Dépendant du projet<a class="headerlink" href="#access-mode-to-data-project-dependant" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cet écran concerne uniquement les éléments dépendant d’un projet.</p>
+<p><strong>Pour chaque élément, sélectionnez le mode d’accès accordé à un profil.</strong></p>
+<figure class="align-center" id="id16">
+<img alt="Écran d'accès aux données (Dépendant du projet)" src="_images/ACCESSRIGHT_ZONE_AccessToDataProjectDependant.png" />
+<figcaption>
+<p><span class="caption-text">Écran d’accès aux données (Dépendant du projet)</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="access-mode-to-data-not-project-dependant">
+<span id="index-7"></span><span id="id5"></span><h3>Non dépendant du projet<a class="headerlink" href="#access-mode-to-data-not-project-dependant" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cet écran permet de définir pour chaque profil, les droits d’accès aux éléments.</p>
+<p>Permet d’accorder des droits d’accès (lecture seule ou écriture) aux utilisateurs, aux données sur des éléments spécifiques.</p>
+<p>Cet écran concerne uniquement les éléments non dépendants d’un projet.</p>
+<p><strong>Pour chaque élément, sélectionnez les droits d’accès accordés à un profil.</strong></p>
+<p>Certaines fonctionnalités n’ont pas de responsable ou ne sont pas liées spécifiquement à un profil d’utilisateur, comme les messages, les outils ou même les paramètres d’environnement.</p>
+<p>Certains modes d’accès ne sont donc pas proposés dans les listes déroulantes sur certains éléments de cet écran.</p>
+</section>
+</section>
+<section id="access-to-reports">
+<span id="index-8"></span><span id="id6"></span><h2>Accès aux rapports<a class="headerlink" href="#access-to-reports" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran permet de définir l’accès aux rapports pour chaque profil. Les utilisateurs appartenant à un profil peuvent voir le rapport correspondant dans la liste des rapports. Les rapports sont regroupés par catégories de rapports</p>
+<ul class="simple">
+<li><p>Cliquez sur la case à cocher pour autoriser ou révoquer l’accès au rapport pour un profil.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir toutes les sections</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconMinus.png"><img alt="moins" src="_images/iconMinus.png" style="width: 19.2px; height: 19.2px;" /></a> pour fermer toutes les sections</p></li>
+</ul>
+</section>
+<section id="document-rights-per-directory">
+<span id="doc-rights-per-directory"></span><span id="index-9"></span><h2>Droits sur les documents par répertoire<a class="headerlink" href="#document-rights-per-directory" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez définir les droits d’accès aux documents selon le profil à chaque niveau de l’arborescence des répertoires de documents.</p>
+<p>Par défaut, toutes les valeurs sont initialisées pour chaque répertoire existant à partir des valeurs existantes dans l’écran des droits « Accès aux données dépendant du projet ».</p>
+</section>
+<section id="specific-access">
+<span id="index-10"></span><span id="id7"></span><h2>Accès spécifiques<a class="headerlink" href="#specific-access" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran regroupe les options de fonctionnalités spécifiques. Les utilisateurs appartenant à un profil peuvent avoir accès aux fonctions spécifiques de l’application. Selon les options de fonctionnalité, permet d’accorder des droits d’accès, de définir la visibilité des données ou d’activer ou de désactiver une option.</p>
+<p><strong>Pour chaque option, sélectionnez l’accès accordé à un profil.</strong></p>
+<p class="rubric">Accès aux données de ressource</p>
+<p>Cette section permet de :</p>
+<ul class="simple">
+<li><p>Définit qui pourra voir et mettre à jour le <a class="reference internal" href="RealWorkAllocation.html#timesheet"><span class="std std-ref">travail réel</span></a> pour d’autres utilisateurs.</p></li>
+<li><p>Définit qui peut <a class="reference internal" href="RealWorkAllocation.html#validation-timesheet"><span class="std std-ref">valider le travail</span></a> pour une ressource.</p></li>
+<li><p>Définit qui a accès à l”<a class="reference internal" href="Diary.html#diary"><span class="std std-ref">agenda</span></a> pour les ressources.</p></li>
+<li><p>Définit qui, en tant que ressource, peut <a class="reference internal" href="Gui.html#subscribe-detail"><span class="std std-ref">s’abonner à l’enquête</span></a> pour les utilisateurs.</p></li>
+<li><p>Définit qui a accès aux <a class="reference internal" href="Report.html#report"><span class="std std-ref">rapports</span></a> pour les ressources.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Valider le travail réel:</strong> dans la plupart des cas, il est dévolu au chef de projet.</p>
+</div>
+<p class="rubric">Visibilité du travail et des coûts</p>
+<p>Cette section définit pour chaque profil la portée de visibilité des données de travail et de coût sur le projet et l’activité par exemple.</p>
+<p class="rubric">Gestion des assignations</p>
+<p>Cette section définit la visibilité et la possibilité de modifier les assignations (sur les activités ou autres).</p>
+<p class="rubric" id="index-11">Afficher les boutons spécifiques</p>
+<p>Cette section définit si certains boutons, checklist, liste de tâches seront affichés ou non (si définis).</p>
+<p><strong>Affichage du bouton de détail combo</strong></p>
+<ul class="simple">
+<li><p>Cette option définit pour chaque profil si le bouton <a class="reference internal" href="_images/iconSearch.png"><img alt="icône bouton rechercher" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> sera affiché ou non, en face de chaque liste déroulante combo.</p></li>
+<li><p>Via ce bouton, il est possible de sélectionner un élément et de créer un nouvel élément.</p></li>
+<li><p>Ce bouton peut également être masqué en fonction des droits d’accès (si l’utilisateur n’a pas d’accès en lecture aux éléments correspondants).</p></li>
+</ul>
+<p><strong>Accès à…</strong></p>
+<p>…La liste des tâches</p>
+<p>…Checklist</p>
+<p>…Liste des jobs</p>
+<p>vous permet d’afficher les sections correspondantes sur les écrans d’éléments.</p>
+<p><strong>Modification en masse</strong></p>
+<ul class="simple">
+<li><p>Définit la possibilité ou non de modifier un ou plusieurs critères pour une ou plusieurs lignes sélectionnées à la fois</p></li>
+</ul>
+<p class="rubric" id="vote-accesrights">Affichage conditionnel</p>
+<p>Cette section vous permet de visualiser le tableau de vote dans la section vote de l’onglet détails du ticket.</p>
+<p><strong>Tableaux de vote</strong></p>
+<p>Le tableau de vote doit afficher le nom réel des votants, le nombre de points attribués à l’élément sélectionné, leur nom d’utilisateur et le nom du client auquel appartient l’utilisateur.</p>
+<img alt="_images/ACCESSRIGHT_TableVote.png" src="_images/ACCESSRIGHT_TableVote.png" />
+<p><strong>Nom des votants</strong></p>
+<p>Si vous ne souhaitez pas voir ou afficher autant de détails, vous pouvez afficher uniquement les noms des personnes qui ont voté sur cet élément.</p>
+<img alt="_images/ACCESSRIGHT_NamesVoters.png" src="_images/ACCESSRIGHT_NamesVoters.png" />
+<p class="rubric" id="planning-acces-right">Droits d’accès à la planification</p>
+<p>Cette section définit l’accès pour chaque profil aux fonctionnalités de planification.</p>
+<p><strong>Calculer la planification</strong></p>
+<p>Définit si un profil a le droit de recalculer le calendrier en utilisant l’outil de calcul.</p>
+<p><strong>Peut planifier avec surutilisation de ressource</strong></p>
+<p>Définit si un profil peut cocher la case Calculer avec surutilisation dans l’outil de calcul de la vue de planification.</p>
+<p><strong>Accès à la planification de ressources d’autres personnes</strong></p>
+<p>Définit quel profil a le droit de visualiser les informations de planification d’autres ressources.</p>
+<p><strong>Modifier la date validée</strong></p>
+<p>Les informations validées peuvent être des données sensibles ; vous décidez si un profil peut modifier ces champs.</p>
+<p><strong>Modifier la priorité du projet</strong></p>
+<p><strong>Modifier la priorité des autres éléments</strong></p>
+<p>La priorité peut avoir un impact significatif sur la planification des projets et de leurs éléments. C’est pourquoi ProjeQtOr vous permet de définir un profil spécifique pour modifier ces valeurs.</p>
+<p><strong>Modifier l’avancement manuel</strong> Si l’avancement manuel pour les activités à durée fixe est activé dans les paramètres globaux, vous pouvez définir si un profil a le droit de modifier ce champ dans les détails des éléments planifiables.</p>
+<p><strong>Valider la planification</strong></p>
+<p>Activer le calcul automatique</p>
+<p><strong>Activer le calcul automatique</strong></p>
+<p>Définit quel profil pourra utiliser le calcul automatique sur la vue de planification.</p>
+<p class="rubric" id="monthly-consolidation-rights">Consolidation mensuelle des projets</p>
+<p>Cette section définit le droit pour chaque profil s’il peut valider et/ou bloquer les affectations des ressources d’un projet pour un mois défini.</p>
+<p class="rubric">Déverrouiller les éléments</p>
+<p>Cette section définit pour chaque profil la capacité à déverrouiller n’importe quel document ou exigence.</p>
+<p>Sinon, chaque utilisateur ne peut déverrouiller que les documents et exigences verrouillés par lui-même.</p>
+<p class="rubric">Rapports</p>
+<p>Cette section définit pour chaque profil la capacité à modifier le paramètre ressource dans les rapports.</p>
+<p class="rubric">Financier</p>
+<p>Cette section définit pour chaque profil la possibilité de modifier les situations financières ou de pouvoir générer automatiquement une dépense de projet.</p>
+<p class="rubric" id="specific-access-right">Droits de mise à jour spécifiques</p>
+<p>Vous déterminez pour chaque profil s’il a les droits d’exécuter ou de réaliser certaines fonctionnalités. La mention « tous » fait référence aux éléments de n’importe quel utilisateur.</p>
+<ul class="simple">
+<li><p>Peut gérer toutes les notes.</p></li>
+<li><p>Ajouter des notes sur un élément clos</p></li>
+<li><p>Ajout de notes à un élément en lecture seule</p></li>
+<li><p>Peut supprimer tous les fichiers joints.</p></li>
+<li><p>Peut forcer la suppression.</p></li>
+<li><p>Peut supprimer des éléments avec travail réel</p></li>
+<li><p>Peut forcer la fermeture.</p></li>
+<li><p>Peut mettre à jour les informations de création (en-tête de la zone de détails).</p></li>
+<li><p>Peut voir les composants sur les tickets.</p></li>
+<li><p>Peut mettre à jour le travail restant (Assignation et/ou imputations).</p></li>
+<li><p>Peut travailler sur les tickets</p></li>
+<li><p>Activation de la répartition des assignations</p></li>
+<li><p>Peut gérer les votes.</p></li>
+<li><p>Peut imposer une présentation à d’autres utilisateurs.</p></li>
+<li><p>Peut créer de nouvelles étiquettes.</p></li>
+</ul>
+<p class="rubric">Limiter la visibilité aux ressources</p>
+<p>Par profil, permet de restreindre ou non le nombre de ressources affichées, par organisations ou équipe propre, sur les listes de ressources.</p>
+<p>Par profil, permet de restreindre ou non le nombre de ressources affichées, par organisations ou équipe propre, sur l’écran de ressources.</p>
+<p class="rubric">Limiter la visibilité aux organisations</p>
+<p>Par profil, permet de restreindre ou non le nombre d’organisations affichées, par organisations ou organisation propre, sur les listes d’organisations.</p>
+<p>Par profil, permet de restreindre ou non le nombre d’organisations affichées, par organisations ou organisation propre, sur l’écran d’organisations.</p>
+<span class="target" id="index-12"></span></section>
+</section>
+<section id="audit-connections">
+<span id="index-13"></span><span id="id8"></span><h1>Audit des connexions<a class="headerlink" href="#audit-connections" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>L’audit de connexion propose une vue de « qui est en ligne ».</p>
+<p>vous pouvez savoir sur quelle plateforme l’utilisateur s’est connecté, son navigateur et les dates de son premier et dernier accès, ainsi que la durée de la connexion</p>
+<figure class="align-default">
+<img alt="Écran d'audit des connexions" src="_images/TOOLS_SCR_AuditConnexion.png" />
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>L’administrateur a la possibilité de forcer la déconnexion de n’importe quel utilisateur (sauf sa propre connexion actuelle, voir: <a class="reference internal" href="Administration.html#manage-connection"><span class="std std-ref">console d’administration</span></a>.</p>
+</div>
+</section>
+<section id="translatable-name">
+<span id="index-14"></span><span id="id9"></span><h1>Nom traduisible<a class="headerlink" href="#translatable-name" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>Pour les profils et les modes d’accès, la valeur du champ « Nom » est traduisible.</p>
+<p>Le champ « Nom » dans les écrans <a class="reference internal" href="#profiles"><span class="std std-ref">profils</span></a> et <a class="reference internal" href="#access-mode"><span class="std std-ref">mode d’accès</span></a> n’est pas le nom affiché, mais c’est un code dans la table de traduction.</p>
+<p>Le nom affiché à droite du champ est le nom traduit.</p>
+<p>Le nom traduit dépend de la langue de l’utilisateur sélectionnée dans l’écran <a class="reference internal" href="UserParameter.html#display-parameters"><span class="std std-ref">Paramètres utilisateur</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Si le nom traduit est affiché entre crochets [ ], alors la valeur du champ « Nom » n’est pas trouvée dans la table de traduction.</p>
+</div>
+<p class="rubric">Fichiers de table de traduction</p>
+<ul class="simple">
+<li><p>Dans ProjeQtOr, un fichier de table de traduction est défini pour chaque langue disponible.</p></li>
+<li><p>Les fichiers sont nommés « lang.js » et sont localisés dans un répertoire nommé avec le code de langue ISO.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p><strong>Par exemple:</strong> ../tool/i18n/nls/fr/lang.js.</p>
+</div>
+<p class="rubric">Comment modifier le fichier de traduction ?</p>
+<ul class="simple">
+<li><p>Vous pouvez éditer le fichier « lang.js » pour ajouter la traduction d’une nouvelle valeur ou pour modifier la traduction d’une valeur existante.</p></li>
+<li><p>Ou, vous pouvez télécharger le fichier Excel nommé « lang.xls », disponible sur le site ProjeQtOr. Vous pouvez modifier les tables de traduction de toutes les langues et produire les fichiers « lang.js ».</p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gestion de la configuration</a><ul>
+<li><a class="reference internal" href="#module-management">Gestion des modules</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#access-rights">Droits d’accès</a><ul>
+<li><a class="reference internal" href="#profiles">Profils</a></li>
+<li><a class="reference internal" href="#access-to-forms">Accès aux formulaires</a></li>
+<li><a class="reference internal" href="#access-modes">Modes d’accès</a><ul>
+<li><a class="reference internal" href="#project-dependant">Dépendant du projet</a></li>
+<li><a class="reference internal" href="#not-project-dependant">Non dépendant du projet</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#access-to-data">Accès aux données</a><ul>
+<li><a class="reference internal" href="#access-mode-to-data-project-dependant">Dépendant du projet</a></li>
+<li><a class="reference internal" href="#access-mode-to-data-not-project-dependant">Non dépendant du projet</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#access-to-reports">Accès aux rapports</a></li>
+<li><a class="reference internal" href="#document-rights-per-directory">Droits sur les documents par répertoire</a></li>
+<li><a class="reference internal" href="#specific-access">Accès spécifiques</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#audit-connections">Audit des connexions</a></li>
+<li><a class="reference internal" href="#translatable-name">Nom traduisible</a></li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Administration.html"
+                          title="Chapitre précédent">Console d’Administration</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="ListsOfTypes.html"
+                          title="Chapitre suivant">Liste des types</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="ListsOfTypes.html" title="Liste des types"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Administration.html" title="Console d’Administration"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Gestion de la configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

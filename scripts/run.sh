@@ -70,8 +70,24 @@ docker network create "$NETWORK_NAME" >/dev/null 2>&1 || true
 # laissant HOST_IP vide -- voir shared/detect-host-ip.sh pour le
 # détail complet et l'ordre d'essai (macOS d'abord, Linux ensuite).
 source "$HERE_DIR/shared/detect-host-ip.sh"
+# #672 : HOST_IP du .env AVANT la détection automatique -- sinon la valeur
+# choisie (nom public, IP fixe) y est documentée mais jamais lue : le
+# script exportait l'IP détectée, qui primait sur .env dans compose et
+# dans le rendu du realm (URLs Keycloak différentes entre un lancement à
+# la main et un job de la tour, vu sur super).
+if [ -z "${HOST_IP:-}" ] && [ -f "$HERE_DIR/.env" ]; then
+  HOST_IP="$(grep -E '^HOST_IP=' "$HERE_DIR/.env" | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)"
+fi
 if [ -z "${HOST_IP:-}" ]; then
   HOST_IP="$(detect_host_ip)"
+else
+  # #674 : valeur du .env ou du shell différente de l'IP détectée -- souvent un .env recopié d'une autre machine
+  # ou d'un ancien réseau (vu en réel : Keycloak recréé avec un KC_HOSTNAME faux, hub injoignable).
+  _detected="$(detect_host_ip 2>/dev/null || true)"
+  if [ -n "$_detected" ] && [ "$_detected" != "$HOST_IP" ] && [ ! -f /.dockerenv ]; then   # #676 : dans le runner de la tour, l'IP détectée est celle du conteneur
+    echo "⚠️  HOST_IP=$HOST_IP (.env ou shell) alors que l'IP détectée de cette machine est $_detected" >&2
+    echo "    -- normal si HOST_IP est un nom public ou une autre interface voulue ; sinon corriger HOST_IP dans .env." >&2
+  fi
 fi
 export HOST_IP
 
@@ -113,6 +129,17 @@ if [ ! -f "$HERE_DIR/.env" ]; then
   echo "     ./scripts/generate-env.sh" >&2
   echo "" >&2
   fail
+fi
+
+# Synchronisation des clés .env manquantes (livraison #479, demandé
+# explicitement après un redéploiement où les nouvelles clés avaient dû
+# être recopiées à la main) -- AVANT check-env.py pour que son rapport
+# reflète l'état APRÈS ajout. Jamais d'écrasement de clés existantes :
+# valeurs par défaut de .env.example, secrets internes générés
+# aléatoirement. Couvre aussi chantier.sh, qui délègue tout à ce script.
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$(dirname "$0")/sync-env.py"
+  echo ""
 fi
 
 # Cohérence .env / docker-compose.yml / disque -- PUREMENT informatif
@@ -192,6 +219,9 @@ CONTENT_HASH="$(find "$HERE_DIR" \
      -path "*/ssh-tunnels/mounts" \) -prune -o \
   -type f \
   -not -name "VERSION.json" \
+  -not -name ".maj-en-cours.json" \
+  -not -name ".deploye.json" \
+  -not -name ".maj-historique.jsonl" \
   -not -name ".env" \
   -not -name ".env.example" \
   -not -name ".last-imported-realm.json" \
@@ -253,4 +283,105 @@ if [ -f "$ENV_ENCRYPTED_FILE" ]; then
   echo "✅ Secrets déchiffrés, injectés pour ce lancement uniquement."
 fi
 
+# #513 (déploiement réparti) : l'override du nœud, généré par
+# `deploy/cohorts.py override <nœud>` (publication VPN des services locaux,
+# relais vers les services distants), est ajouté automatiquement s'il
+# existe -- un seul hôte (profil light) : pas de fichier, rien ne change.
+NODE_OVERRIDE="$HERE_DIR/deploy/generated/node.override.yml"
+if [ -z "${COMPOSE_FILE:-}" ] && [ -f "$NODE_OVERRIDE" ]; then
+  export COMPOSE_FILE="$HERE_DIR/docker-compose.yml:$NODE_OVERRIDE"
+fi
+# #738 : images construites ailleurs (registre local, SI_REGISTRY dans .env) -- override des noms d'images
+# (deploy/images.py override) ajouté s'il existe ; « up » utilise alors les images tirées au lieu de construire.
+SI_REGISTRY="${SI_REGISTRY:-$(grep -E '^SI_REGISTRY=' "$HERE_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)}"
+IMAGES_OVERRIDE="$HERE_DIR/deploy/generated/images.override.yml"
+if [ -n "$SI_REGISTRY" ] && [ -f "$IMAGES_OVERRIDE" ]; then
+  export COMPOSE_FILE="${COMPOSE_FILE:-$HERE_DIR/docker-compose.yml}:$IMAGES_OVERRIDE"
+fi
+
+# #772 : garde avant construction -- place et fichiers (inodes) du dossier Docker de l'hôte. Sous le seuil, le cache de
+# construction est vidé automatiquement (jamais les images en service ni les volumes) ; toujours insuffisant : arrêt
+# clair au lieu de « no space left on device » en pleine construction. SI_BUILD_MIN_FREE_GB (défaut 5) ;
+# SI_BUILD_FORCE=1 pour passer outre.
+build_guard() {
+  case " $* " in *" --build "*|" build "*) ;; *) return 0 ;; esac
+  root="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)"
+  [ -n "$root" ] && [ -d "$root" ] || root=/var/lib/docker
+  [ -d "$root" ] || root=/var
+  min_gb="${SI_BUILD_MIN_FREE_GB:-5}"
+  room_ok() {
+    avail_kb="$(df -Pk "$root" 2>/dev/null | awk 'NR==2 {print $4}')"
+    ipct="$(df -Pi "$root" 2>/dev/null | awk 'NR==2 {gsub("%", "", $5); print $5}')"
+    [ -n "$avail_kb" ] || return 0
+    [ "$avail_kb" -ge $((min_gb * 1024 * 1024)) ] || return 1
+    case "$ipct" in ''|-|*[!0-9]*) return 0 ;; esac
+    [ "$ipct" -lt 95 ]
+  }
+  room_txt() {
+    df -h "$root" 2>/dev/null | awk 'NR==2 {printf "%s libres (%s utilisés)", $4, $5}'
+    df -i "$root" 2>/dev/null | awk 'NR==2 {printf ", fichiers %s utilisés", $5}'
+  }
+  echo "Construction : dossier Docker $root -- $(room_txt)"
+  room_ok && return 0
+  echo "⚠ moins de ${min_gb} Go libres ou fichiers (inodes) presque épuisés : vidage du cache de construction Docker"
+  docker builder prune -af >/dev/null 2>&1 || true
+  if room_ok; then echo "✅ $(room_txt)"; return 0; fi
+  echo "✗ toujours insuffisant : $(room_txt)"
+  echo "  libérer de la place (docker image prune -af, journaux) ou agrandir le disque ; SI_BUILD_FORCE=1 pour passer outre"
+  [ "${SI_BUILD_FORCE:-0}" = 1 ] && return 0
+  exit 1
+}
+build_guard "$@"
+
+# #830 : mise à jour en cours, annoncée au hub (services-api la lit, pied de page « ⟳ mise à jour en cours ») pendant la
+# construction et le redémarrage ; retirée à la fin, même en échec.
+MAJ_FILE="$HERE_DIR/.maj-en-cours.json"
+case " $* " in
+  *" --build "*|*" build "*)
+    python3 - "$MAJ_FILE" "$DELIVERY_NUMBER" "$*" <<'PYMAJ' 2>/dev/null || true
+import json, subprocess, sys, time
+sujet = subprocess.run(["git", "log", "-1", "--format=%s"], capture_output=True, text=True).stdout.strip()
+json.dump({"numero": sys.argv[2], "sujet": sujet[:200], "commande": sys.argv[3][:300], "etape": "construction et redémarrage des services",
+           "debut": time.time()}, open(sys.argv[1], "w"), ensure_ascii=False)
+PYMAJ
+    trap 'rm -f "$MAJ_FILE"' EXIT ;;
+esac
 docker compose "$@"
+RC=$?
+# #942 : registre de déploiement (.deploye.json : par service, numéro / hash / date de la dernière construction réussie)
+# et historique des durées (.maj-historique.jsonl) -- lus par la tour de contrôle pour ne reconstruire que ce qui a
+# changé après un git pull fait à la main, et pour estimer la durée d'une mise à jour. Jamais versionnés.
+case " $* " in
+  *" --build "*|*" build "*)
+    python3 - "$HERE_DIR" "$DELIVERY_NUMBER" "$GIT_HASH" "$RC" "$*" <<'PYDEP' 2>/dev/null || true
+import json, os, re, subprocess, sys, time
+racine, numero, hachage, rc, args = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5]
+mots = [m for m in args.split() if not m.startswith("-") and m not in ("up", "build", "restart")]
+noms = [m for m in mots if re.match(r"^[a-z0-9][a-z0-9_-]{0,62}$", m)]
+if not noms:
+    try:
+        noms = subprocess.run(["docker", "compose", "config", "--services"], cwd=racine, capture_output=True, text=True, timeout=60).stdout.split()
+    except Exception:
+        noms = []
+fin = time.time()
+maj = {}
+try:
+    maj = json.load(open(os.path.join(racine, ".maj-en-cours.json")))
+except Exception:
+    pass
+debut = float(maj.get("debut") or fin)
+with open(os.path.join(racine, ".maj-historique.jsonl"), "a") as fh:
+    fh.write(json.dumps({"numero": numero, "hash": hachage, "services": noms, "n": len(noms), "commande": args[:300], "debut": debut, "fin": fin, "duree_s": round(fin - debut), "rc": rc}) + "\n")
+if rc == 0 and noms:
+    p = os.path.join(racine, ".deploye.json")
+    try:
+        d = json.load(open(p))
+    except Exception:
+        d = {}
+    for n in noms:
+        d[n] = {"numero": numero, "hash": hachage, "at": fin}
+    json.dump(d, open(p, "w"))
+PYDEP
+    ;;
+esac
+exit $RC

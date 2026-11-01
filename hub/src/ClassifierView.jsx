@@ -4,6 +4,7 @@ import {
   classifyText, confirmClassification, fetchStats,
 } from "./classifierClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Classification" (hub), livraison #260 -- backlog item 34,
 // signalé explicitement "à prioriser fort car central" par la
 // personne, après observation de noms d'hôte réels (alice,
@@ -159,7 +160,7 @@ export default function ClassifierView({ onBack, classifierApiBase }) {
             {!stats || stats.by_category.length === 0 ? (
               <p className="muted">Aucun dictionnaire importé pour l'instant.</p>
             ) : (
-              <table>
+              <AutoColumns id="ClassifierView.1"><table>
                 <thead><tr><th>Catégorie</th><th>Termes</th><th>Correspondances</th><th>Jamais utilisés</th></tr></thead>
                 <tbody>
                   {stats.by_category.map((c) => (
@@ -171,7 +172,7 @@ export default function ClassifierView({ onBack, classifierApiBase }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -214,7 +215,7 @@ export default function ClassifierView({ onBack, classifierApiBase }) {
               <p className="muted">Aucun terme pour ce filtre.</p>
             ) : (
               <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                <table>
+                <AutoColumns id="ClassifierView.2"><table>
                   <thead><tr><th>Terme</th><th>Catégorie</th><th>Source</th><th>Usages</th><th></th></tr></thead>
                   <tbody>
                     {terms.map((t) => (
@@ -230,7 +231,7 @@ export default function ClassifierView({ onBack, classifierApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
           </div>

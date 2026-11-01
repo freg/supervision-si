@@ -21,6 +21,13 @@ export const GROUP_TO_ROLE = {
   supervision: "supervision",
   service: "service",
   maitre_clefs: "maitre_clefs",
+  // Groupe dédié au fork ProjeQtOr (livraison #476) -- la tuile reste
+  // visible de TOUS (décision de la personne) ; ce mapping sert aux
+  // filtrages FUTURS (droits fins dans ProjeQtOr, liens externes
+  // restreints...). La thématique d'accueil dédiée « ProjeQtOr »
+  // (#482) n'est pas ce groupe : la visibilité de la tuile reste
+  // inconditionnelle, voir plus bas.
+  projeqtor: "projeqtor",
 };
 
 /** Convertit une liste de groupes Keycloak bruts en rôles applicatifs
@@ -44,6 +51,11 @@ export function hasValue(list, value) {
  * application, demandé explicitement). */
 export function isAdmin(groups) {
   return hasValue(groups, "administrateurs");
+}
+
+/** #713 : tuile Serveur de messagerie -- administrateurs, admin_hub, ou groupe dédié « messagerie ». */
+export function canMail(groups) {
+  return isAdmin(groups) || hasValue(groups, "admin_hub") || hasValue(groups, "messagerie");
 }
 
 /** true si la personne est technicien (groupe Keycloak "techniciens")
@@ -92,7 +104,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, serviceWatchUrl, assistantUrl, credentialsUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -166,6 +178,102 @@ export function buildFrontsList({
       embeddable: true,
     });
   }
+  // ProjeQtOr (fork, livraison #476) -- visible de TOUT LE MONDE,
+  // comme le portail tickets (décision explicite de la personne :
+  // "visibilité à tous, il y aura une page publique"). Aucune
+  // condition de rôle ici ; le groupe Keycloak "projeqtor" existe pour
+  // des filtrages futurs. L'accès RÉEL reste protégé par l'écran de
+  // connexion de ProjeQtOr lui-même (LDAP du hub ou comptes propres).
+  if (projeqtorUrl) {
+    fronts.push({
+      id: "projeqtor",
+      name: "ProjeQtOr",
+      description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
+      url: projeqtorUrl,
+      embeddable: true,
+    });
+  }
+  // Pont « suivi » (livraison #484, tuile ajoutée #489) — la page
+  // d'administration du pont : IMPORT/EXPORT Excel au format imposé,
+  // état de synchronisation ProjeQtOr ↔ hub. Le formulaire public de
+  // dépôt vit sur /demande/ (cette tuile vise /demande/admin). Visible
+  // de tous, comme le dépôt lui-même (LAN, sans authentification).
+  if (demandeUrl) {
+    fronts.push({
+      id: "demande",
+      name: "Demandes (suivi)",
+      description: "Dépôt de demandes — import/export Excel au format imposé, synchronisation ProjeQtOr",
+      url: demandeUrl,
+      embeddable: true,
+    });
+  }
+  // MikroTik (livraison #485) — supervision/commande des routeurs de
+  // l'infrastructure. Visible de tous (lecture ; les commandes
+  // restent des gestes explicites côté mikrotik-api), embarquable en
+  // onglet de la thématique Réseau (même origine via tls-proxy).
+  if (mikrotikUrl) {
+    fronts.push({
+      id: "mikrotik",
+      name: "Routeurs MikroTik",
+      description: "Supervision et commande des routeurs — ressources, interfaces, outils",
+      url: mikrotikUrl,
+      embeddable: true,
+    });
+  }
+  // Équipements Cisco (livraison #508) -- supervision, sauvegarde /
+  // restauration des configurations, gestes d'urgence (IOS, NX-OS) par
+  // SSH ; réservé aux administrateurs et techniciens : chaque geste peut
+  // couper un port ou redémarrer un switch (confirmation + journal côté
+  // cisco-api, mais pas de vérification de rôle serveur -- même posture
+  // que le reste du hub).
+  if (ciscoUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "cisco",
+      name: "Équipements Cisco",
+      description: "Catalyst / Nexus — état, charge, alertes, journal ; sauvegarde et restauration des configurations ; urgence",
+      url: ciscoUrl,
+      embeddable: true,
+    });
+  }
+  // Entrées de services (livraison #531, backlog item 80) -- ce qu'un
+  // utilisateur d'Internet voit de nos services : inventaire depuis le DNS,
+  // qualification, scénarios avec compte de test, contenu, canaris mail.
+  // Lecture pour tous ceux qui ont la supervision ; les gestes (import,
+  // validation de référence) restent côté service sans rôle serveur.
+  if (serviceWatchUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien") || hasValue(roles, "supervision"))) {
+    fronts.push({
+      id: "service-watch",
+      name: "Entrées de services",
+      description: "Services vus d'Internet — inventaire DNS, ports, certificats, HTTP, scénarios avec compte de test, contenu, canaris mail",
+      url: serviceWatchUrl,
+      embeddable: true,
+    });
+  }
+  // Assistant IA interne, PoC (livraison #532, item 81) -- modèle ouvert
+  // servi localement, RAG sur documents / tickets / GED, évaluation.
+  // Réservé admin / technicien le temps du PoC (le modèle voit les tickets).
+  if (assistantUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "assistant",
+      name: "Assistant IA (PoC)",
+      description: "Modèle ouvert local — question avec sources, classement de documents GED, résumé de demandes, évaluation",
+      url: assistantUrl,
+      embeddable: true,
+    });
+  }
+  // Accès d'équipements (livraison #498) — coffre des identifiants que
+  // les services du hub utilisent (RouterOS, SSH, HTTP, SNMP). Réservé
+  // aux administrateurs et techniciens (même posture que le bastion) ;
+  // embarquable en onglet de la thématique Sécurité & accès.
+  if (credentialsUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "credentials",
+      name: "Accès d'équipements",
+      description: "Identifiants des équipements utilisés par les services du hub — chiffrés, jamais réaffichés, journal des lectures",
+      url: credentialsUrl,
+      embeddable: true,
+    });
+  }
   // Liens externes gérés par les administrateurs -- backlog, livraison
   // #121. `allowed_roles` VIDE (ou absent) = visible de tout le monde,
   // même défaut que les entrées internes ci-dessus qui n'ont pas de
@@ -200,6 +308,7 @@ export const ROLE_LABELS = {
   supervision: "Supervision",
   service: "Service",
   maitre_clefs: "Maître des clés",
+  projeqtor: "ProjeQtOr",
 };
 
 /** groups : tableau brut de groupes Keycloak (claim "groups") --
@@ -207,4 +316,21 @@ export const ROLE_LABELS = {
  * jamais sur une entrée absente/malformée. */
 export function formatUserRoles(groups) {
   return groupsToRoles(groups).map((r) => ROLE_LABELS[r]);
+}
+
+/** #554 : initiales des rôles, allongées jusqu'à être uniques
+ *  (« Demandeur », « Direction » -> « De », « Di »). */
+export function roleInitials(labels) {
+  const out = [];
+  for (const label of labels || []) {
+    const word = String(label).replace(/[^\p{L}]/gu, "");
+    let n = 1;
+    let ini = word.slice(0, 1).toUpperCase();
+    while (out.includes(ini) || (labels.filter((l) => String(l).replace(/[^\p{L}]/gu, "").slice(0, n).toLowerCase() === word.slice(0, n).toLowerCase()).length > 1 && n < word.length)) {
+      n += 1;
+      ini = word.slice(0, 1).toUpperCase() + word.slice(1, n).toLowerCase();
+    }
+    out.push(ini);
+  }
+  return out;
 }

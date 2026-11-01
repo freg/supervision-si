@@ -3,6 +3,8 @@ import { LOG_SERVICES, mergeLogEntries, summarizeLogEntries } from "./logsLib.js
 import { fetchServiceLogs, fetchAllServiceLogs, fetchPushedSources } from "./logsClient.js";
 import { logPresenceTransitions } from "./hubLogClient.js";
 
+import { useNavState } from "./navContext.js";   // #874
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Gestionnaire de logs (hub), livraison #139 -- demandé explicitement
 // ("un excellent moyen pour optimiser en déploiement et en
 // fonctionnement"), avec les 3 présentations validées par la
@@ -32,7 +34,7 @@ function levelClass(level) {
 }
 
 export default function LogsManagerView({ onBack, prefsApiBase }) {
-  const [subTab, setSubTab] = useState("dashboard");
+  const [subTab, setSubTab] = useNavState("LogsManagerView", "subTab", "dashboard");   // #874 : gardé au rechargement
   const [selectedService, setSelectedService] = useState(LOG_SERVICES[0].id);
   const [singleEntries, setSingleEntries] = useState(undefined);
   const [allResults, setAllResults] = useState(undefined);
@@ -173,7 +175,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
                 deux colonnes n'a simplement rien signalé récemment, ce n'est pas un chargement en cours
                 ni un problème.
               </p>
-              <table className="logs-dashboard-table">
+              <AutoColumns id="LogsManagerView.1"><table className="logs-dashboard-table">
               <thead>
                 <tr>
                   <th>Service</th>
@@ -221,7 +223,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
                   );
                 })}
               </tbody>
-            </table>
+            </table></AutoColumns>
             </>
           )}
         </div>
@@ -250,7 +252,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
             <p className="muted" style={{ marginTop: 12 }}>Aucune entrée (rien au-delà du seuil WARNING récemment).</p>
           )}
           {Array.isArray(singleEntries) && singleEntries.length > 0 && (
-            <table className="logs-entries-table">
+            <AutoColumns id="LogsManagerView.2"><table className="logs-entries-table">
               <thead>
                 <tr><th>Horodatage</th><th>Niveau</th><th>Message</th></tr>
               </thead>
@@ -267,7 +269,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}
@@ -279,7 +281,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
             <p className="muted">Aucune entrée récente, tous services confondus.</p>
           )}
           {combined && combined.length > 0 && (
-            <table className="logs-entries-table">
+            <AutoColumns id="LogsManagerView.3"><table className="logs-entries-table">
               <thead>
                 <tr><th>Horodatage</th><th>Service</th><th>Niveau</th><th>Message</th></tr>
               </thead>
@@ -293,7 +295,7 @@ export default function LogsManagerView({ onBack, prefsApiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}

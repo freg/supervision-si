@@ -102,6 +102,13 @@ export default function TicketDetailView({ ticketId, onClose }) {
             Temps total enregistré : <strong>{formatDuration(ticket.total_seconds)}</strong>
             {" · "}{ticket.time_entries.length} segment(s)
             {ticket.source_type && ` · généré depuis un incident (${ticket.source_type} / ${ticket.source_nom})`}
+            {/* #486 : un ticket sourcé « mikrotik » (créé depuis la fiche
+                routeur de la supervision SI) renvoie vers la tuile MikroTik,
+                ouverte sur le routeur concerné (ancre #router=). Même
+                origine tls-proxy : lien racine-relatif, aucun réglage. */}
+            {ticket.source_type === "mikrotik" && ticket.source_nom && (
+              <> · <a href={`/mikrotik/#router=${encodeURIComponent(ticket.source_nom)}`} target="_blank" rel="noreferrer">ouvrir le routeur</a></>
+            )}
           </div>
 
           <TicketGantt entries={ticket.time_entries} />

@@ -1,0 +1,8 @@
+{
+  "_doc": "États posés par l'exploitation (livraison #541) ; plus tard produits par service-watch / Cortex. Un service absent = ça marche. etat : ok | degrade | panne.",
+  "a": "2026-09-22T09:00:00Z",
+  "source": "exploitation",
+  "etats": {
+    "wifi-batiment-5": {"etat": "panne", "depuis": "2026-09-22T08:10:00Z", "message": "Un équipement est en cours de remplacement ; retour prévu en fin de matinée."}
+  }
+}

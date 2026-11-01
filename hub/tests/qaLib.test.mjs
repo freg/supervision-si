@@ -1,0 +1,71 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { validateSteps, loginFromProbe, campaignSummary, runBadge, fieldsFor, emptyStep } from "../src/qaLib.js";
+const catalog = [{ id: "goto", fields: ["value"] }, { id: "click", fields: ["selector"] }, { id: "fill", fields: ["selector", "value"] }, { id: "expect_text", fields: ["value"] }, { id: "wait", fields: ["value"] }];
+
+test("validateSteps : mêmes règles que l'API", () => {
+  assert.equal(validateSteps([], catalog), "Ajoutez au moins une étape");
+  assert.equal(validateSteps([{ action: "click", selector: "" }], catalog), "Étape 1 : sélecteur manquant");
+  assert.equal(validateSteps([{ action: "goto", value: "/" }, { action: "fill", selector: "#a", value: "" }], catalog), "Étape 2 : valeur manquante");
+  assert.equal(validateSteps([{ action: "expect_text", value: "" }], catalog), "");     // texte vide = page chargée, toléré
+  assert.equal(validateSteps([{ action: "wait", value: "abc" }], catalog), "Étape 1 : durée en millisecondes");
+  assert.equal(validateSteps([{ action: "teleport" }], catalog), "Étape 1 : action inconnue");
+  assert.deepEqual(fieldsFor("fill", catalog), ["selector", "value"]); assert.equal(emptyStep().action, "goto");
+});
+
+test("loginFromProbe devine les étapes de connexion", () => {
+  const probe = { forms: [{ fields: [{ tag: "input", type: "text", name: "login", id: "login" }, { tag: "input", type: "password", name: "password", id: "" }, { tag: "input", type: "image", name: "submit", id: "submit" }] }] };
+  const s = loginFromProbe(probe, "/login");
+  assert.deepEqual(s.map((x) => [x.action, x.selector]), [["goto", ""], ["fill", "#login"], ["fill", '[name="password"]'], ["click", "#submit"]]);
+  assert.equal(s[0].value, "/login");
+  assert.equal(loginFromProbe({ forms: [{ fields: [{ tag: "input", type: "text" }] }] }), null);
+  const noSubmit = loginFromProbe({ forms: [{ fields: [{ tag: "input", type: "password", id: "p" }] }] }, "/");
+  assert.deepEqual(noSubmit[noSubmit.length - 1], { action: "press", selector: "#p", value: "Enter", note: "valider" });
+});
+
+test("campaignSummary et runBadge", () => {
+  assert.deepEqual(campaignSummary([{ status: "ok" }, { status: "ko" }, { status: "ok" }]), { total: 3, passed: 2, failed: 1, ratio: 67 });
+  assert.deepEqual(campaignSummary([]), { total: 0, passed: 0, failed: 0, ratio: 0 });
+  assert.equal(runBadge("ko"), "✘ échec"); assert.equal(runBadge("x"), "—");
+});
+
+test("hubTourViews / auditSummary (#721) : vues du tour sans doublon, synthèse des audits", async () => {
+  const { hubTourViews, auditSummary } = await import("../src/qaLib.js");
+  const themes = [{ name: "Supervision", entries: [{ view: "ups", label: "Onduleurs" }, { front: "x", label: "X" }] }, { name: "Réseau", entries: [{ view: "ups", label: "bis" }, { view: "nebula", label: "Nebula" }] }];
+  assert.deepEqual(hubTourViews(themes), [{ view: "ups", label: "Supervision › Onduleurs" }, { view: "nebula", label: "Réseau › Nebula" }]);
+  const s = auditSummary([{ action: "goto" }, { action: "audit", score: 80, findings: [{ severity: "erreur" }, { severity: "avertissement" }] }, { action: "audit", score: 100, findings: [] }]);
+  assert.deepEqual(s, { pages: 2, score: 90, erreur: 1, avertissement: 1, info: 0 });
+  assert.equal(auditSummary([]).score, null);
+});
+
+import { diffSummary, ratioPct, parseMask } from "../src/qaLib.js";
+test("#727 diffSummary / ratioPct / parseMask", () => {
+  assert.equal(diffSummary(null).label, "aucune capture comparable");
+  const same = diffSummary({ steps: [{ index: 1, ratio: 0.001, significant: false }, { index: 2, ratio: 0, significant: false }] });
+  assert.equal(same.significant, 0); assert.match(same.label, /^identique à la référence \(2 capture/);
+  const d = diffSummary({ steps: [{ index: 1, ratio: 0.1234, significant: true }, { index: 2, error: "capture absente" }, { index: 3, ratio: 0.002 }] });
+  assert.deepEqual([d.compared, d.missing, d.significant, d.maxPct], [2, 1, 1, 12.3]);
+  assert.equal(d.label, "1 capture(s) différente(s) sur 2 (écart max 12.3 %)");
+  assert.equal(ratioPct(0.0456), "4.6 %"); assert.equal(ratioPct(undefined), "0 %");
+  assert.deepEqual(parseMask(" .horloge, ,#compteur "), [".horloge", "#compteur"]); assert.deepEqual(parseMask(""), []);
+});
+
+import { mockupStatus, slideIcon, scoreDelta, firstSlide, shotTriples } from "../src/qaLib.js";
+test("#728 maquettes : libellés, écart, première étape, vignettes", () => {
+  assert.equal(mockupStatus("presentee"), "présentée"); assert.equal(mockupStatus(undefined), "—"); assert.equal(slideIcon("regles"), "④");
+  assert.equal(scoreDelta(25), "+25"); assert.equal(scoreDelta(-5), "-5"); assert.equal(scoreDelta(0), "0"); assert.equal(scoreDelta(null), "");
+  assert.equal(firstSlide([{ kind: "avant" }, { kind: "proposition", rendered: true }, { kind: "variante", rendered: false }]), 2);
+  assert.equal(firstSlide([{ kind: "avant" }, { kind: "proposition", rendered: true }]), 0); assert.equal(firstSlide(undefined), 0);
+  const t = shotTriples({ diff: { steps: [{ index: 1, ref_run: 3, ref_shot: "step1.png", shot: "step1.png", diff: "diff-3-step1.png", ratio: 0.2, significant: 1 }, { index: 2, error: "capture absente" }] } });
+  assert.deepEqual(t, [{ index: 1, refRun: 3, refShot: "step1.png", shot: "step1.png", diff: "diff-3-step1.png", ratio: 0.2, significant: true }]);
+  assert.deepEqual(shotTriples({}), []);
+});
+
+import { designBadge } from "../src/qaLib.js";
+test("#729 designBadge", () => {
+  assert.equal(designBadge(null), null);
+  assert.deepEqual(designBadge({ conforme: true, compared: 2, significant: 0, score: 95 }), { cls: "qa-ok", text: "✔ conforme à la maquette (95/100)" });
+  assert.equal(designBadge({ conforme: false, compared: 0 }).cls, "muted");
+  assert.equal(designBadge({ conforme: false, compared: 3, significant: 1, score: 80, target_score: 95 }).text, "✘ écart avec la maquette : 1/3 capture(s) · note 80/100 pour 95 visés");
+  assert.equal(mockupStatus("integree"), "★ intégrée");
+});

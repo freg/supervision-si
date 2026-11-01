@@ -1,0 +1,323 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Clients and Customer relationship management &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Providers" href="Provider.html" />
+    <link rel="prev" title="Roles definitions" href="Resource.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Provider.html" title="Providers"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Resource.html" title="Roles definitions"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Clients and Customer relationship management</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <span class="target" id="index-0"></span><section id="clients">
+<span id="customer"></span><span id="index-1"></span><h1>Clients<a class="headerlink" href="#clients" title="Permalink to this heading">¶</a></h1>
+<p>The client is the entity for which the project is set.</p>
+<p>It is generally the owner of the project, and in many cases it is the payer.</p>
+<p>It can be an internal entity within the same enterprise, a different enterprise, or an entity of an enterprise.</p>
+<p>The client defined here is not a person. Real persons within a client entity are called “<a class="reference internal" href="Resource.html#contact"><span class="std std-ref">contacts</span></a>”.</p>
+<figure class="align-default" id="id2">
+<img alt="Clients screen" src="_images/CUSTOMER_SCR_Clients.png" />
+<figcaption>
+<p><span class="caption-text">Clients screen</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section Description</p>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#attachment-section"><span class="std std-ref">Attachments</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#note-section"><span class="std std-ref">Notes</span></a></p></li>
+</ul>
+</aside>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-text">Required field <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id3" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the client.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> client name</p></td>
+<td><p>Short name of the client.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Type of client</p></td>
+<td><p>Type of client.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Client code</p></td>
+<td><p>Code of the client.</p></td>
+</tr>
+<tr class="row-even"><td><p>Payment deadline</p></td>
+<td><p>The payment deadline is stated on the bill for this client.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Tax</p></td>
+<td><p>Tax rates that are applied to bill amounts for this client.</p></td>
+</tr>
+<tr class="row-even"><td><p>Tax number</p></td>
+<td><p>Tax reference number, to be displayed on the bill.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Flag to indicate that the client is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Description"><span class="xref std std-term">Description</span></a></p></td>
+<td><p>Complete description of the client.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Address section</p>
+<p>Full address of the client.</p>
+<p class="rubric">Projects section</p>
+<p>List of projects related to the client.</p>
+<p class="rubric">Contacts section</p>
+<p>Displays the names of client-related contacts.</p>
+<figure class="align-default" id="id4">
+<img alt="Contacts section" src="_images/CUSTOMER_ZONE_Contacts.png" />
+<figcaption>
+<p><span class="caption-text">Contacts section</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can create contacts directly from the Contact screen.</p>
+<p>You can also create contacts directly from the Contacts section.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to create a contact</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete a contact</p></li>
+</ul>
+<p>When you want to add a contact, a window displaying the existing contacts is opened.</p>
+<p>You can select an existing contact or create a new one from this window. The information will be reflected directly in the Contact screen.</p>
+<p class="rubric">Client quotation, client commands list and client bill list</p>
+<p>These sections provide a summary of the various financial documents concerning the selected client.</p>
+<p>The quotations, orders and invoices associated with the client are displayed in tables for easy reading.</p>
+<figure class="align-default" id="id5">
+<img alt="financial monitoring sections" src="_images/CUSTOMER_ZONE_Financial.png" />
+<figcaption>
+<p><span class="caption-text">Financial monitoring sections</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To display these sections, you must set the options “list quotes, commands and bills on client form” on yes in the global parameters but also in the user parameters.</p>
+<p>See: <a class="reference internal" href="GlobalParameters.html#display"><span class="std std-ref">Global Parameters</span></a>
+See: <a class="reference internal" href="UserParameter.html#display-parameters"><span class="std std-ref">Users Parameters</span></a></p>
+</div>
+<p class="rubric">List of tickets</p>
+<p>This section allows you to see all open tickets for the selected client.</p>
+<figure class="align-default" id="id6">
+<img alt="List of tickets for this client" src="_images/CUSTOMER_ZONE_Tickets.png" />
+<figcaption>
+<p><span class="caption-text">List of tickets for this client</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To display this section, you must set the option “Display tickets at client level” to Yes in both the global parameters and the user parameters.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="GlobalParameters.html#globalparam-tickets"><span class="std std-ref">Global Parameters</span></a></p>
+</div>
+<span class="target" id="index-2"></span><span class="target" id="index-3"></span></section>
+<section id="customer-relationship-management">
+<span id="crm"></span><span id="index-4"></span><h1>Customer relationship management<a class="headerlink" href="#customer-relationship-management" title="Permalink to this heading">¶</a></h1>
+<p>The ProjeQtOr CRM (Customer Relationship Management) module enables you to centralize and track all information and activities related to sales prospecting, from the identification of a prospect to their conversion into a contact or client.</p>
+<p>It allows you to manage prospects and their characteristics, record prospecting sources, events and actions, and associate financial information such as quotations and invoices.</p>
+<p>A consolidated CRM dashboard brings together this information to provide an overview of sales activity and prospect development.</p>
+<p>Prospecting sources and events provide the context for prospect acquisition, while prospecting actions allow you to track the interactions that take place throughout the sales process.</p>
+<p>Together, these elements provide a complete view of prospect development.</p>
+<section id="the-prospects">
+<span id="crm-prospect"></span><h2>The Prospects<a class="headerlink" href="#the-prospects" title="Permalink to this heading">¶</a></h2>
+<p>Record all the prospects you wish to track here.</p>
+<p>Numerous fields are available in the Description and Details sections to provide the information needed to qualify and follow up on your prospects.</p>
+<p>The prospect record allows you to store information such as the prospect type, business domain, language, title, position, function, level of engagement and whether the person is a decision-maker.</p>
+<p>You can also associate prospecting sources, prospecting events and prospecting actions with the prospect.</p>
+<p>In the Lead Processing section, the Convert button allows you to convert a prospect into a client and a contact.</p>
+<p>The prospect’s company information is used to create the client, while the prospect’s personal information is used to create the contact.</p>
+<p class="rubric">Possible duplicate prospect</p>
+<p>This section allows you to identify another prospect that may correspond to the same company or person, helping to avoid duplicate records.</p>
+<p class="rubric">Types of prospect</p>
+<p>Prospect types allow you to categorize prospects based on their profile or nature.</p>
+<p>This classification facilitates their identification and segmentation, as well as the analysis of sales activity.</p>
+<p>For example, you can distinguish between a private company, a government agency, a public body, an association, a consulting firm, and a potential partner.</p>
+<p class="rubric">Domains / Positions and decision makers</p>
+<p>These reference data allow you to describe and qualify your prospects.</p>
+<p>You can define their business domain, position, title, function and level of engagement, and indicate whether they are decision-makers.</p>
+<p>This information can then be used to segment prospects and filter CRM data.</p>
+<p class="rubric">Prospect financial information</p>
+<p>Financial information related to prospects can also be tracked, including prospect estimates.</p>
+<p>Once a prospect has been converted into a client, the associated client quotations, orders and invoices can be tracked from the client record.</p>
+<section id="the-prospect-events">
+<h3>The prospect events<a class="headerlink" href="#the-prospect-events" title="Permalink to this heading">¶</a></h3>
+<p>Prospecting actions are recorded directly on the relevant prospect’s screen.</p>
+<p>They allow you to record and track all interactions with a prospect.</p>
+<p>They provide a record of communications and sales activities, maintaining a complete history of interactions with each prospect.</p>
+<figure class="align-default" id="id7">
+<img alt="Prospection Actions" src="_images/CUSTOMER_ZONE-CRMProspectionActions.png" />
+<figcaption>
+<p><span class="caption-text">Prospection Actions</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>For each action, specify in particular:</strong></p>
+<ul class="simple">
+<li><p>The date of the action;</p></li>
+<li><p>The type of action performed: phone call, email, meeting, demonstration, follow-up, event participation, etc.;</p></li>
+<li><p>The description of the action</p></li>
+</ul>
+<p>The action history makes it possible to view the steps already taken, avoid unnecessary follow-ups, and quickly identify which actions need to be carried out.</p>
+<p>This information is also reflected in the CRM dashboard, providing a consolidated view of prospecting activity.</p>
+</section>
+</section>
+<section id="the-lead-events">
+<span id="crm-events"></span><h2>The Lead events<a class="headerlink" href="#the-lead-events" title="Permalink to this heading">¶</a></h2>
+<p>The lead events allow you to group and identify events or campaigns that generate prospecting activities.</p>
+<p>These may include trade shows, webinars, conferences, marketing campaigns or business events.</p>
+<p>They allow you to track the prospects generated by a specific event and measure its commercial impact.</p>
+</section>
+<section id="the-lead-sources">
+<h2>The Lead sources<a class="headerlink" href="#the-lead-sources" title="Permalink to this heading">¶</a></h2>
+<p>Prospecting sources allow you to identify where prospects come from and the channels through which they were acquired.</p>
+<p>Examples include a website, word of mouth, trade shows, email campaigns, social media, or direct sales activities.</p>
+<p>They enable you to measure the effectiveness of various prospecting channels and identify those that generate the most business opportunities.</p>
+</section>
+<section id="crm-dashboard">
+<span id="id1"></span><h2>CRM Dashboard<a class="headerlink" href="#crm-dashboard" title="Permalink to this heading">¶</a></h2>
+<p>A consolidated CRM dashboard brings all this information together in a single view: prospects, contacts, customers, prospecting activities, and financial data.</p>
+<p>It provides a comprehensive overview of sales activity, making it easier to track opportunities and their progress.</p>
+<figure class="align-default" id="id8">
+<img alt="CRM Dashboard" src="_images/CUSTOMER_SCR_CRMDashboard.png" />
+<figcaption>
+<p><span class="caption-text">CRM Dashboard</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click <a class="reference internal" href="_images/iconMinus.png"><img alt="minus" src="_images/iconMinus.png" style="width: 19.2px; height: 19.2px;" /></a> to close the corresponding column.</p>
+<p>Click the icon to reopen the column.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconButtonProspectInformation.png"><img alt="Prospect info" src="_images/iconButtonProspectInformation.png" style="width: 19.2px; height: 19.2px;" /></a> Prospect informations</p></li>
+<li><p><a class="reference internal" href="_images/iconButtonProspectEvent.png"><img alt="Prospect event" src="_images/iconButtonProspectEvent.png" style="width: 19.2px; height: 19.2px;" /></a> Prospect Events</p></li>
+<li><p><a class="reference internal" href="_images/iconButtonProspectEstimate.png"><img alt="Prospect estimate" src="_images/iconButtonProspectEstimate.png" style="width: 19.2px; height: 19.2px;" /></a> Prospect Estimates</p></li>
+<li><p><a class="reference internal" href="_images/iconButtonQuotation.png"><img alt="Quotation" src="_images/iconButtonQuotation.png" style="width: 19.2px; height: 19.2px;" /></a> Client quotations</p></li>
+<li><p><a class="reference internal" href="_images/iconButtonCommand.png"><img alt="Command" src="_images/iconButtonCommand.png" style="width: 19.2px; height: 19.2px;" /></a> Client orders</p></li>
+<li><p><a class="reference internal" href="_images/iconButtonBill.png"><img alt="Bill" src="_images/iconButtonBill.png" style="width: 19.2px; height: 19.2px;" /></a> Client invoices</p></li>
+</ul>
+<p>Once the columns are reduced, the icons automatically reposition themselves in the designated location.</p>
+<img alt="_images/CUSTOMER_ZONE_CRMButtons.png" src="_images/CUSTOMER_ZONE_CRMButtons.png" />
+<p>Each line and piece of information is clickable and takes you to the dedicated screen.</p>
+<p>When all columns are open and your screen width does not allow them to be displayed simultaneously, a horizontal scrollbar enables you to access the data on the right side of the page.</p>
+<p>The “Company” column, however, remains visible at all times, regardless of how you scroll horizontally across the page.</p>
+<p>Several filters are available to help you isolate the information you need based on name, domain, prospecting source, prospect qualification, engagements, status, or assigned representative.</p>
+<p>A color code distinguishes prospects from clients and contacts.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Clients</a></li>
+<li><a class="reference internal" href="#customer-relationship-management">Customer relationship management</a><ul>
+<li><a class="reference internal" href="#the-prospects">The Prospects</a><ul>
+<li><a class="reference internal" href="#the-prospect-events">The prospect events</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-lead-events">The Lead events</a></li>
+<li><a class="reference internal" href="#the-lead-sources">The Lead sources</a></li>
+<li><a class="reference internal" href="#crm-dashboard">CRM Dashboard</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="Resource.html"
+                          title="previous chapter">Roles definitions</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Provider.html"
+                          title="next chapter">Providers</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Provider.html" title="Providers"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Resource.html" title="Roles definitions"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Clients and Customer relationship management</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

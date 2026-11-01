@@ -1,0 +1,130 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "/data/sboms/x.cdx.json",
+    "type": "sbom"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "jinja2",
+      "version": "2.10",
+      "ecosystem": "PyPI"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-462w-v97r-4m45",
+       "aliases": [
+        "CVE-2019-10906"
+       ],
+       "summary": "Jinja2 sandbox escape via string formatting",
+       "severity": [
+        {
+         "type": "CVSS_V3",
+         "score": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N"
+        },
+        {
+         "type": "CVSS_V4",
+         "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:H/SI:N/SA:N"
+        }
+       ],
+       "affected": [
+        {
+         "package": {
+          "ecosystem": "PyPI",
+          "name": "Jinja2"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.10.1"
+            }
+           ]
+          }
+         ]
+        }
+       ],
+       "database_specific": {
+        "cwe_ids": [
+         "CWE-693"
+        ],
+        "severity": "HIGH",
+        "github_reviewed": true,
+        "github_reviewed_at": "2020-06-16T20:57:35Z",
+        "nvd_published_at": "2019-04-07T00:29:00Z"
+       }
+      },
+      {
+       "id": "PYSEC-2019-217",
+       "aliases": [
+        "CVE-2019-10906",
+        "GHSA-462w-v97r-4m45"
+       ],
+       "summary": "jinja2 sandbox escape"
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-462w-v97r-4m45",
+        "PYSEC-2019-217"
+       ],
+       "aliases": [
+        "CVE-2019-10906",
+        "GHSA-462w-v97r-4m45",
+        "PYSEC-2019-217"
+       ],
+       "max_severity": "8.6"
+      }
+     ]
+    },
+    {
+     "package": {
+      "name": "requests",
+      "version": "2.19.0",
+      "ecosystem": "PyPI"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-x84v-xcm2-53pg",
+       "aliases": [
+        "CVE-2018-18074"
+       ],
+       "summary": "Insufficiently Protected Credentials in Requests",
+       "database_specific": {
+        "severity": "HIGH"
+       },
+       "affected": [
+        {
+         "package": {
+          "name": "requests",
+          "ecosystem": "PyPI"
+         },
+         "ranges": [
+          {
+           "type": "ECOSYSTEM",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "2.20.0"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

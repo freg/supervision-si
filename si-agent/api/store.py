@@ -21,6 +21,10 @@ ne réapplique la configuration que si l'empreinte change.
 import calendar
 import hashlib
 import json
+import re
+import os
+import publish as publish_lib
+from datetime import datetime, timedelta, timezone
 import secrets as _secrets
 import sqlite3
 import time
@@ -85,6 +89,19 @@ CREATE TABLE IF NOT EXISTS agent_plugins (
     PRIMARY KEY (agent_id, plugin_id)
 );
 
+CREATE TABLE IF NOT EXISTS enroll_tokens (
+    token TEXT PRIMARY KEY,
+    site TEXT NOT NULL,
+    label TEXT,
+    central_url TEXT,
+    plugins TEXT NOT NULL DEFAULT '[]',
+    max_uses INTEGER NOT NULL DEFAULT 0,
+    uses INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
 CREATE TABLE IF NOT EXISTS commands (
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -123,6 +140,8 @@ CREATE TABLE IF NOT EXISTS settings (
 
 # Colonnes ajoutées après coup (#422) -- `ALTER TABLE ... ADD COLUMN` idempotent
 MIGRATIONS = [
+    ("agents", "enrolled_by", "TEXT"),  # #616 : jeton d'enrôlement utilisé
+    ("agents", "hostname", "TEXT"),
     ("agents", "blocked", "INTEGER NOT NULL DEFAULT 0"),
     ("agents", "blocked_reason", "TEXT"),
     ("agents", "blocked_at", "TEXT"),
@@ -131,13 +150,20 @@ MIGRATIONS = [
     ("plugins", "max_memory_mb", "INTEGER"),
     ("agent_plugins", "blocked", "INTEGER NOT NULL DEFAULT 0"),
     ("agent_plugins", "blocked_reason", "TEXT"),
+    ("agents", "publish", "TEXT"),  # #547 : publication d'un tableau sur le LAN du site
+    ("agents", "filter_enabled", "INTEGER NOT NULL DEFAULT 0"),  # #607 : filtrage des alertes
+    ("agents", "filter_group", "TEXT"),
+    ("agents", "remote_shell", "TEXT NOT NULL DEFAULT 'off'"),  # #919 : commandes à distance (off / lecture / intervention)
+    ("events", "muted", "INTEGER NOT NULL DEFAULT 0"),  # #607 : événement filtré (journal seulement)
+    ("events", "muted_by", "TEXT"),
 ]
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration", "stop_plugin", "shell", "acces-services", "sauvegarde-poste", "pbs-push", "restauration-poste", "backuppc-ctl", "nas-qnap-ctl")  # #940 nas-qnap-ctl (NAS QNAP par SSH : essai / executer)  # #939 backuppc-ctl (BackupPC : lancer/arrêter une sauvegarde)  # #934 restauration-poste  # #931 pbs-push (poussée d'une archive vers PBS)  # #930 sauvegarde-poste (confs+montages)  # #928 acces-services (temps d'accès aux services, brut + authentifié)  # #919 shell (analyse technique à distance)  # #913 stop_plugin (arrêt d'un test de charge) ; #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
-TASKS_KEPT_LATEST = ("host", "risks", "inventory")
+TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
 
 def now_iso():
@@ -145,14 +171,22 @@ def now_iso():
 
 
 def _connect(db_path):
-    conn = sqlite3.connect(db_path)
+    # #515 : « database is locked » vu sur super après 29 h (8 threads gunicorn,
+    # agents qui déposent pendant que le hub lit) -- attente jusqu'à 30 s au
+    # lieu de 5, et journal WAL (ensure_schema) : les lectures ne bloquent plus
+    # sur une écriture en cours.
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def ensure_schema(db_path):
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
     try:
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")  # #515 ; sans effet si le système de fichiers refuse
+        except sqlite3.OperationalError:
+            pass
         conn.executescript(SCHEMA)
         for table, col, decl in MIGRATIONS:
             cols = [r[1] for r in conn.execute("PRAGMA table_info(%s)" % table).fetchall()]
@@ -175,6 +209,8 @@ def _agent_public(r):
     d["active"] = bool(d.get("active"))
     d["blocked"] = bool(d.get("blocked"))
     d["risk_thresholds"] = json.loads(d.get("risk_thresholds") or "{}")
+    d["publish"] = publish_lib.normalize_publish(json.loads(d["publish"]) if d.get("publish") else None)
+    d["remote_shell"] = d.get("remote_shell") if d.get("remote_shell") in REMOTE_SHELL_MODES else "off"  # #919
     return d
 
 
@@ -241,9 +277,21 @@ def _event_public(r):
     return d
 
 
-def list_events(db_path, agent_id=None, severity=None, kind=None, since=None, limit=200, min_severity=None):
+def mark_muted(db_path, event_id, reason):
+    """#607 : l'événement reste dans le journal mais ne compte plus (bandeau, synthèse, notifications)."""
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE events SET muted = 1, muted_by = ? WHERE id = ?", (reason, event_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_events(db_path, agent_id=None, severity=None, kind=None, since=None, limit=200, min_severity=None, include_muted=False):
     q = "SELECT * FROM events WHERE 1=1"
     params = []
+    if not include_muted:
+        q += " AND COALESCE(muted, 0) = 0"
     if agent_id:
         q += " AND agent_id = ?"; params.append(agent_id)
     if severity:
@@ -280,12 +328,13 @@ def events_summary(db_path, hours=24, offline_after_seconds=300):
     conn = _connect(db_path)
     try:
         counts = {r["severity"]: r["n"] for r in conn.execute(
-            "SELECT severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY severity", (since,)).fetchall()}
+            "SELECT severity, COUNT(*) AS n FROM events WHERE at >= ? AND COALESCE(muted, 0) = 0 GROUP BY severity", (since,)).fetchall()}
+        muted = conn.execute("SELECT COUNT(*) FROM events WHERE at >= ? AND muted = 1", (since,)).fetchone()[0]  # #607
         kinds = [{"kind": r["kind"], "severity": r["severity"], "count": r["n"]} for r in conn.execute(
-            "SELECT kind, severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY kind, severity ORDER BY n DESC LIMIT 12", (since,)).fetchall()]
+            "SELECT kind, severity, COUNT(*) AS n FROM events WHERE at >= ? AND COALESCE(muted, 0) = 0 GROUP BY kind, severity ORDER BY n DESC LIMIT 12", (since,)).fetchall()]
         notable = [_event_public(r) for r in conn.execute(
-            "SELECT * FROM events WHERE at >= ? AND severity IN ('critical', 'warning') ORDER BY at DESC, id DESC LIMIT 8", (since,)).fetchall()]
-        latest = [_event_public(r) for r in conn.execute("SELECT * FROM events ORDER BY at DESC, id DESC LIMIT 5").fetchall()]
+            "SELECT * FROM events WHERE at >= ? AND severity IN ('critical', 'warning') AND COALESCE(muted, 0) = 0 ORDER BY at DESC, id DESC LIMIT 8", (since,)).fetchall()]
+        latest = [_event_public(r) for r in conn.execute("SELECT * FROM events WHERE COALESCE(muted, 0) = 0 ORDER BY at DESC, id DESC LIMIT 5").fetchall()]
     finally:
         conn.close()
     agents = fleet(db_path, offline_after_seconds=offline_after_seconds)
@@ -293,6 +342,7 @@ def events_summary(db_path, hours=24, offline_after_seconds=300):
     return {
         "window_hours": hours, "since": since,
         "counts": {"critical": counts.get("critical", 0), "warning": counts.get("warning", 0), "info": counts.get("info", 0)},
+        "muted": muted,  # #607
         "kinds": kinds, "notable": notable, "latest": latest,
         "fleet_blocked": bool(fb.get("blocked")), "fleet_block_reason": fb.get("reason"), "fleet_blocked_at": fb.get("at"),
         "agents": len(agents),
@@ -461,8 +511,16 @@ def get_secret(db_path, agent_id):
     return {"secret": r["secret"], "site": r["site"]}
 
 
-def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None):
+def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None, filter_enabled=None, filter_group=None, remote_shell=None):
     sets, params = [], []
+    if remote_shell is not None:  # #919
+        if remote_shell not in REMOTE_SHELL_MODES:
+            raise ValueError("remote_shell : off, lecture ou intervention")
+        sets.append("remote_shell = ?"); params.append(remote_shell)
+    if filter_enabled is not None:  # #607
+        sets.append("filter_enabled = ?"); params.append(1 if filter_enabled else 0)
+    if filter_group is not None:
+        sets.append("filter_group = ?"); params.append(str(filter_group or ""))
     if label is not None:
         sets.append("label = ?"); params.append(label)
     if active is not None:
@@ -477,6 +535,8 @@ def update_agent(db_path, agent_id, label=None, active=None, site=None, host_int
         sets.append("risk_thresholds = ?"); params.append(json.dumps(_thresholds(risk_thresholds)))
     if notes is not None:
         sets.append("notes = ?"); params.append(notes)
+    if publish is not None:
+        sets.append("publish = ?"); params.append(json.dumps(publish_lib.normalize_publish(publish)))
     if not sets:
         return get_agent(db_path, agent_id)
     sets.append("updated_at = ?"); params.append(now_iso())
@@ -490,6 +550,117 @@ def update_agent(db_path, agent_id, label=None, active=None, site=None, host_int
     finally:
         conn.close()
     return get_agent(db_path, agent_id)
+
+
+# ---- #616 : enrôlement en masse par jeton de site ----------------------------
+def slug_agent_id(hostname, site=None):
+    """Nom de machine -> identifiant d'agent valide (minuscules, [a-z0-9-._])."""
+    base = "".join(c if (c.isalnum() or c in "-._") else "-" for c in str(hostname or "").strip().lower()).strip("-._")
+    base = base[:AGENT_ID_MAX] or "poste"
+    return base if base[0].isalnum() else "p" + base[:AGENT_ID_MAX - 1]
+
+
+def create_enroll_token(db_path, site, label=None, central_url=None, plugins=None, max_uses=0, expires_hours=72, created_by=None):
+    if not isinstance(site, str) or not site.strip():
+        raise ValueError("site requis")
+    try:
+        max_uses = max(0, int(max_uses or 0)); expires_hours = int(expires_hours or 0)
+    except (TypeError, ValueError):
+        raise ValueError("max_uses / expires_hours entiers")
+    token = "enr-" + _secrets.token_urlsafe(24)
+    now = now_iso()
+    expires = None
+    if expires_hours > 0:
+        import datetime as _dt
+        expires = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=expires_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = _connect(db_path)
+    try:
+        conn.execute("INSERT INTO enroll_tokens (token, site, label, central_url, plugins, max_uses, uses, expires_at, revoked, created_at, created_by) "
+                     "VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)",
+                     (token, site.strip(), label, (central_url or "").rstrip("/") or None, json.dumps([p for p in (plugins or []) if isinstance(p, str)]), max_uses, expires, now, created_by))
+        conn.commit()
+    finally:
+        conn.close()
+    return get_enroll_token(db_path, token)
+
+
+def _token_public(r):
+    d = dict(r)
+    d["plugins"] = json.loads(d.get("plugins") or "[]")
+    d["revoked"] = bool(d.get("revoked"))
+    d["expired"] = bool(d.get("expires_at")) and d["expires_at"] < now_iso()
+    d["exhausted"] = bool(d.get("max_uses")) and d.get("uses", 0) >= d["max_uses"]
+    d["usable"] = not (d["revoked"] or d["expired"] or d["exhausted"])
+    return d
+
+
+def get_enroll_token(db_path, token):
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT * FROM enroll_tokens WHERE token = ?", (token,)).fetchone()
+    finally:
+        conn.close()
+    return _token_public(r) if r else None
+
+
+def list_enroll_tokens(db_path):
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM enroll_tokens ORDER BY created_at DESC").fetchall()
+        counts = {r["enrolled_by"]: r["n"] for r in conn.execute("SELECT enrolled_by, COUNT(*) AS n FROM agents WHERE enrolled_by IS NOT NULL GROUP BY enrolled_by")}
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        d = _token_public(r); d["agents"] = counts.get(d["token"], 0); out.append(d)
+    return out
+
+
+def revoke_enroll_token(db_path, token):
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("UPDATE enroll_tokens SET revoked = 1 WHERE token = ?", (token,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def enroll_with_token(db_path, token, hostname, platform=None):
+    """Crée (ou ré-arme : nouveau secret) l'agent nommé d'après la machine.
+    -> (agent avec secret, jeton) ou lève ValueError (jeton inutilisable).
+    Une relance du script sur le même poste redonne un secret neuf plutôt
+    que d'échouer : c'est le cas normal d'un déploiement par GPO relancé."""
+    t = get_enroll_token(db_path, token or "")
+    if t is None or not t["usable"]:
+        raise ValueError("jeton d'enrôlement inconnu, révoqué, expiré ou épuisé")
+    agent_id = slug_agent_id(hostname)
+    existing = get_agent(db_path, agent_id)
+    if existing is None:
+        a = create_agent(db_path, agent_id, t["site"], label=str(hostname or "")[:80])
+        conn = _connect(db_path)
+        try:
+            conn.execute("UPDATE agents SET enrolled_by = ?, hostname = ? WHERE agent_id = ?", (token, str(hostname or "")[:120], agent_id))
+            conn.execute("UPDATE enroll_tokens SET uses = uses + 1 WHERE token = ?", (token,))
+            conn.commit()
+        finally:
+            conn.close()
+        for pid in t["plugins"]:
+            try:
+                assign_plugin(db_path, agent_id, pid, True)
+            except Exception:  # noqa: BLE001 -- plugin absent du catalogue : ignoré
+                pass
+        return a, t
+    if existing.get("enrolled_by") != token and existing.get("enrolled_by"):
+        raise ValueError("agent %s déjà enrôlé par un autre jeton" % agent_id)
+    a = rotate_secret(db_path, agent_id)
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE agents SET enrolled_by = ?, hostname = ? WHERE agent_id = ?", (token, str(hostname or "")[:120], agent_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return a, t
 
 
 def rotate_secret(db_path, agent_id):
@@ -653,6 +824,11 @@ def agent_plugins(db_path, agent_id):
 # Configuration poussée à l'agent (route signée)
 # ------------------------------------------------------------------
 
+def _remote_shell_of(a):
+    v = a["remote_shell"] if "remote_shell" in a.keys() else None
+    return v if v in REMOTE_SHELL_MODES else "off"
+
+
 def config_for_agent(db_path, agent_id):
     """Ce que l'agent reçoit sur GET /api/v1/agents/<id>/config : réglages,
     plugins affectés (manifeste SIGNÉ avec le secret de l'agent + corps),
@@ -674,7 +850,9 @@ def config_for_agent(db_path, agent_id):
     blocked = bool(fb.get("blocked")) or bool(a["blocked"])
     blocked_reason = (fb.get("reason") or "blocage général de la flotte") if fb.get("blocked") else a["blocked_reason"]
     assigned = []
-    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0)]
+    publish = publish_lib.normalize_publish(json.loads(a["publish"]) if a["publish"] else None)
+    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0),
+                   "publish:%s" % json.dumps(publish, sort_keys=True), "rs:%s" % _remote_shell_of(a)]  # #919
     for r in rows:
         privileged = bool(r["privileged"])
         manifest = {"id": r["id"], "version": r["version"], "runner": r["runner"], "entry": r["entry"],
@@ -703,18 +881,122 @@ def config_for_agent(db_path, agent_id):
     # refuse une configuration plus ancienne que la dernière appliquée (rejeu).
     return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": a["host_interval_seconds"],
             "risk_thresholds": json.loads(a["risk_thresholds"] or "{}"), "plugins": assigned, "remove_plugins": remove,
-            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None}
+            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None, "publish": publish,
+            "remote_shell": _remote_shell_of(a)}  # #919
 
 
 # ------------------------------------------------------------------
 # Commandes
 # ------------------------------------------------------------------
 
+def audit_allowed(host, spec):
+    """#687 : cible d'audit extérieur autorisée ? `spec` = « exemple.fr,*.exemple.fr,192.0.2.0/24 »
+    (domaine exact, sous-domaines par « *. », adresse ou réseau). Pure ; liste vide = rien d'autorisé."""
+    import ipaddress
+    host = str(host or "").strip().lower().rstrip(".")
+    if not host or any(ch in host for ch in "/ :@"):
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    for item in [x.strip().lower().rstrip(".") for x in str(spec or "").split(",") if x.strip()]:
+        if ip is not None:
+            try:
+                if ip in ipaddress.ip_network(item, strict=False):
+                    return True
+            except ValueError:
+                continue
+        elif item.startswith("*."):
+            if host.endswith(item[1:]) and host != item[2:]:
+                return True
+        elif host == item:
+            return True
+    return False
+
+
+def _check_audit_params(params):
+    spec = os.environ.get("SI_AGENT_AUDIT_ALLOWED", "")
+    targets = (params or {}).get("targets")
+    if not isinstance(targets, list) or not targets or len(targets) > 10:
+        raise ValueError("params.targets : 1 à 10 cibles {host, ports?}")
+    refused = [str((t or {}).get("host")) for t in targets if not isinstance(t, dict) or not audit_allowed(t.get("host"), spec)]
+    if refused:
+        raise ValueError("cibles hors de la liste blanche SI_AGENT_AUDIT_ALLOWED (%s) : %s" % (spec or "vide", ", ".join(refused)))
+    for t in targets:
+        ports = t.get("ports")
+        if ports is not None and (not isinstance(ports, list) or len(ports) > 32 or not all(isinstance(x, int) and 0 < x < 65536 for x in ports)):
+            raise ValueError("ports de %s : liste de 1 à 32 entiers" % t.get("host"))
+
+
+REMOTE_SHELL_MODES = ("off", "lecture", "intervention")  # #919
+
+
+def _check_shell_params(p):
+    """#919 : commande `shell` -- run {id, script, mode, delai} ou stop {id}."""
+    p = p or {}
+    tid = str(p.get("id") or "")
+    if not tid or len(tid) > 40 or not all(c.isalnum() or c in "-_" for c in tid):
+        raise ValueError("params.id invalide")
+    action = p.get("action", "run")
+    if action == "stop":
+        return
+    if action != "run":
+        raise ValueError("params.action : run ou stop")
+    if p.get("mode", "lecture") not in ("lecture", "intervention"):
+        raise ValueError("params.mode : lecture ou intervention")
+    script = p.get("script")
+    if not isinstance(script, str) or not script.strip() or len(script) > 20000:
+        raise ValueError("params.script requis (20 000 caractères au plus)")
+
+
 def create_command(db_path, agent_id, ctype, params=None):
     if ctype not in COMMAND_TYPES:
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
-    if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin") and not (params or {}).get("id"):
+    if ctype == "ext_audit":
+        _check_audit_params(params)
+    if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin", "stop_plugin") and not (params or {}).get("id"):
         raise ValueError("params.id (identifiant du plugin) requis")
+    if ctype == "ollama" and (params or {}).get("action", "status") not in ("status", "pull", "delete", "load", "unload", "test"):
+        raise ValueError("params.action : status, pull, delete, load, unload ou test")
+    if ctype == "vrrp_set" and not ((params or {}).get("instance") and (params or {}).get("priority")):
+        raise ValueError("params.instance et params.priority requis")
+    if ctype == "vm_action" and not ((params or {}).get("vmid") and (params or {}).get("action")):
+        raise ValueError("params.vmid et params.action requis")
+    if ctype == "power_action" and (params or {}).get("action") not in ("reboot", "shutdown", "cancel"):
+        raise ValueError("params.action : reboot, shutdown ou cancel")
+    if ctype == "wol" and not (params or {}).get("mac"):
+        raise ValueError("params.mac requis")
+    if ctype == "startup_action" and not ((params or {}).get("kind") and (params or {}).get("name")):
+        raise ValueError("params.kind et params.name requis")
+    if ctype == "shell":  # #919
+        _check_shell_params(params)
+    if ctype == "acces-services" and not isinstance((params or {}).get("cibles"), list):   # #928
+        raise ValueError("params.cibles (liste) requis")
+    if ctype == "sauvegarde-poste" and not isinstance((params or {}).get("confs"), list):   # #930
+        raise ValueError("params.confs (liste) requis")
+    if ctype == "pbs-push" and not (params or {}).get("repository"):   # #931
+        raise ValueError("params.repository requis")
+    if ctype == "nas-qnap-ctl":   # #940
+        if (params or {}).get("mode") not in ("essai", "executer"):
+            raise ValueError("nas-qnap-ctl : mode essai ou executer")
+        if not str((params or {}).get("nas") or "").strip():
+            raise ValueError("nas-qnap-ctl : nas requis")
+        if (params or {}).get("mode") == "executer" and not (params or {}).get("action"):
+            raise ValueError("nas-qnap-ctl : executer exige une action déclarée (pas de commande libre)")
+    if ctype == "backuppc-ctl":   # #939
+        if (params or {}).get("action") not in ("backup-full", "backup-incr", "stop", "status"):
+            raise ValueError("backuppc-ctl : action backup-full, backup-incr, stop ou status")
+        if (params or {}).get("action") != "status" and not re.match(r"^[A-Za-z0-9._-]+$", str((params or {}).get("host") or "")):
+            raise ValueError("backuppc-ctl : host requis (nom BackupPC)")
+    if ctype == "restauration-poste" and not ((params or {}).get("source") or {}).get("chemin"):   # #934
+        raise ValueError("params.source.chemin requis")
+    if ctype == "power_schedule" and not isinstance(params, dict):
+        raise ValueError("params (objet) requis")
+    if ctype == "watchdog_config" and not isinstance((params or {}).get("apps"), list):
+        raise ValueError("params.apps (liste) requis")
+    if ctype == "image_host" and not (params or {}).get("target"):
+        raise ValueError("params.target (dossier cible) requis")
     cid = "c-" + _secrets.token_hex(6)
     conn = _connect(db_path)
     try:
@@ -728,11 +1010,71 @@ def create_command(db_path, agent_id, ctype, params=None):
     return get_command(db_path, cid)
 
 
+def _redact_cible(c):   # #928
+    if not isinstance(c, dict) or not isinstance(c.get("auth"), dict):
+        return c
+    au = dict(c["auth"])
+    for k in ("secret", "valeur", "password"):
+        if au.get(k):
+            au[k] = "***"
+    return dict(c, auth=au)
+
+
+def redact_params(params):
+    """#628 : mot de passe d'autologon jamais renvoyé au hub."""
+    p = dict(params or {})
+    if isinstance(p.get("autologon"), dict) and "password" in p["autologon"]:
+        p["autologon"] = dict(p["autologon"], password="***")
+    if isinstance(p.get("share"), dict) and "password" in p["share"]:  # #635
+        p["share"] = dict(p["share"], password="***")
+    if isinstance(p.get("etapes"), list):   # #799 : valeurs secrètes d'un parcours (mot de passe du coffre…)
+        p["etapes"] = [dict(e, value="***") if isinstance(e, dict) and e.get("secret") else e for e in p["etapes"]]
+    if isinstance(p.get("ssids"), list):   # #807 : clés Wi-Fi d'une configuration radio (sonde directe)
+        p["ssids"] = [dict(s, psk="***") if isinstance(s, dict) and s.get("psk") else s for s in p["ssids"]]
+    if isinstance(p.get("params"), dict):   # #807 : même chose dans une commande relayée par le collecteur du site
+        p["params"] = redact_params(p["params"])
+    if isinstance(p.get("ligne"), str):   # #831 : ligne d'installation (jeton) jouée dans un émulateur
+        import re as _re
+        p["ligne"] = _re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=)([^\s\"'&]+)", r"\1***", p["ligne"])
+    if isinstance(p.get("cibles"), list):   # #928 : secrets d'accès aux services (mot de passe / jeton du coffre)
+        p["cibles"] = [_redact_cible(c) for c in p["cibles"]]
+    if isinstance(p.get("source"), dict) and isinstance(p["source"].get("unc"), dict):   # #934 : identifiants du partage source
+        u = dict(p["source"]["unc"])
+        for k in ("secret", "password"):
+            if u.get(k):
+                u[k] = "***"
+        p["source"] = dict(p["source"], unc=u)
+    if isinstance(p.get("destinations"), dict) and isinstance(p["destinations"].get("unc"), dict):   # #930 : identifiants du partage de sauvegarde
+        u = dict(p["destinations"]["unc"])
+        for k in ("secret", "password"):
+            if u.get(k):
+                u[k] = "***"
+        p["destinations"] = dict(p["destinations"], unc=u)
+    if p.get("token_secret"):   # #931 : secret du jeton d'API PBS
+        p["token_secret"] = "***"
+    if p.get("jeton"):   # #832 : jeton de jonction k3s
+        p["jeton"] = "***"
+    if isinstance(p.get("argv"), list):   # #825 : jeton d'enrôlement dans la ligne d'installation jouée dans une VM de banc
+        import re as _re
+        p["argv"] = [_re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=|secret=|-Secret\s+[\"']?)([^\s\"'&]+)", r"\1***", x) if isinstance(x, str) else x for x in p["argv"]]
+    return p
+
+
 def _command_public(r):
     d = dict(r)
-    d["params"] = json.loads(d.get("params") or "{}")
+    d["params"] = redact_params(json.loads(d.get("params") or "{}"))
     d["result"] = json.loads(d["result"]) if d.get("result") else None
     return d
+
+
+def last_command(db_path, agent_id, ctype):
+    """#522 : dernière commande d'un type pour un agent (ou None)."""
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT * FROM commands WHERE agent_id = ? AND type = ? ORDER BY created_at DESC, id LIMIT 1", (agent_id, ctype)).fetchone()
+        return _command_public(r) if r else None
+    finally:
+        conn.close()
 
 
 def get_command(db_path, cid):
@@ -772,8 +1114,10 @@ def pending_commands_for_agent(db_path, agent_id):
 def ack_command(db_path, agent_id, cid, result):
     conn = _connect(db_path)
     try:
-        cur = conn.execute("UPDATE commands SET status = ?, result = ?, acked_at = ? WHERE id = ? AND agent_id = ? AND status = 'pending'",
-                           ("done" if (result or {}).get("ok") else "failed", json.dumps(result or {}), now_iso(), cid, agent_id))
+        row = conn.execute("SELECT params FROM commands WHERE id = ? AND agent_id = ?", (cid, agent_id)).fetchone()
+        params = redact_params(json.loads(row["params"] or "{}")) if row else {}
+        cur = conn.execute("UPDATE commands SET status = ?, result = ?, acked_at = ?, params = ? WHERE id = ? AND agent_id = ? AND status = 'pending'",
+                           ("done" if (result or {}).get("ok") else "failed", json.dumps(result or {}), now_iso(), json.dumps(params), cid, agent_id))
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -792,6 +1136,7 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
     dernier contact et, sur `host`/`inventory`, la fiche de l'agent."""
     accepted, duplicates, rejected = 0, 0, []
     events_seen = []
+    guest_reports = []
     now = now_iso()
     conn = _connect(db_path)
     try:
@@ -812,6 +1157,13 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                                   str(ev.get("message") or "")[:500], json.dumps(ev.get("details") or {}, ensure_ascii=False)))
                     accepted += 1
                     events_seen.append({"at": m["at"], "kind": ev.get("kind"), "severity": sev, "message": ev.get("message"), "agent_id": agent_id})
+                    # #755 : version courante dès le (re)démarrage -- l'inventaire, seul à la porter jusque-là, peut
+                    # n'arriver qu'une heure après : la tuile Mises à jour affichait « installeur lancé, sans effet »
+                    # pour des agents bel et bien mis à jour.
+                    det = ev.get("details") if isinstance(ev.get("details"), dict) else {}
+                    ver = det.get("version") if ev.get("kind") == "agent-started" else det.get("to") if ev.get("kind") == "agent-updated" else None
+                    if isinstance(ver, str) and re.match(r"^\d+(\.\d+){1,3}$", ver):
+                        conn.execute("UPDATE agents SET agent_version = ? WHERE agent_id = ?", (ver, agent_id))
                 except sqlite3.IntegrityError:
                     duplicates += 1
                 continue
@@ -823,6 +1175,8 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
             except sqlite3.IntegrityError:
                 duplicates += 1
                 continue
+            if m["task"].startswith("shell:"):  # #919 : une commande à distance = sa dernière mesure seulement
+                conn.execute("DELETE FROM measurements WHERE agent_id = ? AND task = ? AND at < ?", (agent_id, m["task"], m["at"]))
             if m["task"] == "host" and isinstance(data, dict):
                 s = data.get("system") or {}
                 conn.execute("UPDATE agents SET hostname = COALESCE(?, hostname), os = COALESCE(?, os) WHERE agent_id = ?",
@@ -830,8 +1184,45 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
             elif m["task"] == "inventory" and isinstance(data, dict):
                 conn.execute("UPDATE agents SET agent_version = COALESCE(?, agent_version) WHERE agent_id = ?",
                              (data.get("agent_version"), agent_id))
+            elif m["task"] in PROBE_TASKS and isinstance(data, dict):
+                # #530 : constats des sondes -> événements (nouveau constat, retour à la normale) -> notifications
+                for ev in probe_state_changes(conn, agent_id, m["task"], m["at"], data):
+                    try:
+                        conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, 'central', ?, ?, ?, ?)",
+                                     (m["at"], agent_id, site_of(conn, agent_id), ev["kind"], ev["severity"], ev["message"],
+                                      json.dumps(ev["details"], ensure_ascii=False)))
+                        events_seen.append({"at": m["at"], "kind": ev["kind"], "severity": ev["severity"], "message": ev["message"], "agent_id": agent_id})
+                    except sqlite3.IntegrityError:
+                        pass
+            if m["task"] == "plugin:migration" and isinstance(data, dict):
+                # #774 : état des étapes de migration -> tuile « Migration 2026-2027 » (enchaînement automatique)
+                try:
+                    import migrun
+                    migrun.apply_report(conn, agent_id, data)
+                except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
+                    pass
+            if m["task"] == "plugin:guest-usage" and isinstance(data, dict):
+                # #771 : historique quotidien des CT / VM accumulé à la réception (au-delà de la rotation des journaux)
+                guest_reports.append(data)   # #869 : fusionné APRÈS la validation, par petits lots (voir plus bas)
+            elif m["task"] == "plugin:proxmox" and isinstance(data, dict):
+                for ev in proxmox_state_changes(conn, agent_id, m["at"], data):
+                    try:
+                        conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, 'central', ?, ?, ?, ?)",
+                                     (m["at"], agent_id, site_of(conn, agent_id), ev["kind"], ev["severity"], ev["message"],
+                                      json.dumps(ev["details"], ensure_ascii=False)))
+                    except sqlite3.IntegrityError:
+                        pass
         touch_agent(conn, agent_id, ip)
         conn.commit()
+        # #869 : l'historique quotidien des CT / VM (#771) était fusionné DANS la transaction de réception : des milliers
+        # de lignes, base verrouillée pour tous les agents. Désormais après la validation, en transactions courtes.
+        for data in guest_reports:
+            try:
+                import guestusage
+                guestusage.ingest_daily(conn, data, now, commit_every=200)
+                conn.commit()
+            except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
+                conn.rollback()
     finally:
         conn.close()
     return accepted, duplicates, rejected, events_seen
@@ -905,6 +1296,368 @@ def latest_netviews(db_path, site=None):
     return out
 
 
+def latest_web_audit(db_path, site=None):
+    """#617 : dernier audit web (plugin web-audit) par agent, pour la comparaison entre postes."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.ok, m.error, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:web-audit' GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:web-audit'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        urls = []
+        for u in (data.get("urls") or []):
+            m = u.get("main") or {}
+            urls.append({"url": u.get("url"), "final_url": u.get("final_url"), "state": u.get("state"), "status": m.get("status"), "ttfb_ms": m.get("ttfb_ms"),
+                         "total_ms": m.get("total_ms"), "dns_ms": m.get("dns_ms"), "connect_ms": m.get("connect_ms"), "tls_ms": m.get("tls_ms"), "error": m.get("error"),
+                         "findings": u.get("findings") or [], "sub_total": len(u.get("subresources") or []),
+                         "sub_failed": sum(1 for s in (u.get("subresources") or []) if s.get("error") or (s.get("status") or 0) >= 400), "title": u.get("title")})
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"], "ok": bool(r["ok"]),
+                    "error": r["error"] or data.get("error"), "summary": data.get("summary") or {}, "urls": urls})
+    return out
+
+
+def latest_software_inventory(db_path, site=None):
+    """#595 : dernier inventaire logiciel (plugin software-inventory) par agent."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:software-inventory' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:software-inventory'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "os": data.get("os"), "os_version": data.get("os_version"), "users": data.get("users") or [],
+                    "installed": data.get("installed") or [], "count": data.get("count", len(data.get("installed") or [])), "warnings": data.get("warnings") or []})
+    return out
+
+
+def latest_windows_hosts(db_path, site=None):
+    """#567 : hôtes vus par la sonde windows-probe, fusionnés entre agents
+    (même IP vue par deux sondes : la plus récente gagne)."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:windows-probe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:windows-probe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    hosts = {}
+    probes = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        probes.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "at": r["at"], "targets": data.get("targets"), "scanned": data.get("scanned"), "stats": data.get("stats")})
+        for h in data.get("hosts") or []:
+            ip = h.get("ip")
+            if not ip:
+                continue
+            if ip not in hosts or (r["at"] or "") > (hosts[ip].get("seen_at") or ""):
+                hosts[ip] = dict(h, agent_id=r["agent_id"], site=r["site"], seen_at=r["at"])
+    return {"hosts": sorted(hosts.values(), key=lambda h: tuple(int(x) for x in h["ip"].split(".")) if h["ip"].count(".") == 3 else (0,)), "probes": probes}
+
+
+def latest_broadcasts(db_path, site=None):
+    """#568 : dernière mesure broadcast-probe de chaque agent (`?site=`)."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:broadcast-probe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:broadcast-probe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "mode": data.get("mode"), "seconds": data.get("seconds"), "frames": data.get("frames"), "protocols": data.get("protocols") or [],
+                    "announcers": data.get("announcers") or [], "findings": data.get("findings") or [], "dhcp_servers": data.get("dhcp_servers") or {}, "lldp": data.get("lldp") or {}})
+    return out
+
+
+def latest_dns_observe(db_path, site=None):
+    """#643 : dernière mesure dns-observe (105) par agent -- divergences de
+    résolution DNS entre segments, répartition résolveurs/destinations."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:dns-observe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:dns-observe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "names": data.get("names") or [], "ifaces": data.get("ifaces") or [], "summary": data.get("summary") or {},
+                    "by_source": data.get("by_source") or {}, "by_destination": data.get("by_destination") or {},
+                    "learned": data.get("learned") or {}, "alerts": data.get("alerts") or []})
+    return out
+
+
+def latest_resource_access(db_path, site=None):
+    """#643 : dernière mesure resource-access (106) par agent -- qui (client)
+    accede a quoi (ressource externe dst:port/proto), volumes, accès en clair."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:resource-access' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:resource-access'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "summary": data.get("summary") or {}, "resources": data.get("resources") or [],
+                    "clients": data.get("clients") or [], "alerts": data.get("alerts") or [], "note": data.get("note")})
+    return out
+
+
+def _vm_states(data):
+    out = {}
+    for vm in (data or {}).get("vms") or []:
+        if vm.get("vmid") is not None and not vm.get("template"):
+            out[int(vm["vmid"])] = (vm.get("status") or "?", vm.get("name"), vm.get("type"))
+    return out
+
+
+PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server",
+               "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity", "plugin:guest-usage", "plugin:migration",
+               "plugin:gpu", "plugin:remote-status", "plugin:sms-gateway", "plugin:hub-watch", "plugin:wifi-monitor", "plugin:rf-spectrum", "plugin:collecte-sondes", "plugin:pve-preflight", "plugin:emulation", "plugin:orchestration", "plugin:mailbox", "plugin:copies-inventory", "plugin:systemes", "plugin:lan-audit", "plugin:nas-snmp", "plugin:wireguard", "plugin:softether", "plugin:poste-windows", "plugin:poste-charge", "plugin:sockets", "plugin:partages-reseau", "plugin:partages-samba")   # #906, #902, #896, #885, #884, #883, #873, #782, #792, #793, #801, #806, #815, #856, #861
+BACKUP_TASKS = ("plugin:pulled-backups", "plugin:pbs")   # #716 : genres backup-* (routables à part)
+PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM", "plugin:migration": "étapes de migration", "plugin:gpu": "cartes GPU", "plugin:remote-status": "veilles distantes", "plugin:sms-gateway": "passerelle SMS 4G", "plugin:hub-watch": "garde du hub", "plugin:wifi-monitor": "écoute Wi-Fi passive", "plugin:rf-spectrum": "spectre radio", "plugin:collecte-sondes": "sondes radio d'un site", "plugin:pve-preflight": "préparation de réinstallation (PVE)", "plugin:emulation": "émulateurs (Raspberry, Android)", "plugin:orchestration": "orchestration (k3s, Nomad)", "plugin:mailbox": "agents de messagerie si-mailbox", "plugin:copies-inventory": "inventaire des copies et sauvegardes", "plugin:systemes": "systèmes du SI interne", "plugin:lan-audit": "audit réseau (hôtes, services, versions)", "plugin:nas-snmp": "NAS (SNMP)", "plugin:wireguard": "VPN WireGuard", "plugin:softether": "VPN SoftEther", "plugin:poste-windows": "poste Windows", "plugin:poste-charge": "tests de charge", "plugin:sockets": "sockets (netstat)", "plugin:partages-reseau": "partages du LAN", "plugin:partages-samba": "serveur Samba", "plugin:backuppc": "BackupPC", "plugin:nas-qnap": "NAS QNAP (SSH)"}
+
+
+def _probe_alerts(data):
+    """{code: (sévérité, message)} des constats warning/critical d'une mesure de sonde."""
+    out = {}
+    for a in (data or {}).get("alerts") or []:
+        if isinstance(a, dict) and a.get("code") and a.get("severity") in ("warning", "critical"):
+            out[str(a["code"])[:64]] = (a["severity"], str(a.get("message") or "")[:300])
+    return out
+
+
+def probe_state_changes(conn, agent_id, task, at, data):
+    """#530 : compare les constats (warning/critical) d'une mesure de sonde
+    wifi-probe / path-probe avec la mesure précédente du même agent ->
+    événements « probe-alert » (nouveau constat, sévérité du constat) et
+    « probe-recovered » (constat disparu, info). Un constat qui persiste
+    n'est pas répété : l'anti-tempête des notifications n'a rien à faire.
+    Première mesure : ses constats sont des nouveautés."""
+    after = _probe_alerts(data)
+    prev = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = ? AND at < ? ORDER BY at DESC LIMIT 1",
+                        (agent_id, task, at)).fetchone()
+    before, prev_data = {}, {}
+    if prev and prev["data"]:
+        try:
+            prev_data = json.loads(prev["data"]) or {}
+            before = _probe_alerts(prev_data)
+        except (TypeError, ValueError):
+            before, prev_data = {}, {}
+    label = PROBE_LABELS.get(task, task)
+    # #716 : les sauvegardes ont leurs propres genres (routables à part dans les notifications : si-agent.backup-*)
+    k_alert, k_rec = ("backup-alert", "backup-recovered") if task in BACKUP_TASKS else ("probe-alert", "probe-recovered")
+    # UNIQUE(agent, source, at, kind) sur la table events : un seul événement
+    # par genre et par mesure, les constats sont regroupés dedans.
+    new = [(code, sev, msg) for code, (sev, msg) in after.items() if code not in before or before[code][0] != sev]
+    gone = [(code, sev) for code, (sev, msg) in before.items() if code not in after]
+    events = []
+    if new:
+        sev = "critical" if any(n[1] == "critical" for n in new) else "warning"
+        events.append({"kind": k_alert, "severity": sev,
+                       "message": "%s : %s" % (label, " ; ".join((n[2] or n[0]) for n in new))[:500],
+                       "details": {"task": task, "codes": [n[0] for n in new], "state": (data.get("summary") or {}).get("state")}})
+    if gone:
+        events.append({"kind": k_rec, "severity": "info",
+                       "message": "%s : fin du constat %s" % (label, ", ".join("« %s »" % g[0] for g in gone)),
+                       "details": {"task": task, "codes": [g[0] for g in gone]}})
+    if task == "plugin:pulled-backups":
+        events += backup_done_events(prev_data, data)
+    return events
+
+
+def backup_done_events(prev_data, data):
+    """#716 : chaque NOUVELLE réussite d'une tâche de sauvegarde marquée `notify_ok` -> un événement « backup-done »
+    (info) ; la toute première mesure n'en produit pas (pas d'avalanche à l'activation de la sonde)."""
+    if not prev_data:
+        return []
+    seen = {(b.get("host"), b.get("job") or b.get("vmid")): b.get("at") for b in (prev_data.get("backups") or []) if isinstance(b, dict)}
+    out = []
+    for b in (data or {}).get("backups") or []:
+        if not isinstance(b, dict) or not b.get("notify_ok") or not b.get("ok") or not b.get("at"):
+            continue
+        k = (b.get("host"), b.get("job") or b.get("vmid"))
+        if seen.get(k) == b["at"]:
+            continue
+        size = b.get("size") or 0
+        out.append({"kind": "backup-done", "severity": "info",
+                    "message": "sauvegarde %s / %s réussie (%s)" % (k[0], k[1], "%.1f Mo" % (size / 1e6) if size else "taille inconnue"),
+                    "details": {"task": "plugin:pulled-backups", "host": k[0], "job": k[1], "at": b["at"], "size": size, "sha256": b.get("sha256")}})
+    if len(out) > 1:   # UNIQUE(agent, source, at, kind) : un seul événement par mesure, réussites regroupées
+        out = [{"kind": "backup-done", "severity": "info", "message": " ; ".join(e["message"] for e in out)[:500],
+                "details": {"task": "plugin:pulled-backups", "items": [e["details"] for e in out]}}]
+    return out
+
+
+def proxmox_state_changes(conn, agent_id, at, data):
+    """#504 : compare les états des VM de la nouvelle mesure avec la mesure
+    précédente de cet hyperviseur -> événements (arrêt d'une VM = warning,
+    reprise = info, VM disparue/apparue = info). Une VM arrêtée
+    volontairement n'est pas une panne : c'est un fait journalisé, la
+    sévérité reste warning, jamais critical."""
+    prev = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = 'plugin:proxmox' AND at < ? ORDER BY at DESC LIMIT 1",
+                        (agent_id, at)).fetchone()
+    if not prev or not prev["data"]:
+        return []
+    try:
+        before = _vm_states(json.loads(prev["data"]))
+    except (TypeError, ValueError):
+        return []
+    after = _vm_states(data)
+    events = []
+    for vmid, (st, name, kind) in after.items():
+        old = before.get(vmid)
+        label = "%s (%s %s)" % (name or "?", "CT" if kind == "lxc" else "VM", vmid)
+        if old is None:
+            events.append({"kind": "vm-new", "severity": "info", "message": "nouvelle %s : état %s" % (label, st),
+                           "details": {"vmid": vmid, "status": st}})
+        elif old[0] != st:
+            sev = "warning" if (old[0] == "running" and st != "running") else "info"
+            events.append({"kind": "vm-state", "severity": sev, "message": "%s : %s → %s" % (label, old[0], st),
+                           "details": {"vmid": vmid, "from": old[0], "to": st}})
+    for vmid, (st, name, kind) in before.items():
+        if vmid not in after:
+            events.append({"kind": "vm-gone", "severity": "info", "message": "%s (%s) ne figure plus sur l'hyperviseur" % (name or "?", vmid),
+                           "details": {"vmid": vmid, "last_status": st}})
+    return events
+
+
+def availability_from_states(states):
+    """Copie de proxmox.availability_from_states (plugin) -- calcul PUR."""
+    samples = [(a, s) for a, s in states if a is not None]
+    samples.sort()
+    running = sum(1 for _, s in samples if s == "running")
+    transitions, prev = [], None
+    for at, st in samples:
+        if prev is not None and st != prev:
+            transitions.append({"at": at, "from": prev, "to": st})
+        prev = st
+    return {"samples": len(samples), "running": running,
+            "availability_percent": round(100.0 * running / len(samples), 1) if samples else None,
+            "transitions": transitions[-50:]}
+
+
+def proxmox_history(db_path, agent_id, hours=168, limit=2000):
+    """#504 : disponibilité des VM d'un hyperviseur sur la fenêtre, à partir
+    des mesures plugin:proxmox conservées (un échantillon par passage du
+    plugin, 30 min) : par VM {samples, running, availability_percent,
+    transitions} ; plus le suivi des sauvegardes vu par la dernière mesure."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=max(1, int(hours)))).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT at, data FROM measurements WHERE agent_id = ? AND task = 'plugin:proxmox' AND at >= ? ORDER BY at DESC LIMIT ?",
+                            (agent_id, since, max(1, min(int(limit), 5000)))).fetchall()
+    finally:
+        conn.close()
+    per_vm = {}
+    names = {}
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if r["data"] else {}
+        except (TypeError, ValueError):
+            continue
+        for vmid, (st, name, kind) in _vm_states(data).items():
+            per_vm.setdefault(vmid, []).append((r["at"], st))
+            names.setdefault(vmid, (name, kind))
+    out = {}
+    for vmid, states in per_vm.items():
+        a = availability_from_states(states)
+        a["name"], a["type"] = names[vmid]
+        out[str(vmid)] = a
+    return {"agent_id": agent_id, "hours": int(hours), "samples": len(rows), "since": since, "vms": out}
+
+
+def latest_proxmox(db_path, site=None):
+    """#487 : dernière mesure `plugin:proxmox` de chaque agent (hyperviseurs
+    Proxmox VE : nœud, VM/CT, stockages, ZFS) -- ce que la supervision SI
+    reprend (type « vm », fusion par IP) et que la future tuile Proxmox
+    affichera. Même motif que latest_netviews."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.ok, m.error, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:proxmox' GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:proxmox'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+        except (TypeError, ValueError):
+            data = {}
+        data = data or {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"],
+                    "at": r["at"], "ok": bool(r["ok"]), "error": r["error"],
+                    "node": data.get("node") or {}, "vms": data.get("vms") or [],
+                    "storages": data.get("storages") or [], "zfs": data.get("zfs") or [],
+                    "backups": data.get("backups") or None, "access": data.get("access") or None,
+                    "bandwidth": data.get("bandwidth") or None,
+                    "warnings": data.get("warnings") or []})
+    return out
+
+
 def fleet(db_path, site=None, offline_after_seconds=300):
     """Flotte avec, pour chaque agent, la dernière mesure `host` (résumée),
     le dernier `risks` et l'état de contact -- ce que la tuile affiche."""
@@ -927,10 +1680,21 @@ def fleet(db_path, site=None, offline_after_seconds=300):
         a["summary"] = summary
         a["risks"] = (risks_m.get("data") or {}).get("summary") or {"state": "unknown", "counts": {}, "total": 0}
         a["risks_at"] = risks_m.get("at")
+        # #616 : empreinte de l'agent lui-même (dernier point + moyenne de la fenêtre)
+        me = ((latest.get("agent-self") or {}).get("data") or {})
+        pt, sm = me.get("point") or {}, (me.get("summary") or {}).get("all") or {}
+        a["footprint"] = {"cpu_core_percent": pt.get("cpu_core_percent"), "cpu_machine_percent": pt.get("cpu_machine_percent"),
+                          "cpu_core_avg": sm.get("cpu_core_avg"), "cpu_core_max": sm.get("cpu_core_max"), "rss_bytes": pt.get("rss_bytes"),
+                          "queue_size": pt.get("queue_size"), "bench": bool(me.get("bench_until")), "at": (latest.get("agent-self") or {}).get("at")} if pt else None
         a["online"] = _online(a.get("last_seen_at"), now, offline_after_seconds, a["host_interval_seconds"])
         a["pending_commands"] = len(pending_commands_for_agent(db_path, a["agent_id"]))
-        a["plugins_assigned"] = len(agent_plugins(db_path, a["agent_id"]))
+        assigned = agent_plugins(db_path, a["agent_id"])
+        a["plugins_assigned"] = len(assigned)
+        a["plugin_ids"] = [p["id"] for p in assigned]              # #742 : catégorie de présentation (PVE/PBS, sondes…)
         inv = (latest.get("inventory") or {}).get("data") or {}
+        hw = inv.get("hardware") or {}
+        a["virtualization"] = hw.get("virtualization")
+        a["hardware_model"] = " ".join(str(x) for x in (hw.get("vendor"), hw.get("product")) if x) or None
         a["host_blocked"] = bool(inv.get("blocked"))  # ce que l'AGENT dit de lui-même (dernier inventaire)
         a["host_blocked_reason"] = inv.get("blocked_reason")
         a["insecure_tls"] = bool(inv.get("insecure_tls"))
@@ -963,17 +1727,101 @@ def fleet_risks(db_path, site=None):
     return out
 
 
-def purge_measurements(db_path, retention_days):
-    """Efface les mesures plus vieilles que la rétention, en gardant
-    toujours la dernière de chaque (agent, tâche)."""
-    if not retention_days or retention_days <= 0:
-        return 0
-    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - retention_days * 86400))
-    conn = _connect(db_path)
+TASK_INDEX = "idx_measurements_task_agent"
+
+
+def ensure_task_index(db_path, log=None):
+    """#869 : index (task, agent_id, at) pour « dernière mesure d'une sonde par agent » (État des lieux, maintenance,
+    diagnostics, vues des sondes) : sans lui, chaque requête relisait toute la table (15 Go sur super).
+    Construit UNE fois, hors du schéma (sa construction relit la base : jamais pendant le démarrage). -> True si créé."""
+    conn = sqlite3.connect(db_path, timeout=600)
     try:
-        cur = conn.execute(
-            "DELETE FROM measurements WHERE at < ? AND id NOT IN (SELECT MAX(id) FROM measurements GROUP BY agent_id, task)", (cutoff,))
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (TASK_INDEX,)).fetchone():
+            return False
+        if log:
+            log("index %s : construction en cours (une seule fois, quelques minutes sur une grosse base)" % TASK_INDEX)
+        t0 = time.time()
+        conn.execute("CREATE INDEX IF NOT EXISTS %s ON measurements(task, agent_id, at)" % TASK_INDEX)
         conn.commit()
-        return cur.rowcount
+        if log:
+            log("index %s : construit en %.0f s" % (TASK_INDEX, time.time() - t0))
+        return True
     finally:
         conn.close()
+
+
+def _id_before(conn, cutoff):
+    """Plus grand id reçu avant `cutoff` (received_at croît avec l'id) : recherche dichotomique par rowid,
+    une vingtaine de lectures au lieu d'un parcours de la table."""
+    lo, hi = conn.execute("SELECT MIN(id), MAX(id) FROM measurements").fetchone()
+    if lo is None:
+        return None
+    best = None
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        r = conn.execute("SELECT id, received_at FROM measurements WHERE id >= ? ORDER BY id LIMIT 1", (mid,)).fetchone()
+        if r is None:
+            hi = mid - 1
+        elif r[1] < cutoff:
+            best, lo = r[0], r[0] + 1
+        else:
+            hi = mid - 1
+    return best
+
+
+def purge_measurements(db_path, retention_days, batch=2000, pause=0.05, task_retention=None, task_retention_long=None, now=None):
+    """Efface les mesures plus vieilles que la rétention, en gardant toujours la dernière de chaque (agent, tâche).
+    #869 : par petits lots d'ids (une transaction courte par lot, pause entre deux) -- l'ancienne requête relisait
+    toute la table (15 Go) en tenant le verrou d'écriture plusieurs minutes : « database is locked » pour tous les agents.
+    task_retention : {tâche: jours} plus COURT pour les grosses mesures déjà agrégées ailleurs (guest-usage…).
+    #933 : task_retention_long : {tâche: jours} plus LONG que la rétention globale (tests de charge à conserver) --
+    ces tâches sont exclues de la purge globale et purgées à leur propre (longue) échéance."""
+    now = time.time() if now is None else now
+    longs = {t: int(d) for t, d in (task_retention_long or {}).items() if d and int(d) > 0}
+    # plan : (tâche, jours, tâches_exclues) ; tâches_exclues ne sert que pour le plan global (tâche=None)
+    plans = []
+    if retention_days and retention_days > 0:
+        plans.append((None, retention_days, set(longs)))
+    for task, days in (task_retention or {}).items():
+        if task in longs:
+            continue
+        if days and days > 0 and (not retention_days or retention_days <= 0 or days < retention_days):
+            plans.append((task, days, None))
+    for task, days in longs.items():
+        plans.append((task, days, None))
+    total = 0
+    for task, days, exclues in plans:
+        cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - days * 86400))
+        conn = _connect(db_path)
+        try:
+            last = _id_before(conn, cutoff)
+            start = conn.execute("SELECT MIN(id) FROM measurements").fetchone()[0]
+        finally:
+            conn.close()
+        if last is None or start is None:
+            continue
+        exclues = sorted(exclues) if exclues else []
+        sql = ("DELETE FROM measurements WHERE id BETWEEN ? AND ?"
+               + (" AND task = ?" if task else "")
+               + ((" AND task NOT IN (%s)" % ",".join("?" * len(exclues))) if exclues else "")
+               + " AND EXISTS (SELECT 1 FROM measurements m2 WHERE m2.agent_id = measurements.agent_id"
+               " AND m2.task = measurements.task AND m2.at > measurements.at)")
+        lo = start
+        while lo is not None and lo <= last:
+            conn = _connect(db_path)
+            try:
+                # bornes réelles du lot (ordre des rowid, coût proportionnel au lot) : les plages vidées par les purges
+                # précédentes ne coûtent rien, contrairement à un pas fixe de numéros d'id
+                r = conn.execute("SELECT id FROM measurements WHERE id >= ? ORDER BY id LIMIT 1 OFFSET ?", (lo, batch - 1)).fetchone()
+                hi = min(r[0], last) if r else last
+                args = [lo, hi] + ([task] if task else []) + exclues
+                cur = conn.execute(sql, args)
+                conn.commit()
+                total += max(cur.rowcount, 0)
+                nxt = conn.execute("SELECT MIN(id) FROM measurements WHERE id > ?", (hi,)).fetchone()[0]
+            finally:
+                conn.close()
+            lo = nxt
+            if pause:
+                time.sleep(pause)
+    return total

@@ -20,7 +20,7 @@ import os
 import re
 import sys
 
-from . import host, netview
+from . import antivirus, host, netview
 
 IS_WINDOWS = sys.platform == "win32"
 WIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "win")
@@ -33,9 +33,39 @@ def script_path(name):
 
 
 def run_ps(cmd, name, timeout=None):
-    """(objet JSON | None, erreur | None) -- un script `win/<name>.ps1`."""
+    """(objet JSON | None, erreur | None) -- un script `win/<name>.ps1`.
+    #943 : sortie lue en OCTETS et décodée par host.decode_sortie (UTF-8 sinon page OEM) au lieu de la page ANSI de
+    Python -- les messages du journal arrivaient en « LÃ¢â‚¬â„¢horloge » quand la console du poste est en UTF-8."""
     argv = [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script_path(name)]
-    r = cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60))
+    r = cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60), confined={"encoding": "auto"}) if cmd is host.run_cmd else cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60))
+    return parse_ps(r, name)
+
+
+_MOJIBAKE = ("Ã", "â€", "Â")
+
+
+def reparer_mojibake(texte):
+    """Texte UTF-8 lu comme du cp1252 (« Ã© » pour « é », « â€™ » pour « ’ ») -> texte d'origine, une ou deux couches ;
+    inchangé si le texte est sain ou si la réparation n'améliore rien."""
+    t = str(texte or "")
+    for _ in range(2):
+        if not any(m in t for m in _MOJIBAKE):
+            break
+        try:
+            r = t.encode("cp1252", "strict").decode("utf-8", "strict")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            try:
+                r = t.encode("latin-1", "strict").decode("utf-8", "strict")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                break
+        if r == t:
+            break
+        t = r
+    return t
+
+
+def parse_ps(r, name):
+    """#633 : analyse de la sortie d'un script win/*.ps1 lancé par l'appelant (avec arguments)."""
     out = (r.stdout or "").strip().lstrip("\ufeff")
     if r.returncode < 0:
         return None, r.stderr or ("échec %s" % name)
@@ -97,7 +127,7 @@ def map_host(raw, hostname=None):
                       "exposed": addr in ("0.0.0.0", "::", "*", "")})
     lines = []
     for e in raw.get("logs") or []:
-        lines.append("%s [%s] %s (%s) : %s" % (e.get("time") or "?", e.get("log") or "?", e.get("source") or "?", e.get("id"), e.get("message") or ""))
+        lines.append("%s [%s] %s (%s) : %s" % (e.get("time") or "?", e.get("log") or "?", e.get("source") or "?", e.get("id"), reparer_mojibake(e.get("message") or "")))   # #943
     acc = raw.get("accounts") or {}
     services = raw.get("services") or {}
     data = {
@@ -120,11 +150,25 @@ def map_host(raw, hostname=None):
         "accounts": {"sudoers": list(acc.get("admins") or []), "interactive": list(acc.get("local_users") or []), "uid0_not_root": [],
                      "console_user": acc.get("console_user")},
         "windows": raw.get("windows") or {},
+        # #520 : antivirus du Centre de sécurité + Defender, forme commune Windows/macOS
+        "antivirus": _antivirus_section(raw, partial),
         "partial": partial,
     }
     if data["system"].get("os") is None and "os" not in partial:
         partial.append("os")
     return data
+
+
+def _antivirus_section(raw, partial):
+    """#520 : None (inconnu) si rien n'a pu être lu -- jamais « aucun antivirus »
+    sur une collecte en échec ou un agent dont host.ps1 ne renvoie pas encore la liste."""
+    av_raw = raw.get("antivirus")
+    defender = (raw.get("windows") or {}).get("defender")
+    if av_raw is None and not defender:
+        return None
+    if "security-center" in (partial or []) and not defender:
+        return None
+    return antivirus.map_windows(av_raw, defender)
 
 
 def collect_all(files=None, cmd=host.run_cmd, usage=None, which=None, sleep=None, previous_cpu=None, hostname=None, include_tools=True, exists=None):

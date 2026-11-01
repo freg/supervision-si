@@ -1,0 +1,13 @@
+{
+  "id": "partages-reseau",
+  "version": "1",
+  "runner": "python",
+  "entry": "partages_reseau.py",
+  "interval_seconds": 86400,
+  "timeout_seconds": 1200,
+  "args": ["--targets", "", "--timeout", "4"],
+  "enabled": false,
+  "description": "Inventaire des partages de fichiers du LAN (#902), lecture seule : pour chaque machine SMB (445) des réseaux ciblés, liste les partages offerts (smbclient -L en session invité, jamais d'authentification ni d'écriture) et indique lesquels sont lisibles sans mot de passe ; constate partages ouverts à tous, SMBv1, signature non exigée. Renseigner --targets a.b.c.0/24,… (--exclude pour le NAS, déjà suivi par SNMP #883). Exige smbclient (paquet smbclient) pour la liste des partages ; sans lui, seules les présences SMB sont rapportées. Prévenir l'admin réseau (trafic actif). Désactivée par défaut.",
+  "source": "bundled",
+  "privileged": false
+}

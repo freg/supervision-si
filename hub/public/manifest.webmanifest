@@ -1,0 +1,23 @@
+{
+  "name": "Hub SI",
+  "short_name": "Hub SI",
+  "description": "Hub de supervision : état, alertes, accès rapides en déplacement et en urgence.",
+  "lang": "fr",
+  "id": "/",
+  "start_url": "/?view=urgence&source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1d23",
+  "theme_color": "#1a1d23",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Urgence", "url": "/?view=urgence", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "SMS", "url": "/?view=notifications&tab=sms", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Journal des chantiers", "url": "/?view=journal", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

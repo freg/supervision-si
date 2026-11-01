@@ -30,6 +30,9 @@ export const oidcConfig = {
   // après redirection) — sans ça, un rechargement de page renverrait
   // le même code d'autorisation déjà consommé et échouerait.
   onSigninCallback: () => {
-    window.history.replaceState({}, document.title, window.location.pathname);
+    // #874 : retour sur la page consultée dans cet onglet (Keycloak revient sur « / »)
+    let url = window.location.pathname;
+    try { const v = JSON.parse(sessionStorage.getItem("hub.nav") || "{}").view; if (v && v !== "grid" && /^[a-z0-9:-]+$/.test(v)) url += "?view=" + encodeURIComponent(v); } catch { /* rien */ }
+    window.history.replaceState({}, document.title, url);
   },
 };

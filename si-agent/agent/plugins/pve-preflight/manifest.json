@@ -1,0 +1,16 @@
+{
+  "id": "pve-preflight",
+  "version": "1",
+  "runner": "python",
+  "entry": "pve_preflight.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 840,
+  "args": [
+    "--remote",
+    "/etc/si-agent/pve-remote.json"
+  ],
+  "enabled": false,
+  "description": "Préparation de la réinstallation d'un nœud Proxmox (#815) -- nœud local et nœuds distants de pve-remote.json (un ssh par nœud, lecture seule, PVE 5.4 compris) : quorum (pvecm status : votes, membres, QDevice), version, HA, réplications (pvesr status), stockages et partage, sauvegardes vzdump de chaque stockage, tâches planifiées (vzdump.cron / jobs.cfg), dernières sauvegardes et migrations (tâches du nœud) ; pour chaque CT / VM : configuration (MAC virtuelle OVH, démarrage auto), charge 24 h (RRD : moyenne et pic) et, dans l'invité démarré (pct exec / agent invité), erreurs et avertissements du journal sur 24 h, unités systemd en échec, taux de réponses HTTP 5xx / 4xx des journaux d'accès. Des nombres seulement : aucune ligne de journal remontée. Alimente Migration › Préparer la réinstallation d'un nœud. Privilégiée : root du nœud, clé ssh des nœuds distants.",
+  "source": "bundled",
+  "privileged": true
+}

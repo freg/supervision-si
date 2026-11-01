@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<!-- Interface hub « Routeurs MikroTik » (livraison #485) — servie par
+mikrotik-api sous /mikrotik/, embarquée en onglet de la thématique
+Réseau. Page unique, aucune dépendance externe (posture LAN).
+Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routeurs MikroTik</title>
+<style>
+  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
+          --accent: #2980b9; --link: #7ab8f5; --warn: #b7791f; --ok: #27ae60; --err: #c0392b; }
+  /* #607 (note design 2) : liens toujours clairs sur fond sombre -- jamais le bleu foncé de l'accent */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px; }
+  h1 { font-size: 1.3rem; margin: 0 0 16px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .router { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 6px;
+            background: var(--bg); border: 1px solid transparent; }
+  a, a:visited { color: var(--link); text-decoration-color: rgba(122,184,245,.5); }
+  .router:hover { border-color: var(--accent); }
+  .natForm { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+  .natForm input, .natForm select { padding:4px 6px; }
+  .router.active { border-color: var(--accent); background: rgba(41,128,185,.12); }
+  .router .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; }
+  .dot.up { background: var(--ok); } .dot.down { background: var(--err); }
+  .muted { color: var(--muted); font-size: .85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333a47; }
+  th { color: var(--muted); font-weight: 600; }
+  .pill { padding: 2px 8px; border-radius: 10px; font-size: .78rem; }
+  .pill.up { background: rgba(39,174,96,.18); color: var(--ok); }
+  .pill.down { background: rgba(192,57,43,.18); color: var(--err); }
+  .pill.off { background: rgba(154,163,178,.18); color: var(--muted); }
+  button { padding: 6px 12px; border: 0; border-radius: 6px; background: var(--accent);
+           color: #fff; font: inherit; font-size: .85rem; cursor: pointer; }
+  button.danger { background: var(--err); }
+  button:disabled { opacity: .5; cursor: wait; }
+  input { padding: 8px; border-radius: 6px; border: 1px solid #3a4150;
+          background: var(--bg); color: var(--text); font: inherit; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .kv .k { color: var(--muted); font-size: .75rem; }
+  .kv .v { font-size: 1.05rem; font-weight: 600; }
+  #msg { border-radius: 8px; padding: 10px; margin-top: 10px; display: none; font-size: .9rem; }
+  #msg.ok { display: block; background: rgba(39,174,96,.15); border: 1px solid var(--ok); }
+  #msg.err { display: block; background: rgba(192,57,43,.15); border: 1px solid var(--err); }
+  pre { background: var(--bg); border-radius: 8px; padding: 10px; font-size: .8rem;
+        white-space: pre-wrap; max-height: 180px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>📡 Routeurs MikroTik</h1>
+<p class="muted" style="margin:0 0 8px">Ajouter un routeur : formulaire ci-dessous (ou <a href="/?view=control&tab=configs&config=mikrotik" target="_top">Tour de contrôle → Configurations</a>) ; identifiants dans <a href="/credentials/" target="_top">le coffre des accès</a> (référencés par leur nom). Transport SSH recommandé : rien à activer sur le routeur ; REST exige le service <code>www-ssl</code> (RouterOS v7).</p>
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Registre</h2>
+      <div id="routers" class="muted">chargement…</div>
+      <details id="regForm" style="margin-top:8px" ontoggle="if(this.open)loadCredentialNames()"><summary>➕ Ajouter / modifier un routeur</summary>
+        <div class="natForm" style="flex-direction:column;align-items:stretch">
+          <input id="f_name" placeholder="nom (ex. routeur-bureau)">
+          <input id="f_host" placeholder="adresse IP ou nom DNS">
+          <select id="f_transport"><option value="ssh">SSH (CLI RouterOS, rien à activer — v6 et v7)</option><option value="rest">REST HTTPS (www-ssl, v7 seulement)</option></select>
+          <input id="f_port" placeholder="port (vide = 22 SSH / 443 REST)">
+          <select id="f_credential"><option value="">— accès du coffre —</option></select>
+          <input id="f_site" placeholder="site (option)">
+          <input id="f_desc" placeholder="description (option)">
+          <button onclick="saveRouter()">Enregistrer dans le registre</button>
+          <div id="regMsg"></div>
+          <div class="muted" style="font-size:12px">L'adresse IP et le transport vivent ici (registre <code>mikrotik/routers.local.json</code>) ; le coffre ne garde que identifiant + mot de passe, référencés par leur nom. Pas besoin de redémarrer.</div>
+        </div>
+      </details>
+    </div>
+  </div>
+  <div id="detail"><div class="card muted">Sélectionne un routeur.</div></div>
+</div>
+
+<script>
+const api = location.pathname.replace(/\/$/, "");
+let current = null;
+
+function fmtBytes(n) {
+  n = Number(n || 0);
+  for (const u of ["o", "Ko", "Mo", "Go"]) { if (n < 1024) return n.toFixed(n < 10 ? 1 : 0) + " " + u; n /= 1024; }
+  return n.toFixed(1) + " To";
+}
+function fmtUptime(s) { return s || "—"; }
+function showMsg(text, ok) {
+  const m = document.getElementById("msg");
+  m.className = ok ? "ok" : "err";
+  m.textContent = text;
+}
+
+async function loadRouters() {
+  const box = document.getElementById("routers");
+  try {
+    const r = await fetch(api + "/routers");
+    const data = await readJson(r);
+    if (data.registry_error) box.innerHTML = `<p class="muted">⚠️ ${data.registry_error}</p>`;
+    if (!data.routers.length) { box.innerHTML += `<p class="muted">Aucun routeur — <a href="/?view=control&tab=configs&config=mikrotik" target="_top">en ajouter dans la tour de contrôle</a></p>`; return; }
+    box.innerHTML = "";
+    for (const rt of data.routers) {
+      const div = document.createElement("div");
+      div.className = "router" + (current === rt.name ? " active" : "");
+      div.innerHTML = `<span class="dot ${rt.reachable ? "up" : "down"}"></span><b>${rt.identity || rt.name}</b>
+        <div class="muted">${rt.host}:${rt.port} · ${rt.transport === "ssh" ? "SSH" : "REST"}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:var(--link)">ouvrir les Accès d\'équipements</a>' : ""}${rt.error && /SSLError|www-ssl/.test(rt.error) ? ' — <a href="#" onclick="editRouter(\'' + rt.name + '\');return false" style="color:var(--link)">passer en SSH ?</a>' : ""}</div>
+        <div><a href="#" onclick="event.stopPropagation();editRouter('${rt.name}');return false" class="muted">modifier</a> · <a href="#" onclick="event.stopPropagation();deleteRouter('${rt.name}');return false" class="muted">retirer</a></div>`;
+      div.onclick = () => selectRouter(rt.name);
+      box.appendChild(div);
+    }
+    window._routers = data.routers;
+  } catch (e) { box.innerHTML = `<p class="muted">registre indisponible : ${e.message}</p>`; }
+}
+
+// ---- #592 : ajout / modification directe dans le registre (routers.local.json)
+async function loadCredentialNames() {
+  const sel = document.getElementById("f_credential");
+  try {
+    const b = await (await fetch(api + "/credentials")).json();
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">— accès du coffre —</option>` + (b.credentials || []).map(c => `<option value="${c.name}">${c.name} (${c.kind}${c.username ? ", " + c.username : ""})</option>`).join("");
+    if (cur) sel.value = cur;
+  } catch (e) { /* liste facultative */ }
+}
+function editRouter(name) {
+  const rt = (window._routers || []).find(x => x.name === name);
+  if (!rt) return;
+  document.getElementById("f_name").value = rt.name; document.getElementById("f_host").value = rt.host;
+  document.getElementById("f_transport").value = rt.transport || "rest"; document.getElementById("f_port").value = rt.port || "";
+  document.getElementById("f_site").value = rt.site || ""; document.getElementById("f_desc").value = rt.description || "";
+  loadCredentialNames().then(() => { document.getElementById("f_credential").value = rt.credential || ""; });
+  document.getElementById("regForm").open = true;
+  document.getElementById("f_name").focus();
+}
+async function saveRouter() {
+  const v = (id) => document.getElementById(id).value.trim();
+  const body = { name: v("f_name"), host: v("f_host"), transport: v("f_transport"), port: v("f_port"), credential: v("f_credential"), site: v("f_site"), description: v("f_desc") };
+  const m = document.getElementById("regMsg");
+  try {
+    const r = await fetch(api + "/routers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const b = await r.json();
+    if (!r.ok) { m.className = "err"; m.textContent = (b.errors || [b.error]).join(" ; "); return; }
+    m.className = "ok"; m.textContent = `${body.name} ${b.action === "updated" ? "modifié" : "ajouté"} (${b.path}).`;
+    loadRouters();
+  } catch (e) { m.className = "err"; m.textContent = e.message; }
+}
+async function deleteRouter(name) {
+  if (!confirm(`Retirer « ${name} » du registre ? (l'accès du coffre est conservé)`)) return;
+  const r = await fetch(api + "/routers/" + encodeURIComponent(name), { method: "DELETE" });
+  const b = await r.json();
+  const m = document.getElementById("regMsg"); m.className = r.ok ? "ok" : "err"; m.textContent = r.ok ? `${name} retiré.` : b.error;
+  loadRouters();
+}
+
+async function selectRouter(name) {
+  current = name;
+  // #486 : ancre partageable — la supervision, la carte et les tickets
+  // du hub ouvrent la tuile sur /mikrotik/#router=<nom>.
+  history.replaceState(null, "", `#router=${encodeURIComponent(name)}`);
+  loadRouters();
+  const d = document.getElementById("detail");
+  d.innerHTML = `<div class="card muted">Chargement de ${name}…</div>`;
+  try {
+    const [summaryR, ifacesR] = await Promise.all([
+      fetch(`${api}/routers/${name}/summary`),
+      fetch(`${api}/routers/${name}/interfaces`),
+    ]);
+    const summary = await summaryR.json();
+    const ifaces = await ifacesR.json();
+    if (summary.error) { d.innerHTML = `<div class="card">⚠️ ${summary.error}</div>`; return; }
+    renderDetail(name, summary, ifaces.interfaces || []);
+  } catch (e) { d.innerHTML = `<div class="card">⚠️ ${e.message}</div>`; }
+}
+
+function renderDetail(name, summary, ifaces) {
+  const r = summary.resource || {};
+  const h = summary.health || {};
+  const d = document.getElementById("detail");
+  const rows = ifaces.map(i => `
+    <tr>
+      <td>${i.name || ""}</td>
+      <td>${i.type || ""}</td>
+      <td><span class="pill ${i.disabled === "true" ? "off" : (i.running === "true" ? "up" : "down")}">
+        ${i.disabled === "true" ? "désactivée" : (i.running === "true" ? "active" : "inactive")}</span></td>
+      <td>↓ ${fmtBytes(i["rx-byte"])} &nbsp;↑ ${fmtBytes(i["tx-byte"])}</td>
+      <td><button data-id="${i[".id"]}" data-name="${i.name}" data-disabled="${i.disabled}"
+           onclick="toggleIface(this)">${i.disabled === "true" ? "Activer" : "Désactiver"}</button></td>
+    </tr>`).join("");
+  d.innerHTML = `
+    <div class="card">
+      <h2>${summary.identity?.name || name} <span class="muted">— RouterOS ${r.version || "?"} (${r["architecture-name"] || "?"})</span></h2>
+      <div class="kv">
+        <div><div class="k">Uptime</div><div class="v">${fmtUptime(r.uptime)}</div></div>
+        <div><div class="k">CPU</div><div class="v">${r["cpu-load"] ?? "—"} %</div></div>
+        <div><div class="k">Mémoire libre</div><div class="v">${fmtBytes(r["free-memory"])}</div></div>
+        <div><div class="k">Disque libre</div><div class="v">${fmtBytes(r["free-hdd-space"])}</div></div>
+        ${h.temperature ? `<div><div class="k">Température</div><div class="v">${h.temperature} °C</div></div>` : ""}
+        ${h.voltage ? `<div><div class="k">Tension</div><div class="v">${h.voltage} V</div></div>` : ""}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Interfaces</h2>
+      <table><tr><th>Nom</th><th>Type</th><th>État</th><th>Compteurs</th><th></th></tr>${rows}</table>
+    </div>
+    <div class="card">
+      <h2>Outils</h2>
+      <input id="pingAddr" placeholder="adresse à pinger (ex. 192.168.1.1)">
+      <button onclick="ping('${name}')">Ping depuis le routeur</button>
+      <button class="danger" onclick="reboot('${name}')">Redémarrer…</button>
+      <div id="msg"></div>
+      <pre id="pingOut" style="display:none"></pre>
+    </div>
+    <div class="card" id="natCard">
+      <h2>Règles NAT <span class="muted">— traduction ip:port → ip:port (#587)</span></h2>
+      <div id="natList" class="muted">chargement…</div>
+      <details style="margin-top:8px"><summary>➕ Ajouter une règle</summary>
+        <div class="natForm">
+          <select id="n_chain"><option value="dstnat">dstnat (entrant)</option><option value="srcnat">srcnat (sortant)</option></select>
+          <select id="n_action"><option value="dst-nat">dst-nat</option><option value="redirect">redirect</option><option value="src-nat">src-nat</option><option value="masquerade">masquerade</option></select>
+          <select id="n_proto"><option value="tcp">tcp</option><option value="udp">udp</option><option value="">(tout)</option></select>
+          <input id="n_dst" placeholder="dst-address (IP publique / vide)" style="width:190px">
+          <input id="n_dport" placeholder="dst-port (ex. 8443)" style="width:120px">
+          <span>→</span>
+          <input id="n_to" placeholder="to-addresses (IP interne)" style="width:170px">
+          <input id="n_tports" placeholder="to-ports (ex. 443)" style="width:110px">
+          <input id="n_iface" placeholder="in-interface (option)" style="width:150px">
+          <input id="n_comment" placeholder="commentaire" style="width:200px">
+          <button onclick="natAdd('${name}')">Ajouter</button>
+        </div>
+        <div id="natMsg"></div>
+      </details>
+    </div>
+    <div class="card" id="cmdCard">
+      <h2>Relevés <span class="muted">— commandes en lecture seule (print / export / get), transport SSH</span></h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="cmdPick" onchange="document.getElementById('cmdIn').value=this.value"></select>
+        <input id="cmdIn" placeholder="/ip address print" style="width:320px">
+        <button onclick="runCmd('${name}')">Exécuter</button>
+      </div>
+      <pre id="cmdOut" style="display:none"></pre>
+    </div>`;
+  loadNat(name);
+  loadCommands();
+}
+
+// ---- #587 : NAT -------------------------------------------------------------
+async function loadNat(name) {
+  const box = document.getElementById("natList");
+  try {
+    const r = await fetch(`${api}/routers/${name}/nat`);
+    const body = await r.json();
+    if (body.error) { box.innerHTML = `⚠️ ${body.error}`; return; }
+    if (!body.rules.length) { box.textContent = "aucune règle NAT."; return; }
+    box.innerHTML = `<table><tr><th></th><th>Chaîne</th><th>Règle</th><th>Interface</th><th>Commentaire</th><th></th></tr>` + body.rules.map(x => `
+      <tr class="${x.disabled === "true" ? "muted" : ""}">
+        <td><span class="pill ${x.disabled === "true" ? "off" : "up"}">${x.disabled === "true" ? "off" : "on"}</span></td>
+        <td>${x.chain || ""}</td><td><code>${x.summary || ""}</code></td><td>${x["in-interface"] || x["out-interface"] || ""}</td><td>${x.comment || ""}</td>
+        <td style="white-space:nowrap">
+          <button onclick="natSet('${name}','${x[".id"]}',{disabled:'${x.disabled === "true" ? "no" : "yes"}'})">${x.disabled === "true" ? "Activer" : "Désactiver"}</button>
+          <button onclick="natEditTo('${name}','${x[".id"]}','${x["to-addresses"] || ""}','${x["to-ports"] || ""}')" title="changer la cible ip:port">Cible…</button>
+          <button class="danger" onclick="natRemove('${name}','${x[".id"]}','${(x.summary || "").replace(/'/g, "")}')">Supprimer</button>
+        </td></tr>`).join("") + `</table>`;
+  } catch (e) { box.textContent = `⚠️ ${e.message}`; }
+}
+// #607 : une réponse qui n'est pas du JSON (passerelle 502/504, API en redémarrage) donne un message lisible
+async function readJson(r) {
+  const t = await r.text();
+  try { return JSON.parse(t); } catch (e) { throw new Error(`HTTP ${r.status} : réponse non JSON (API indisponible ou trop lente -- réessayer dans quelques secondes)`); }
+}
+function natMsg(text, ok) { const m = document.getElementById("natMsg"); m.className = ok ? "ok" : "err"; m.textContent = text; }
+async function natAdd(name) {
+  const v = (id) => document.getElementById(id).value.trim();
+  const body = { chain: v("n_chain"), action: v("n_action"), protocol: v("n_proto"), "dst-address": v("n_dst"), "dst-port": v("n_dport"),
+    "to-addresses": v("n_to"), "to-ports": v("n_tports"), "in-interface": v("n_iface"), comment: v("n_comment") };
+  for (const k of Object.keys(body)) if (body[k] === "") delete body[k];
+  try {
+    const r = await fetch(`${api}/routers/${name}/nat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const b = await r.json();
+    if (!r.ok) { natMsg((b.errors || [b.error]).join(" ; "), false); return; }
+    natMsg("règle ajoutée.", true); loadNat(name);
+  } catch (e) { natMsg(e.message, false); }
+}
+async function natSet(name, id, fields) {
+  const r = await fetch(`${api}/routers/${name}/nat/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+  const b = await r.json();
+  natMsg(r.ok ? "règle modifiée." : (b.errors || [b.error]).join(" ; "), r.ok);
+  loadNat(name);
+}
+function natEditTo(name, id, to, ports) {
+  const nt = prompt("Nouvelle adresse cible (to-addresses)", to); if (nt === null) return;
+  const np = prompt("Nouveau port cible (to-ports, vide = inchangé)", ports); if (np === null) return;
+  const f = { "to-addresses": nt.trim() }; if (np.trim()) f["to-ports"] = np.trim();
+  natSet(name, id, f);
+}
+async function natRemove(name, id, summary) {
+  if (!confirm(`Supprimer la règle ${summary || id} ?`)) return;
+  const r = await fetch(`${api}/routers/${name}/nat/${encodeURIComponent(id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "REMOVE" }) });
+  const b = await r.json();
+  natMsg(r.ok ? "règle supprimée." : b.error, r.ok);
+  loadNat(name);
+}
+
+// ---- #587 : relevés (lecture seule) ----------------------------------------
+async function loadCommands() {
+  const sel = document.getElementById("cmdPick");
+  if (!sel || sel.options.length) return;
+  try {
+    const b = await (await fetch(`${api}/commands`)).json();
+    sel.innerHTML = `<option value="">— relevés proposés —</option>` + (b.commands || []).map(c => `<option value="${c.command}">${c.label}</option>`).join("");
+  } catch (e) { /* liste facultative */ }
+}
+async function runCmd(name) {
+  const cmd = document.getElementById("cmdIn").value.trim();
+  const out = document.getElementById("cmdOut");
+  out.style.display = "block"; out.textContent = "…";
+  try {
+    const r = await fetch(`${api}/routers/${name}/command`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) });
+    const b = await r.json();
+    out.textContent = r.ok ? `$ ${b.command}\n` + b.output.join("\n") : `⚠️ ${b.error}`;
+  } catch (e) { out.textContent = `⚠️ ${e.message}`; }
+}
+
+async function toggleIface(btn) {
+  const enable = btn.dataset.disabled === "true";
+  if (!enable && !confirm(`Désactiver l'interface ${btn.dataset.name} ?\n⚠️ Si c'est l'interface de gestion, la connexion sera coupée.`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${api}/routers/${current}/interfaces/toggle`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: btn.dataset.id, enable}),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error);
+    showMsg(`Interface ${btn.dataset.name} ${enable ? "activée" : "désactivée"}.`, true);
+    setTimeout(() => selectRouter(current), 800);
+  } catch (e) { showMsg(e.message, false); btn.disabled = false; }
+}
+
+async function ping(name) {
+  const addr = document.getElementById("pingAddr").value.trim();
+  const out = document.getElementById("pingOut");
+  if (!addr) return;
+  out.style.display = "block"; out.textContent = "ping en cours…";
+  try {
+    const r = await fetch(`${api}/routers/${name}/ping`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({address: addr, count: 4}),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error);
+    out.textContent = JSON.stringify(body.result, null, 2);
+  } catch (e) { out.textContent = "échec : " + e.message; }
+}
+
+async function reboot(name) {
+  if (!confirm(`REDÉMARRER ${name} ?\nLe routeur sera indisponible pendant ~1 minute.`)) return;
+  if (!confirm("Vraiment sûr ?")) return;
+  try {
+    const r = await fetch(`${api}/routers/${name}/reboot`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({confirm: "REBOOT"}),
+    });
+    const body = await r.json();
+    showMsg(body.message || body.error, r.ok);
+  } catch (e) { showMsg(e.message, false); }
+}
+
+loadRouters();
+// Sélection initiale depuis l'ancre (#router=<nom>) + navigation par
+// ancre pendant que la tuile reste ouverte.
+const fromHash = () => {
+  const m = location.hash.match(/router=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+};
+const initial = fromHash();
+if (initial) selectRouter(initial);
+window.addEventListener("hashchange", () => {
+  const name = fromHash();
+  if (name && name !== current) selectRouter(name);
+});
+setInterval(() => { if (!current) loadRouters(); }, 30000);
+</script>
+</body>
+</html>

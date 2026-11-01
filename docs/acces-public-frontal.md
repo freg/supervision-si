@@ -17,6 +17,8 @@ et le LAN doit résoudre ce nom.
 ```bash
 # .env de super
 VITE_ALLOWED_HOSTS=super,hub.mondomaine.fr            # #472 : le serveur Vite accepte ces noms
+                                                      # (#478 : "*" par défaut dans .env.example,
+                                                      #  cette ligne n'est plus nécessaire)
 KEYCLOAK_EXTRA_ORIGINS=https://hub.mondomaine.fr      # #473 : redirections OIDC / origines web des clients
 python3 keycloak/render.py && ./scripts/run.sh up -d   # run.sh propose la ré-importation du realm
 ```
@@ -57,7 +59,10 @@ seul le frontal est publié.
 ## 2. Côté frontal — Apache + certbot
 
 ```bash
-scp freg@super:SRC/data2/tickets/supervision-si/si-proxy/certs/ca.crt /root/hub-ca.crt   # CA de la PKI (public)
+# CA qui signe le certificat servi sur :6443 = ${PKI_DIR}/ca/ca.crt (PKI_DIR dans .env,
+# hors dépôt) -- PAS si-proxy/certs/ca.crt ni vault-standalone/pki (même CN, autre clé).
+# Contrôle : echo | openssl s_client -connect super:6443 -CAfile hub-ca.crt | grep "Verify return" -> 0 (ok)
+scp freg@super:supervision-si-pki/ca/ca.crt /root/hub-ca.crt
 PUBLIC_HOST=hub.mondomaine.fr LE_EMAIL=moi@mondomaine.fr HUB_UPSTREAM=https://super:6443 \
 INTERNAL_ORIGIN=https://192.0.2.10:6443 HUB_CA=/root/hub-ca.crt sudo -E ./front-reverse-proxy.sh
 #   (mode reconstruction : HUB_UPSTREAM=https://super:443, sans INTERNAL_ORIGIN)
@@ -71,9 +76,56 @@ installe un hook de renouvellement qui recharge Apache (`certbot.timer`,
 deux essais par jour). `STAGING=1` pour un premier essai sans consommer le
 quota Let's Encrypt. Relançable : la configuration est régénérée.
 
-Avec `HUB_CA`, Apache **vérifie** le certificat de la passerelle (nom +
-chaîne) ; sans, il chiffre sans vérifier — acceptable sur un LAN maîtrisé,
-pas au-delà.
+Avec `HUB_CA`, Apache **vérifie la chaîne** du certificat de la passerelle
+(`SSLProxyVerify require`) mais pas son nom : `ProxyPreserveHost` lui fait
+présenter le nom public en SNI, que le certificat interne (HOST_IP,
+localhost) ne porte pas — sinon `AH00898 Error during SSL Handshake` et
+`500 Proxy Error` (#610). Sans `HUB_CA`, il chiffre sans vérifier —
+acceptable sur un LAN maîtrisé, pas au-delà.
+
+Passage `STAGING=1` → réel : relancer sans `STAGING` ; le script détecte le
+certificat de test et le remplace (sinon `--keep-until-expiring` l'aurait
+gardé). Les commandes doivent être passées **à travers** `ssh -t … 'sudo env
+… bash front-reverse-proxy.sh'` : tapées après un `ssh` interactif fermé,
+elles s'exécutent sur le poste local.
+
+Depuis le LAN, `https://<nom public>` ne répond que si le routeur d'entrée
+fait du hairpin NAT ; tester depuis l'extérieur (4G) ou forcer la
+résolution : `curl -kI --resolve <nom>:443:<IP frontal> https://<nom>/`.
+
+**Certificat Let's Encrypt aussi en interne (piste, non faite)** : DNS
+interne (BIND, zone dédiée `supervision.optline.fr` → IP du frontal, TTL
+300) ; tout le monde passe par le frontal, hairpin inutile, hub et agents
+inchangés (toujours `https://HOST_IP:6443` + PKI interne). Le porter sur la
+passerelle du hub (copie fullchain/privkey par hook certbot) exigerait en
+plus de reconstruire le hub sur le nom public et le port 443 et de
+repointer agents et realm : migration, pas réglage.
+
+## 2 bis. A0 — jeton Keycloak exigé sur `/api/` depuis Internet (livraison #615)
+
+Constat (docs/site-miroir-client.md) : les lectures des API ne sont pas
+authentifiées (modèle LAN de confiance). Plutôt que de modifier 60 API,
+la vérification est faite **au frontal** : `mod_auth_openidc` en mode
+serveur de ressources OAuth 2.0 vérifie la signature RS256 du jeton d'accès
+contre le JWKS du realm (`OIDCOAuthVerifyJwksUri`, lu via le frontal
+lui-même) sur tout `/api/`, hors faces machine des agents (signature HMAC
+propre) : `si-agent/api/v1/` (dont `/enroll`), `si-agent/package`, `si-agent/deploy/`, `netprobe/api/v1/`,
+`netprobe/fleet`, `netprobe/agents/measurements/bulk`. `OPTIONS` passe.
+Défaut activé (`API_AUTH=0` pour désactiver, `KC_REALM` si le realm n'est
+pas supervision-si). Passphrase du module dans `/etc/apache2/oidc-passphrase`.
+
+Côté hub, `hub/src/apiAuth.js` intercepte `fetch` : toute requête vers une
+base `VITE_*_API_BASE_URL` ou `/api/` de la même origine reçoit
+`Authorization: Bearer <jeton de session>` (renouvelé par react-oidc-context),
+sans écraser un en-tête déjà posé. Sur le LAN rien ne change (les API
+ignorent l'en-tête qu'elles ne lisent pas).
+
+Limites connues : les autres pages servies par le frontal (`/app`,
+`/tickets`, `/vault`) n'envoient pas encore le jeton → leurs appels d'API
+depuis Internet reçoivent 401 tant que leurs clients ne sont pas adaptés
+(le hub seul est visé pour la démo). Test : `curl -sI
+https://<nom>/api/si-agent/fleet | head -1` → `401` ; depuis le hub
+connecté, la tuile Agents fonctionne.
 
 ## 3. Vérifier
 
@@ -86,6 +138,19 @@ tail -f /var/log/apache2/hub-hub.mondomaine.fr-error.log
 Puis connexion au hub : Keycloak doit rediriger vers `https://hub.mondomaine.fr/…`
 (si la page de connexion renvoie vers une IP LAN, `HOST_IP` n'a pas été
 reconstruit ou le realm n'a pas été ré-importé).
+
+**« Nous sommes désolés… paramètre invalide : redirect_uri »** après avoir
+renseigné `KEYCLOAK_EXTRA_ORIGINS` et rendu le realm : Keycloak n'importe le
+realm qu'au premier démarrage, le realm vivant n'a pas les nouvelles URL.
+Sans purge (#611), depuis la racine sur super :
+
+```bash
+python3 keycloak/render.py && python3 keycloak/sync_clients.py
+```
+
+Le script pousse par l'API Admin (compte de service) les `redirectUris` /
+`webOrigins` manquants de chaque client OIDC, en gardant ce qui existe ;
+`--dry-run` pour voir sans appliquer. Effet immédiat, sans redémarrage.
 
 ## 4. Les agents hôtes depuis Internet (#474)
 
@@ -120,3 +185,28 @@ configuration, sur Windows.
 - Les ports directs non passerellés (`shared/EXPOSURE.json`) restent LAN.
 - Le 443 public est désormais la porte d'entrée : garder le frontal à jour,
   et envisager `mod_evasive` / fail2ban sur ses journaux.
+
+## 6. ProjeQtOr public (livraison #476)
+
+Le fork ProjeQtOr (`/projeqtor/`, voir `projeqtor/README.md`) est routé
+par la passerelle du hub, donc **automatiquement joignable par le frontal
+public** dans les deux modes (réécriture ou reconstruction) — rien à
+changer à `front-reverse-proxy.sh`, qui proxifie `/` en entier. C'est
+voulu : la personne demande une page ProjeQtOr publique.
+
+Conséquences à assumer :
+
+- ProjeQtOr possède **son propre écran de connexion** — c'est lui, et lui
+  seul, qui protège l'application côté Internet (le hub/Keycloak ne sont
+  pas sur ce chemin). **Changer immédiatement le mot de passe du compte
+  intégré `admin`** (admin/admin à la première connexion).
+- L'authentification LDAP du hub est configurée par défaut (voir
+  `projeqtor/README.md`) : les mêmes identifiants que le hub ouvrent une
+  session ProjeQtOr — un mot de passe LDAP compromis expose donc AUSSI
+  cette page publique. À évaluer : restreindre `/projeqtor/` au LAN côté
+  frontal (`Require ip ...` dans le VirtualHost Apache) si la page
+  publique n'est finalement pas souhaitée, ou n'y exposer que le futur
+  portail public.
+- Comme tout applicatif PHP exposé : surveiller les montées de version
+  upstream (le fork se met à jour par merge, voir `projeqtor/README.md`,
+  section Fork).

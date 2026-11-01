@@ -1,0 +1,342 @@
+.. include:: ImageReplacement.txt
+
+.. image:: /images/GUI/INDEX_ZONE_CouvManuel.png
+
+
+############################
+What's new in version 13.1 ?
+############################
+
+You will find the full list of developments covered in the update here_.
+  
+.. _here: https://www.projeqtor.com/en/help/#changelog
+
+
+.. raw:: html
+
+   <div class="tiles-grid">
+   
+
+
+
+.. container:: evolution-tile
+
+   **RACI**
+   
+   |raciBIG|  
+   
+   Management of RACI on projects. 
+   
+   :ref:`Learn more<raci>`
+   
+   
+.. container:: evolution-tile
+
+   **Documents explorer**
+   
+   |DocRepBIG|  
+   
+   Management of RACI on projects. 
+   
+   :ref:`Discover<document-explorer>`
+   
+   
+   
+   
+.. container:: evolution-tile
+
+   **Filtering criteria**
+   
+   |FiltersBIG|  
+   
+   Filtering criteria improvements
+   
+   :ref:`Filters<advanced-filter>` 
+   
+   
+   
+
+.. container:: evolution-tile
+
+   **import Data**
+   
+   |importBIG|
+   
+   Improvement of import process. 
+    
+   :ref:`Discover<import-data>`
+   
+   
+ 
+.. container:: evolution-tile
+
+   **Mention with @**
+   
+   |ergoBIG|
+   
+   Easily select resource/user. 
+       
+   :ref:`Learn more<mentions>`
+
+
+
+.. container:: evolution-tile
+
+   **Project Dashboard**
+   
+   |TBProjectBIG|
+   
+   In line and details available. 
+       
+   :ref:`Discover<projectsdashboard>`
+
+
+.. container:: evolution-tile
+
+   **Global search**
+   
+   |SearchBIG|
+   
+   New button to search globally on any item. 
+       
+   :ref:`Discover<global-research>`
+
+
+
+.. container:: evolution-tile
+
+   **OTP system**
+   
+   |SecurBIG|
+   
+   Allows 2FA (2 Factors Authentication). 
+       
+   :ref:`Authentication<2fa>`
+   
+   
+.. container:: evolution-tile
+
+   **CRM improvments**
+   
+   |CRMBIG|
+   
+   Enhanced CRM for prospecting, sales and financial tracking. 
+       
+   :ref:`Discorer<crm-dashboard>`
+      
+   
+.. container:: evolution-tile
+
+   **Notes on status change**
+   
+   |NoteBIG|
+   
+   Require a note when changing status. 
+       
+   :ref:`Discorer<note-statuschange>`
+      
+   
+   
+
+.. raw:: html
+
+   </div>
+
+                        
+Features
+--------
+
+ProjeQtOr is a "Quality based Project Organizer". 
+
+It is particularly well suited to IT projects, but can manage any type of project.
+
+It offers all the features needed to different Project Management actors under a unique collaborative interface.
+  
+.. toctree::
+   :maxdepth: 1
+   
+   Features
+   TransverseFeatures
+   
+   
+Concepts
+--------
+
+This chapter defines the concepts of ProjeQtOr.
+
+They can be referred in the following chapters.
+
+.. toctree::
+   :maxdepth: 2
+
+   Concept
+
+Agile Methods
+-------------
+
+This chapter includes ProjeQtOr features that allow you to practice agile methods.
+
+.. toctree::
+   :maxdepth: 2
+   
+   Agile
+
+   
+Settings
+--------
+
+ProjeQtOr provides a very rich user interface.
+
+It may be frightening at first glance because of the very numerous elements it provides, 
+but once you'll get familiar to the structure of the interface you'll discover that it is quite simple 
+as all screens have the same frames and sections always have simular structure and position.
+
+.. toctree::
+   :maxdepth: 1
+
+   UserParameter
+   GlobalParameters
+   
+   Administration
+   
+   AccessRights
+   ListsOfTypes
+   ListsOfValues
+   
+   ControlAutomation
+   Tools
+
+Graphical user interface
+------------------------
+
+ProjeQtOr provides a very rich user interface.
+
+It may be frightening at first glance because of the very numerous elements it provides, 
+but once you'll get familiar to the structure of the interface you'll discover that it is quite simple 
+as all screens have the same frames and sections always have simular structure and position.
+
+.. toctree::
+   :titlesonly:
+   
+   Gui
+   CommonSections
+   
+
+
+
+Planning and Follow-up
+----------------------
+
+ProjeQtOr provides all the elements needed to build a planning from workload, 
+constraints between tasks and resources availability.
+
+The main activity of Project Leader is to measure progress, analyse situation and take decisions.
+In order to ease his work, ProjeQtOr provides several reporting tools, from the well know Gantt chart, to many reports.
+
+.. toctree::
+   :maxdepth: 1
+
+   StartGuide
+   CommonSections
+   PlanningElements 
+   Planning
+   Gantt
+   PlanningView
+   Today
+   Diary 
+   Report
+   RealWorkAllocation
+   Collaboration
+   AssetManagement
+
+
+
+Document Management  translation
+--------------------------------
+
+.. toctree::
+   :maxdepth: 1
+   
+   Document
+   Translation
+  
+  
+
+Financial
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   Expenses
+   Incomes
+   Financial
+
+
+Steering
+--------
+
+.. toctree::
+   :maxdepth: 2
+
+   Steering
+   ConfigurationManagement
+   
+   
+Requirements & Tests
+--------------------
+
+.. toctree::
+   :maxdepth: 1   
+   
+   RequirementsTest
+
+Risk Management & Ticketing
+---------------------------
+
+.. toctree::
+   :maxdepth: 1   
+   
+   RiskIssueManagement
+   Ticket   
+
+Environmental parameters
+------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   Resource
+   Customer
+   Provider
+   Recipient
+   Organization
+   
+
+Human resources
+---------------
+  
+.. toctree::
+   :maxdepth: 2
+   
+   HumanResources
+
+
+Plug-ins
+--------
+
+.. toctree::
+   :maxdepth: 1
+
+   Plugin
+
+
+
+   
+Glossary
+--------
+
+.. toctree::
+   :maxdepth: 1
+  
+   Glossary

@@ -1,0 +1,910 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Contexts &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Agile Methods" href="Agile.html" />
+    <link rel="prev" title="Activity Stream" href="TransverseFeatures.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Agile.html" title="Agile Methods"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="TransverseFeatures.html" title="Activity Stream"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Contexts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="concepts">
+<span id="concept"></span><h1>Concepts<a class="headerlink" href="#concepts" title="Permalink to this heading">¶</a></h1>
+<section id="project">
+<span id="concept-project"></span><h2>Project<a class="headerlink" href="#project" title="Permalink to this heading">¶</a></h2>
+<p>A project is the main entity of ProjeQtOr.</p>
+<p>Project element is more than a <a class="reference internal" href="#planning-element"><span class="std std-ref">planning element</span></a>.</p>
+<p>It is also used to allow gathering all data depend on project:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="RiskIssueManagement.html#risk"><span class="std std-ref">Risk management</span></a>: mitigation, reserve</p></li>
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Ticketing</span></a>: Issue, Bug tracking, Change request, Support</p></li>
+<li><p>Steering: <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Steering</span></a>, <a class="reference internal" href="Steering.html#decision"><span class="std std-ref">Decisions</span></a>, <a class="reference internal" href="RiskIssueManagement.html#action"><span class="std std-ref">Action plan</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Requirement &amp; Test</span></a></p></li>
+<li><p><a class="reference internal" href="Expenses.html#expenses"><span class="std std-ref">Expense</span></a> and <a class="reference internal" href="Incomes.html#incomes"><span class="std std-ref">Incomes</span></a>: project expenses, individual expenses, activities expenses, Order, Bill, Payment…</p></li>
+<li><p><a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p></li>
+</ul>
+<p>Allows restricting data visibility to users by project.</p>
+<p>The project data visibility is granted according to the user profile.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a>
+<a class="reference internal" href="Planning.html#planning-order"><span class="std std-ref">Planning order</span></a>
+<a class="reference internal" href="#profiles-definition"><span class="std std-ref">Profiles definition</span></a>
+<a class="reference internal" href="PlanningView.html#projectsdashboard"><span class="std std-ref">Projects Dashboard</span></a>
+<a class="reference internal" href="#allocation-to-project"><span class="std std-ref">Allocation to project</span></a></p>
+</div>
+<section id="project-selector">
+<h3>Project selector<a class="headerlink" href="#project-selector" title="Permalink to this heading">¶</a></h3>
+<p>The project selector works as a filter.</p>
+<p>By default, the selector displays “all projects”, you can change this view in the user parameters and choose the project to display by default.</p>
+<p>You can restrict data for one or more dedicated projects without necessarily being bound.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The project type is defined in a project type.</p>
+<p>Which is associated to a project. See: <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a></p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#top-bar"><span class="std std-ref">Top bar</span></a> and <a class="reference internal" href="UserParameter.html#user-parameters"><span class="std std-ref">User parameters</span></a></p>
+</div>
+</section>
+<section id="project-s-type">
+<span id="project-type-definition"></span><span id="index-0"></span><h3>Project’s type<a class="headerlink" href="#project-s-type" title="Permalink to this heading">¶</a></h3>
+<p>Four project types can be defined:</p>
+<section id="operational-project">
+<h4>Operational project<a class="headerlink" href="#operational-project" title="Permalink to this heading">¶</a></h4>
+<p><strong>Code: OPE</strong></p>
+<p>Most common project to follow activities.</p>
+<p>A project can be non billable, used for internal or administrative project for example or billable project</p>
+<p>You can choose the <a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">invoice type</span></a> associated with each project among : manual Billed, fixed price, capped time, time &amp; materials, internal.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a></p>
+<p><a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">Invoice Type</span></a></p>
+</div>
+</section>
+<section id="administrative-project">
+<h4>Administrative project<a class="headerlink" href="#administrative-project" title="Permalink to this heading">¶</a></h4>
+<p><strong>Code: ADM</strong></p>
+<p>Allows to follow the non productive work as holidays, sickness, training, …</p>
+<p>All resources have access to this project type without being allocated (Project) or assigned (Activity).</p>
+<p>Create an activity, like an OPE project, for each type of absence.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="RealWorkAllocation.html#absence"><span class="std std-ref">Absences</span></a></p>
+</div>
+</section>
+<section id="template-project">
+<h4>Template project<a class="headerlink" href="#template-project" title="Permalink to this heading">¶</a></h4>
+<p><strong>Code: TMP</strong></p>
+<p>Designed to define models to be copied into an operational project.</p>
+<p>Any project manager (profile) can see and copy these projects without having to be assigned to them. To edit this template project directly, an assignment is required.</p>
+<p>To modify it without assignment, you must first copy the project into an operational type project (OPE).</p>
+<p>A model project, even if it is displayed in the Gantt chart, is not taken into account in planning. Even if there are assignments and assigned load, it is not stored and therefore is not planned.</p>
+<p>You will not be able to display the planning detail on template type projects.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#copy-item"><span class="std std-ref">Copy an item</span></a></p>
+</div>
+</section>
+<section id="proposal-project">
+<h4>Proposal project<a class="headerlink" href="#proposal-project" title="Permalink to this heading">¶</a></h4>
+<p><strong>Code: PRP</strong></p>
+<p>Proposal-type projects are intended to identify strategic projects. It allows you to define objectives based on internal and external factors to achieve them.</p>
+<p>For projects of this type, 4 additional fields are displayed:</p>
+<ul class="simple">
+<li><p>Strength</p></li>
+<li><p>Weakness</p></li>
+<li><p>Opportunity</p></li>
+<li><p>Threat</p></li>
+</ul>
+<p>Strategic value is mandatory.</p>
+<p>The project is automatically saved as “Under construction” and is read-only.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningView.html#critical-resource"><span class="std std-ref">critical resource</span></a></p>
+</div>
+</section>
+</section>
+<section id="allocation-to-project">
+<span id="id1"></span><h3>Allocation to project<a class="headerlink" href="#allocation-to-project" title="Permalink to this heading">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#profiles-definition"><span class="std std-ref">Profiles definition</span></a></p></li>
+<li><p><a class="reference internal" href="#user-ress-contact-demystify"><span class="std std-ref">Stakeholder definition</span></a></p></li>
+</ul>
+</aside>
+<p>Allocation to project is used to:</p>
+<ul class="simple">
+<li><p>Define project data visibility with access right.</p></li>
+<li><p>Define resource availability.</p></li>
+<li><p>Define the period of access to project data by the user.</p></li>
+</ul>
+<p>You can select user, resource or contact.</p>
+<p>if the selected contact is also a resource, then it will be displayed in the assignment table at the resource level.</p>
+<section id="user-and-contact-allocation">
+<h4>User and contact allocation<a class="headerlink" href="#user-and-contact-allocation" title="Permalink to this heading">¶</a></h4>
+<p>Allocation to project can be defined on <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a> and <a class="reference internal" href="Resource.html#user"><span class="std std-ref">Users</span></a> screen.</p>
+<p>The selected profile allows you to define the rights on all the elements of the project.</p>
+<p>The profile displayed first will be the default but the profile given to an assignment may be different on each project.</p>
+<p>These rights only apply to the selected project. If a sub-project is created on it then the rights will be automatically inherited.</p>
+<p>You can change the profile on any project at any time.</p>
+<p>The period selection allows you to define the visibility period of the project data. It can be used to limit the access period, in accordance with the service agreement.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Profile defined in allocation to project does not grant or revoke access to users.</p>
+<p>General access to application functionalities and data is defined by default user profile.</p>
+</div>
+</section>
+<section id="resource-allocation">
+<span id="resource-allocation-to-project"></span><h4>Resource allocation<a class="headerlink" href="#resource-allocation" title="Permalink to this heading">¶</a></h4>
+<p>Allocation to project allows to define the resource availability on project.</p>
+<p>A resource may be allocated to projects at a specified rate for a period.</p>
+<p>Allocation to project can be defined on <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a> and <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resource</span></a> screens.</p>
+<p>You can also allocate a team or an organization to a project in <a class="reference internal" href="Resource.html#team"><span class="std std-ref">Teams</span></a> and <a class="reference internal" href="Organization.html#linked-resource-organization"><span class="std std-ref">Organization</span></a> screens.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A resource allocated to a project can be defined as <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">responsible</span></a> of project items treatment.</p>
+</div>
+<section id="period-rate">
+<span id="periodandrate"></span><h5>Period &amp; Rate<a class="headerlink" href="#period-rate" title="Permalink to this heading">¶</a></h5>
+<p>A resource may be allocated to a project at a specified rate for a period.</p>
+<p>This rate is used to keep some scheduling time for other tasks.</p>
+<p>For example, if the allocation rate is 50%, the resource whose weekly calendar is 5 days (Monday to Friday) will not be scheduled more than half of this calendar, therefore 2.5 days per week.</p>
+<p>If the period is not specified then the resource is allocated throughout the project.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The planning calculator tries to plan, the remaining work on the task assigned to a resource within the allocation to project period.</p>
+<p>If remaining work on the task can’t be planned, a purple bar appears in the Gantt view.</p>
+</div>
+</section>
+<section id="change-resource">
+<h5>Change resource<a class="headerlink" href="#change-resource" title="Permalink to this heading">¶</a></h5>
+<p>A resource can be changed on allocation to project.</p>
+<p>All tasks assigned to old resource will be transferred to the new resource with planned work and remaining work.</p>
+<p>Work done on tasks belongs to always the old resource.</p>
+</section>
+<section id="multi-allocation">
+<h5>Multi-allocation<a class="headerlink" href="#multi-allocation" title="Permalink to this heading">¶</a></h5>
+<p>A resource can be allocated to multiple projects in the same period.</p>
+<p>In the section <strong>Allocations</strong> in <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resource</span></a> screen, a tool allows to displayed conflicts.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>How resolve conflicts?</p>
+<p>You can change allocation period to avoid overlap between projects.</p>
+<p>You can change the rate of allocation for it does not exceed 100% for the period.</p>
+</div>
+</section>
+</section>
+</section>
+</section>
+<section id="activity">
+<span id="concept-activity"></span><h2>Activity<a class="headerlink" href="#activity" title="Permalink to this heading">¶</a></h2>
+<p>An activity is a kind of task that can be planned or that groups other activities.</p>
+<p>This is usually a long-term task that can be assigned to one or more resources.</p>
+<p>Activities will appear on the Gantt schedule view.</p>
+<p><strong>You might consider an activity as:</strong></p>
+<ul class="simple">
+<li><p>Planned tasks,</p></li>
+<li><p>Modification requests,</p></li>
+<li><p>Some phases,</p></li>
+<li><p>Versions or new deployments,</p></li>
+</ul>
+<p>Activities can be grouped as a Mother / Daughter link. The parent activity must belong to the same project.</p>
+<p>A WBS structure is applied and a dynamic index is calculated for all activities and it can be changed in the Gantt planning view using drag and drop.</p>
+<p>An activity can be linked to elements that cannot be planned like tickets, so that the time spent on tickets can be taken into account in the overall planning of the project. This option allows you to assign a time pool that will be scheduled and to link tickets to this tank. The time spent on tickets will then be decremented to that of the planning activity.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Ticket.html#ticket-planning-activity"><span class="std std-ref">Planning activity</span></a></p>
+</div>
+<section id="assignment">
+<span id="id2"></span><h3>Assignment<a class="headerlink" href="#assignment" title="Permalink to this heading">¶</a></h3>
+<p>The assignment is used to assign resources to project tasks (activity, test session, meeting). Only resources allocated by the project can be assigned to project tasks.</p>
+<p>It consists to assign a resource to a task in a specific function and contains data about work on task, planned, real, left and reassessed work.</p>
+<p>You keep track of the resources that have been assigned and worked on the activity.</p>
+<p>You can define a period for the resource on each of the activities.</p>
+<p>You can also define an assignment rate for each activity that will determine the daily planning based on the percentage of its <a class="reference internal" href="Resource.html#fte"><span class="std std-ref">FTE</span></a>.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Basic, you cannot delete a resource assignment after the resource has entered actual work on the activity.</p>
+<p>This assignment can be deleted by a profile including the option “Can delete items with real work” in the access rights menu in the specific acces.</p>
+<p>Similarly, if the resource has completed its activity, deletion is not possible.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activity</span></a> - <a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Test sessions</span></a> - <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Steering</span></a></p>
+<p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Assignment section</span></a> in common section</p>
+</div>
+</section>
+</section>
+<section id="organization">
+<span id="organization-concept"></span><span id="index-1"></span><h2>Organization<a class="headerlink" href="#organization" title="Permalink to this heading">¶</a></h2>
+<p>The notion of organization introduces a way to consolidate projects on a different hiererchic structure, apart from projects / sub-projects structure.</p>
+<p>It defines the structure of the company in the frame of organizations: departments, units, location, …</p>
+<p>The organization summarizes the data of the projects in progress for the organization.</p>
+<figure class="align-center" id="id10">
+<img alt="_images/CONCEPT_ORG_Organisations.png" src="_images/CONCEPT_ORG_Organisations.png" />
+<figcaption>
+<p><span class="caption-text">distribution within organizations</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Each project can be linked to an organization and resources can be linked to an organization.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Depending on the profile, you can limit the visibility of resources to people in the same organization or team as the current user.</p>
+<p>Sub-projects are by default attached to the same organization as the parent, but can be integrated into another organization.</p>
+</div>
+</section>
+<section id="product">
+<span id="product-concept"></span><span id="index-2"></span><h2>Product<a class="headerlink" href="#product" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">identifying</p>
+<p>Product versions can be identified in these elements:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activity</span></a></p></li>
+<li><p><a class="reference internal" href="PlanningElements.html#milestone"><span class="std std-ref">Milestone</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Requirements and tests</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#test-case"><span class="std std-ref">Test cases</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Test sessions</span></a></p></li>
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Ticketing</span></a></p></li>
+<li><p><a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p></li>
+</ul>
+</aside>
+<p>A product can be a material object or for IT/IS projects is a software application.</p>
+<p>It can have a complex structure that can be composed of sub-product and components and its components can have several versions that represent each declination.</p>
+<p>A product is an element delivered by a project.</p>
+<p>Several element can identified a product and/or a product version. <a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a> themselves can be identified to products.</p>
+<p>The link with the project have no impact on project planning. It indicates only that project is devoted to a specific product versions.</p>
+<p>The link management is done on <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a> and <a class="reference internal" href="ConfigurationManagement.html#product-version"><span class="std std-ref">Product version</span></a> screens.</p>
+<figure class="align-center" id="id11">
+<img alt="Link with projects" src="_images/CONCEPT_SCHEMA_LinkProductToProject.png" />
+<figcaption>
+<p><span class="caption-text">Link with projects</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#product-structure"><span class="std std-ref">product structure</span></a> - <a class="reference internal" href="ConfigurationManagement.html#product-version"><span class="std std-ref">Product version</span></a> - <a class="reference internal" href="ConfigurationManagement.html#configurationmanagement"><span class="std std-ref">Configuration Management</span></a></p>
+<p>and <a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p>
+</div>
+<section id="product-structure">
+<span id="id3"></span><h3>Product structure<a class="headerlink" href="#product-structure" title="Permalink to this heading">¶</a></h3>
+<p>The product structure is defined depending on the relationships defined between product and component elements.</p>
+<p>The rules defining a product structure are:</p>
+<section id="relationships-between">
+<h4>Relationships between…<a class="headerlink" href="#relationships-between" title="Permalink to this heading">¶</a></h4>
+<section id="product-elements">
+<h5>…product elements<a class="headerlink" href="#product-elements" title="Permalink to this heading">¶</a></h5>
+<ul class="simple">
+<li><p>A product can have several sub-products.</p></li>
+<li><p>A sub-product can be in the composition only one product.</p></li>
+</ul>
+<figure class="align-center" id="id12">
+<img alt="Relationships between product elements" src="_images/CONCEPT_SCHEMA_LinkProductSubProduct.png" />
+<figcaption>
+<p><span class="caption-text">Relationships between product elements</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="product-and-component-elements">
+<h5>… product and component elements<a class="headerlink" href="#product-and-component-elements" title="Permalink to this heading">¶</a></h5>
+<ul class="simple">
+<li><dl class="simple">
+<dt>A product can be composed of several components.</dt><dd><ul>
+<li><p>A component can be in the composition of several products.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<figure class="align-center" id="id13">
+<img alt="Relationships between product and component elements" src="_images/CONCEPT_SCHEMA_LinkProductComponent.png" />
+<figcaption>
+<p><span class="caption-text">Relationships between product and component elements</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="component-elements">
+<h5>… component elements<a class="headerlink" href="#component-elements" title="Permalink to this heading">¶</a></h5>
+<p>Components can be linked between them (N to N relationships).</p>
+<figure class="align-center" id="id14">
+<img alt="Relationships between component elements" src="_images/CONCEPT_SCHEMA_LinkBetweenComponent.png" />
+<figcaption>
+<p><span class="caption-text">Relationships between component elements</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="versions-of-product-and-component-elements">
+<h4>Versions of product and component elements<a class="headerlink" href="#versions-of-product-and-component-elements" title="Permalink to this heading">¶</a></h4>
+<p>A product can have several versions that represent each declination of product.</p>
+<p>A component can have several versions that represent each declination of the component.</p>
+<p>Links can be defined between versions of products and components, but only with the elements defined in the product structure.</p>
+<figure class="align-center" id="id15">
+<img alt="Link between versions of product and component" src="_images/CONCEPT_SCHEMA_LinkProductComponentVersion.png" />
+<figcaption>
+<p><span class="caption-text">Link between versions of product and component</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+<section id="planning">
+<span id="index-3"></span><span id="id4"></span><h2>Planning<a class="headerlink" href="#planning" title="Permalink to this heading">¶</a></h2>
+<p>ProjeQtOr implements work-driven planning method based upon on resource availability and their capacity.</p>
+<p><a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resource</span></a> availability is defined by <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">calendars</span></a> and <a class="reference internal" href="#periodandrate"><span class="std std-ref">project allocation period</span></a>.</p>
+<p>Each resource is attached to a calendar to define its working days and tasks assigned to the resource will be planned according to working days defined in the calendar.</p>
+<p>Resource capacity (<a class="reference internal" href="Resource.html#fte"><span class="std std-ref">FTE</span></a>) is defined on daily base and the planning tool does not exceed the daily resource capacity.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#resource-calendar"><span class="std std-ref">Resource calendar</span></a> and <a class="reference internal" href="#resource-allocation-to-project"><span class="std std-ref">Allocation to project</span></a></p>
+</div>
+<p>The <a class="reference internal" href="#periodandrate"><span class="std std-ref">project allocation rate</span></a> is used to resolve allocation conflicts between projects and allows to define resource availability for a project during a period. Use with the resource capacity, it allows to define the project allocation capacity on a weekly base.</p>
+<p>The <a class="reference internal" href="#assignment"><span class="std std-ref">task assignment rate</span></a> is used to keep some scheduling time each day for other tasks. Use with the resource capacity, it allows to define the assignation capacity on a daily base.</p>
+<section id="planning-elements">
+<span id="planning-element"></span><span id="index-4"></span><h3>Planning elements<a class="headerlink" href="#planning-elements" title="Permalink to this heading">¶</a></h3>
+<p>ProjeQtOr offers standard planning elements like Project, Activity and Milestone but also, two more planning element: Test session and Meeting.</p>
+<section id="id5">
+<h4>Project<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h4>
+<p>This planning element defines the project.</p>
+<p>It allows to specify information on the project sheet like the customer, bill contact, sponsor, manager and objectives.</p>
+<p>Sub-project is used to split the project, to correspond the organizational breakdown or something else by instance.</p>
+<figure class="align-center" id="id16">
+<img alt="Separation of duties" src="_images/CONCEPT_SCHEMA_SeparationDuties.png" />
+<figcaption>
+<p><span class="caption-text">Separation of duties</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Documents, notes and attachments can be annexed.</p></li>
+<li><p>A project leader and team can be allocated to each sub-project.</p></li>
+<li><p>Project allocation allows to define data visibility and isolate sub-projects.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a> and <a class="reference internal" href="#allocation-to-project"><span class="std std-ref">Allocation to project</span></a></p>
+</div>
+</section>
+<section id="id6">
+<h4>Activity<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h4>
+<p>This planning element can be a phase, a delivery, a task or any other activity.</p>
+<p>An activity can grouped other activities or be a task. This allows to define the structure of phases and deliveries.</p>
+<p>Dates, works and costs of activities (child) are summarized in the activity (parent).</p>
+<p>A task is assigned to resources for to be performed.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activity</span></a></p>
+</div>
+</section>
+<section id="test-session">
+<h4>Test session<a class="headerlink" href="#test-session" title="Permalink to this heading">¶</a></h4>
+<p>This planning element is a specialized activity aimed for tests.</p>
+<p>A test session allows to define a set of test case that must be run to meet a requirement.</p>
+<p>It can grouped other test sessions or be a task. This allows to define the structure of test sessions.</p>
+<p>Dates, works and costs of test sessions (child) are summarized in the test session (parent).</p>
+<p>A task is assigned to resources for to be performed.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Test sessions</span></a></p>
+</div>
+</section>
+<section id="milestone">
+<h4>Milestone<a class="headerlink" href="#milestone" title="Permalink to this heading">¶</a></h4>
+<p>This planning element is a flag in the planning, to point out key dates.</p>
+<p>May be a transition point between phases, deliveries.</p>
+<p>ProjeQtOr offers two types of milestone floating and fixed.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningElements.html#milestone"><span class="std std-ref">Milestone</span></a></p>
+</div>
+</section>
+<section id="meeting">
+<span id="concept-meeting"></span><h4>Meeting<a class="headerlink" href="#meeting" title="Permalink to this heading">¶</a></h4>
+<p>This planning element acts like a fixed milestone, but it’s a task.</p>
+<p>Like a milestone, a meeting can be a transition point.</p>
+<p>But also, like a task because it’s possible to assign resources and planned work.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Steering</span></a></p>
+</div>
+</section>
+<section id="dependency">
+<span id="dependencies-role"></span><h4>Dependency<a class="headerlink" href="#dependency" title="Permalink to this heading">¶</a></h4>
+<p>Dependencies allow to define the execution order of tasks (sequential or concurrent).</p>
+<p>All planning elements can be linked to others by dependencies.</p>
+<p>There are several types of dependencies that allow to start and/or finish before/after another element.</p>
+<p>Dependencies can be managed in the Gantt chart and in screen of planning element.</p>
+<p>A delay can be defined between predecessor and successor.</p>
+</section>
+</section>
+<section id="planning-mode">
+<span id="planningmode"></span><h3>Planning mode<a class="headerlink" href="#planning-mode" title="Permalink to this heading">¶</a></h3>
+<p>Planning mode allows to define constraints on planning elements: activity, test session and milestone.</p>
+<section id="milestones-planning-mode">
+<h4>Milestones planning mode<a class="headerlink" href="#milestones-planning-mode" title="Permalink to this heading">¶</a></h4>
+<p>Planning modes are grouped under two types for milestone :</p>
+<p><strong>Floating</strong></p>
+<ul class="simple">
+<li><p>These planning modes have no constraint date.</p></li>
+<li><p>Planning element is floating depending on its predecessors.</p></li>
+</ul>
+<p><strong>Fixed</strong></p>
+<ul class="simple">
+<li><p>These planning modes have constraint date.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="CommonSections.html#progress-section-planning-mode"><span class="std std-ref">Activity and Test session planning modes</span></a> and <a class="reference internal" href="CommonSections.html#planning-mode-milestone"><span class="std std-ref">Milestone planning modes</span></a>.</p>
+</div>
+</section>
+<section id="planning-elements-planning-mode">
+<span id="planning-mode-concept"></span><h4>Planning elements planning mode<a class="headerlink" href="#planning-elements-planning-mode" title="Permalink to this heading">¶</a></h4>
+<p>Several planning modes for your project elements are proposed to best manage the time spent on certain planning elements.</p>
+<ul class="simple">
+<li><p>As soon as possible</p></li>
+<li><p>Work together</p></li>
+<li><p>Fixed duration and parent activity</p></li>
+<li><p>Constraint duration</p></li>
+<li><p>Must not start before validated start date</p></li>
+<li><p>Must start at validated date</p></li>
+<li><p>Should end before validated end date</p></li>
+<li><p>Regular between dates</p></li>
+<li><p>Regular in full days</p></li>
+<li><p>Regular in half days</p></li>
+<li><p>Regular in quarter days</p></li>
+<li><p>Recurry (on weekly basis)</p></li>
+<li><p>Manual planning</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can set the default scheduling mode for an item from its type</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Planning.html#planningmodegantt"><span class="std std-ref">Planning Modes</span></a></p>
+<p><a class="reference internal" href="ListsOfTypes.html#activity-type"><span class="std std-ref">Activities types</span></a>, <a class="reference internal" href="ListsOfTypes.html#milestone-type"><span class="std std-ref">Milestones types</span></a> and <a class="reference internal" href="ListsOfTypes.html#test-session-type"><span class="std std-ref">Test sessions types</span></a> screens.</p>
+</div>
+</section>
+</section>
+<section id="planning-priority">
+<span id="scheduling-priority"></span><h3>Planning priority<a class="headerlink" href="#planning-priority" title="Permalink to this heading">¶</a></h3>
+<p>Planning items are scheduled in this priority order:</p>
+<ol class="arabic simple">
+<li><p>Manual planning</p></li>
+<li><p>Dependency</p></li>
+<li><p>Fixed date</p></li>
+<li><p>Recurring activities</p></li>
+<li><p>Fixed duration</p></li>
+<li><p>Others</p></li>
+</ol>
+<p>You can also fill in the priority field in the management section of your planning items to define a different planning order than the default.
+Possible values are from 1, for the highest priority, to 999, for the lowest priority.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Planning.html#planning-order"><span class="std std-ref">Planning order</span></a> fore more details</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If projects have different priorities, all elements of project with highest priority are planned first.</p>
+</div>
+</section>
+<section id="project-structure">
+<h3>Project structure<a class="headerlink" href="#project-structure" title="Permalink to this heading">¶</a></h3>
+<p>Work breakdown structure (WBS) is used to define project structure.</p>
+<p>Breakdown can be done with sub-projects, activities and test sessions.</p>
+<p><strong>Structure management</strong></p>
+<ul class="simple">
+<li><p>As seen previously, the project can be split in subprojects.</p></li>
+<li><p>All other planning elements concerned by the project or subproject are put under them without structure.</p></li>
+<li><p>Planning elements can be grouped and orderly in hierarchical form.</p></li>
+<li><p>Structure management can be done in the Gantt chart or in planning elements screen.</p></li>
+</ul>
+<p><strong>WBS element numbering</strong></p>
+<ul class="simple">
+<li><p>The project is numbered by its id number.</p></li>
+<li><p>All other elements are numbered depending on their level and sequence.</p></li>
+<li><p>WBS numbering is automatically adjusted.</p></li>
+</ul>
+</section>
+<section id="project-planning-calculation">
+<h3>Project planning calculation<a class="headerlink" href="#project-planning-calculation" title="Permalink to this heading">¶</a></h3>
+<p>The project planning is calculated on the full project plan that includes parents and predecessor elements (dependencies).</p>
+<p><strong>The calculation is executed task by task in the following order:</strong></p>
+<ol class="arabic simple">
+<li><p>Manual Planning</p></li>
+<li><p>Dependencies (Predecessor tasks are calculated first)</p></li>
+<li><p>Prioritized planning elements</p></li>
+<li><p>Project priority</p></li>
+<li><p>Task priority</p></li>
+<li><p>Project structure (WBS)</p></li>
+</ol>
+<p>The remaining work (left) on tasks will be distributed on the following days from starting planning date, taking into account several constraints:</p>
+<ul class="simple">
+<li><p>Resource availability and capacity</p></li>
+<li><p>Project allocation capacity (Project allocation rate)</p></li>
+<li><p>Assignation capacity (Task assignment rate)</p></li>
+<li><p>Planning mode</p></li>
+</ul>
+<p><strong>Resource overloads</strong></p>
+<ul class="simple">
+<li><p>This is not possible to overloading the resources.</p></li>
+<li><p>The planning calculation process respects availability and capacity of the resource.</p></li>
+<li><p>If it is not possible to distribute remaining work, on already planned days, the calculation process uses new available time slot.</p></li>
+</ul>
+</section>
+<section id="draft-planning">
+<h3>Draft planning<a class="headerlink" href="#draft-planning" title="Permalink to this heading">¶</a></h3>
+<p>Two methods can be used to create a draft planning.</p>
+<p>Use planning mode “fixed duration”</p>
+<p>This planning mode is used to define fixed duration tasks. See: <a class="reference internal" href="#planningmode"><span class="std std-ref">Planning modes</span></a></p>
+<p>Dependencies allow to define the execution order of tasks. See: <a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">Dependencies</span></a></p>
+<p>You can define this planning mode as defaut in the Activities Types screen for some types of activities you’ll use in draft plannings</p>
+<p>Use faked and team resource</p>
+<p>The faked and team resource can be useful to get a first estimate of project cost and duration without involving the real resources.</p>
+<p>Planning schedule is calculated using of the work-driven planning method.</p>
+<p>Faked and team resources can be mixed in same draft planning.</p>
+<p><strong>Faked resources</strong></p>
+<ul class="simple">
+<li><p>For instance, you want to define a Java developer resource. You can create a resource named “Java developer #1”.</p></li>
+<li><p>There are several levels of Java developer with different daily costs (beginner, intermediary and expert).</p></li>
+<li><p>You can define for this resource the functions and average daily cost for each level. (See: <a class="reference internal" href="#resource-function-cost"><span class="std std-ref">assigment</span></a>)</p></li>
+<li><p>You assign this resource to tasks, to a specific function (level). (See: <a class="reference internal" href="#assignment"><span class="std std-ref">assignment</span></a>)</p></li>
+<li><p>Faked resource will be easily replaced with real resources when project becomes real, with allocation replacement feature <a class="reference internal" href="_images/iconSwitch.png"><img alt="Button small button switch" src="_images/iconSwitch.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+<p><strong>Team resource</strong></p>
+<ul class="simple">
+<li><p>A team resource is a resource whose daily capacity has been defined to represent capacity of a team (Capacity (FTE) &gt; 1).</p></li>
+<li><p>For instance, you needed to define four Java developers, but you don’t want to create a resource for each. You can <em>overload</em> the daily capacity of the resource (Example: Capacity FTE=4).</p></li>
+<li><p>Using team resources is very easy but renders estimation of project duration as draft, not taking into account constraint of different resources such as possibly different skills or expertise level.</p></li>
+<li><p>With team resources it is very easy to estimate planning with different number of members in the team : what if I include 5 Java develpers instead of 4 ? Just change capacity to 5 and re-calculate planning…</p></li>
+</ul>
+</section>
+</section>
+<section id="projeqtor-roles">
+<span id="id7"></span><h2>ProjeQtOr roles<a class="headerlink" href="#projeqtor-roles" title="Permalink to this heading">¶</a></h2>
+<p>A stakeholder can play many roles in ProjeQtOr.</p>
+<p>Specific roles are defined to allow:</p>
+<ul class="simple">
+<li><p>To categorize the stakeholders involved in the projects.</p></li>
+<li><p>To identify the stakeholders on items.</p></li>
+<li><p>To regroup the stakeholders to facilitate information broadcasting.</p></li>
+</ul>
+<section id="profiles-definition">
+<span id="index-5"></span><span id="id8"></span><h3>Profiles definition<a class="headerlink" href="#profiles-definition" title="Permalink to this heading">¶</a></h3>
+<p>The profile is used to define in-app permissions and data access rights.</p>
+<p>Each resource, user or contact is assigned a profile. This is mandatory. This is the default profile.</p>
+<p>Multiple resources, users, or contacts can have the same profile. They are linked to a profile and belong to this group and share the same application behavior.</p>
+<p>The profile is used to define access rights to application and data, first.</p>
+<p>Also, the profile is used to send message, email and alert to groups.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="AccessRights.html#profiles"><span class="std std-ref">Profils</span></a> and <a class="reference internal" href="AccessRights.html#acces-right"><span class="std std-ref">Access rights</span></a></p>
+</div>
+<p>A profile can be selected to a user, resource or contact in project allocation.</p>
+<figure class="align-default" id="id17">
+<img alt="Profiles allocation to the project" src="_images/AllocationProjectRole.png" />
+<figcaption>
+<p><span class="caption-text">Profiles allocation to the project</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The profile selected is used to give data access to elements of the projects.</p>
+<p>A resource can have a different profile on each project to which it is assigned.</p>
+<p>The profile is used to define who can change from one status to another one.</p>
+<p>You can restrict or allow the state transition to another one according to the profile.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a> screen.</p>
+</div>
+</section>
+<section id="predefined-profiles">
+<h3>Predefined profiles<a class="headerlink" href="#predefined-profiles" title="Permalink to this heading">¶</a></h3>
+<p>ProjeQtOr offer some predefined profiles.</p>
+<blockquote>
+<div><dl class="simple glossary">
+</dl>
+<p>Administrator profile</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Only these users can manage the application and see all data without restriction.</p></li>
+<li><p>The user “admin” is already defined.</p></li>
+</ul>
+</div></blockquote>
+<p>Supervisor profile</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Users linked to this profile have a visibility over all the projects.</p></li>
+<li><p>They cannot create or modify any element.</p></li>
+<li><p>This profile allows to monitor projects.</p></li>
+</ul>
+</div></blockquote>
+<p>Project leader profile</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The project leader has a complete access to owns projects.</p></li>
+</ul>
+</div></blockquote>
+<p>Project member profile</p>
+<ul class="simple">
+<li><p>A project member is working on projects allocated to it.</p></li>
+<li><p>The user linked to this profile is a  member of team projects.</p></li>
+</ul>
+<p>Project guest profile</p>
+<ul class="simple">
+<li><p>Users linked to this profile have limited visibility to projects allocated to them.</p></li>
+<li><p>The user “guest” is already defined.</p></li>
+</ul>
+</div></blockquote>
+<p>ProjeQtOr allow to involve client employees in their projects.</p>
+<p>The distinction between this profile and its equivalent, user access is more limited.</p>
+</section>
+</section>
+<section id="stakeholder-definition">
+<span id="user-ress-contact-demystify"></span><h2>Stakeholder definition<a class="headerlink" href="#stakeholder-definition" title="Permalink to this heading">¶</a></h2>
+<p>ProjeQtOr makes it possible to define the roles of the stakeholders.</p>
+<p>The definition of stakeholders is done in part with the profile and with the definition of user / resource / contact. This allows certain access and visibility rights to be determined.</p>
+<p>These combinations are used to define:</p>
+<ul class="simple">
+<li><p>Connection to the application.</p></li>
+<li><p>Data visibility.</p></li>
+<li><p>Availability.</p></li>
+<li><p>Roles.</p></li>
+</ul>
+<p>These stakeholders can be either resource, contact, or users, and they can also be all three.</p>
+<p><strong>profile</strong></p>
+<ul class="simple">
+<li><p>To a user, interface and data visibility is based on its user profile.</p></li>
+<li><p>User profile defined general access to application functionalities and data.</p></li>
+<li><p>Only resource can be planned on a planning element.</p></li>
+<li><p>ProjeQtOr allows to involve contacts in projects.</p></li>
+</ul>
+<p><strong>Access rights</strong></p>
+<ul class="simple">
+<li><p>Defined if a user has access to own projects or over all projects.</p></li>
+<li><p>Access right on all project is typically reserved for administrators and supervisors. They have access to all elements of all projects.</p></li>
+</ul>
+<p><strong>Shared data</strong></p>
+<ul class="simple">
+<li><p>For a stakeholder, data on user, resource and contact are shared.</p></li>
+<li><p>Allocation to project and user profile are also shared.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For a stakeholder, you can define and redefine the combination without losing data.</p>
+</div>
+</section>
+<section id="resource-function-and-cost">
+<span id="resource-function-cost"></span><span id="index-6"></span><h2>Resource function and cost<a class="headerlink" href="#resource-function-and-cost" title="Permalink to this heading">¶</a></h2>
+<section id="function">
+<h3>Function<a class="headerlink" href="#function" title="Permalink to this heading">¶</a></h3>
+<p>The function defines the generic competency of a resource.</p>
+<p>It is used to define the role play by the resource on tasks.</p>
+<p>In real work allocation screen, the function name will be displayed in the real work entry.</p>
+<p>A main function must be defined to resource and it is used as default function.</p>
+<p>A daily cost can be defined for each function of the resource.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ListsOfValues.html#function"><span class="std std-ref">Functions</span></a> screen allows to manage function list.</p>
+</div>
+</section>
+<section id="resource-cost-definition">
+<h3>Resource cost definition<a class="headerlink" href="#resource-cost-definition" title="Permalink to this heading">¶</a></h3>
+<p>Allows to define the daily cost, according to the functions of the resource.</p>
+<p>The daily cost is defined for a specific period.</p>
+<p>When real work is entered, the real cost is calculated with work of the day and daily cost for this period.</p>
+<p>When the project planning is calculated, resource cost is used to calculate planned cost.</p>
+<p>Planned cost is calculated with planned work of the day and current daily cost.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>Function and cost are defined in <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resource</span></a> screen.</p>
+</div>
+</section>
+<section id="resource-calendar">
+<span id="index-7"></span><span id="id9"></span><h3>Resource calendar<a class="headerlink" href="#resource-calendar" title="Permalink to this heading">¶</a></h3>
+<p>A calendar defines the working and off days in a the year.</p>
+<p>You can define as many calendars as needed. Each resource is attached to a calendar.</p>
+<p>Calendars are used in the planning process which dispatches work on every working day. Working days defined in a calendar allows to show availability of resources.</p>
+<p>During the planning process, the assigned work to a resource is planned in its working days.</p>
+<p>The default calendar is used to define the working days in the year. By default, this calendar is defined for all resources.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You must re-calculate an existing planning to take into account changes on the calendar.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A calendar is set in <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resource</span></a> screen.</p>
+<p>The calendar is defined in <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">Calendars</span></a> screen.</p>
+</div>
+<span class="target" id="index-8"></span><span class="target" id="index-9"></span></section>
+</section>
+<section id="contexts">
+<span id="context"></span><span id="index-10"></span><h2>Contexts<a class="headerlink" href="#contexts" title="Permalink to this heading">¶</a></h2>
+<p>The contexts defines a list of elements selectable to define ticket context and test case environment.</p>
+<p>Contexts are initially set to be able to define contexts for IT Projects, for three context types :</p>
+<ul class="simple">
+<li><p>Environment</p></li>
+<li><p>Operating System</p></li>
+<li><p>Browser</p></li>
+</ul>
+<p>They can be changed to be adapted to any kind of project.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Concepts</a><ul>
+<li><a class="reference internal" href="#project">Project</a><ul>
+<li><a class="reference internal" href="#project-selector">Project selector</a></li>
+<li><a class="reference internal" href="#project-s-type">Project’s type</a><ul>
+<li><a class="reference internal" href="#operational-project">Operational project</a></li>
+<li><a class="reference internal" href="#administrative-project">Administrative project</a></li>
+<li><a class="reference internal" href="#template-project">Template project</a></li>
+<li><a class="reference internal" href="#proposal-project">Proposal project</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#allocation-to-project">Allocation to project</a><ul>
+<li><a class="reference internal" href="#user-and-contact-allocation">User and contact allocation</a></li>
+<li><a class="reference internal" href="#resource-allocation">Resource allocation</a><ul>
+<li><a class="reference internal" href="#period-rate">Period &amp; Rate</a></li>
+<li><a class="reference internal" href="#change-resource">Change resource</a></li>
+<li><a class="reference internal" href="#multi-allocation">Multi-allocation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#activity">Activity</a><ul>
+<li><a class="reference internal" href="#assignment">Assignment</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#organization">Organization</a></li>
+<li><a class="reference internal" href="#product">Product</a><ul>
+<li><a class="reference internal" href="#product-structure">Product structure</a><ul>
+<li><a class="reference internal" href="#relationships-between">Relationships between…</a><ul>
+<li><a class="reference internal" href="#product-elements">…product elements</a></li>
+<li><a class="reference internal" href="#product-and-component-elements">… product and component elements</a></li>
+<li><a class="reference internal" href="#component-elements">… component elements</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#versions-of-product-and-component-elements">Versions of product and component elements</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning">Planning</a><ul>
+<li><a class="reference internal" href="#planning-elements">Planning elements</a><ul>
+<li><a class="reference internal" href="#id5">Project</a></li>
+<li><a class="reference internal" href="#id6">Activity</a></li>
+<li><a class="reference internal" href="#test-session">Test session</a></li>
+<li><a class="reference internal" href="#milestone">Milestone</a></li>
+<li><a class="reference internal" href="#meeting">Meeting</a></li>
+<li><a class="reference internal" href="#dependency">Dependency</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-mode">Planning mode</a><ul>
+<li><a class="reference internal" href="#milestones-planning-mode">Milestones planning mode</a></li>
+<li><a class="reference internal" href="#planning-elements-planning-mode">Planning elements planning mode</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-priority">Planning priority</a></li>
+<li><a class="reference internal" href="#project-structure">Project structure</a></li>
+<li><a class="reference internal" href="#project-planning-calculation">Project planning calculation</a></li>
+<li><a class="reference internal" href="#draft-planning">Draft planning</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#projeqtor-roles">ProjeQtOr roles</a><ul>
+<li><a class="reference internal" href="#profiles-definition">Profiles definition</a></li>
+<li><a class="reference internal" href="#predefined-profiles">Predefined profiles</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#stakeholder-definition">Stakeholder definition</a></li>
+<li><a class="reference internal" href="#resource-function-and-cost">Resource function and cost</a><ul>
+<li><a class="reference internal" href="#function">Function</a></li>
+<li><a class="reference internal" href="#resource-cost-definition">Resource cost definition</a></li>
+<li><a class="reference internal" href="#resource-calendar">Resource calendar</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#contexts">Contexts</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="TransverseFeatures.html"
+                          title="previous chapter">Activity Stream</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Agile.html"
+                          title="next chapter">Agile Methods</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Agile.html" title="Agile Methods"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="TransverseFeatures.html" title="Activity Stream"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Contexts</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

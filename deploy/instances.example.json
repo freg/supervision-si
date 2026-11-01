@@ -1,0 +1,6 @@
+{
+  "_doc": "Instances d'application clonées (#731, item 117). Copier en deploy/instances.json (ignoré par git). name : a-z0-9 (2 à 20), sert de suffixe aux services (tickets-api-<name>) et aux routes (/tickets-<name>/) ; app : tickets | ged ; node : nœud de deploy/nodes.json ; source : service d'origine dont on clone la configuration (défaut : l'instance principale). Aucune donnée métier n'est copiée.",
+  "instances": [
+    {"name": "formation", "app": "tickets", "node": "vm-donnees", "title": "Portail tickets de formation"}
+  ]
+}

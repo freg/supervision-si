@@ -7,7 +7,8 @@
 // vaultOps.js (qui importe ce module) doit rester testable en Node
 // nu, où import.meta.env est simplement absent plutôt qu'un objet
 // vide, ce qui ferait planter un accès direct à sa propriété.
-const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
+// #737 : + configuration d'exécution (front pré-compilé, env.js) prioritaire
+const env = { ...((typeof import.meta !== "undefined" && import.meta.env) || {}), ...((typeof globalThis !== "undefined" && globalThis.__HUB_ENV__) || {}) };
 export const API_BASE_URL = env.VITE_VAULT_API_BASE_URL || "http://localhost:6117";
 
 async function request(path, options = {}) {

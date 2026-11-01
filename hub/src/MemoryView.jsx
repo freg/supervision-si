@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchStats, fetchServices, fetchEntries } from "./memoryClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Mémoire" (hub), livraison #259 -- backlog item 32, demandé
 // explicitement : "api/service de rémanence du memcached... en faire
 // une tuile pas simplement un outil". Rend persistant le tampon de
@@ -70,7 +71,7 @@ export default function MemoryView({ onBack, memoryApiBase }) {
               <p className="muted">Aucune entrée persistée pour l'instant -- la collecte tourne
                 périodiquement en arrière-plan, laissez-lui le temps d'un premier passage.</p>
             ) : (
-              <table>
+              <AutoColumns id="MemoryView.1"><table>
                 <thead><tr><th>Service</th><th>Total</th><th>Détail par niveau</th></tr></thead>
                 <tbody>
                   {stats.map((s) => (
@@ -87,7 +88,7 @@ export default function MemoryView({ onBack, memoryApiBase }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -120,7 +121,7 @@ export default function MemoryView({ onBack, memoryApiBase }) {
               <p className="muted">Aucune entrée pour ces filtres.</p>
             ) : (
               <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                <table>
+                <AutoColumns id="MemoryView.2"><table>
                   <thead><tr><th>Horodatage</th><th>Service</th><th>Niveau</th><th>Message</th></tr></thead>
                   <tbody>
                     {entries.map((e) => (
@@ -132,7 +133,7 @@ export default function MemoryView({ onBack, memoryApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
           </div>
