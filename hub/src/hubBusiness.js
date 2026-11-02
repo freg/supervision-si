@@ -91,6 +91,7 @@ export const PATHS = {
   "view:architecture": ["services/hub", "equipements/inventaire"],
   "view:fusion": ["equipements/inventaire"],
   "view:nebula": ["equipements/reseau/wifi", "services/metier"],
+  "view:reperage": ["equipements/reseau/wifi", "etats/maintenant"],   // #949 : repérage physique sur site
   "view:datarf": ["equipements/reseau/wifi", "etats/maintenant"],   // #806 : sondes radio des sites
   "view:ssh-tunnels": ["equipements/reseau/tunnels", "droits/acces"],
   "front:mikrotik": ["equipements/reseau/routeurs", "droits/acces"],

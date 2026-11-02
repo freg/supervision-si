@@ -1,3 +1,28 @@
+## 2026-11-02 — Repérage physique sur site, depuis le téléphone (livraison #949)
+
+- Nouvelle vue **📍 Repérage sur site** (menu Réseau, accès rapide de l'écran Urgence, `?vm=reperage`), pensée pour
+  l'intervention sur place, dans l'ordre d'importance demandé :
+  1. **Prise / équipement** : recherche (MAC, IP, nom, fabricant, « p12 », prise, local) dans les clients vus par Nebula
+     sur 24 h — filaire : **commutateur + port** (`/v2/sw-clients`, `connectedPort`), Wi-Fi : borne, SSID, signal ; en un
+     geste « relever la prise de cet équipement » ou la corriger.
+  2. **Brassage** : port par port, ce que Nebula voit et les prises déclarées ; anomalies (deux prises sur un port,
+     équipement attendu ≠ équipement vu) ; export CSV ; fiche prise : étiquette, local, commutateur, port, panneau /
+     position, équipement attendu, MAC, long cordon, Wi-Fi, défaut, note, **photos** (réduites sur le téléphone à 1 600 px
+     avant envoi, stockées dans le volume de nebula-api).
+  3. **Position** : les prises posées sur le plan du site (celui de Nebula › Plan), toucher pour poser ; rouge = défaut.
+  4. **Couverture Wi-Fi** : le signal du téléphone **vu par la borne** (Nebula `ap-clients`, `wifiStation.signal`, bande,
+     canal, retard ≈ 1 min) + RSSI lu sur le téléphone en option ; toucher le plan là où l'on est = relevé coloré
+     (vert ≥ −60, bleu ≥ −70, orange ≥ −80, rouge) ; synthèse par borne (médiane) ; bornes vues par Nebula.
+- nebula-api : `reperage.py` (fusion sw-clients / ap-clients / clients par MAC, recherche, validation, CSV) +
+  `reperage_routes.py` (`/sites/<id>/reperage/{inventaire,recherche,prises,prises.csv,photos,mobile,releves}`), tables
+  `reperage_prises` / `reperage_releves`, photos sous `<base>/reperage/<site>/`.
+- Vérifié : tests nebula (7 dont routes Flask avec client Nebula simulé), `node --test` reperageLib (3) + urgenceLib,
+  syntaxe JSX par esbuild. Non vérifié : rendu navigateur / téléphone, données Nebula réelles (champs `connectedPort`
+  et `wifiStation.signal` d'après la documentation OpenAPI, `sw-clients` déjà constaté « tous les champs » le 22/09),
+  `npm run build`. Attention Android : MAC aléatoire par réseau → la désactiver pour le SSID du site, ou lire la MAC
+  dans la carte de la prise (le téléphone apparaît dans la recherche par nom d'hôte).
+- Déploiement : `cd ~/SRC/data2/tickets/supervision-si && git pull && ./scripts/run.sh up -d --build nebula-api hub`
+
 ## 2026-10-30 — BackupPC : lancer / arrêter une sauvegarde aussi en mode relais (livraison #948)
 
 - Les boutons Incrémentale / Complète / Arrêter de l'onglet BackupPC fonctionnent maintenant quand le serveur est

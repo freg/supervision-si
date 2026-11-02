@@ -85,6 +85,7 @@ export const ICONS = {
 // Correspondance des emoji utilisés historiquement dans les champs icon: (hubThemes, hubBusiness, hubTree, bastionInventory, cycleActions, hubTimelineLib).
 export const EMOJI_TO_ICON = {
   "🗺": "map",
+  "📍": "map",   // #949 : repérage sur site
   "🕸": "network",
   "🗄": "database",
   "📚": "book",

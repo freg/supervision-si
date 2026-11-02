@@ -1672,6 +1672,11 @@ def campus_import(collection):
     return jsonify({"ok": True, "count": len(records), "mode": mode, "columns": rows[0] if rows else []}), 200
 
 
+# #949 : repérage physique sur site (prise → équipement → port, brassage, position, couverture Wi-Fi) -- reperage_routes.py
+import reperage_routes  # noqa: E402
+reperage_routes.register(app, {"conn": get_connection, "client": _connect, "db_path": DB_PATH,
+                               "devices": lambda sid: _inventory["devices"].get(sid) or []})
+
 # #872 : historique des clients (Nebula ne garde que 24 h) -- relève horaire + à la demande, requête filtrée et triée
 import client_history_routes  # noqa: E402
 client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,

@@ -7,6 +7,7 @@ export const CONTACTS_KEY = "hub.urgence.contacts";
 /** Accès rapides en déplacement : vue du hub (+ paramètres). */
 export const QUICK_LINKS = [
   { view: "aujourdhui", label: "Aujourd'hui", icon: "⏰" },
+  { view: "reperage", label: "Repérage sur site (prises, brassage, plan, Wi-Fi)", icon: "📍" },   // #949
   { view: "si-agent", params: { tab: "events" }, label: "Événements des agents", icon: "📋" },
   { view: "notifications", params: { tab: "sms" }, label: "SMS (envoi, journal, relance)", icon: "📡" },
   { view: "control", label: "Tour de contrôle (services)", icon: "🚦" },

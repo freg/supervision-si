@@ -4,6 +4,14 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
+## 2026-11-02 — Repérage physique sur site (#949)
+
+`reperage.py` (logique pure) + `reperage_routes.py` : fusion par MAC des clients de commutateurs (`/v2/sw-clients` :
+`connectedTo`, `connectedPort`, `vlan`), des clients de bornes (`/v2/ap-clients` : `ssid`, `wifiStation.signal/band/channel`)
+et des clients du site (IP, hôte, fabricant) → « où est branché quoi » ; prises relevées sur place (table `reperage_prises`,
+photos dans `<base>/reperage/<site>/`), relevés de couverture Wi-Fi (`reperage_releves`, signal du téléphone vu par la
+borne). Vue hub `ReperageView.jsx` (mobile), logique `reperageLib.js`. Tests : `tests/test_reperage.py`.
+
 ## Prérequis (mis à jour le 22 sept. 2026, #546)
 
 1. **L'organisation Nebula visée doit être en Professional Pack** (tous
