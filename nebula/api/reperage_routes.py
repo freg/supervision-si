@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS reperage_releves (
 """
 CACHE_S = 60
 _cache = {}   # site_id -> {"at", "inv"}
+_mac_test = {}   # MAC du téléphone vue en dernier sur le site de test (pour que la recherche l'affiche aussi)
 
 
 def register(app, hooks):
@@ -46,7 +47,10 @@ def register(app, hooks):
     finally:
         conn.close()
 
-    def _inventaire(site_id, period="1d", force=False):
+    def _inventaire(site_id, period="1d", force=False, mac_mobile=None):
+        if site_id == lib.SITE_TEST:        # bureau : pas de Nebula, inventaire simulé (jamais mis en cache : le signal bouge)
+            inv = lib.inventaire_test(mac_mobile=mac_mobile or _mac_test.get("mac")); inv["erreurs"] = []; inv["period"] = period
+            return inv
         c = _cache.get(site_id)
         if c and not force and time.time() - c["at"] < CACHE_S and c["period"] == period:
             return c["inv"]
@@ -84,6 +88,18 @@ def register(app, hooks):
             d.update(maj=r["updated_at"], par=r["updated_by"])
             out.append(d)
         return out
+
+    @app.route("/reperage/sites", methods=["GET"])
+    def reperage_sites():
+        """Sites du repérage : ceux de Nebula (inventaire) + le site de test du bureau, toujours présent."""
+        sites = []
+        try:
+            for s in hooks.get("sites", lambda: [])():
+                sites.append({"site_id": s.get("siteId") or s.get("site_id"), "name": s.get("name") or s.get("siteId")})
+        except Exception:  # noqa: BLE001
+            pass
+        sites.append({"site_id": lib.SITE_TEST, "name": "Bureau — test sans Nebula", "test": True})
+        return jsonify({"sites": sites}), 200
 
     @app.route("/sites/<site_id>/reperage/inventaire", methods=["GET"])
     def reperage_inventaire(site_id):
@@ -169,8 +185,10 @@ def register(app, hooks):
         mac = lib.norm_mac(mac)
         if not mac:
             return None
+        if site_id == lib.SITE_TEST:
+            _mac_test["mac"] = mac
         try:
-            inv = _inventaire(site_id, "2h")
+            inv = _inventaire(site_id, "2h", mac_mobile=mac)
         except Exception:  # noqa: BLE001
             return None
         return next((c for c in inv["clients"] if c["mac"] == mac), None)

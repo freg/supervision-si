@@ -97,6 +97,12 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(cl.get("/sites/s1/reperage/photos/" + pid).status_code, 200)
         self.assertEqual(cl.post("/sites/s1/reperage/photos", data={"file": (io.BytesIO(b"x"), "p.txt", "text/plain")}, content_type="multipart/form-data").status_code, 415)
         self.assertEqual(cl.delete("/sites/s1/reperage/prises/B-12").get_json()["supprime"], 1)
+        # site de test (bureau, sans Nebula) : inventaire simulé, téléphone vu avec un signal, liste des sites
+        self.assertEqual([s["site_id"] for s in cl.get("/reperage/sites").get_json()["sites"]][-1], "test-bureau")
+        inv = cl.get("/sites/test-bureau/reperage/inventaire").get_json(); self.assertTrue(inv["test"]); self.assertEqual(inv["commutateurs"][0]["nom"], "SW-TEST")
+        m = cl.get("/sites/test-bureau/reperage/mobile?mac=11:22:33:44:55:66").get_json(); self.assertTrue(m["vu"]); self.assertEqual(m["mobile"]["borne"], "BORNE-TEST"); self.assertLessEqual(m["mobile"]["signal"], -48)
+        self.assertTrue(any(c["mac"] == "11:22:33:44:55:66" for c in cl.get("/sites/test-bureau/reperage/inventaire").get_json()["clients"]))
+        self.assertTrue(cl.get("/sites/test-bureau/reperage/recherche?q=p3").get_json()["resultats"])
 
 
 if __name__ == "__main__":

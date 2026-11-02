@@ -212,3 +212,24 @@ def prises_csv(prises):
             vals.append(str(v if v is not None else "").replace(";", ",").replace("\n", " "))
         lignes.append(";".join(vals))
     return "\n".join(lignes) + "\n"
+
+
+# -- site de test (bureau, sans Nebula) ---------------------------------------------------------------------------
+SITE_TEST = "test-bureau"
+
+
+def inventaire_test(now=None, mac_mobile=None):
+    """Inventaire simulé pour s'exercer au bureau : un commutateur SW-TEST (ports 1-6), une borne BORNE-TEST, et le
+    téléphone (MAC donnée) vu avec un signal qui varie dans le temps (pour voir les couleurs changer)."""
+    now = now or int(time.time())
+    sw = [{"macAddress": "02:00:00:00:00:%02x" % i, "ipv4Address": "192.0.2.%d" % (10 + i), "connectedTo": "sw-test", "connectedPort": i, "vlan": 10 if i < 4 else 20,
+           "osHostname": {"hostname": n}} for i, n in ((1, "pc-accueil"), (2, "imprimante"), (3, "ecran-salle"), (4, "camera-1"), (5, "nas"), (6, "borne-test-uplink"))]
+    sc = [{"macAddress": "02:00:00:00:00:01", "manufacturer": "Dell"}, {"macAddress": "02:00:00:00:00:02", "manufacturer": "Brother"}, {"macAddress": "02:00:00:00:00:05", "manufacturer": "QNAP"}]
+    ap = [{"macAddress": "02:00:00:00:00:21", "ipv4Address": "192.0.2.51", "connectedTo": "ap-test", "ssid": "GROUPE_I", "wifiStation": {"signal": -63, "band": "band5", "channel": 36}, "osHostname": {"hostname": "tablette"}}]
+    m = norm_mac(mac_mobile)
+    if m:
+        ap.append({"macAddress": m, "ipv4Address": "192.0.2.77", "connectedTo": "ap-test", "ssid": "GROUPE_I",
+                   "wifiStation": {"signal": -48 - (int(now / 15) % 40), "band": "band5", "channel": 36}, "osHostname": {"hostname": "mon-telephone"}})
+    inv = inventaire(sw, ap, sc, [{"devId": "sw-test", "name": "SW-TEST"}, {"devId": "ap-test", "name": "BORNE-TEST"}], now=now)
+    inv["test"] = True
+    return inv

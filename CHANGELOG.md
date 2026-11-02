@@ -1,3 +1,13 @@
+## 2026-11-02 — Repérage : site de test au bureau, sans Nebula (livraison #952)
+
+- Pour s'exercer au bureau avant le campus : site **« Bureau — test sans Nebula »** toujours présent dans le menu du
+  repérage (`GET /reperage/sites` = sites Nebula + ce site). Inventaire simulé (`reperage.inventaire_test`) : commutateur
+  SW-TEST ports 1-6 (pc-accueil, imprimante, écran, caméra, NAS, uplink), borne BORNE-TEST sur le SSID **GROUPE_I**, et le
+  téléphone (MAC saisie dans l'onglet Wi-Fi) vu avec un signal qui varie toutes les 15 s (couleurs des relevés). Plan livré
+  `nebula/plans/test-bureau.svg` (rectangle : deux bureaux, open space, baie) servi par le repli des plans livrés (#560).
+  Les prises, photos et relevés du site de test sont réels (mêmes tables) — ils ne gênent pas les sites Nebula.
+- Vérifié : tests nebula (7), JSX. Non vérifié : rendu téléphone.
+
 ## 2026-11-02 — Accueil téléphone (livraison #951)
 
 - `?view=reperage` ne suffisait pas sur le téléphone : la connexion Keycloak renvoie à la racine et perd le paramètre, on

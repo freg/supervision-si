@@ -81,7 +81,7 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
   useEffect(() => {
-    getJson(`${nebulaApiBase}/health-board?hours=1`).then((d) => { const s = d.sites || []; setSites(s); if (!siteId && s[0]) setSiteId(s[0].site_id); }).catch((e) => setErr("Nebula : " + e.message));
+    getJson(`${nebulaApiBase}/reperage/sites`).then((d) => { const s = d.sites || []; setSites(s); if (!siteId && s[0]) setSiteId(s[0].site_id); }).catch((e) => setErr("Nebula : " + e.message));
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [nebulaApiBase]);
   useEffect(() => { if (siteId) store.set(SITE_KEY, siteId); }, [siteId]);
@@ -214,7 +214,8 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     return (
       <div>
         <div className="mob-barre"><button type="button" className="secondary" onClick={onBack}>◀ Hub</button><h2>📍 Repérage</h2></div>
-        {sites.length > 1 && <select value={siteId} onChange={(e) => setSiteId(e.target.value)}>{sites.map((s) => <option key={s.site_id} value={s.site_id}>{s.name || s.site_id}</option>)}</select>}
+        {sites.length > 1 && <label>Site<select value={siteId} onChange={(e) => setSiteId(e.target.value)}>{sites.map((s) => <option key={s.site_id} value={s.site_id}>{s.name || s.site_id}</option>)}</select></label>}
+        {inv?.test && <p className="d">Site de test : commutateur SW-TEST, borne BORNE-TEST (SSID GROUPE_I), plan = rectangle du bureau ; le signal du téléphone est simulé et varie. Les prises et relevés sont réels (table du module).</p>}
         {messages}
         <div className="mob-menu">
           {ONGLETS.map((o) => (
