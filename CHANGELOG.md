@@ -1,3 +1,14 @@
+## 2026-11-02 — Radar mobile : premier essai réel, balayages figés par Android (livraison #955)
+
+- Essai réel au bureau (Termux + Termux:API depuis F-Droid — la version Google Play de Termux n'a pas l'extension et les deux
+  doivent venir de la même source) : la chaîne téléphone → `https://supervision.optline.fr/api/nebula` → hub fonctionne
+  (9 bornes, GROUPE_I), mais le résultat restait identique en faisant le tour du bâtiment : `termux-wifi-scaninfo` renvoie
+  le **dernier balayage du système**, et Android n'en relance pas (limitation 4 / 2 min au premier plan, quasi nulle en
+  arrière-plan) tant que « Limitation de la recherche Wi-Fi » n'est pas désactivée dans les options développeur.
+- `nebula/tools/radar-mobile.sh` : empreinte des horodatages Android ; un balayage inchangé n'est plus envoyé (pas de
+  doublons en base) et le script affiche « balayage inchangé depuis n tours » avec la marche à suivre.
+- Vérifié : syntaxe bash. Non vérifié : comportement après désactivation de la limitation (à constater sur le téléphone).
+
 ## 2026-11-02 — Radar Wi-Fi mobile : enregistrer en continu la distance aux bornes visibles (livraison #954)
 
 - Demande : en déplacement, présenter et surtout **enregistrer en continu** la distance aux points d'accès visibles ; le
