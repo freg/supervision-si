@@ -1167,6 +1167,7 @@ export default function App() {
   // #874 : lien profond `?view=` (#559), sinon la dernière vue de cet onglet du navigateur (rechargement, retour de
   // Keycloak, rechargement sans cache d'une livraison) : on ne retombe plus sur l'accueil.
   const [viewMode, setViewMode] = useState(() => vueInitiale("grid")); // "grid" | "settings" | vue
+  const [hubCompletMobile, setHubCompletMobile] = useState(() => { try { return sessionStorage.getItem("hub.mobile.complet") === "1"; } catch { return false; } });   // #951
   useEffect(() => { memoriserVue(viewMode); }, [viewMode]);
   usePositionMemorisee(viewMode);
   useEffect(() => { restaurerPosition(viewMode); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -2160,6 +2161,21 @@ vm === "agent-page" ? (
   const pleinEcranMobile = VUES_MOBILE.has(viewMode) && (estEcranEtroit() || new URLSearchParams(window.location.search).get("plein") === "1");
   if (pleinEcranMobile) {
     return <div className="hub-mobile">{renderRoute(viewMode)}</div>;
+  }
+  // #951 : accueil téléphone -- sur écran étroit, la page d'accueil est un menu de gros boutons (la connexion Keycloak
+  // renvoie à la racine et perd ?view=, d'où cet accueil) ; « Hub complet » ouvre la coquille habituelle pour la session.
+  if (viewMode === "grid" && estEcranEtroit() && !hubCompletMobile) {
+    return (
+      <div className="hub-mobile">
+        <div className="mob-barre"><h2>Hub SI — téléphone</h2></div>
+        <div className="mob-menu">
+          <button type="button" className="secondary" onClick={() => setViewMode("reperage")}><span className="ic">📍</span><span>Repérage sur site<small>prise → port, brassage, plan, Wi-Fi</small></span></button>
+          <button type="button" className="secondary" onClick={() => setViewMode("urgence")}><span className="ic">🚨</span><span>Urgence<small>alertes 24 h, contacts, accès rapides</small></span></button>
+          <button type="button" className="secondary" onClick={() => { setHubCompletMobile(true); try { sessionStorage.setItem("hub.mobile.complet", "1"); } catch { /* rien */ } }}><span className="ic">🖥</span><span>Hub complet<small>toutes les vues (écran large conseillé)</small></span></button>
+        </div>
+        <p className="muted" style={{ fontSize: 14 }}>{displayName}</p>
+      </div>
+    );
   }
 
   return (

@@ -1,3 +1,10 @@
+## 2026-11-02 — Accueil téléphone (livraison #951)
+
+- `?view=reperage` ne suffisait pas sur le téléphone : la connexion Keycloak renvoie à la racine et perd le paramètre, on
+  retombait sur l'accueil complet (en-tête illisible). Sur écran étroit, **l'accueil est maintenant un menu de trois gros
+  boutons** : 📍 Repérage sur site, 🚨 Urgence, 🖥 Hub complet (ce dernier rend la coquille habituelle pour la session).
+- Vérifié : syntaxe (esbuild). Non vérifié : rendu réel téléphone.
+
 ## 2026-11-02 — Repérage sur site : écran téléphone simplifié, plein écran (livraison #950)
 
 - Retour du terrain (#949 ouvert sur le téléphone) : l'en-tête du hub (menus, jours de la semaine empilés, bouton

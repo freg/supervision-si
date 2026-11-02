@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  951: [{ view: "reperage", hint: "Accueil téléphone : Repérage sur site / Urgence / Hub complet" }],
   950: [{ view: "reperage", hint: "Repérage sur site en plein écran téléphone : 4 gros boutons, un écran à la fois" }],
   949: [{ view: "reperage", hint: "Repérage sur site : 1 prise / équipement, 2 brassage, 3 position (plan, photo), 4 couverture Wi-Fi" }, { view: "nebula", params: { tab: "plan" }, hint: "le plan du site utilisé par le repérage" }],
   947: [{ view: "si-agent", params: { section: "sauvegardes" }, hint: "sauvegarde de poste : profils utilisateurs (AppData et HKCU de chaque utilisateur, plus le profil SYSTEM) ; restauration vers un utilisateur cible" }],
