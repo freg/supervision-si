@@ -37,6 +37,9 @@ installNetActivity();   // #735 : indicateur d'activité, GET d'API suspendus qu
 // de fond quand le navigateur est inactif -- le changement de tuile reste instantané après le premier affichage.
 const VIEW_IMPORTS = [];
 function lazyView(load) { VIEW_IMPORTS.push(load); return lazy(load); }
+// #950 : vues conçues pour le téléphone, rendues sans la coquille du hub sur écran étroit
+const VUES_MOBILE = new Set(["reperage", "urgence"]);
+function estEcranEtroit() { try { return window.matchMedia("(max-width: 760px)").matches; } catch { return false; } }
 function ViewLoading() {
   return <div className="hub-view-loading" role="status" aria-live="polite"><span className="hub-spinner" aria-hidden="true" /> Chargement…</div>;
 }
@@ -2150,6 +2153,13 @@ vm === "agent-page" ? (
       </>
       )
     );
+  }
+
+  // #950 : vues « téléphone » en plein écran -- sur un écran étroit (ou ?plein=1), la vue est rendue SEULE : pas d'en-tête,
+  // de menus ni de pied de page du hub (illisibles sur mobile), défilement vertical seulement.
+  const pleinEcranMobile = VUES_MOBILE.has(viewMode) && (estEcranEtroit() || new URLSearchParams(window.location.search).get("plein") === "1");
+  if (pleinEcranMobile) {
+    return <div className="hub-mobile">{renderRoute(viewMode)}</div>;
   }
 
   return (

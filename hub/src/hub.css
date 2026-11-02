@@ -2954,3 +2954,20 @@ tr:hover .ft-mini, tr:focus-within .ft-mini, .ft-mini:focus-visible { visibility
   .pw-print .np-tone.good, .conseils-print .np-tone.good { color: #1a7f37 !important; }
   @page { margin: 12mm; }
 }
+
+/* #950 : mode téléphone plein écran (vues Repérage, Urgence sur écran étroit) : vertical seulement, gros caractères */
+.hub-mobile { min-height: 100dvh; background: var(--bg); color: var(--text); padding: 10px 12px 40px; overflow-x: hidden; overflow-y: auto; font-size: 17px; line-height: 1.35; }
+.hub-mobile * { max-width: 100%; box-sizing: border-box; }
+.hub-mobile input, .hub-mobile select, .hub-mobile textarea { font-size: 17px; padding: 12px; width: 100%; }
+.hub-mobile button, .hub-mobile .mob-btn { min-height: 56px; font-size: 18px; padding: 10px 14px; border-radius: 12px; }
+.hub-mobile table { display: block; overflow-x: hidden; }
+.mob-menu { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 10px 0; }
+.mob-menu button { min-height: 76px; font-size: 20px; text-align: left; display: flex; align-items: center; gap: 14px; }
+.mob-menu button .ic { font-size: 30px; }
+.mob-menu button small { display: block; font-size: 14px; font-weight: 400; color: var(--muted); }
+.mob-barre { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.mob-barre h2 { margin: 0; font-size: 20px; flex: 1; }
+.mob-carte { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 8px 0; background: var(--panel); }
+.mob-carte.on { border-color: var(--accent); }
+.mob-carte .t { font-size: 18px; font-weight: 700; }
+.mob-carte .d { color: var(--muted); font-size: 15px; }

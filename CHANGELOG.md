@@ -1,3 +1,16 @@
+## 2026-11-02 — Repérage sur site : écran téléphone simplifié, plein écran (livraison #950)
+
+- Retour du terrain (#949 ouvert sur le téléphone) : l'en-tête du hub (menus, jours de la semaine empilés, bouton
+  déconnexion coupé) rendait la page inutilisable ; demande : « simpliste, quelques gros boutons (5 max), très lisible,
+  peu de choix, défilement vertical seulement ».
+- **Mode téléphone plein écran** (`App.jsx` : `VUES_MOBILE` = reperage, urgence ; écran ≤ 760 px ou `?plein=1`) : la vue
+  est rendue SEULE, sans en-tête, menus ni pied de page ; classe `.hub-mobile` (17 px, boutons 56 px, aucun défilement
+  horizontal).
+- **Repérage** : menu de 5 gros boutons (Prise / équipement, Brassage, Position, Couverture Wi-Fi, Rafraîchir), un écran
+  à la fois avec ◀ en haut, cartes empilées à la place des tableaux, fiche prise en champs pleine largeur, cases à cocher
+  devenues boutons (long cordon / en Wi-Fi / défaut), commutateurs repliés par défaut dans le brassage.
+- Vérifié : syntaxe JSX (esbuild), setters, aucune couleur en dur, tests reperageLib. Non vérifié : rendu réel téléphone.
+
 ## 2026-11-02 — Repérage physique sur site, depuis le téléphone (livraison #949)
 
 - Nouvelle vue **📍 Repérage sur site** (menu Réseau, accès rapide de l'écran Urgence, `?vm=reperage`), pensée pour
