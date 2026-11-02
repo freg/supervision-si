@@ -48,8 +48,10 @@ envoyer() { # $1 = JSON lldp ou "{}" ; $2 = id (optionnel) ; -> JSON réponse
   local ip; ip=$(ip -4 -o addr show "$IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
   jq -nc --arg source "$SOURCE" --arg mode "$MODE" --arg mac "$MAC" --arg ip "$ip" --argjson lldp "${1:-{\}}" --arg id "${2:-}" \
      '{source:$source, mode:$mode, mac:$mac, ip:$ip, lldp:$lldp} + (if $id != "" then {id:($id|tonumber)} else {} end)' \
-   | curl -sf -m 15 -X POST "$HUB/sites/$SITE/reperage/sonde$([ -n "${2:-}" ] && echo '?refresh=1')" -H 'Content-Type: application/json' -d @-
+   | curl -s -m 15 -w '\n%{http_code}' -X POST "$HUB/sites/$SITE/reperage/sonde$([ -n "${2:-}" ] && echo '?refresh=1')" -H 'Content-Type: application/json' -d @- > "$TMP"
+  HTTP=$(tail -1 "$TMP"); sed '$d' "$TMP"
 }
+TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT; HTTP=""
 
 while :; do
   led_set 0
@@ -63,7 +65,11 @@ while :; do
   carrier || { log "débranché avant relevé"; continue; }
   if [ -n "$lldp" ]; then log "LLDP : $lldp"; else log "pas de LLDP : le hub cherchera la MAC dans Nebula (~1 min)"; flash; lldp="{}"; fi
   rep=$(envoyer "$lldp"); id=$(printf '%s' "$rep" | jq -r '.id // ""' 2>/dev/null)
-  if [ -z "$id" ]; then log "hub injoignable ($HUB) — nouvel essai dans 5 s"; flash; sleep 5; continue; fi
+  if [ -z "$id" ]; then
+    case "$HTTP" in 404) log "HTTP 404 : le hub ne connaît pas encore /reperage/sonde — serveur à reconstruire (livraison ≥ #959)";;
+      000|"") log "hub injoignable ($HUB)";; *) log "HTTP $HTTP : $(printf '%s' "$rep" | head -c 200)";; esac
+    log "nouvel essai dans 5 s"; flash; sleep 5; continue
+  fi
   log "relevé #$id : $(printf '%s' "$rep" | jq -r '"\(.commutateur // "?") port \(.port // "?") · Nebula \(if .confirme == true then "confirmé" elif .confirme == false then "DIFFÈRE" else "pas encore vu" end)"')"
   # attente de la validation sur le téléphone ; on renvoie le relevé toutes les 15 s tant que Nebula ne confirme pas
   n=0
