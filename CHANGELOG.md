@@ -1,3 +1,31 @@
+## 2026-11-02 — livraison #958 : audit de sécurité réseau d'un site (vision des risques, matrice, préconisations)
+
+Pour la réunion à venir : une vue « Réseau › Audit de sécurité réseau » qui puise dans l'API Nebula et dans les
+historiques déjà accumulés, complétée par des relevés shell en lecture seule sur ce qui est hors de portée de l'API.
+
+- **nebula-api** : `audit_securite.py` (pure) + `audit_routes.py`. Collecte Nebula tolérante (chaque appel en erreur
+  est noté, le reste continue) : SSID (mode de sécurité ouvert / WEP / WPA2-PSK / WPA3 / 802.1X, isolation du réseau
+  d'accueil, VLAN), carte des VLAN (VLAN de gestion partagé, SSID sur VLAN de gestion, anomalies), ports trunk « tous
+  VLAN » sans voisin LLDP, NAT de la passerelle (tous ports / ouvert à tout Internet), équipements hors ligne,
+  micrologiciels hétérogènes, licences à moins de 90 j, clients sans nom. Historiques : objets connectés (fabricants
+  IoT) sur VLAN serveurs ou mêlés aux postes, clients jamais identifiés, forte rotation Wi-Fi, anomalies hautes.
+  Relevés importés : Proxmox (`tools/audit-proxmox.sh` : version, mises à jour, SSH root par mot de passe, comptes
+  admin sans 2FA, pare-feu, écoute 8006 globale, VM GPU sans pare-feu, absence de sauvegarde, dépôts) et hôtes non
+  gérés (`tools/audit-hote.sh` : Telnet/FTP/SMB/RDP/VNC/MQTT/LoRa UDP…, flux sortants hors site). Constats manuels.
+  Cotation probabilité × impact, recotation et suivi par constat, réglages par site, exports `.md` / `.csv`.
+- **hub** : `AuditSecuriteView.jsx` + `auditSecuriteLib.js` : matrice 4×4 cliquable (filtre), tableau des constats
+  (niveau, preuve, préconisation, effort, P/I/état modifiables, mini bouton de détail copiable, note), préconisations
+  priorisées, relevés (suppression), aide « commandes » copiable, import par collage ou fichier JSON. Tuile dans
+  Réseau, nouveautés, catalogue métier.
+- Scripts : lecture seule, aucun identifiant essayé, aucune donnée de site dans le dépôt (les JSON produits restent
+  hors dépôt). `audit-proxmox.sh` validé sur une machine non-Proxmox (JSON bien formé, compteurs vides).
+
+Vérifié : `tests/test_audit_securite.py` (5, dont routes Flask avec faux client Nebula et vérification que la clé
+Wi-Fi n'atteint jamais la base), `node --test hub/tests/*.test.mjs` (15), syntaxe JSX (esbuild), `sh -n` des scripts.
+Non vérifié : build du hub (« build non vérifié »), appels OpenAPI réels (noms de champs du mode de sécurité des SSID
+devinés par motifs `auth|security|encrypt|wpa` — un SSID non reconnu ressort en « mode non lu », à vérifier dans
+Nebula), scripts sur un vrai Proxmox.
+
 ## 2026-11-02 — Radar mobile : mesures réelles, script simplifié, positions sur le plan (livraison #957)
 
 - Premières mesures réelles au bureau (20 bornes par balayage, GROUPE_I de −60 à −44 dBm en s'approchant) : l'écran Wi-Fi

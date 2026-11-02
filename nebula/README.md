@@ -4,6 +4,19 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
+## 2026-11-02 — Audit de sécurité réseau (#958)
+
+`audit_securite.py` (logique pure) + `audit_routes.py` : collecte **lecture seule** de l'API Nebula (SSID et mode de
+sécurité — clés caviardées avant stockage —, carte des VLAN, ports trunk, NAT de la passerelle, états en ligne,
+micrologiciels, licences, clients) et des **historiques accumulés** du hub (clients vus, anomalies), plus des **relevés
+shell** importés : `tools/audit-proxmox.sh` (hyperviseur : version, mises à jour, SSH root, 2FA, pare-feu, services à
+l'écoute, VM/GPU, sauvegardes, dépôts) et `tools/audit-hote.sh` (hôte non géré : ports sensibles, flux sortants) ; constats
+manuels. Sortie : constats cotés probabilité × impact (1..4), niveau (faible < 4 ≤ modéré < 8 ≤ élevé < 12 ≤ critique),
+matrice 4×4, préconisations priorisées (score puis effort), rapport `audit.md`, `audit.csv`. Suivi par constat (état,
+recotation, note : `audit_constats`), réglages par site (`vlans_serveurs`, `vlans_iot`). Les collectes vivent en base
+(`audit_collectes`), jamais dans le dépôt. Vue hub `AuditSecuriteView.jsx`, logique `auditSecuriteLib.js`.
+Tests : `tests/test_audit_securite.py`, `hub/tests/auditSecuriteLib.test.mjs`.
+
 ## 2026-11-02 — Repérage physique sur site (#949)
 
 `reperage.py` (logique pure) + `reperage_routes.py` : fusion par MAC des clients de commutateurs (`/v2/sw-clients` :

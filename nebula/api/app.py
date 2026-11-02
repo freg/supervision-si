@@ -1683,3 +1683,17 @@ import client_history_routes  # noqa: E402
 client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
                                      "configured": lambda: bool(NEBULA_API_KEY),
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
+
+# #958 : audit de sécurité réseau (Nebula + historiques + relevés shell Proxmox / hôtes) -- audit_routes.py
+import audit_routes  # noqa: E402
+
+
+def _audit_org_of(site_id):
+    site = next((s for s in _inventory["sites"] if s.get("siteId") == site_id), {}) or {}
+    org = site.get("orgId")
+    return org, (_connect().get_org_info(org) if org else None)
+
+
+audit_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites,
+                            "devices": lambda sid: (_refresh_inventory(_connect()), _inventory["devices"].get(sid) or [])[1],
+                            "vlan_map": lambda sid: _vlan_map_cached(sid), "anomalies": lambda sid: _anomalies(sid)[0], "org_of": _audit_org_of})

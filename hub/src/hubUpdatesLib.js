@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  958: [{ view: "audit-securite", hint: "Réseau › Audit de sécurité : Collecter, importer les relevés Proxmox / hôtes, matrice, rapport .md" }],
   954: [{ view: "reperage", hint: "Couverture Wi-Fi › 📡 Radar : bornes visibles en direct, CSV, aide Termux" }],
   953: [{ view: "reperage", hint: "onglet Couverture Wi-Fi : « ＋ Mémoriser » la MAC saisie, puis la choisir dans « Appareil connu »" }],
   952: [{ view: "reperage", hint: "choisir le site « Bureau — test sans Nebula » dans le menu du repérage" }],

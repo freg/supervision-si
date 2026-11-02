@@ -1,5 +1,11 @@
 [
  {
+  "n": 958,
+  "from": 958,
+  "date": "2026-11-02",
+  "title": "Audit de sécurité réseau d'un site : collecte Nebula (SSID, VLAN, NAT, états, micrologiciels, licences, clients) + historiques accumulés + relevés shell lecture seule (Proxmox, hôtes non gérés) + constats manuels → constats cotés probabilité × impact, matrice 4×4, préconisations priorisées, rapport Markdown et CSV"
+ },
+ {
   "n": 957,
   "from": 957,
   "date": "2026-11-02",
