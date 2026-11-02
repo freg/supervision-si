@@ -137,3 +137,24 @@ export function ageBalayage(at, maintenant) {
   const s = Math.max(0, Math.round((maintenant || Date.now() / 1000) - at));
   return s < 60 ? `il y a ${s} s` : s < 3600 ? `il y a ${Math.round(s / 60)} min` : `il y a ${Math.round(s / 3600)} h`;
 }
+
+/** Sonde filaire (#959) : accord LLDP / Nebula en un libellé et une couleur. */
+export function etatSonde(r) {
+  if (!r) return { texte: "", couleur: "var(--muted)" };
+  if (r.confirme === true) return { texte: r.lldp ? "LLDP et Nebula d'accord" : "vu par Nebula (pas de LLDP)", couleur: "var(--ok)" };
+  if (r.confirme === false) return { texte: `Nebula voit ${r.nebula_commutateur || "?"} port ${r.nebula_port ?? "?"} — à vérifier`, couleur: "var(--danger)" };
+  return { texte: r.lldp ? "LLDP seul, Nebula pas encore (≈ 1 min)" : "ni LLDP ni Nebula : attendre ou vérifier le port", couleur: "var(--warning)" };
+}
+
+/** Titre d'un relevé de sonde : « GS2220-50HP-1 port 12 · VLAN 99 ». */
+export function titreSonde(r) {
+  if (!r) return "";
+  if (!r.commutateur && r.port == null) return "commutateur inconnu";
+  return `${r.commutateur || "?"} port ${r.port ?? "?"}${r.vlan ? ` · VLAN ${r.vlan}` : ""}${r.port_descr ? ` · ${r.port_descr}` : ""}`;
+}
+
+/** Nouveaux relevés en attente depuis la dernière lecture (pour vibrer / sonner). */
+export function nouveauxEnAttente(avant, apres) {
+  const a = new Set(avant || []);
+  return (apres || []).filter((id) => !a.has(id));
+}

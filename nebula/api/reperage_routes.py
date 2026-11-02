@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS reperage_radar_positions (
 CREATE TABLE IF NOT EXISTS reperage_releves (
     id TEXT PRIMARY KEY, site_id TEXT NOT NULL, data TEXT NOT NULL, at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reperage_sonde (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, source TEXT NOT NULL, mode TEXT NOT NULL, at INTEGER NOT NULL, maj INTEGER NOT NULL,
+    data TEXT NOT NULL, prise TEXT, ack_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_reperage_sonde_site ON reperage_sonde (site_id, at);
 """
 CACHE_S = 60
 _cache = {}   # site_id -> {"at", "inv"}
@@ -363,6 +368,118 @@ def register(app, hooks):
         try:
             n = conn.execute("DELETE FROM reperage_releves WHERE site_id = ? AND id = ?", (site_id, rid)).rowcount
             conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"supprime": n}), 200
+
+    # -- sonde filaire (#959) : Raspberry Pi branché prise par prise (LLDP) ou en sortie de panneau de brassage ---------------
+    def _sonde_row(r):
+        d = json.loads(r["data"]); d.update(id=r["id"], source=r["source"], mode=r["mode"], at=r["at"], maj=r["maj"], prise=r["prise"], ack=bool(r["ack_at"]), ack_at=r["ack_at"])
+        return d
+
+    def _sonde_rapprocher(site_id, rel, force=False):
+        """Nebula met ~1 min à voir un nouveau client : si la MAC n'est pas dans l'inventaire en cache et que le cache a
+        plus de 20 s, on relit (une relecture par relevé au plus, le script renvoie le relevé toutes les 15 s)."""
+        inv = _inventaire(site_id, mac_mobile=rel.get("mac"))
+        r = lib.rapprocher_sonde(rel, inv, _prises(site_id))
+        c = _cache.get(site_id)
+        if r["confirme"] is None and (force or (c and time.time() - c["at"] > 20)) and site_id != lib.SITE_TEST:
+            inv = _inventaire(site_id, force=True, mac_mobile=rel.get("mac"))
+            r = lib.rapprocher_sonde(rel, inv, _prises(site_id))
+        return r
+
+    @app.route("/sites/<site_id>/reperage/sonde", methods=["POST"])
+    def reperage_sonde_post(site_id):
+        rel, err = lib.valider_sonde(request.get_json(silent=True) or {})
+        if err:
+            return jsonify({"error": err}), 400
+        now = int(time.time())
+        r = _sonde_rapprocher(site_id, rel, force=request.args.get("refresh") == "1")
+        conn = conn_fn()
+        try:
+            row = conn.execute("SELECT * FROM reperage_sonde WHERE site_id = ? AND id = ? AND ack_at IS NULL", (site_id, rel["id"])).fetchone() if rel.get("id") else None
+            stock = {k: v for k, v in r.items() if k not in ("id", "prise_connue")}
+            if row:
+                conn.execute("UPDATE reperage_sonde SET data = ?, maj = ? WHERE id = ?", (json.dumps(stock, ensure_ascii=False), now, row["id"])); rid = row["id"]; at = row["at"]
+            else:
+                rid = conn.execute("INSERT INTO reperage_sonde (site_id, source, mode, at, maj, data) VALUES (?, ?, ?, ?, ?, ?)",
+                                   (site_id, rel["source"], rel["mode"], now, now, json.dumps(stock, ensure_ascii=False))).lastrowid; at = now
+            conn.commit()
+        finally:
+            conn.close()
+        r.update(id=rid, at=at, maj=now, ack=False)
+        return jsonify(r), 200
+
+    @app.route("/sites/<site_id>/reperage/sonde", methods=["GET"])
+    def reperage_sonde_get(site_id):
+        lim = max(1, min(int(request.args.get("limit") or 50), 500)); src = request.args.get("source")
+        conn = conn_fn()
+        try:
+            q = "SELECT * FROM reperage_sonde WHERE site_id = ?" + (" AND source = ?" if src else "") + " ORDER BY at DESC LIMIT ?"
+            rows = conn.execute(q, (site_id, src, lim) if src else (site_id, lim)).fetchall()
+        finally:
+            conn.close()
+        out = [_sonde_row(x) for x in rows]
+        prises = _prises(site_id)
+        for d in out:
+            sw, po = (d.get("commutateur") or "").lower(), d.get("port")
+            d["prise_connue"] = next((p for p in prises if po is not None and p.get("port") == po and (p.get("commutateur") or "").lower() == sw), None)
+        return jsonify({"releves": out, "en_attente": [d["id"] for d in out if not d["ack"]]}), 200
+
+    @app.route("/sites/<site_id>/reperage/sonde/etat", methods=["GET"])
+    def reperage_sonde_etat(site_id):
+        """Pour la sonde (sans écran) : son dernier relevé est-il validé sur le téléphone ?"""
+        src = request.args.get("source") or ""
+        conn = conn_fn()
+        try:
+            row = conn.execute("SELECT * FROM reperage_sonde WHERE site_id = ? AND source = ? ORDER BY at DESC LIMIT 1", (site_id, src)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return jsonify({"derniere": None}), 200
+        d = _sonde_row(row)
+        return jsonify({"derniere": {"id": d["id"], "ack": d["ack"], "prise": d["prise"], "commutateur": d.get("commutateur"), "port": d.get("port"), "confirme": d.get("confirme")}}), 200
+
+    @app.route("/sites/<site_id>/reperage/sonde/<int:rid>/valider", methods=["POST"])
+    def reperage_sonde_valider(site_id, rid):
+        """Le téléphone nomme la prise (ou la position de brassage) : enregistre la prise, acquitte le relevé (la sonde voit `ack`)."""
+        body = request.get_json(silent=True) or {}
+        conn = conn_fn()
+        try:
+            row = conn.execute("SELECT * FROM reperage_sonde WHERE site_id = ? AND id = ?", (site_id, rid)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return jsonify({"error": "relevé inconnu"}), 404
+        rel = _sonde_row(row)
+        now = int(time.time())
+        prise = None
+        if not body.get("ignorer"):
+            existante = next((p for p in _prises(site_id) if p.get("prise") == (body.get("prise") or "").strip()), None)
+            p, err = lib.valider_prise(lib.fusion_prise_sonde(existante, rel, body))
+            if err:
+                return jsonify({"error": err}), 400
+            conn = conn_fn()
+            try:
+                conn.execute("INSERT INTO reperage_prises (site_id, prise, data, updated_at, updated_by) VALUES (?, ?, ?, ?, ?) "
+                             "ON CONFLICT(site_id, prise) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
+                             (site_id, p["prise"], json.dumps(p, ensure_ascii=False), now, (body.get("par") or "sonde")[:80]))
+                conn.commit()
+            finally:
+                conn.close()
+            prise = p["prise"]
+        conn = conn_fn()
+        try:
+            conn.execute("UPDATE reperage_sonde SET ack_at = ?, prise = ? WHERE id = ?", (now, prise, rid)); conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"ok": True, "id": rid, "prise": prise, "ack_at": now}), 200
+
+    @app.route("/sites/<site_id>/reperage/sonde/<int:rid>", methods=["DELETE"])
+    def reperage_sonde_suppr(site_id, rid):
+        conn = conn_fn()
+        try:
+            n = conn.execute("DELETE FROM reperage_sonde WHERE site_id = ? AND id = ?", (site_id, rid)).rowcount; conn.commit()
         finally:
             conn.close()
         return jsonify({"supprime": n}), 200

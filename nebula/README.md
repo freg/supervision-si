@@ -4,6 +4,19 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
+## 2026-11-02 — Sonde filaire prise par prise (#959)
+
+Raspberry Pi sans écran branché sur chaque prise murale (puis en sortie de panneau de brassage) : `tools/sonde-prise.sh`
+lit par **LLDP** (`lldpd`, sans IP nécessaire) le commutateur et le port qui alimentent la prise, `POST
+/sites/<site>/reperage/sonde {source, mode: prise|brassage, mac, lldp:{chassis, port, port_descr, vlan, ip_gestion}}` ;
+le hub rapproche avec ce que Nebula voit de la MAC de la sonde (`sw-clients`, relecture forcée au plus une fois par
+relevé : `?refresh=1`) → `confirme` vrai / faux / inconnu, et la prise déjà déclarée sur ce port. Table
+`reperage_sonde` (relevés en attente / acquittés). Le téléphone (Repérage › 🔌 Sonde filaire, scrutation 3 s, vibreur +
+bip) nomme la prise : `POST …/sonde/<id>/valider {prise, local | panneau, note}` enregistre la prise (fusion avec
+`reperage_prises`) et acquitte ; la sonde scrute `GET …/sonde/etat?source=` et allume sa LED 3 s → prise suivante.
+Sans LLDP (3 flashs), Nebula seul fait foi. Pure : `numero_port`, `valider_sonde`, `rapprocher_sonde`,
+`fusion_prise_sonde` ; tests `tests/test_reperage.py::TestSonde`, `hub/tests/reperageLib.test.mjs`.
+
 ## 2026-11-02 — Audit de sécurité réseau (#958)
 
 `audit_securite.py` (logique pure) + `audit_routes.py` : collecte **lecture seule** de l'API Nebula (SSID et mode de

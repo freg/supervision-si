@@ -1,3 +1,29 @@
+## 2026-11-02 — livraison #959 : sonde filaire prise par prise (Raspberry Pi) pour la continuité commutateur → prise
+
+Demande : vérifier sur place la continuité commutateur → prise murale, puis panneau de brassage → prise, avec un
+Raspberry Pi 3 sans écran branché prise par prise, l'information enregistrée au fil de l'eau sur le hub et une
+notification pour passer à la prise suivante.
+
+- **Sonde** `nebula/tools/sonde-prise.sh` (bash, `lldpd` + `jq` + `curl`) : à chaque lien Ethernet qui monte, attend
+  l'annonce LLDP du commutateur (≤ 45 s, sans IP nécessaire — le hub est joint par le Wi-Fi du Pi), envoie
+  {commutateur, port, descr, VLAN, IP de gestion, MAC de la sonde} au hub, puis scrute l'acquittement ; renvoie le
+  relevé toutes les 15 s tant que Nebula ne confirme pas. LED ACT : vite = LLDP en attente, lent = envoyé / en
+  attente du téléphone, fixe 3 s = validé → débrancher, 3 flashs = pas de LLDP (Nebula seul). Mode `prise` ou
+  `brassage`, site par nom ou id, réglages mémorisés, unité systemd en commentaire.
+- **nebula-api** : `POST /sites/<s>/reperage/sonde` (rapprochement avec Nebula : `confirme` vrai / faux / inconnu,
+  prise déjà déclarée sur ce port ; un POST avec `id` met à jour le relevé non acquitté), `GET …/sonde` (liste +
+  `en_attente`), `GET …/sonde/etat?source=` (pour la sonde), `POST …/sonde/<id>/valider` (enregistre / fusionne la
+  prise : commutateur + port en mode prise, panneau en mode brassage ; acquitte), `DELETE …/sonde/<id>`.
+- **hub, Repérage (téléphone)** : 5e bouton « 🔌 Sonde filaire » (« Rafraîchir Nebula » passe dans la barre du
+  menu, 5 gros boutons maximum) : relevé courant avec accord LLDP / Nebula coloré, prise pré-remplie si déjà
+  connue, « ✓ Enregistrer → prise suivante », « ✕ Ignorer », relevés validés, aide d'installation ; vibreur + bip
+  à chaque nouveau branchement (scrutation 3 s).
+
+Vérifié : `tests/test_reperage.py` (11 dont `TestSonde` : pur + routes Flask, Nebula qui ne voit la sonde qu'à la
+relecture), `node --test hub/tests/*.test.mjs` (16), syntaxe JSX, `bash -n`, filtre jq testé sur les deux formes de
+sortie de `lldpcli` (objet et tableau). Non vérifié : build du hub, un vrai Pi / un vrai commutateur Zyxel (LLDP
+activé par défaut sur les GS2220 / XS3800 ; si un port n'annonce rien, 3 flashs puis Nebula seul).
+
 ## 2026-11-02 — livraison #958 : audit de sécurité réseau d'un site (vision des risques, matrice, préconisations)
 
 Pour la réunion à venir : une vue « Réseau › Audit de sécurité réseau » qui puise dans l'API Nebula et dans les

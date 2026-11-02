@@ -46,3 +46,13 @@ test("radar", () => {
   assert.equal(lignesRadar([{ bssid: "c", ssid: "X", rssi: -50, connecte: 1 }])[0].nom, "X ● connecté"); assert.equal(l[0].distance, "2,5 m"); assert.equal(l[1].distance, "12 m"); assert.equal(l[1].bande, "5 GHz"); assert.equal(l[1].classe, "moyen");
   assert.equal(ageBalayage(null), "jamais"); assert.equal(ageBalayage(1000, 1030), "il y a 30 s"); assert.equal(ageBalayage(1000, 1000 + 7200), "il y a 2 h");
 });
+
+test("sonde filaire : état, titre, nouveaux", async () => {
+  const { etatSonde, titreSonde, nouveauxEnAttente } = await import("../src/reperageLib.js");
+  assert.equal(etatSonde({ confirme: true, lldp: true }).couleur, "var(--ok)");
+  assert.match(etatSonde({ confirme: false, nebula_commutateur: "SW", nebula_port: 3 }).texte, /SW port 3/);
+  assert.equal(etatSonde({ confirme: null, lldp: true }).couleur, "var(--warning)");
+  assert.equal(titreSonde({ commutateur: "SW-1", port: 12, vlan: 99, port_descr: "Studio" }), "SW-1 port 12 · VLAN 99 · Studio");
+  assert.equal(titreSonde({}), "commutateur inconnu");
+  assert.deepEqual(nouveauxEnAttente([1, 2], [2, 3]), [3]);
+});

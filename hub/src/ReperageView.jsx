@@ -6,7 +6,7 @@
 //  4. couverture Wi-Fi : signal du téléphone vu par la borne (Nebula ap-clients), relevé là où l'on se trouve.
 // Logique pure : reperageLib.js. API : nebula-api /sites/<site>/reperage/*. Rendu plein écran sur mobile (App : VUES_MOBILE).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ONGLETS, MAC_KEY, SITE_KEY, CLASSE_COULEUR, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite, lignesRadar, ageBalayage } from "./reperageLib.js";
+import { ONGLETS, MAC_KEY, SITE_KEY, CLASSE_COULEUR, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite, lignesRadar, ageBalayage, etatSonde, titreSonde, nouveauxEnAttente } from "./reperageLib.js";
 import { hubLink } from "./hubLinks.js";
 
 const store = {
@@ -82,6 +82,9 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
   const [nomApp, setNomApp] = useState("");
   const [radar, setRadar] = useState(null);           // dernier balayage reçu du téléphone (Termux) / de la sonde
   const [radarSource, setRadarSource] = useState(() => store.get("hub.reperage.radar.source", ""));
+  const [sonde, setSonde] = useState(null);           // #959 : relevés de la sonde filaire (Raspberry Pi), rafraîchis toutes les 3 s
+  const [sondeForm, setSondeForm] = useState({ prise: "", local: "", panneau: "", note: "" });
+  const attenteRef = useRef([]);
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
   useEffect(() => {
@@ -131,6 +134,35 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     tic(); const t = setInterval(tic, 5000);
     return () => { stop = true; clearInterval(t); };
   }, [ecran, siteId, base]);
+  useEffect(() => {
+    if (ecran !== "sonde" || !siteId) return;
+    let stop = false;
+    const tic = () => getJson(`${base}/reperage/sonde?limit=30`).then((d) => {
+      if (stop) return;
+      const neufs = nouveauxEnAttente(attenteRef.current, d.en_attente);
+      attenteRef.current = d.en_attente || [];
+      if (neufs.length) {                                    // nouveau branchement : vibrer + bip, pré-remplir la prise connue
+        try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch { /* sans vibreur */ }
+        try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const o = ac.createOscillator(); o.frequency.value = 880; o.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.25); } catch { /* sans audio */ }
+        const r = (d.releves || []).find((x) => x.id === neufs[0]);
+        setSondeForm((f) => ({ ...f, prise: r?.prise_connue?.prise || "", local: r?.prise_connue?.local || f.local, panneau: r?.prise_connue?.panneau || "" }));
+      }
+      setSonde(d);
+    }).catch((e) => { if (!stop) setSonde({ error: e.message, releves: [], en_attente: [] }); });
+    tic(); const t = setInterval(tic, 3000);
+    return () => { stop = true; clearInterval(t); };
+  }, [ecran, siteId, base]);
+  const validerSonde = async (r, ignorer) => {
+    setBusy(true); setMsg(null);
+    try {
+      const v = await postJson(`${base}/reperage/sonde/${r.id}/valider`, ignorer ? { ignorer: true } : { ...sondeForm, par: actor });
+      setMsg({ ok: true, text: ignorer ? "relevé ignoré" : `✓ ${v.prise} ← ${titreSonde(r)} — la sonde s'allume 3 s : débrancher, prise suivante.` });
+      setSondeForm((f) => ({ prise: "", local: f.local, panneau: "", note: "" }));
+      const d = await getJson(`${base}/reperage/sonde?limit=30`); attenteRef.current = d.en_attente || []; setSonde(d);
+      getJson(`${base}/reperage/prises`).then((p) => setPrises(p.prises || [])).catch(() => {});
+    } catch (e) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(false); }
+  };
   const marquerPosition = async (f) => {
     const src = radarSource || Object.keys(radar?.derniers || {})[0] || "?";
     try { await postJson(`${base}/reperage/radar/position`, { source: src, x: f.x, y: f.y }); setMsg({ ok: true, text: `✓ Position marquée (${src}).` }); }
@@ -237,7 +269,8 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
   if (ecran === "menu") {
     return (
       <div>
-        <div className="mob-barre"><button type="button" className="secondary" onClick={onBack}>◀ Hub</button><h2>📍 Repérage</h2></div>
+        <div className="mob-barre"><button type="button" className="secondary" onClick={onBack}>◀ Hub</button><h2>📍 Repérage</h2>
+          <button type="button" className="secondary" disabled={busy} onClick={() => charger(true)} title={inv ? `${inv.clients.length} équipements vus · ${prises.length} prises relevées` : "pas encore lu"}>{busy ? "⏳" : "↻"}</button></div>
         {sites.length > 1 && <label>Site<select value={siteId} onChange={(e) => setSiteId(e.target.value)}>{sites.map((s) => <option key={s.site_id} value={s.site_id}>{s.name || s.site_id}</option>)}</select></label>}
         {inv?.test && <p className="d">Site de test : commutateur SW-TEST, borne BORNE-TEST (SSID GROUPE_I), plan = rectangle du bureau ; le signal du téléphone est simulé et varie. Les prises et relevés sont réels (table du module).</p>}
         {messages}
@@ -248,7 +281,7 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
               <span>{o.label.replace(/^\d · /, "")}<small>{{ prise: "Trouver où est branché un équipement", brassage: "Port par port, déclarer les prises", position: "Poser la prise sur le plan, photo", wifi: "Relever le signal là où je suis" }[o.id]}</small></span>
             </button>
           ))}
-          <button type="button" className="secondary" disabled={busy} onClick={() => charger(true)}><span className="ic">↻</span><span>Rafraîchir Nebula<small>{inv ? `${inv.clients.length} équipements vus · ${prises.length} prises relevées` : busy ? "lecture…" : "pas encore lu"}</small></span></button>
+          <button type="button" className="secondary" onClick={() => { setMsg(null); setEcran("sonde"); }}><span className="ic">🔌</span><span>Sonde filaire<small>Raspberry branché prise par prise : commutateur, port → nommer la prise</small></span></button>
         </div>
       </div>
     );
@@ -316,6 +349,44 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     );
   }
 
+  if (ecran === "sonde") {
+    const att = (sonde?.releves || []).filter((r) => !r.ack);
+    const faits = (sonde?.releves || []).filter((r) => r.ack).slice(0, 15);
+    const courant = att[0];
+    const es = etatSonde(courant);
+    return (
+      <div>
+        <Barre titre="🔌 Sonde filaire" onRetour={retour} droite={<small className="muted">{sonde ? `${sonde.releves.length} relevé(s)` : "…"}</small>} />
+        {messages}
+        {sonde?.error && <p className="e">{sonde.error}</p>}
+        {!courant && <div className="mob-carte"><strong>En attente d'un branchement</strong><br /><small className="muted">Brancher le Raspberry sur une prise (mode prise) ou en sortie de panneau (mode brassage) : le relevé apparaît ici en quelques secondes, le téléphone vibre.</small></div>}
+        {courant && (
+          <div className="mob-carte" style={{ borderLeft: `4px solid ${es.couleur}` }}>
+            <div><strong>{titreSonde(courant)}</strong> <small className="muted">· {courant.source} · mode {courant.mode}{att.length > 1 ? ` · +${att.length - 1} en attente` : ""}</small></div>
+            <div style={{ color: es.couleur }}>{es.texte}</div>
+            {courant.prise_connue && <div><small>déjà déclarée : <strong>{courant.prise_connue.prise}</strong>{courant.prise_connue.local ? ` (${courant.prise_connue.local})` : ""}{courant.prise_connue.panneau ? ` · ${courant.prise_connue.panneau}` : ""}</small></div>}
+            <label>Prise<input value={sondeForm.prise} onChange={(e) => setSondeForm({ ...sondeForm, prise: e.target.value })} placeholder="B-12" autoFocus /></label>
+            {courant.mode === "brassage"
+              ? <label>Panneau / position en baie<input value={sondeForm.panneau} onChange={(e) => setSondeForm({ ...sondeForm, panneau: e.target.value })} placeholder="baie 1, panneau A, 12" /></label>
+              : <label>Local<input value={sondeForm.local} onChange={(e) => setSondeForm({ ...sondeForm, local: e.target.value })} placeholder="Amphi, bureau 12…" /></label>}
+            <label>Note<input value={sondeForm.note} onChange={(e) => setSondeForm({ ...sondeForm, note: e.target.value })} /></label>
+            <div className="mob-menu">
+              <button type="button" disabled={busy || !sondeForm.prise.trim()} onClick={() => validerSonde(courant, false)}><span className="ic">✓</span><span>{busy ? "⏳ enregistrement…" : "Enregistrer → prise suivante"}<small>la LED de la sonde s'allume 3 s</small></span></button>
+              <button type="button" className="secondary" disabled={busy} onClick={() => validerSonde(courant, true)}><span className="ic">✕</span><span>Ignorer ce relevé</span></button>
+            </div>
+          </div>
+        )}
+        {faits.length > 0 && <h3>Validés</h3>}
+        {faits.map((r) => <div key={r.id} className="mob-carte"><strong>{r.prise || "(ignoré)"}</strong> ← {titreSonde(r)} <small className="muted">· {r.mode} · {new Date(r.ack_at * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}{r.confirme === false ? " · ⚠ Nebula différait" : ""}</small></div>)}
+        <details><summary>Installer la sonde (Raspberry Pi)</summary>
+          <pre className="copiable">{`sudo apt install -y lldpd jq curl && sudo systemctl enable --now lldpd
+# script : nebula/tools/sonde-prise.sh (dépôt supervision-si)
+sudo HUB=${nebulaApiBase.startsWith("http") ? nebulaApiBase : `${window.location.origin}${nebulaApiBase}`} SITE=${siteId} SOURCE="Pi3" MODE=prise ./sonde-prise.sh
+# côté brassage : MODE=brassage ; réglages mémorisés dans ~/.sonde-prise.env ; LED : vite = LLDP en attente, lent = envoyé, fixe 3 s = validé`}</pre>
+        </details>
+      </div>
+    );
+  }
   if (ecran === "radar") {
     const sources = Object.keys(radar?.derniers || {});
     const src = radarSource && radar?.derniers?.[radarSource] ? radarSource : sources[0];

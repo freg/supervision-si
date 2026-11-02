@@ -359,3 +359,72 @@ def radar_csv(lignes):
     for l in lignes:
         out.append(";".join(str(l.get(c) if l.get(c) is not None else "").replace(";", ",") for c in cols))
     return "\n".join(out) + "\n"
+
+
+# ----------------------------------------------------------------- sonde filaire (#959) : Raspberry Pi branché prise par prise
+MODES_SONDE = ("prise", "brassage")
+
+
+def numero_port(v):
+    """Identifiant de port LLDP ou Nebula -> entier : « 12 », « ge12 », « port 12 », « 1/12 », « Port12 » -> 12."""
+    if v in (None, ""):
+        return None
+    if isinstance(v, int):
+        return v
+    m = re.findall(r"\d+", str(v))
+    return int(m[-1]) if m else None
+
+
+def valider_sonde(d):
+    """Relevé envoyé par la sonde (tools/sonde-prise.sh). Renvoie (releve, erreur)."""
+    if not isinstance(d, dict):
+        return None, "objet attendu"
+    source = str(d.get("source") or "").strip()[:60]
+    if not source:
+        return None, "source requise (nom de la sonde)"
+    mode = d.get("mode") if d.get("mode") in MODES_SONDE else "prise"
+    lldp = d.get("lldp") if isinstance(d.get("lldp"), dict) else {}
+    out = {"source": source, "mode": mode, "mac": norm_mac(d.get("mac")) if d.get("mac") else None, "ip": (str(d.get("ip") or "").strip()[:45] or None),
+           "commutateur": (str(lldp.get("commutateur") or lldp.get("chassis") or "").strip()[:80] or None),
+           "port": numero_port(lldp.get("port")), "port_id": (str(lldp.get("port") or "").strip()[:40] or None),
+           "port_descr": (str(lldp.get("port_descr") or "").strip()[:120] or None), "vlan": numero_port(lldp.get("vlan")),
+           "ip_gestion": (str(lldp.get("ip_gestion") or "").strip()[:45] or None), "lldp": bool(lldp.get("commutateur") or lldp.get("chassis")),
+           "note": (str(d.get("note") or "").strip()[:200] or None)}
+    try:
+        out["id"] = int(d["id"]) if d.get("id") not in (None, "") else None
+    except (TypeError, ValueError):
+        return None, "id invalide"
+    return out, None
+
+
+def rapprocher_sonde(r, inv, prises=None):
+    """Complète le relevé avec ce que Nebula voit de la MAC de la sonde (sw-clients) et la prise déjà déclarée sur ce port.
+    confirme : True = LLDP et Nebula d'accord ; False = en désaccord ; None = Nebula n'a pas (encore) vu la sonde."""
+    c = next((x for x in (inv or {}).get("clients") or [] if x.get("mac") == r.get("mac")), None) if r.get("mac") else None
+    r = dict(r, nebula_commutateur=None, nebula_port=None, confirme=None)
+    if c and c.get("type") == "filaire" and (c.get("commutateur") or c.get("port") is not None):
+        r["nebula_commutateur"], r["nebula_port"] = c.get("commutateur") or c.get("commutateur_id"), numero_port(c.get("port"))
+        if r["lldp"]:
+            meme_sw = (r["commutateur"] or "").lower() == (r["nebula_commutateur"] or "").lower() or not r["commutateur"] or not r["nebula_commutateur"]
+            r["confirme"] = bool(meme_sw and r["port"] == r["nebula_port"])
+        else:                                        # pas de LLDP : Nebula fait foi
+            r["commutateur"], r["port"], r["confirme"] = r["nebula_commutateur"], r["nebula_port"], True
+    sw, po = (r.get("commutateur") or "").lower(), r.get("port")
+    r["prise_connue"] = next((p for p in prises or [] if po is not None and p.get("port") == po and (p.get("commutateur") or "").lower() == sw), None)
+    return r
+
+
+def fusion_prise_sonde(existante, releve, saisie):
+    """Prise à enregistrer après validation d'un relevé de sonde : mode prise -> commutateur/port ; mode brassage -> panneau.
+    `saisie` : {prise, local, panneau, note} tapé sur le téléphone."""
+    p = dict(existante or {})
+    p["prise"] = (saisie.get("prise") or p.get("prise") or "").strip()
+    for k in ("local", "note"):
+        if saisie.get(k):
+            p[k] = saisie[k]
+    if releve.get("mode") == "brassage":
+        if saisie.get("panneau"):
+            p["panneau"] = saisie["panneau"]
+    if releve.get("commutateur") and releve.get("port") is not None:
+        p["commutateur"], p["port"] = releve["commutateur"], releve["port"]
+    return p
