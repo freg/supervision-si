@@ -1,3 +1,13 @@
+## 2026-11-02 — Repérage : appareils connus pour valider les tests (livraison #953)
+
+- Demande : des MAC connues « en dur » pour valider les tests, sans les mettre dans le dépôt (règle d'anonymisation).
+  **Appareils connus** (`reperage_appareils` dans la base de nebula-api, volume `/data`) : `GET/PUT /reperage/appareils`,
+  `DELETE /reperage/appareils/<mac>` ; amorçage possible par `REPERAGE_APPAREILS="aa:bb:cc:dd:ee:ff=Téléphone X;…"` dans le
+  `.env` (hors dépôt). Onglet Couverture Wi-Fi : liste « Appareil connu » + « ＋ Mémoriser » la MAC saisie avec un nom.
+  Sur le site de test, tous les téléphones / tablettes connus sont vus par BORNE-TEST (signal simulé décalé par appareil) ;
+  dans tous les inventaires, un client connu porte « ★ nom » et prend ce nom s'il n'en a pas.
+- Vérifié : tests nebula (8), JSX. Non vérifié : rendu téléphone.
+
 ## 2026-11-02 — Repérage : site de test au bureau, sans Nebula (livraison #952)
 
 - Pour s'exercer au bureau avant le campus : site **« Bureau — test sans Nebula »** toujours présent dans le menu du

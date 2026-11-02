@@ -78,6 +78,8 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
   const [rssiTel, setRssiTel] = useState("");
   const [noteRel, setNoteRel] = useState("");
   const [swOuvert, setSwOuvert] = useState(null);
+  const [appareils, setAppareils] = useState([]);     // appareils connus (téléphones de test) : base du module, pas le dépôt
+  const [nomApp, setNomApp] = useState("");
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
   useEffect(() => {
@@ -85,6 +87,14 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [nebulaApiBase]);
   useEffect(() => { if (siteId) store.set(SITE_KEY, siteId); }, [siteId]);
+  const chargerAppareils = useCallback(() => getJson(`${nebulaApiBase}/reperage/appareils`).then((d) => setAppareils(d.appareils || [])).catch(() => {}), [nebulaApiBase]);
+  useEffect(() => { chargerAppareils(); }, [chargerAppareils]);
+  const enregistrerAppareil = async () => {
+    setBusy(true); setMsg(null);
+    try { const a = await putJson(`${nebulaApiBase}/reperage/appareils`, { mac, nom: nomApp, genre: "telephone" }); setMsg({ ok: true, text: `✓ ${a.nom} (${a.mac}) enregistré comme appareil connu.` }); setNomApp(""); chargerAppareils(); }
+    catch (e) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(false); }
+  };
 
   const charger = useCallback(async (refresh) => {
     if (!siteId) return;
@@ -170,7 +180,7 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
       <div key={cle || c.mac} className="mob-carte">
         <div className="t">{c.type === "wifi" ? "📶" : "🔌"} {libelleClient(c)}</div>
         <div>{ouEstBranche(c)}</div>
-        <div className="d">{c.ip ? `IP ${c.ip} · ` : ""}{c.mac}{c.fabricant ? ` · ${c.fabricant}` : ""}</div>
+        <div className="d">{c.ip ? `IP ${c.ip} · ` : ""}{c.mac}{c.fabricant ? ` · ${c.fabricant}` : ""}{c.connu ? ` · ★ ${c.connu}` : ""}</div>
         <div className="d">{p ? `Prise ${p.prise}${p.local ? ` · ${p.local}` : ""}` : c.type === "filaire" ? "Prise non relevée" : ""}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
           <button type="button" onClick={() => ouvrirPrise(p, c)}>{p ? "Corriger la prise" : "Relever la prise"}</button>
@@ -298,8 +308,16 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
       <Barre titre="📶 Couverture Wi-Fi" onRetour={retour} />
       {messages}
       <div className="mob-carte">
+        {appareils.length > 0 && <label>Appareil connu<select value={appareils.some((a) => a.mac === mac) ? mac : ""} onChange={(e) => { if (e.target.value) { setMac(e.target.value); store.set(MAC_KEY, e.target.value); } }}>
+          <option value="">— choisir —</option>{appareils.map((a) => <option key={a.mac} value={a.mac}>{a.nom} · {a.mac}</option>)}</select></label>}
         <label>MAC Wi-Fi du téléphone<input value={mac} onChange={(e) => { setMac(e.target.value); store.set(MAC_KEY, e.target.value); }} placeholder="aa:bb:cc:dd:ee:ff" /></label>
         <div className="d">Réglages › À propos. Désactiver la MAC aléatoire pour le Wi-Fi du site.</div>
+        {mac && !appareils.some((a) => a.mac === mac.trim().toLowerCase()) && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 6 }}>
+            <input value={nomApp} onChange={(e) => setNomApp(e.target.value)} placeholder="nom (ex. Téléphone Freg)" />
+            <button type="button" className="secondary" disabled={busy || !nomApp.trim()} onClick={enregistrerAppareil}>{busy ? "⏳" : "＋ Mémoriser"}</button>
+          </div>
+        )}
         {mobile?.error && <p style={{ color: "var(--danger)" }}>{mobile.error}</p>}
         {mobile && !mobile.error && (mobile.vu ? (
           <p style={{ margin: "8px 0", fontSize: 19 }}>Borne <b>{mobile.mobile.borne || "?"}</b><br /><span style={{ color: CLASSE_COULEUR[mobile.classe], fontWeight: 700 }}>{mobile.mobile.signal != null ? `${mobile.mobile.signal} dBm — ${mobile.classe}` : "signal non transmis"}</span>{mobile.mobile.bande ? ` · ${bande(mobile.mobile.bande)}` : ""}{mobile.mobile.canal ? ` · canal ${mobile.mobile.canal}` : ""}</p>

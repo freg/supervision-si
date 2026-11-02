@@ -51,6 +51,14 @@ class TestReperage(unittest.TestCase):
         self.assertIsNone(R.releve_depuis_mobile({}, "a", 0))
         self.assertEqual(R.releve_depuis_mobile({}, 0.1, 0.1)["classe"], "inconnu")
 
+    def test_appareils_et_connus(self):
+        self.assertEqual(R.valider_appareil({"mac": "AA:BB:CC:00:00:01", "nom": " Tél ", "genre": "zz"})[0], {"mac": "aa:bb:cc:00:00:01", "nom": "Tél", "genre": "autre"})
+        self.assertEqual(R.valider_appareil({"mac": "aa:bb:cc:00:00:01"})[1], "nom requis (ex. « Téléphone Freg »)")
+        inv = R.enrichir_connus(R.inventaire(SW, AP, SC, DEV), [{"mac": "aa:bb:cc:00:00:02", "nom": "Borne de test", "genre": "autre"}])
+        c = next(x for x in inv["clients"] if x["mac"] == "aa:bb:cc:00:00:02"); self.assertEqual((c["nom"], c["connu"]), ("Borne de test", "Borne de test"))
+        t = R.inventaire_test(now=100, appareils=[{"mac": "02:00:00:00:00:55", "nom": "T", "genre": "telephone"}, {"mac": "02:00:00:00:00:56", "nom": "PC", "genre": "pc"}])
+        self.assertTrue(any(c["mac"] == "02:00:00:00:00:55" and c["type"] == "wifi" for c in t["clients"])); self.assertFalse(any(c["mac"] == "02:00:00:00:00:56" for c in t["clients"]))
+
     def test_csv(self):
         t = R.prises_csv([{"prise": "B-12", "port": 12, "long_cordon": True, "photos": ["a", "b"], "note": "x;y\nz"}])
         self.assertEqual(t.splitlines()[1].split(";")[:4], ["B-12", "", "", "12"]); self.assertIn("oui", t); self.assertIn("a b", t); self.assertIn("x,y z", t)
@@ -103,6 +111,18 @@ class TestRoutes(unittest.TestCase):
         m = cl.get("/sites/test-bureau/reperage/mobile?mac=11:22:33:44:55:66").get_json(); self.assertTrue(m["vu"]); self.assertEqual(m["mobile"]["borne"], "BORNE-TEST"); self.assertLessEqual(m["mobile"]["signal"], -48)
         self.assertTrue(any(c["mac"] == "11:22:33:44:55:66" for c in cl.get("/sites/test-bureau/reperage/inventaire").get_json()["clients"]))
         self.assertTrue(cl.get("/sites/test-bureau/reperage/recherche?q=p3").get_json()["resultats"])
+        # appareils connus : validation, enregistrement, visibles sur le site de test et nommés dans les inventaires
+        self.assertEqual(cl.put("/reperage/appareils", json={"mac": "zz", "nom": "x"}).status_code, 400)
+        self.assertEqual(cl.put("/reperage/appareils", json={"mac": "FC-02-96-72-7E-89", "nom": "Téléphone test"}).get_json(), {"mac": "fc:02:96:72:7e:89", "nom": "Téléphone test", "genre": "telephone"})
+        self.assertEqual([a["nom"] for a in cl.get("/reperage/appareils").get_json()["appareils"]], ["Téléphone test"])
+        inv = cl.get("/sites/test-bureau/reperage/inventaire").get_json()
+        tel = next(c for c in inv["clients"] if c["mac"] == "fc:02:96:72:7e:89"); self.assertEqual((tel["borne"], tel["connu"], tel["ssid"]), ("BORNE-TEST", "Téléphone test", "GROUPE_I"))
+        self.assertEqual(cl.delete("/reperage/appareils/fc:02:96:72:7e:89").get_json()["supprime"], 1)
+        os.environ["REPERAGE_APPAREILS"] = "02:00:00:00:00:99=Tablette env"
+        try:
+            self.assertEqual(cl.get("/reperage/appareils").get_json()["appareils"][0]["nom"], "Tablette env")
+        finally:
+            del os.environ["REPERAGE_APPAREILS"]
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  953: [{ view: "reperage", hint: "onglet Couverture Wi-Fi : « ＋ Mémoriser » la MAC saisie, puis la choisir dans « Appareil connu »" }],
   952: [{ view: "reperage", hint: "choisir le site « Bureau — test sans Nebula » dans le menu du repérage" }],
   951: [{ view: "reperage", hint: "Accueil téléphone : Repérage sur site / Urgence / Hub complet" }],
   950: [{ view: "reperage", hint: "Repérage sur site en plein écran téléphone : 4 gros boutons, un écran à la fois" }],

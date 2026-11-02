@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS reperage_prises (
     site_id TEXT NOT NULL, prise TEXT NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, updated_by TEXT,
     PRIMARY KEY (site_id, prise)
 );
+CREATE TABLE IF NOT EXISTS reperage_appareils (
+    mac TEXT PRIMARY KEY, nom TEXT NOT NULL, genre TEXT NOT NULL, updated_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS reperage_releves (
     id TEXT PRIMARY KEY, site_id TEXT NOT NULL, data TEXT NOT NULL, at INTEGER NOT NULL
 );
@@ -47,13 +50,29 @@ def register(app, hooks):
     finally:
         conn.close()
 
+    def _appareils():
+        conn = conn_fn()
+        try:
+            rows = conn.execute("SELECT mac, nom, genre, updated_at FROM reperage_appareils ORDER BY nom").fetchall()
+        finally:
+            conn.close()
+        out = [{"mac": r["mac"], "nom": r["nom"], "genre": r["genre"], "maj": r["updated_at"]} for r in rows]
+        # amorçage par l'environnement (jamais dans le dépôt) : REPERAGE_APPAREILS="aa:bb:cc:dd:ee:ff=Téléphone X;…"
+        for item in (os.environ.get("REPERAGE_APPAREILS") or "").split(";"):
+            if "=" in item:
+                m, n = item.split("=", 1)
+                a, err = lib.valider_appareil({"mac": m.strip(), "nom": n.strip()})
+                if a and not any(x["mac"] == a["mac"] for x in out):
+                    out.append(dict(a, maj=None, env=True))
+        return out
+
     def _inventaire(site_id, period="1d", force=False, mac_mobile=None):
         if site_id == lib.SITE_TEST:        # bureau : pas de Nebula, inventaire simulé (jamais mis en cache : le signal bouge)
-            inv = lib.inventaire_test(mac_mobile=mac_mobile or _mac_test.get("mac")); inv["erreurs"] = []; inv["period"] = period
-            return inv
+            inv = lib.inventaire_test(mac_mobile=mac_mobile or _mac_test.get("mac"), appareils=_appareils()); inv["erreurs"] = []; inv["period"] = period
+            return lib.enrichir_connus(inv, _appareils())
         c = _cache.get(site_id)
         if c and not force and time.time() - c["at"] < CACHE_S and c["period"] == period:
-            return c["inv"]
+            return lib.enrichir_connus(c["inv"], _appareils())
         client = connect()
         erreurs = []
         sw = ap = sc = []
@@ -74,7 +93,7 @@ def register(app, hooks):
         inv["erreurs"] = erreurs
         inv["period"] = period
         _cache[site_id] = {"at": time.time(), "inv": inv, "period": period}
-        return inv
+        return lib.enrichir_connus(inv, _appareils())
 
     def _prises(site_id):
         conn = conn_fn()
@@ -100,6 +119,35 @@ def register(app, hooks):
             pass
         sites.append({"site_id": lib.SITE_TEST, "name": "Bureau — test sans Nebula", "test": True})
         return jsonify({"sites": sites}), 200
+
+    # -- appareils connus (téléphones de test…) : dans la base du module, jamais dans le dépôt ---------------------------
+    @app.route("/reperage/appareils", methods=["GET"])
+    def reperage_appareils():
+        return jsonify({"appareils": _appareils()}), 200
+
+    @app.route("/reperage/appareils", methods=["PUT"])
+    def reperage_appareil_put():
+        a, err = lib.valider_appareil(request.get_json(silent=True) or {})
+        if err:
+            return jsonify({"error": err}), 400
+        conn = conn_fn()
+        try:
+            conn.execute("INSERT INTO reperage_appareils (mac, nom, genre, updated_at) VALUES (?, ?, ?, ?) "
+                         "ON CONFLICT(mac) DO UPDATE SET nom = excluded.nom, genre = excluded.genre, updated_at = excluded.updated_at", (a["mac"], a["nom"], a["genre"], int(time.time())))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify(a), 200
+
+    @app.route("/reperage/appareils/<mac>", methods=["DELETE"])
+    def reperage_appareil_del(mac):
+        conn = conn_fn()
+        try:
+            n = conn.execute("DELETE FROM reperage_appareils WHERE mac = ?", (lib.norm_mac(mac) or "",)).rowcount
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"supprime": n}), 200
 
     @app.route("/sites/<site_id>/reperage/inventaire", methods=["GET"])
     def reperage_inventaire(site_id):
