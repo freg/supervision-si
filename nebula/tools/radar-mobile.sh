@@ -24,7 +24,7 @@ while true; do
     echo "$(date +%T) aucun balayage : $(echo "$scan" | head -c 120) (Termux:API installé ? localisation autorisée ?)"; sleep "$INT"; continue
   fi
   # empreinte = horodatages Android des résultats (µs depuis le démarrage) : identique = pas de nouveau balayage
-  empreinte=$(echo "$scan" | jq -c '[.[] | select(.connecte != true) | .timestamp] | sort + [(.[] | select(.connecte == true) | .rssi)]')
+  empreinte=$(echo "$scan" | jq -c '. as $s | ([$s[] | select(.connecte != true) | .timestamp] | sort) + [$s[] | select(.connecte == true) | .rssi]')
   if [ "$empreinte" = "$dernier" ]; then
     fige=$((fige+1)); [ $((fige % 6)) -eq 1 ] && echo "$(date +%T) balayage inchangé depuis ${fige} tours (limitation Android : désactiver « Limitation de la recherche Wi-Fi », garder Termux à l'écran)"
     sleep "$INT"; continue
