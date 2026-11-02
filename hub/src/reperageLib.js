@@ -116,3 +116,24 @@ export function tailleReduite(w, h, max = 1600) {
   const k = Math.min(1, max / Math.max(w, h));
   return { w: Math.round(w * k), h: Math.round(h * k) };
 }
+
+/** Radar : barre de signal 0..1 à partir d'un RSSI (-90 → 0, -40 → 1). */
+export function niveauSignal(rssi) {
+  if (rssi == null || Number.isNaN(Number(rssi))) return 0;
+  return Math.min(1, Math.max(0, (Number(rssi) + 90) / 50));
+}
+
+/** Lignes du dernier balayage → affichage : plus forte d'abord, SSID ou BSSID, distance arrondie. */
+export function lignesRadar(bornes) {
+  return (bornes || []).slice().sort((a, b) => b.rssi - a.rssi).map((b) => ({
+    cle: b.bssid, nom: b.ssid || b.bssid, bssid: b.bssid, rssi: b.rssi, niveau: niveauSignal(b.rssi), classe: classeSignal(b.rssi),
+    bande: bande(b.bande), canal: b.canal, distance: b.distance_m != null ? (b.distance_m < 10 ? `${String(b.distance_m).replace(".", ",")} m` : `${Math.round(b.distance_m)} m`) : "—",
+  }));
+}
+
+/** Âge d'un balayage en secondes, lisible. */
+export function ageBalayage(at, maintenant) {
+  if (!at) return "jamais";
+  const s = Math.max(0, Math.round((maintenant || Date.now() / 1000) - at));
+  return s < 60 ? `il y a ${s} s` : s < 3600 ? `il y a ${Math.round(s / 60)} min` : `il y a ${Math.round(s / 3600)} h`;
+}

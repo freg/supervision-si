@@ -59,6 +59,19 @@ class TestReperage(unittest.TestCase):
         t = R.inventaire_test(now=100, appareils=[{"mac": "02:00:00:00:00:55", "nom": "T", "genre": "telephone"}, {"mac": "02:00:00:00:00:56", "nom": "PC", "genre": "pc"}])
         self.assertTrue(any(c["mac"] == "02:00:00:00:00:55" and c["type"] == "wifi" for c in t["clients"])); self.assertFalse(any(c["mac"] == "02:00:00:00:00:56" for c in t["clients"]))
 
+    def test_radar(self):
+        self.assertEqual((R.canal_depuis_frequence(2412), R.canal_depuis_frequence(2484), R.canal_depuis_frequence(5180), R.canal_depuis_frequence(5955), R.canal_depuis_frequence("x")), (1, 14, 36, 1, None))
+        self.assertEqual((R.bande_depuis_frequence(2437), R.bande_depuis_frequence(5500), R.bande_depuis_frequence(6100)), ("band24", "band5", "band6"))
+        self.assertEqual(R.distance_estimee(-40, 2437), 1.0); self.assertEqual(R.distance_estimee(-45, 5180), 1.0); self.assertGreater(R.distance_estimee(-80, 2437), 20); self.assertIsNone(R.distance_estimee("x"))
+        # sortie de termux-wifi-scaninfo acceptée telle quelle
+        b, err = R.valider_balayage({"source": " Tél ", "scan": [{"bssid": "AA:BB:CC:00:00:01", "ssid": "GROUPE_I", "rssi": -52, "frequency_mhz": 5180},
+                                                                     {"bssid": "aa:bb:cc:00:00:02", "rssi": "-71", "frequency_mhz": 2437}, {"bssid": "zz", "rssi": -1}]}, now=100)
+        self.assertIsNone(err); self.assertEqual((b["source"], b["at"], b["x"]), ("Tél", 100.0, None))
+        self.assertEqual([x["bssid"] for x in b["bornes"]], ["aa:bb:cc:00:00:01", "aa:bb:cc:00:00:02"]); self.assertEqual((b["bornes"][0]["canal"], b["bornes"][0]["bande"]), (36, "band5"))
+        self.assertEqual(R.valider_balayage({"scan": [{"bssid": "a"}]})[1], "source requise (nom ou MAC de l'appareil qui balaie)")
+        self.assertEqual(R.valider_balayage({"source": "s", "scan": [{"bssid": "zz", "rssi": 1}]})[1], "aucune borne exploitable (bssid + rssi requis)")
+        self.assertIn("scan_id;source", R.radar_csv([{"scan_id": "x", "source": "s;t", "rssi": -50}]))
+
     def test_csv(self):
         t = R.prises_csv([{"prise": "B-12", "port": 12, "long_cordon": True, "photos": ["a", "b"], "note": "x;y\nz"}])
         self.assertEqual(t.splitlines()[1].split(";")[:4], ["B-12", "", "", "12"]); self.assertIn("oui", t); self.assertIn("a b", t); self.assertIn("x,y z", t)
@@ -118,6 +131,14 @@ class TestRoutes(unittest.TestCase):
         inv = cl.get("/sites/test-bureau/reperage/inventaire").get_json()
         tel = next(c for c in inv["clients"] if c["mac"] == "fc:02:96:72:7e:89"); self.assertEqual((tel["borne"], tel["connu"], tel["ssid"]), ("BORNE-TEST", "Téléphone test", "GROUPE_I"))
         self.assertEqual(cl.delete("/reperage/appareils/fc:02:96:72:7e:89").get_json()["supprime"], 1)
+        # radar : dépôt d'un balayage, dernier par source, position, historique, CSV
+        r = cl.post("/sites/s1/reperage/radar", json={"source": "Tél", "scan": [{"bssid": "aa:bb:cc:00:00:01", "ssid": "GROUPE_I", "rssi": -52, "frequency_mhz": 5180}, {"bssid": "aa:bb:cc:00:00:02", "rssi": -71, "frequency_mhz": 2437}]})
+        self.assertEqual(r.status_code, 201); self.assertEqual(r.get_json()["bornes"], 2); self.assertEqual(r.get_json()["plus_forte"]["ssid"], "GROUPE_I")
+        self.assertEqual(cl.post("/sites/s1/reperage/radar", json={"source": "Tél"}).status_code, 400)
+        self.assertEqual(cl.post("/sites/s1/reperage/radar/position", json={"source": "Tél", "x": 0.3, "y": 0.4}).status_code, 201)
+        g = cl.get("/sites/s1/reperage/radar").get_json(); self.assertEqual((g["scans"], g["bssids"], g["positions"]), (1, 2, 1)); self.assertEqual(g["derniers"]["Tél"]["bornes"][0]["rssi"], -52)
+        h = cl.get("/sites/s1/reperage/radar?depuis=0").get_json(); self.assertEqual(len(h["lignes"]), 2); self.assertEqual(len(h["positions"]), 1)
+        self.assertIn("GROUPE_I", cl.get("/sites/s1/reperage/radar.csv").get_data(as_text=True))
         os.environ["REPERAGE_APPAREILS"] = "02:00:00:00:00:99=Tablette env"
         try:
             self.assertEqual(cl.get("/reperage/appareils").get_json()["appareils"][0]["nom"], "Tablette env")

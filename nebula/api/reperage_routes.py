@@ -29,6 +29,14 @@ CREATE TABLE IF NOT EXISTS reperage_prises (
 CREATE TABLE IF NOT EXISTS reperage_appareils (
     mac TEXT PRIMARY KEY, nom TEXT NOT NULL, genre TEXT NOT NULL, updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reperage_radar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, scan_id TEXT NOT NULL, source TEXT NOT NULL, at REAL NOT NULL,
+    x REAL, y REAL, bssid TEXT NOT NULL, ssid TEXT, rssi INTEGER NOT NULL, frequence INTEGER, canal INTEGER, bande TEXT, distance_m REAL
+);
+CREATE INDEX IF NOT EXISTS idx_reperage_radar_site_at ON reperage_radar (site_id, at);
+CREATE TABLE IF NOT EXISTS reperage_radar_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, source TEXT NOT NULL, at REAL NOT NULL, x REAL NOT NULL, y REAL NOT NULL, note TEXT
+);
 CREATE TABLE IF NOT EXISTS reperage_releves (
     id TEXT PRIMARY KEY, site_id TEXT NOT NULL, data TEXT NOT NULL, at INTEGER NOT NULL
 );
@@ -251,6 +259,71 @@ def register(app, hooks):
         m = _mobile(site_id, mac)
         return jsonify({"mac": lib.norm_mac(mac), "vu": m is not None, "mobile": m, "classe": lib.signal_couleur((m or {}).get("signal")),
                         "note": "signal vu par la borne (Nebula, rafraîchi avec un retard de l'ordre de la minute)"}), 200
+
+    # -- radar Wi-Fi mobile (#954) : balayages envoyés par le téléphone (Termux) ou une sonde portée --------------------
+    @app.route("/sites/<site_id>/reperage/radar", methods=["POST"])
+    def reperage_radar_post(site_id):
+        b, err = lib.valider_balayage(request.get_json(silent=True) or {})
+        if err:
+            return jsonify({"error": err, "aide": "corps attendu : {source, at?, x?, y?, scan: [{bssid, ssid, rssi, frequency_mhz}]} (sortie de termux-wifi-scaninfo acceptée dans `scan`)"}), 400
+        sid = uuid.uuid4().hex[:10]
+        conn = conn_fn()
+        try:
+            conn.executemany("INSERT INTO reperage_radar (site_id, scan_id, source, at, x, y, bssid, ssid, rssi, frequence, canal, bande, distance_m) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                             [(site_id, sid, b["source"], b["at"], b["x"], b["y"], k["bssid"], k["ssid"], k["rssi"], k["frequence"], k["canal"], k["bande"], k["distance_m"]) for k in b["bornes"]])
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"scan_id": sid, "bornes": len(b["bornes"]), "at": b["at"], "plus_forte": b["bornes"][0]}), 201
+
+    @app.route("/sites/<site_id>/reperage/radar/position", methods=["POST"])
+    def reperage_radar_position(site_id):
+        """Marque de position du porteur (toucher le plan) : rapprochée des balayages par le temps en post-traitement."""
+        b = request.get_json(silent=True) or {}
+        try:
+            x, y = min(1.0, max(0.0, float(b.get("x")))), min(1.0, max(0.0, float(b.get("y"))))
+        except (TypeError, ValueError):
+            return jsonify({"error": "position (x, y) attendue"}), 400
+        src = (str(b.get("source") or "")).strip()[:80] or "?"
+        at = time.time()
+        conn = conn_fn()
+        try:
+            conn.execute("INSERT INTO reperage_radar_positions (site_id, source, at, x, y, note) VALUES (?, ?, ?, ?, ?, ?)", (site_id, src, at, x, y, (b.get("note") or "")[:200] or None))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"source": src, "at": at, "x": x, "y": y}), 201
+
+    @app.route("/sites/<site_id>/reperage/radar", methods=["GET"])
+    def reperage_radar_get(site_id):
+        """Dernier balayage de `source` (ou de chaque source) + compteurs ; `?depuis=<epoch>` pour l'historique brut (post-traitement)."""
+        src = request.args.get("source")
+        depuis = request.args.get("depuis")
+        conn = conn_fn()
+        try:
+            if depuis:
+                rows = conn.execute("SELECT * FROM reperage_radar WHERE site_id = ? AND at >= ? ORDER BY at, rssi DESC LIMIT 20000", (site_id, float(depuis))).fetchall()
+                pos = conn.execute("SELECT source, at, x, y, note FROM reperage_radar_positions WHERE site_id = ? AND at >= ? ORDER BY at", (site_id, float(depuis))).fetchall()
+                return jsonify({"lignes": [dict(r) for r in rows], "positions": [dict(r) for r in pos]}), 200
+            derniers = {}
+            q = "SELECT source, MAX(at) AS at FROM reperage_radar WHERE site_id = ?" + (" AND source = ?" if src else "") + " GROUP BY source"
+            for r in conn.execute(q, (site_id, src) if src else (site_id,)).fetchall():
+                rows = conn.execute("SELECT * FROM reperage_radar WHERE site_id = ? AND source = ? AND at = ? ORDER BY rssi DESC", (site_id, r["source"], r["at"])).fetchall()
+                derniers[r["source"]] = {"at": r["at"], "bornes": [dict(x) for x in rows]}
+            n = conn.execute("SELECT COUNT(*) AS n, COUNT(DISTINCT scan_id) AS scans, COUNT(DISTINCT bssid) AS bssids, MIN(at) AS debut FROM reperage_radar WHERE site_id = ?", (site_id,)).fetchone()
+            npos = conn.execute("SELECT COUNT(*) AS n FROM reperage_radar_positions WHERE site_id = ?", (site_id,)).fetchone()["n"]
+        finally:
+            conn.close()
+        return jsonify({"derniers": derniers, "total": n["n"], "scans": n["scans"], "bssids": n["bssids"], "debut": n["debut"], "positions": npos, "maintenant": time.time()}), 200
+
+    @app.route("/sites/<site_id>/reperage/radar.csv", methods=["GET"])
+    def reperage_radar_csv(site_id):
+        conn = conn_fn()
+        try:
+            rows = [dict(r) for r in conn.execute("SELECT * FROM reperage_radar WHERE site_id = ? ORDER BY at, rssi DESC", (site_id,)).fetchall()]
+        finally:
+            conn.close()
+        return Response(lib.radar_csv(rows), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=radar-%s.csv" % re.sub(r"[^A-Za-z0-9_-]", "_", site_id)})
 
     @app.route("/sites/<site_id>/reperage/releves", methods=["GET"])
     def reperage_releves(site_id):

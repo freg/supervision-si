@@ -1,3 +1,19 @@
+## 2026-11-02 — Radar Wi-Fi mobile : enregistrer en continu la distance aux bornes visibles (livraison #954)
+
+- Demande : en déplacement, présenter et surtout **enregistrer en continu** la distance aux points d'accès visibles ; le
+  post-traitement viendra ensuite. Limite incontournable : un navigateur ne peut pas balayer le Wi-Fi → les balayages sont
+  envoyés par un script sur le téléphone (**Termux + Termux:API**, `nebula/tools/radar-mobile.sh`, `termux-wifi-scaninfo`
+  toutes les 5 s ; désactiver la limitation de recherche Wi-Fi dans les options développeur) ou par une sonde portée (Pi +
+  Alfa, plus rapide, toutes bandes).
+- nebula-api : `POST /sites/<site>/reperage/radar` (sortie Termux acceptée telle quelle), une ligne par borne et par
+  balayage (`reperage_radar` : BSSID, SSID, RSSI, fréquence, canal, bande, **distance estimée** par log-distance — n = 2,7,
+  P0 -40 / -45 / -48 dBm selon la bande — indicative, à étalonner), marques de position du porteur (`radar/position`, toucher
+  le plan ; rapprochement par le temps au post-traitement), `GET …/radar` (dernier balayage par source, compteurs),
+  `?depuis=` (historique brut), `radar.csv`.
+- Téléphone : Couverture Wi-Fi › **📡 Radar** — bornes visibles en direct (barre, dBm, ≈ distance, bande, canal), âge du
+  dernier balayage, compteurs, plan pour marquer la position, aide d'installation, CSV.
+- Vérifié : tests nebula (9), reperageLib (4), JSX. Non vérifié : Termux réel, rendu téléphone.
+
 ## 2026-11-02 — Repérage : appareils connus pour valider les tests (livraison #953)
 
 - Demande : des MAC connues « en dur » pour valider les tests, sans les mettre dans le dépôt (règle d'anonymisation).

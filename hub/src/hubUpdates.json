@@ -1,5 +1,11 @@
 [
  {
+  "n": 954,
+  "from": 954,
+  "date": "2026-11-02",
+  "title": "Radar Wi-Fi mobile : balayages continus des bornes visibles (RSSI, bande, canal, distance estimée) envoyés par le téléphone (Termux) ou une sonde portée, enregistrés pour post-traitement ; écran Radar + marques de position sur le plan"
+ },
+ {
   "n": 953,
   "from": 953,
   "date": "2026-11-02",

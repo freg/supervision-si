@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite } from "../src/reperageLib.js";
+import { niveauSignal, lignesRadar, ageBalayage, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite } from "../src/reperageLib.js";
 
 const inv = { clients: [
   { mac: "aa:bb:cc:00:00:01", nom: "ecran-amphi", ip: "172.16.20.10", type: "filaire", commutateur: "GS-1", commutateur_id: "d1", port: 12, vlan: 20 },
@@ -37,4 +37,11 @@ test("fraction, relevés, synthèse, photo", () => {
   const s = syntheseCouverture([{ borne: "A", signal: -55 }, { borne: "A", rssi_mobile: -75 }, { borne: "B", signal: -90 }, { signal: null }]);
   assert.equal(s.total, 4); assert.equal(s.faibles, 2); assert.equal(s.bornes[0].borne, "A"); assert.equal(s.bornes[0].median, -55);
   assert.deepEqual(tailleReduite(4000, 3000), { w: 1600, h: 1200 }); assert.deepEqual(tailleReduite(800, 600), { w: 800, h: 600 }); assert.deepEqual(tailleReduite(0, 0), { w: 0, h: 0 });
+});
+
+test("radar", () => {
+  assert.equal(niveauSignal(-90), 0); assert.equal(niveauSignal(-40), 1); assert.equal(niveauSignal(-65), 0.5); assert.equal(niveauSignal(null), 0);
+  const l = lignesRadar([{ bssid: "a", rssi: -70, bande: "band5", canal: 36, distance_m: 12.3 }, { bssid: "b", ssid: "GROUPE_I", rssi: -50, bande: "band24", distance_m: 2.5 }]);
+  assert.equal(l[0].nom, "GROUPE_I"); assert.equal(l[0].distance, "2,5 m"); assert.equal(l[1].distance, "12 m"); assert.equal(l[1].bande, "5 GHz"); assert.equal(l[1].classe, "moyen");
+  assert.equal(ageBalayage(null), "jamais"); assert.equal(ageBalayage(1000, 1030), "il y a 30 s"); assert.equal(ageBalayage(1000, 1000 + 7200), "il y a 2 h");
 });

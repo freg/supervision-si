@@ -11,6 +11,12 @@ données d'un site sous nebula.zyxel.com").
 et des clients du site (IP, hôte, fabricant) → « où est branché quoi » ; prises relevées sur place (table `reperage_prises`,
 photos dans `<base>/reperage/<site>/`), relevés de couverture Wi-Fi (`reperage_releves`, signal du téléphone vu par la
 borne). Vue hub `ReperageView.jsx` (mobile), logique `reperageLib.js`. Tests : `tests/test_reperage.py`.
+**Radar Wi-Fi mobile (#954)** : un navigateur ne balaie pas le Wi-Fi ; `tools/radar-mobile.sh` (Termux + Termux:API,
+`termux-wifi-scaninfo`) ou une sonde portée envoie en continu `POST /sites/<site>/reperage/radar {source, scan:[{bssid,
+ssid, rssi, frequency_mhz}]}` ; stocké ligne par borne (`reperage_radar` : scan_id, at, rssi, fréquence, canal, bande,
+distance estimée log-distance n = 2,7, P0 -40/-45/-48 dBm selon la bande) ; marques de position du porteur
+(`reperage_radar_positions`, toucher le plan) ; `GET …/radar` (dernier balayage par source), `?depuis=` (historique brut),
+`radar.csv`. Le post-traitement (rapprochement temps/position, étalonnage, trilatération) est un module à venir.
 
 ## Prérequis (mis à jour le 22 sept. 2026, #546)
 

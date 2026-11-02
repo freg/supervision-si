@@ -6,7 +6,7 @@
 //  4. couverture Wi-Fi : signal du téléphone vu par la borne (Nebula ap-clients), relevé là où l'on se trouve.
 // Logique pure : reperageLib.js. API : nebula-api /sites/<site>/reperage/*. Rendu plein écran sur mobile (App : VUES_MOBILE).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ONGLETS, MAC_KEY, SITE_KEY, CLASSE_COULEUR, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite } from "./reperageLib.js";
+import { ONGLETS, MAC_KEY, SITE_KEY, CLASSE_COULEUR, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite, lignesRadar, ageBalayage } from "./reperageLib.js";
 import { hubLink } from "./hubLinks.js";
 
 const store = {
@@ -80,6 +80,8 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
   const [swOuvert, setSwOuvert] = useState(null);
   const [appareils, setAppareils] = useState([]);     // appareils connus (téléphones de test) : base du module, pas le dépôt
   const [nomApp, setNomApp] = useState("");
+  const [radar, setRadar] = useState(null);           // dernier balayage reçu du téléphone (Termux) / de la sonde
+  const [radarSource, setRadarSource] = useState(() => store.get("hub.reperage.radar.source", ""));
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
   useEffect(() => {
@@ -122,6 +124,18 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     return () => { stop = true; clearInterval(t); };
   }, [ecran, siteId, mac, base]);
 
+  useEffect(() => {
+    if (ecran !== "radar" || !siteId) return;
+    let stop = false;
+    const tic = () => getJson(`${base}/reperage/radar`).then((d) => { if (!stop) setRadar(d); }).catch((e) => { if (!stop) setRadar({ error: e.message }); });
+    tic(); const t = setInterval(tic, 5000);
+    return () => { stop = true; clearInterval(t); };
+  }, [ecran, siteId, base]);
+  const marquerPosition = async (f) => {
+    const src = radarSource || Object.keys(radar?.derniers || {})[0] || "?";
+    try { await postJson(`${base}/reperage/radar/position`, { source: src, x: f.x, y: f.y }); setMsg({ ok: true, text: `✓ Position marquée (${src}).` }); }
+    catch (e) { setMsg({ ok: false, text: e.message }); }
+  };
   const table = useMemo(() => tableBrassage(inv, prises), [inv, prises]);
   const anomalies = useMemo(() => anomaliesBrassage(table), [table]);
   const synthese = useMemo(() => syntheseCouverture(releves), [releves]);
@@ -302,10 +316,41 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
     );
   }
 
+  if (ecran === "radar") {
+    const sources = Object.keys(radar?.derniers || {});
+    const src = radarSource && radar?.derniers?.[radarSource] ? radarSource : sources[0];
+    const dernier = src ? radar.derniers[src] : null;
+    const lignes = lignesRadar(dernier?.bornes);
+    return (
+      <div>
+        <Barre titre="📡 Radar Wi-Fi" onRetour={() => setEcran("wifi")} droite={<a className="secondary mob-btn" style={{ display: "inline-flex", alignItems: "center" }} href={`${base}/reperage/radar.csv`} target="_blank" rel="noreferrer">⬇ CSV</a>} />
+        {messages}
+        {radar?.error && <p style={{ color: "var(--danger)" }}>{radar.error}</p>}
+        <div className="mob-carte">
+          <div className="t">{radar ? `${radar.scans || 0} balayage(s) · ${radar.bssids || 0} bornes distinctes · ${radar.positions || 0} position(s)` : "…"}</div>
+          {sources.length > 1 && <label>Source<select value={src || ""} onChange={(e) => { setRadarSource(e.target.value); store.set("hub.reperage.radar.source", e.target.value); }}>{sources.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
+          <div className="d">{dernier ? `Dernier balayage de ${src} ${ageBalayage(dernier.at, radar.maintenant)} — ${lignes.length} borne(s) visibles` : "Aucun balayage reçu : lancer le script radar-mobile.sh dans Termux (voir aide ci-dessous)."}</div>
+        </div>
+        {lignes.map((l) => (
+          <div key={l.cle} className="mob-carte" style={{ padding: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span className="t" style={{ fontSize: 17 }}>{l.nom}</span><span style={{ color: CLASSE_COULEUR[l.classe], fontWeight: 700 }}>{l.rssi} dBm · ≈ {l.distance}</span></div>
+            <div style={{ height: 10, background: "var(--border)", borderRadius: 5, margin: "6px 0" }}><div style={{ width: `${Math.round(l.niveau * 100)}%`, height: "100%", background: CLASSE_COULEUR[l.classe], borderRadius: 5 }} /></div>
+            <div className="d">{l.bssid}{l.bande ? ` · ${l.bande}` : ""}{l.canal ? ` · canal ${l.canal}` : ""}</div>
+          </div>
+        ))}
+        <p className="d" style={{ margin: "8px 0" }}>Toucher le plan là où vous êtes : la position est horodatée et rapprochée des balayages au post-traitement.</p>
+        <Plan base={base} version={0} onPoser={marquerPosition} marqueurs={[]} />
+        <details className="mob-carte"><summary>Aide : envoyer les balayages depuis le téléphone</summary>
+          <div className="d">1. Installer <b>Termux</b> et <b>Termux:API</b> (F-Droid) ; dans Termux : <code>pkg install termux-api jq curl</code>.<br />2. Android › Options pour les développeurs › désactiver « Limitation de la recherche Wi-Fi ».<br />3. Copier <code>nebula/tools/radar-mobile.sh</code> sur le téléphone puis : <code>HUB={nebulaApiBase.startsWith("http") ? nebulaApiBase : window.location.origin + nebulaApiBase} SITE={siteId} SOURCE="Téléphone" ./radar-mobile.sh 5</code><br />Alternative : la sonde Pi (Alfa) portée, qui balaie plus vite et sur toutes les bandes.</div>
+        </details>
+      </div>
+    );
+  }
+
   // wifi
   return (
     <div>
-      <Barre titre="📶 Couverture Wi-Fi" onRetour={retour} />
+      <Barre titre="📶 Couverture Wi-Fi" onRetour={retour} droite={<button type="button" className="secondary" onClick={() => setEcran("radar")}>📡 Radar</button>} />
       {messages}
       <div className="mob-carte">
         {appareils.length > 0 && <label>Appareil connu<select value={appareils.some((a) => a.mac === mac) ? mac : ""} onChange={(e) => { if (e.target.value) { setMac(e.target.value); store.set(MAC_KEY, e.target.value); } }}>

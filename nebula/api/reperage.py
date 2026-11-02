@@ -264,3 +264,98 @@ def inventaire_test(now=None, mac_mobile=None, appareils=None):
     inv = inventaire(sw, ap, sc, [{"devId": "sw-test", "name": "SW-TEST"}, {"devId": "ap-test", "name": "BORNE-TEST"}], now=now)
     inv["test"] = True
     return inv
+
+
+# -- radar Wi-Fi mobile (#954) -------------------------------------------------------------------------------------
+# Un navigateur ne peut pas balayer le Wi-Fi : les relevés viennent d'un petit script sur le téléphone (Termux + Termux:API,
+# `termux-wifi-scaninfo`) ou d'une sonde portée (Pi + Alfa). Chaque balayage = liste des bornes visibles (BSSID, SSID, RSSI,
+# fréquence) horodatée ; la position sur le plan est marquée à part (toucher le plan) et rapprochée par le temps en post-traitement.
+def canal_depuis_frequence(mhz):
+    try:
+        f = int(mhz)
+    except (TypeError, ValueError):
+        return None
+    if 2412 <= f <= 2484:
+        return 14 if f == 2484 else (f - 2407) // 5
+    if 5170 <= f <= 5895:
+        return (f - 5000) // 5
+    if 5955 <= f <= 7115:
+        return (f - 5950) // 5
+    return None
+
+
+def bande_depuis_frequence(mhz):
+    try:
+        f = int(mhz)
+    except (TypeError, ValueError):
+        return None
+    return "band24" if f < 3000 else "band5" if f < 5900 else "band6" if f < 7200 else None
+
+
+def distance_estimee(rssi, frequence_mhz=None, n=2.7, p0=None):
+    """Distance (m) par le modèle log-distance : d = 10^((P0 - RSSI) / (10 n)), P0 = puissance reçue à 1 m (défaut -40 dBm en
+    2,4 GHz, -45 en 5 GHz, -48 en 6 GHz), n = 2,7 (intérieur cloisonné). Indicatif : le post-traitement affinera (étalonnage
+    par borne, pertes de murs)."""
+    try:
+        r = float(rssi)
+    except (TypeError, ValueError):
+        return None
+    if p0 is None:
+        b = bande_depuis_frequence(frequence_mhz)
+        p0 = {"band24": -40.0, "band5": -45.0, "band6": -48.0}.get(b, -42.0)
+    d = 10 ** ((p0 - r) / (10.0 * n))
+    return round(min(d, 500.0), 1)
+
+
+def valider_balayage(d, now=None):
+    """Corps d'un balayage {source, at?, x?, y?, scan: [{bssid, ssid, rssi, frequency_mhz|frequence, channel?}]} ->
+    (balayage normalisé, erreur). Accepte tel quel la sortie de `termux-wifi-scaninfo`."""
+    if not isinstance(d, dict):
+        return None, "objet attendu"
+    source = (str(d.get("source") or "")).strip()[:80]
+    if not source:
+        return None, "source requise (nom ou MAC de l'appareil qui balaie)"
+    scan = d.get("scan")
+    if not isinstance(scan, list) or not scan:
+        return None, "scan attendu (liste des bornes visibles)"
+    at = d.get("at")
+    try:
+        at = float(at) if at not in (None, "") else float(now or time.time())
+    except (TypeError, ValueError):
+        at = float(now or time.time())
+    x, y = d.get("x"), d.get("y")
+    try:
+        pos = (min(1.0, max(0.0, float(x))), min(1.0, max(0.0, float(y)))) if x is not None and y is not None else (None, None)
+    except (TypeError, ValueError):
+        return None, "position invalide"
+    bornes = []
+    for b in scan[:200]:
+        if not isinstance(b, dict):
+            continue
+        bssid = norm_mac(b.get("bssid"))
+        if not bssid:
+            continue
+        try:
+            rssi = int(float(b.get("rssi")))
+        except (TypeError, ValueError):
+            continue
+        freq = b.get("frequency_mhz") or b.get("frequence") or b.get("frequency")
+        try:
+            freq = int(freq) if freq not in (None, "") else None
+        except (TypeError, ValueError):
+            freq = None
+        bornes.append({"bssid": bssid, "ssid": (str(b.get("ssid") or ""))[:64], "rssi": rssi, "frequence": freq,
+                       "canal": b.get("channel") or canal_depuis_frequence(freq), "bande": bande_depuis_frequence(freq),
+                       "distance_m": distance_estimee(rssi, freq)})
+    if not bornes:
+        return None, "aucune borne exploitable (bssid + rssi requis)"
+    bornes.sort(key=lambda b: -b["rssi"])
+    return {"source": source, "at": at, "x": pos[0], "y": pos[1], "bornes": bornes}, None
+
+
+def radar_csv(lignes):
+    cols = ["scan_id", "source", "at", "x", "y", "bssid", "ssid", "rssi", "frequence", "canal", "bande", "distance_m"]
+    out = [";".join(cols)]
+    for l in lignes:
+        out.append(";".join(str(l.get(c) if l.get(c) is not None else "").replace(";", ",") for c in cols))
+    return "\n".join(out) + "\n"
