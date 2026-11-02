@@ -42,6 +42,7 @@ test("fraction, relevés, synthèse, photo", () => {
 test("radar", () => {
   assert.equal(niveauSignal(-90), 0); assert.equal(niveauSignal(-40), 1); assert.equal(niveauSignal(-65), 0.5); assert.equal(niveauSignal(null), 0);
   const l = lignesRadar([{ bssid: "a", rssi: -70, bande: "band5", canal: 36, distance_m: 12.3 }, { bssid: "b", ssid: "GROUPE_I", rssi: -50, bande: "band24", distance_m: 2.5 }]);
-  assert.equal(l[0].nom, "GROUPE_I"); assert.equal(l[0].distance, "2,5 m"); assert.equal(l[1].distance, "12 m"); assert.equal(l[1].bande, "5 GHz"); assert.equal(l[1].classe, "moyen");
+  assert.equal(l[0].nom, "GROUPE_I");
+  assert.equal(lignesRadar([{ bssid: "c", ssid: "X", rssi: -50, connecte: 1 }])[0].nom, "X ● connecté"); assert.equal(l[0].distance, "2,5 m"); assert.equal(l[1].distance, "12 m"); assert.equal(l[1].bande, "5 GHz"); assert.equal(l[1].classe, "moyen");
   assert.equal(ageBalayage(null), "jamais"); assert.equal(ageBalayage(1000, 1030), "il y a 30 s"); assert.equal(ageBalayage(1000, 1000 + 7200), "il y a 2 h");
 });

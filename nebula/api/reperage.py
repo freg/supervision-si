@@ -346,7 +346,7 @@ def valider_balayage(d, now=None):
             freq = None
         bornes.append({"bssid": bssid, "ssid": (str(b.get("ssid") or ""))[:64], "rssi": rssi, "frequence": freq,
                        "canal": b.get("channel") or canal_depuis_frequence(freq), "bande": bande_depuis_frequence(freq),
-                       "distance_m": distance_estimee(rssi, freq)})
+                       "distance_m": distance_estimee(rssi, freq), "connecte": bool(b.get("connecte"))})
     if not bornes:
         return None, "aucune borne exploitable (bssid + rssi requis)"
     bornes.sort(key=lambda b: -b["rssi"])

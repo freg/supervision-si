@@ -126,7 +126,7 @@ export function niveauSignal(rssi) {
 /** Lignes du dernier balayage → affichage : plus forte d'abord, SSID ou BSSID, distance arrondie. */
 export function lignesRadar(bornes) {
   return (bornes || []).slice().sort((a, b) => b.rssi - a.rssi).map((b) => ({
-    cle: b.bssid, nom: b.ssid || b.bssid, bssid: b.bssid, rssi: b.rssi, niveau: niveauSignal(b.rssi), classe: classeSignal(b.rssi),
+    cle: b.bssid, nom: (b.ssid || b.bssid) + (b.connecte ? " ● connecté" : ""), bssid: b.bssid, rssi: b.rssi, niveau: niveauSignal(b.rssi), classe: classeSignal(b.rssi),
     bande: bande(b.bande), canal: b.canal, distance: b.distance_m != null ? (b.distance_m < 10 ? `${String(b.distance_m).replace(".", ",")} m` : `${Math.round(b.distance_m)} m`) : "—",
   }));
 }

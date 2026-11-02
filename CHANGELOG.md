@@ -1,3 +1,12 @@
+## 2026-11-02 — Radar mobile v3 : forcer les balayages, borne connectée en direct (livraison #956)
+
+- Limitation désactivée mais toujours figé : `termux-wifi-scaninfo` ne fait que LIRE le cache du dernier balayage système ;
+  seul un demandeur (l'écran de choix des réseaux Wi-Fi d'Android, ~10 s) le relance. Le script prend un verrou de veille
+  (`termux-wake-lock`), ouvre cet écran (`am start -a android.settings.WIFI_SETTINGS`) et continue en arrière-plan ; il
+  ajoute à chaque tour la borne **connectée** avec son RSSI en direct (`termux-wifi-connectioninfo`, rafraîchi en continu),
+  marquée `connecte` (colonne ajoutée à `reperage_radar`, migration à la volée) et affichée « ● connecté » dans l'écran Radar.
+- Vérifié : tests nebula (9), reperageLib (4), syntaxe bash. Non vérifié : comportement réel sur le Xiaomi (HyperOS).
+
 ## 2026-11-02 — Radar mobile : premier essai réel, balayages figés par Android (livraison #955)
 
 - Essai réel au bureau (Termux + Termux:API depuis F-Droid — la version Google Play de Termux n'a pas l'extension et les deux

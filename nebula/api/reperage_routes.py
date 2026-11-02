@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS reperage_appareils (
 );
 CREATE TABLE IF NOT EXISTS reperage_radar (
     id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, scan_id TEXT NOT NULL, source TEXT NOT NULL, at REAL NOT NULL,
-    x REAL, y REAL, bssid TEXT NOT NULL, ssid TEXT, rssi INTEGER NOT NULL, frequence INTEGER, canal INTEGER, bande TEXT, distance_m REAL
+    x REAL, y REAL, bssid TEXT NOT NULL, ssid TEXT, rssi INTEGER NOT NULL, frequence INTEGER, canal INTEGER, bande TEXT, distance_m REAL,
+    connecte INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_reperage_radar_site_at ON reperage_radar (site_id, at);
 CREATE TABLE IF NOT EXISTS reperage_radar_positions (
@@ -269,8 +270,12 @@ def register(app, hooks):
         sid = uuid.uuid4().hex[:10]
         conn = conn_fn()
         try:
-            conn.executemany("INSERT INTO reperage_radar (site_id, scan_id, source, at, x, y, bssid, ssid, rssi, frequence, canal, bande, distance_m) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                             [(site_id, sid, b["source"], b["at"], b["x"], b["y"], k["bssid"], k["ssid"], k["rssi"], k["frequence"], k["canal"], k["bande"], k["distance_m"]) for k in b["bornes"]])
+            try:
+                conn.execute("ALTER TABLE reperage_radar ADD COLUMN connecte INTEGER NOT NULL DEFAULT 0")   # bases créées en #954
+            except Exception:  # noqa: BLE001
+                pass
+            conn.executemany("INSERT INTO reperage_radar (site_id, scan_id, source, at, x, y, bssid, ssid, rssi, frequence, canal, bande, distance_m, connecte) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                             [(site_id, sid, b["source"], b["at"], b["x"], b["y"], k["bssid"], k["ssid"], k["rssi"], k["frequence"], k["canal"], k["bande"], k["distance_m"], 1 if k.get("connecte") else 0) for k in b["bornes"]])
             conn.commit()
         finally:
             conn.close()
