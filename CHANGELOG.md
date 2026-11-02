@@ -1,3 +1,13 @@
+## 2026-11-02 — Radar mobile : mesures réelles, script simplifié, positions sur le plan (livraison #957)
+
+- Premières mesures réelles au bureau (20 bornes par balayage, GROUPE_I de −60 à −44 dBm en s'approchant) : l'écran Wi-Fi
+  d'Android ouvert relance bien les balayages ; empreinte jq corrigée.
+- `radar-mobile.sh` : réglages mémorisés dans `~/.radar-mobile.env` (ensuite `./radar-mobile.sh` suffit), site donné par
+  son **nom** ou son identifiant (`./radar-mobile.sh 5 numeria`, résolu via `GET /reperage/sites`), liste des sites si absent.
+- Écran Radar : les marques de position du porteur (60 dernières) sont dessinées sur le plan, la dernière en évidence ;
+  `GET …/radar` renvoie `positions_recentes`.
+- Vérifié : tests nebula (9), JSX, bash. Non vérifié : rendu téléphone.
+
 ## 2026-11-02 — Radar mobile v3 : forcer les balayages, borne connectée en direct (livraison #956)
 
 - Limitation désactivée mais toujours figé : `termux-wifi-scaninfo` ne fait que LIRE le cache du dernier balayage système ;

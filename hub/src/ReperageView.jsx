@@ -339,9 +339,9 @@ export default function ReperageView({ onBack, nebulaApiBase, actor }) {
           </div>
         ))}
         <p className="d" style={{ margin: "8px 0" }}>Toucher le plan là où vous êtes : la position est horodatée et rapprochée des balayages au post-traitement.</p>
-        <Plan base={base} version={0} onPoser={marquerPosition} marqueurs={[]} />
+        <Plan base={base} version={0} onPoser={marquerPosition} marqueurs={(radar?.positions_recentes || []).map((p, i) => ({ key: "pos" + p.at, x: p.x, y: p.y, taille: i === 0 ? 22 : 14, texte: i === 0 ? "●" : "", couleur: i === 0 ? "var(--accent)" : "var(--muted)", titre: `${p.source} · ${ageBalayage(p.at, radar.maintenant)}` }))} />
         <details className="mob-carte"><summary>Aide : envoyer les balayages depuis le téléphone</summary>
-          <div className="d">1. Installer <b>Termux</b> et <b>Termux:API</b> (F-Droid) ; dans Termux : <code>pkg install termux-api jq curl</code>.<br />2. Android › Options pour les développeurs › désactiver « Limitation de la recherche Wi-Fi ».<br />3. Copier <code>nebula/tools/radar-mobile.sh</code> sur le téléphone puis : <code>HUB={nebulaApiBase.startsWith("http") ? nebulaApiBase : window.location.origin + nebulaApiBase} SITE={siteId} SOURCE="Téléphone" ./radar-mobile.sh 5</code><br />Alternative : la sonde Pi (Alfa) portée, qui balaie plus vite et sur toutes les bandes.</div>
+          <div className="d">1. Installer <b>Termux</b> et <b>Termux:API</b> (F-Droid) ; dans Termux : <code>pkg install termux-api jq curl</code>.<br />2. Android › Options pour les développeurs › désactiver « Limitation de la recherche Wi-Fi ».<br />3. Copier <code>nebula/tools/radar-mobile.sh</code> sur le téléphone puis : <code>HUB={nebulaApiBase.startsWith("http") ? nebulaApiBase : window.location.origin + nebulaApiBase} SOURCE="Téléphone" ./radar-mobile.sh 5 {siteId}</code> (réglages mémorisés : ensuite <code>./radar-mobile.sh</code> suffit ; le site peut être donné par son nom)<br />Alternative : la sonde Pi (Alfa) portée, qui balaie plus vite et sur toutes les bandes.</div>
         </details>
       </div>
     );

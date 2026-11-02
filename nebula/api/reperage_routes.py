@@ -317,9 +317,11 @@ def register(app, hooks):
                 derniers[r["source"]] = {"at": r["at"], "bornes": [dict(x) for x in rows]}
             n = conn.execute("SELECT COUNT(*) AS n, COUNT(DISTINCT scan_id) AS scans, COUNT(DISTINCT bssid) AS bssids, MIN(at) AS debut FROM reperage_radar WHERE site_id = ?", (site_id,)).fetchone()
             npos = conn.execute("SELECT COUNT(*) AS n FROM reperage_radar_positions WHERE site_id = ?", (site_id,)).fetchone()["n"]
+            pos = [dict(r) for r in conn.execute("SELECT source, at, x, y, note FROM reperage_radar_positions WHERE site_id = ? ORDER BY at DESC LIMIT 60", (site_id,)).fetchall()]
         finally:
             conn.close()
-        return jsonify({"derniers": derniers, "total": n["n"], "scans": n["scans"], "bssids": n["bssids"], "debut": n["debut"], "positions": npos, "maintenant": time.time()}), 200
+        return jsonify({"derniers": derniers, "total": n["n"], "scans": n["scans"], "bssids": n["bssids"], "debut": n["debut"], "positions": npos,
+                        "positions_recentes": pos, "maintenant": time.time()}), 200
 
     @app.route("/sites/<site_id>/reperage/radar.csv", methods=["GET"])
     def reperage_radar_csv(site_id):

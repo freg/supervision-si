@@ -6,7 +6,15 @@
 # « Limitation de la recherche Wi-Fi » désactivée, Termux à l'écran, localisation activée. `termux-wifi-scaninfo` renvoie le
 # DERNIER balayage du système : s'il n'a pas changé (même horodatage), rien n'est envoyé et le script le dit.
 set -u
-HUB="${HUB:?HUB=https://… requis (base de nebula-api)}"; SITE="${SITE:?SITE=<site_id> requis}"; SOURCE="${SOURCE:-telephone}"; INT="${1:-5}"
+# Réglages mémorisés dans ~/.radar-mobile.env (HUB, SITE, SOURCE) : la fois suivante, `./radar-mobile.sh` suffit ;
+# `./radar-mobile.sh 5 numeria` choisit le site par son NOM (recherche dans la liste du hub) ou par son identifiant.
+[ -f "$HOME/.radar-mobile.env" ] && . "$HOME/.radar-mobile.env"
+HUB="${HUB:?HUB=https://… requis (base de nebula-api, ex. https://supervision.optline.fr/api/nebula)}"; SOURCE="${SOURCE:-telephone}"; INT="${1:-5}"
+SITE="${2:-${SITE:-}}"
+if [ -z "$SITE" ]; then echo "SITE requis : ./radar-mobile.sh 5 <nom ou id du site>. Sites connus du hub :"; curl -sS -m 10 "$HUB/reperage/sites" | jq -r '.sites[] | "  \(.site_id)  \(.name)"'; exit 1; fi
+trouve=$(curl -sS -m 10 "$HUB/reperage/sites" 2>/dev/null | jq -r --arg q "$SITE" '.sites[] | select(.site_id == $q or ((.name // "") | ascii_downcase | contains($q | ascii_downcase))) | .site_id' | head -1)
+if [ -n "$trouve" ]; then SITE="$trouve"; else echo "site « $SITE » inconnu du hub (liste : ./radar-mobile.sh sans argument)"; exit 1; fi
+printf 'HUB=%q\nSITE=%q\nSOURCE=%q\n' "$HUB" "$SITE" "$SOURCE" > "$HOME/.radar-mobile.env"
 echo "radar → $HUB/sites/$SITE/reperage/radar, source « $SOURCE », toutes les ${INT}s (Ctrl-C pour arrêter)"
 # Android ne balaie que si quelque chose le demande : l'écran de choix des réseaux Wi-Fi ouvert relance un balayage toutes
 # les ~10 s. On l'ouvre (Termux continue en arrière-plan grâce au verrou de veille) ; revenir à Termux pour lire les lignes.
