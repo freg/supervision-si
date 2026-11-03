@@ -209,3 +209,57 @@ class TestSonde(unittest.TestCase):
         self.assertEqual(cl.post("/sites/s1/reperage/sonde/%d/valider" % r["id"], json={"ignorer": True}).get_json()["prise"], None)
         self.assertEqual(cl.delete("/sites/s1/reperage/sonde/%d" % r["id"]).get_json()["supprime"], 1)
         self.assertEqual(cl.get("/sites/s1/reperage/sonde").get_json()["en_attente"], [])
+
+
+class TestEquipements(unittest.TestCase):
+    def test_pur(self):
+        self.assertEqual(R.norm_ip(" 172.016.20.5 "), "172.16.20.5"); self.assertIsNone(R.norm_ip("300.1.1.1")); self.assertIsNone(R.norm_ip("x"))
+        self.assertEqual(R.norm_tags("Rôle : serveur, vlan 20 ;  Critique,critique"), ["rôle:serveur", "vlan 20", "critique"])
+        self.assertEqual(R.valider_equipement({})[1], "il faut au moins un nom, une IP ou une MAC")
+        self.assertIn("IP invalide", R.valider_equipement({"nom": "a", "ip": "1.2.3"})[1])
+        self.assertIn("MAC invalide", R.valider_equipement({"nom": "a", "mac": "zz"})[1])
+        e, _ = R.valider_equipement({"nom": "Écran amphi", "mac": "AA-BB-CC-00-00-01", "x": 1.4, "y": "0.5", "tags": "écran, amphi"})
+        self.assertEqual((e["mac"], e["x"], e["y"], e["tags"]), ("aa:bb:cc:00:00:01", 1.0, 0.5, ["écran", "amphi"]))
+        inv = R.inventaire(SW, AP, SC, DEV)
+        eqs = [dict(e, id="a", ip="172.16.20.99"), {"id": "b", "nom": "Pixel", "ip": "172.16.22.51"}, {"id": "c", "nom": "doublon", "mac": "aa:bb:cc:00:00:01"}]
+        r = {x["id"]: x for x in R.enrichir_equipements(eqs, inv)}
+        self.assertEqual(r["a"]["nebula"]["ou"], "GS2220-50HP-1 port 12"); self.assertEqual(r["a"]["nebula"]["par"], "mac")
+        self.assertTrue(any("172.16.20.10" in t for t in r["a"]["alertes"])); self.assertTrue(any("doublon" in t for t in r["a"]["alertes"]))
+        self.assertEqual(r["b"]["nebula"]["par"], "ip"); self.assertIn("borne WBE660S-Studio", r["b"]["nebula"]["ou"])
+        csv = R.equipements_csv(list(r.values())); self.assertIn("GS2220-50HP-1 port 12", csv); self.assertIn("1,0000", csv)
+        lignes, err = R.lire_csv_equipements("Nom;Rôle;Adresse IP;MAC;Tags\nNVR;vidéo;172.16.100.30;;caméra\n;;;\nX;;1.2.3;;\n")
+        self.assertEqual(len(lignes), 1); self.assertEqual(lignes[0]["role"], "vidéo"); self.assertEqual(len(err), 2)
+
+    def test_routes(self):
+        try:
+            import flask  # noqa: F401
+        except ImportError:
+            self.skipTest("flask absent")
+        import sqlite3
+        from flask import Flask
+        import reperage_routes as RR
+        d = tempfile.mkdtemp(); db = os.path.join(d, "n.db")
+
+        def conn():
+            c = sqlite3.connect(db); c.row_factory = sqlite3.Row; return c
+
+        class Cl:
+            def sw_clients(self, sid, period="1d"): return {"data": SW}
+            def ap_clients_v2(self, sid, period="1d"): return AP
+            def get_site_clients(self, sid, period="2h", features=None): return SC
+        app = Flask(__name__); RR._cache.clear()
+        RR.register(app, {"conn": conn, "client": lambda: Cl(), "db_path": db, "devices": lambda sid: DEV})
+        cl = app.test_client()
+        e = cl.put("/sites/s1/reperage/equipements", json={"nom": "Écran amphi", "role": "affichage", "mac": "AA:BB:CC:00:00:01", "x": 0.3, "y": 0.4, "tags": "écran"}).get_json()
+        self.assertEqual(e["nebula"]["ou"], "GS2220-50HP-1 port 12"); eid = e["id"]
+        self.assertEqual(cl.put("/sites/s1/reperage/equipements", json={"role": "x"}).status_code, 400)
+        e = cl.put("/sites/s1/reperage/equipements", json={"id": eid, "nom": "Écran amphi", "role": "affichage", "mac": "AA:BB:CC:00:00:01", "local": "Amphi"}).get_json()
+        self.assertEqual((e["id"], e["local"], e["x"]), (eid, "Amphi", None))
+        g = cl.get("/sites/s1/reperage/equipements").get_json(); self.assertEqual((len(g["equipements"]), g["roles"], g["locaux"]), (1, ["affichage"], ["Amphi"]))
+        r = cl.post("/sites/s1/reperage/equipements/import", json={"texte": "nom,mac,tags\nÉcran amphi 2,aa:bb:cc:00:00:01,critique\nNVR,aa:bb:cc:00:00:77,\n"}).get_json()
+        self.assertEqual((r["ajoutes"], r["mis_a_jour"]), (1, 1))
+        g = cl.get("/sites/s1/reperage/equipements").get_json()["equipements"]
+        ecr = next(x for x in g if x["id"] == eid); self.assertEqual((ecr["nom"], ecr["local"], ecr["tags"]), ("Écran amphi 2", "Amphi", ["critique"]))
+        self.assertIn("NVR", cl.get("/sites/s1/reperage/equipements.csv").get_data(as_text=True))
+        self.assertEqual(cl.delete("/sites/s1/reperage/equipements/%s" % eid).get_json()["supprime"], 1)
+        self.assertEqual(len(cl.get("/sites/s1/reperage/equipements").get_json()["equipements"]), 1)

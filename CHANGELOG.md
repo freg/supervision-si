@@ -1,3 +1,24 @@
+## 2026-11-03 — livraison #960 : registre des équipements du site (report des notes de terrain)
+
+Demande : reporter dans le hub les notes manuscrites et le plan dessinés sur le campus — IP / MAC, position sur le plan,
+nom et rôle ; plus tard des étiquettes de catégorisation de nature variée (rôle principal…). Rien n'existait pour un
+équipement quelconque (seulement les prises du repérage, les appareils de test et le placement des équipements Nebula).
+
+- **nebula-api** (`reperage.py` pur + `reperage_routes.py`) : table `reperage_equipements` ; fiche = nom, rôle, IP
+  (contrôlée), MAC (normalisée), local, prise, position (fractions du plan), étiquettes libres (minuscules, sans
+  doublon, forme « clé:valeur » acceptée pour les catégories à venir), note. Routes GET / PUT / DELETE, export CSV,
+  import d'un tableau collé ou d'un fichier (en-tête nom ; role ; ip ; mac ; local ; prise ; tags ; note — une MAC
+  ou une IP déjà connue complète la fiche). Rapprochement Nebula par MAC puis par IP : où est branché, fabricant,
+  VLAN, écarts (Nebula voit cette MAC avec une autre IP…), doublons de saisie.
+- **hub** : vue « Réseau › Équipements du site » (bureau) : plan du site cliquable (cliquer = placer la fiche en
+  cours, marqueur = ouvrir la fiche, couleur par rôle, initiales), fiche à droite avec autocomplétion des rôles,
+  locaux, étiquettes et suggestion Nebula (« compléter » IP / MAC / nom), « Enregistrer et suivant » (Entrée) qui
+  garde local, rôle et étiquettes pour la saisie en série, tableau filtrable (texte, étiquette, sans position) avec
+  mini bouton des écarts. Le composant plan est sorti de `ReperageView.jsx` dans `PlanSite.jsx` (commun).
+
+Vérifié : `tests/test_reperage.py` (13, dont `TestEquipements` pur + routes), `node --test hub/tests/*.test.mjs` (17),
+syntaxe JSX des 4 fichiers touchés. Non vérifié : build du hub, rendu réel du plan.
+
 ## 2026-11-02 — livraison #959 : sonde filaire prise par prise (Raspberry Pi) pour la continuité commutateur → prise
 
 Demande : vérifier sur place la continuité commutateur → prise murale, puis panneau de brassage → prise, avec un

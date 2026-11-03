@@ -56,3 +56,20 @@ test("sonde filaire : état, titre, nouveaux", async () => {
   assert.equal(titreSonde({}), "commutateur inconnu");
   assert.deepEqual(nouveauxEnAttente([1, 2], [2, 3]), [3]);
 });
+
+test("registre des équipements : filtre, couleurs, initiales, suggestion", async () => {
+  const L = await import("../src/reperageLib.js");
+  const eqs = [{ id: "a", nom: "Écran amphi", role: "affichage", mac: "aa:bb:cc:00:00:01", ip: "172.16.20.10", tags: ["écran"], x: 0.2, y: 0.3 },
+    { id: "b", nom: "NVR", role: "vidéo", ip: "172.16.100.30", tags: ["caméra", "critique"] }];
+  assert.deepEqual(L.filtrerEquipements(eqs, { q: "aabbcc" }).map((e) => e.id), ["a"]);
+  assert.deepEqual(L.filtrerEquipements(eqs, { q: "100.30" }).map((e) => e.id), ["b"]);
+  assert.deepEqual(L.filtrerEquipements(eqs, { tag: "critique" }).map((e) => e.id), ["b"]);
+  assert.deepEqual(L.filtrerEquipements(eqs, { sansPosition: true }).map((e) => e.id), ["b"]);
+  assert.equal(L.couleurRole("vidéo", ["affichage", "vidéo"]), "var(--ok)"); assert.equal(L.couleurRole(null), "var(--muted)");
+  assert.equal(L.initiales(eqs[0]), "ÉA"); assert.equal(L.initiales({ ip: "1.2.3.4" }), "12");
+  const inv = { clients: [{ mac: "aa:bb:cc:00:00:01", ip: "172.16.20.10" }, { mac: "aa:bb:cc:00:00:02", ip: "172.16.20.11" }] };
+  assert.equal(L.suggestionNebula(inv, { mac: "AA-BB-CC-00-00-02" }).ip, "172.16.20.11");
+  assert.equal(L.suggestionNebula(inv, { mac: "aabbcc" }), null);           // ambigu
+  assert.equal(L.suggestionNebula(inv, { ip: "172.16.20.10" }).mac, "aa:bb:cc:00:00:01");
+  assert.equal(L.versFormulaire(eqs[1]).tags, "caméra, critique"); assert.equal(L.versFormulaire(null).nom, "");
+});

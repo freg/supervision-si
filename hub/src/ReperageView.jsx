@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ONGLETS, MAC_KEY, SITE_KEY, CLASSE_COULEUR, classeSignal, bande, libelleClient, ouEstBranche, tableBrassage, anomaliesBrassage, versFraction, texteReleve, syntheseCouverture, tailleReduite, lignesRadar, ageBalayage, etatSonde, titreSonde, nouveauxEnAttente } from "./reperageLib.js";
 import { hubLink } from "./hubLinks.js";
+import Plan from "./PlanSite.jsx";
 
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } },
@@ -34,26 +35,6 @@ async function reduirePhoto(file) {
     const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.8));
     return blob ? new File([blob], "photo.jpg", { type: "image/jpeg" }) : file;
   } catch { return file; }
-}
-
-function Plan({ base, version, marqueurs, onPoser }) {
-  const img = useRef(null);
-  const [ok, setOk] = useState(null);
-  return (
-    <div style={{ position: "relative", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--panel)" }}>
-      <img ref={img} alt="plan du site" src={`${base}/plan?v=${version}`} onLoad={() => setOk(true)} onError={() => setOk(false)}
-        style={{ display: ok === false ? "none" : "block", width: "100%", cursor: onPoser ? "crosshair" : "default", touchAction: "manipulation" }}
-        onClick={(e) => { if (!onPoser) return; const f = versFraction(e.clientX, e.clientY, img.current.getBoundingClientRect()); if (f) onPoser(f); }} />
-      {ok === false && <p className="muted" style={{ padding: 12, margin: 0 }}>Pas de plan pour ce site. Le déposer dans <a href={hubLink("nebula", { tab: "plan" })}>Nebula › Plan</a> (photo du plan d'évacuation).</p>}
-      {ok && (marqueurs || []).map((m) => (
-        <div key={m.key} title={m.titre} onClick={(e) => { e.stopPropagation(); m.onClick && m.onClick(); }}
-          style={{ position: "absolute", left: `${m.x * 100}%`, top: `${m.y * 100}%`, transform: "translate(-50%, -50%)", width: m.taille || 22, height: m.taille || 22, borderRadius: "50%",
-            background: m.couleur || "var(--accent)", border: "2px solid var(--bg)", boxShadow: "0 0 0 1px var(--border)", fontSize: 11, lineHeight: `${(m.taille || 22) - 4}px`, textAlign: "center", color: "var(--bg)", fontWeight: 700 }}>
-          {m.texte || ""}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 const Barre = ({ titre, onRetour, droite }) => (

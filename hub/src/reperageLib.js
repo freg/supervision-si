@@ -158,3 +158,52 @@ export function nouveauxEnAttente(avant, apres) {
   const a = new Set(avant || []);
   return (apres || []).filter((id) => !a.has(id));
 }
+
+// ---------------------------------------------------------------- registre des équipements du site (#960)
+/** Filtre texte (nom, rôle, IP, MAC sans séparateur, local, prise, étiquettes, note) + étiquette + « sans position ». */
+export function filtrerEquipements(eqs, { q = "", tag = "", sansPosition = false } = {}) {
+  const s = q.trim().toLowerCase();
+  const hex = s.replace(/[^0-9a-f]/g, "");
+  return (eqs || []).filter((e) => {
+    if (tag && !(e.tags || []).includes(tag)) return false;
+    if (sansPosition && e.x != null) return false;
+    if (!s) return true;
+    const txt = [e.nom, e.role, e.ip, e.local, e.prise, e.note, ...(e.tags || []), e.nebula?.nom, e.nebula?.fabricant].join(" ").toLowerCase();
+    return txt.includes(s) || (hex.length >= 4 && (e.mac || "").replace(/:/g, "").includes(hex));
+  });
+}
+
+/** Couleur stable par rôle (variables du thème uniquement). */
+const PALETTE_ROLES = ["var(--accent)", "var(--ok)", "var(--warning)", "var(--danger)", "var(--text)", "var(--muted)"];
+export function couleurRole(role, roles) {
+  if (!role) return "var(--muted)";
+  const i = (roles || []).indexOf(role);
+  return PALETTE_ROLES[(i < 0 ? 0 : i) % PALETTE_ROLES.length];
+}
+
+/** Initiales pour le marqueur du plan (2 caractères). */
+export function initiales(e) {
+  const t = (e.nom || e.role || e.ip || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim();
+  const mots = t.split(/\s+/).filter(Boolean);
+  return (mots.length > 1 ? mots[0][0] + mots[1][0] : t.slice(0, 2)).toUpperCase();
+}
+
+/** Suggestion depuis l'inventaire Nebula pendant la saisie : par MAC (même partielle ≥ 6 hex) ou IP exacte. */
+export function suggestionNebula(inv, { mac = "", ip = "" } = {}) {
+  const h = mac.toLowerCase().replace(/[^0-9a-f]/g, "");
+  const cs = inv?.clients || [];
+  if (h.length >= 6) {
+    const m = cs.filter((c) => (c.mac || "").replace(/:/g, "").includes(h));
+    if (m.length === 1) return m[0];
+  }
+  if (ip.trim()) return cs.find((c) => c.ip === ip.trim()) || null;
+  return null;
+}
+
+/** Fiche vide (formulaire). */
+export const EQUIPEMENT_VIDE = { id: null, nom: "", role: "", ip: "", mac: "", local: "", prise: "", tags: "", note: "", x: null, y: null };
+
+/** Fiche → formulaire (étiquettes en texte). */
+export function versFormulaire(e) {
+  return { ...EQUIPEMENT_VIDE, ...Object.fromEntries(Object.entries(e || {}).filter(([, v]) => v != null)), tags: (e?.tags || []).join(", ") };
+}

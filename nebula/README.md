@@ -4,6 +4,15 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
+## 2026-11-03 — Registre des équipements du site (#960)
+
+Report au bureau des notes de terrain : table `reperage_equipements` (site, id, fiche JSON : nom, rôle, IP, MAC, local,
+prise, x/y sur le plan, étiquettes libres — « clé:valeur » réservé aux catégories à venir —, note). `GET/PUT
+/sites/<s>/reperage/equipements` (+ listes des rôles, locaux, étiquettes pour l'autocomplétion), `DELETE …/<id>`,
+`equipements.csv`, `POST …/equipements/import` (tableau collé ou fichier ; MAC ou IP déjà connue → fiche complétée).
+Rapprochement Nebula par MAC puis IP (`enrichir_equipements` : où est branché, fabricant, VLAN, écarts IP/MAC, doublons
+de saisie). Vue hub `EquipementsSiteView.jsx` (bureau : plan cliquable + fiche + tableau), plan commun `PlanSite.jsx`.
+
 ## 2026-11-02 — Sonde filaire prise par prise (#959)
 
 Raspberry Pi sans écran branché sur chaque prise murale (puis en sortie de panneau de brassage) : `tools/sonde-prise.sh`

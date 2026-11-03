@@ -1,5 +1,11 @@
 [
  {
+  "n": 960,
+  "from": 960,
+  "date": "2026-11-03",
+  "title": "Équipements du site : registre saisi au bureau à partir des notes de terrain (nom, rôle, IP, MAC, local, prise, étiquettes, position cliquée sur le plan), rapproché de Nebula (où est branché, fabricant, écarts IP/MAC, doublons), import d'un tableau et export CSV"
+ },
+ {
   "n": 959,
   "from": 959,
   "date": "2026-11-02",

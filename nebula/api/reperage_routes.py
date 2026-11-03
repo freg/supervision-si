@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS reperage_sonde (
     data TEXT NOT NULL, prise TEXT, ack_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_reperage_sonde_site ON reperage_sonde (site_id, at);
+CREATE TABLE IF NOT EXISTS reperage_equipements (
+    site_id TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, updated_by TEXT,
+    PRIMARY KEY (site_id, id)
+);
 """
 CACHE_S = 60
 _cache = {}   # site_id -> {"at", "inv"}
@@ -483,3 +487,89 @@ def register(app, hooks):
         finally:
             conn.close()
         return jsonify({"supprime": n}), 200
+
+    # -- registre des équipements du site (#960) : nom, rôle, IP, MAC, position, local, prise, étiquettes ------------------
+    def _equipements(site_id):
+        conn = conn_fn()
+        try:
+            rows = conn.execute("SELECT id, data, created_at, updated_at, updated_by FROM reperage_equipements WHERE site_id = ?", (site_id,)).fetchall()
+        finally:
+            conn.close()
+        out = []
+        for r in rows:
+            d = json.loads(r["data"]); d.update(id=r["id"], cree=r["created_at"], maj=r["updated_at"], par=r["updated_by"]); out.append(d)
+        out.sort(key=lambda e: ((e.get("local") or "~").lower(), (e.get("nom") or e.get("ip") or "").lower()))
+        return out
+
+    def _enregistrer_eq(site_id, e, par):
+        now = int(time.time())
+        eid = e.get("id") or uuid.uuid4().hex[:12]
+        data = {k: v for k, v in e.items() if k not in ("id", "nebula", "alertes", "cree", "maj", "par")}
+        conn = conn_fn()
+        try:
+            conn.execute("INSERT INTO reperage_equipements (site_id, id, data, created_at, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?) "
+                         "ON CONFLICT(site_id, id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
+                         (site_id, eid, json.dumps(data, ensure_ascii=False), now, now, (par or "")[:80] or None))
+            conn.commit()
+        finally:
+            conn.close()
+        return eid
+
+    def _eq_enrichis(site_id):
+        eqs = _equipements(site_id)
+        try:
+            inv = _inventaire(site_id)
+            err = inv.get("erreurs") or []
+        except Exception as exc:  # noqa: BLE001 -- sans Nebula, le registre reste utilisable
+            inv, err = {"clients": []}, ["Nebula : %s" % str(exc)[:160]]
+        return lib.enrichir_equipements(eqs, inv), err
+
+    @app.route("/sites/<site_id>/reperage/equipements", methods=["GET"])
+    def reperage_equipements_get(site_id):
+        eqs, err = _eq_enrichis(site_id)
+        roles = sorted({e["role"] for e in eqs if e.get("role")}, key=str.lower)
+        tags = sorted({t for e in eqs for t in e.get("tags") or []})
+        locaux = sorted({e["local"] for e in eqs if e.get("local")}, key=str.lower)
+        return jsonify({"site_id": site_id, "equipements": eqs, "roles": roles, "tags": tags, "locaux": locaux, "erreurs": err}), 200
+
+    @app.route("/sites/<site_id>/reperage/equipements", methods=["PUT"])
+    def reperage_equipement_put(site_id):
+        body = request.get_json(silent=True) or {}
+        e, err = lib.valider_equipement(body)
+        if err:
+            return jsonify({"error": err}), 400
+        eid = _enregistrer_eq(site_id, e, body.get("par"))
+        eqs, _ = _eq_enrichis(site_id)
+        return jsonify(next(x for x in eqs if x["id"] == eid)), 200
+
+    @app.route("/sites/<site_id>/reperage/equipements/<eid>", methods=["DELETE"])
+    def reperage_equipement_delete(site_id, eid):
+        conn = conn_fn()
+        try:
+            n = conn.execute("DELETE FROM reperage_equipements WHERE site_id = ? AND id = ?", (site_id, eid)).rowcount; conn.commit()
+        finally:
+            conn.close()
+        return jsonify({"supprime": n}), 200
+
+    @app.route("/sites/<site_id>/reperage/equipements.csv", methods=["GET"])
+    def reperage_equipements_csv(site_id):
+        eqs, _ = _eq_enrichis(site_id)
+        return Response(lib.equipements_csv(eqs), mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": "attachment; filename=equipements-%s.csv" % re.sub(r"[^A-Za-z0-9_-]", "_", site_id)})
+
+    @app.route("/sites/<site_id>/reperage/equipements/import", methods=["POST"])
+    def reperage_equipements_import(site_id):
+        """CSV (fichier `file` ou texte JSON {texte}) : ajoute ; une ligne dont la MAC ou l'IP existe déjà met à jour la fiche."""
+        texte = request.files["file"].read().decode("utf-8", "replace") if "file" in request.files else (request.get_json(silent=True) or {}).get("texte", "")
+        lignes, erreurs = lib.lire_csv_equipements(texte)
+        existants = _equipements(site_id)
+        ajout = maj = 0
+        for e in lignes:
+            prev = next((x for x in existants if (e["mac"] and x.get("mac") == e["mac"]) or (e["ip"] and x.get("ip") == e["ip"])), None)
+            if prev:
+                fusion = dict(prev); fusion.update({k: v for k, v in e.items() if v not in (None, [], "") and k != "id"})
+                fusion["tags"] = lib.norm_tags((prev.get("tags") or []) + (e.get("tags") or []))
+                _enregistrer_eq(site_id, fusion, "import"); maj += 1
+            else:
+                _enregistrer_eq(site_id, e, "import"); ajout += 1
+        return jsonify({"ajoutes": ajout, "mis_a_jour": maj, "erreurs": erreurs}), 200

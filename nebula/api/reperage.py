@@ -428,3 +428,132 @@ def fusion_prise_sonde(existante, releve, saisie):
     if releve.get("commutateur") and releve.get("port") is not None:
         p["commutateur"], p["port"] = releve["commutateur"], releve["port"]
     return p
+
+
+# ----------------------------------------------------------------- registre des équipements du site (#960)
+# Saisie au bureau des notes de terrain : nom, rôle, IP, MAC, position sur le plan, local, prise, étiquettes (tags) libres.
+IP_RX = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
+
+
+def norm_ip(v):
+    s = str(v or "").strip()
+    m = IP_RX.match(s)
+    if not m or any(int(g) > 255 for g in m.groups()):
+        return None
+    return ".".join(str(int(g)) for g in m.groups())
+
+
+def norm_tags(v):
+    """« rôle:serveur, vlan 20 ,  Critique » ou liste -> ['rôle:serveur', 'vlan 20', 'critique'] (minuscules, sans doublon, 20 max).
+    Forme libre ; « clé:valeur » permet plus tard des catégories (rôle principal, criticité, propriétaire…)."""
+    items = v if isinstance(v, list) else re.split(r"[,;\n]", str(v or ""))
+    out = []
+    for t in items:
+        t = re.sub(r"\s+", " ", str(t or "")).strip().lower()[:40]
+        t = re.sub(r"\s*:\s*", ":", t)
+        if t and t not in out:
+            out.append(t)
+    return out[:20]
+
+
+def valider_equipement(d):
+    """Renvoie (equipement, erreur). Il faut au moins un nom, une IP ou une MAC."""
+    if not isinstance(d, dict):
+        return None, "objet attendu"
+    out = {}
+    for k, lim in (("nom", 80), ("role", 80), ("local", 80), ("prise", 60), ("note", 1000), ("source", 40)):
+        v = d.get(k)
+        out[k] = (str(v).strip()[:lim] if v not in (None, "") else None)
+    out["ip"] = norm_ip(d.get("ip")) if d.get("ip") not in (None, "") else None
+    if d.get("ip") not in (None, "") and not out["ip"]:
+        return None, "IP invalide : %s (attendu a.b.c.d)" % d.get("ip")
+    out["mac"] = norm_mac(d.get("mac")) if d.get("mac") not in (None, "") else None
+    if d.get("mac") not in (None, "") and not out["mac"]:
+        return None, "MAC invalide : %s (12 chiffres hexadécimaux)" % d.get("mac")
+    if not (out["nom"] or out["ip"] or out["mac"]):
+        return None, "il faut au moins un nom, une IP ou une MAC"
+    x, y = d.get("x"), d.get("y")
+    if x in (None, "") or y in (None, ""):
+        out["x"] = out["y"] = None
+    else:
+        try:
+            out["x"], out["y"] = min(1.0, max(0.0, float(x))), min(1.0, max(0.0, float(y)))
+        except (TypeError, ValueError):
+            return None, "position invalide"
+    out["tags"] = norm_tags(d.get("tags"))
+    eid = str(d.get("id") or "").strip()
+    out["id"] = re.sub(r"[^A-Za-z0-9_-]", "", eid)[:40] or None
+    return out, None
+
+
+def enrichir_equipements(eqs, inv):
+    """Ajoute à chaque équipement ce que Nebula en voit (par MAC, sinon par IP) et les doublons de saisie.
+    nebula : {mac, ip, nom, fabricant, ou (ligne « où est branché »), derniere_vue} ; alertes : [texte]."""
+    clients = (inv or {}).get("clients") or []
+    par_mac = {c["mac"]: c for c in clients if c.get("mac")}
+    par_ip = {c["ip"]: c for c in clients if c.get("ip")}
+    vus_mac, vus_ip = {}, {}
+    for e in eqs:
+        if e.get("mac"):
+            vus_mac.setdefault(e["mac"], []).append(e)
+        if e.get("ip"):
+            vus_ip.setdefault(e["ip"], []).append(e)
+    out = []
+    for e in eqs:
+        e = dict(e)
+        c = par_mac.get(e.get("mac")) or par_ip.get(e.get("ip"))
+        alertes = []
+        if c:
+            ou = ("%s port %s" % (c.get("commutateur") or c.get("commutateur_id") or "?", c.get("port") if c.get("port") is not None else "?")) if c.get("type") == "filaire" \
+                else ("borne %s · %s" % (c.get("borne") or c.get("borne_id") or "?", c.get("ssid") or "")) if c.get("type") == "wifi" else None
+            e["nebula"] = {"mac": c.get("mac"), "ip": c.get("ip"), "nom": c.get("nom") or c.get("description"), "fabricant": c.get("fabricant"),
+                           "ou": ou, "vlan": c.get("vlan"), "derniere_vue": c.get("derniere_vue"), "par": "mac" if par_mac.get(e.get("mac")) is c else "ip"}
+            if e.get("ip") and c.get("ip") and e["ip"] != c["ip"]:
+                alertes.append("Nebula voit cette MAC en %s (saisi %s)" % (c["ip"], e["ip"]))
+            if e.get("mac") and c.get("mac") and e["mac"] != c["mac"]:
+                alertes.append("Nebula voit cette IP avec la MAC %s (saisi %s)" % (c["mac"], e["mac"]))
+        else:
+            e["nebula"] = None
+        if e.get("mac") and len(vus_mac.get(e["mac"], [])) > 1:
+            alertes.append("MAC saisie aussi pour : %s" % ", ".join(x.get("nom") or x.get("ip") or x["id"] for x in vus_mac[e["mac"]] if x.get("id") != e.get("id")))
+        if e.get("ip") and len(vus_ip.get(e["ip"], [])) > 1:
+            alertes.append("IP saisie aussi pour : %s" % ", ".join(x.get("nom") or x.get("mac") or x["id"] for x in vus_ip[e["ip"]] if x.get("id") != e.get("id")))
+        e["alertes"] = alertes
+        out.append(e)
+    return out
+
+
+def equipements_csv(eqs):
+    import csv
+    import io
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";")
+    w.writerow(["nom", "role", "ip", "mac", "local", "prise", "x", "y", "tags", "note", "nebula_ou", "nebula_fabricant"])
+    for e in eqs:
+        n = e.get("nebula") or {}
+        w.writerow([e.get("nom") or "", e.get("role") or "", e.get("ip") or "", e.get("mac") or "", e.get("local") or "", e.get("prise") or "",
+                    "" if e.get("x") is None else ("%.4f" % e["x"]).replace(".", ","), "" if e.get("y") is None else ("%.4f" % e["y"]).replace(".", ","),
+                    ", ".join(e.get("tags") or []), e.get("note") or "", n.get("ou") or "", n.get("fabricant") or ""])
+    return "﻿" + buf.getvalue()
+
+
+def lire_csv_equipements(texte):
+    """Import d'un tableau (CSV ; ou , ou tabulation, avec en-tête nom/role/ip/mac/local/prise/tags/note) -> (lignes, erreurs)."""
+    import csv
+    import io
+    texte = (texte or "").lstrip("﻿")
+    if not texte.strip():
+        return [], ["fichier vide"]
+    sep = "\t" if "\t" in texte.splitlines()[0] else (";" if ";" in texte.splitlines()[0] else ",")
+    rd = csv.DictReader(io.StringIO(texte), delimiter=sep)
+    alias = {"rôle": "role", "adresse ip": "ip", "adresse mac": "mac", "nom": "nom", "name": "nom", "étiquettes": "tags", "tag": "tags", "commentaire": "note", "pièce": "local", "salle": "local"}
+    lignes, erreurs = [], []
+    for i, r in enumerate(rd, start=2):
+        d = {alias.get((k or "").strip().lower(), (k or "").strip().lower()): v for k, v in r.items()}
+        d.pop("x", None); d.pop("y", None)
+        e, err = valider_equipement(d)
+        if err:
+            erreurs.append("ligne %d : %s" % (i, err))
+        else:
+            lignes.append(e)
+    return lignes, erreurs
