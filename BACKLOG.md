@@ -1,3 +1,14 @@
+## Relevés de postes avant réinstallation : stockage et consultation sur le hub (2026-11-03) — DEMANDÉ, PAS COMMENCÉ (moins urgent)
+
+Contexte : pc-paul réinstallé ; `avant-reinstall.ps1` produit `releve-<poste>.txt` (configuration : comptes, profils,
+réseau, lecteurs, imprimantes, logiciels, Outlook, navigateurs…), `secrets-<poste>.txt` (clés BitLocker, clé Windows,
+clés Wi-Fi) et `pilotes\` (export pnputil) ; `apres-reinstall.ps1` les rejoue. Demandé : stocker ces fichiers et
+permettre leur consultation pour réutilisation — l'utilisateur en a besoin pour remettre ses paramétrages à sa guise
+si la maintenance n'est pas faite par le script ; les pilotes pour l'administrateur. Accessible sur le hub, réservé
+pour le moment à Freg / administrateur. Pistes : fiche agent › onglet « Réinstallation » (dépôt par l'agent ou
+téléversement), secrets dans le coffre-fort (jamais en clair hors coffre, jamais dans le dépôt), pilotes en archive
+téléchargeable, rendu lisible des sections du relevé, scripts avant / après versionnés dans le dépôt (anonymisés).
+
 ## Parc IA — revue du jour + répartition GPU (2026-10-28) — FAIT : #908 onglet « Revue du jour » (légèreté/machines d'abord, urgence de téléchargement avant disparition/payant, dédicace apprentissage 0..3 dont « apprend & désapprend »), #909 répartition des usages sur machines/GPU (MODELES_MACHINES avec « + » par GPU, planificateur repartir, route /modeles/repartition, onglet « Répartition GPU ») ; partagé hub maison + supervision. Reste : brancher la revue sur les flux réels, dériver les besoins de répartition des usages déclarés par hôte.
 
 ## Clone navigateur de Hermes — projet hermes-web (2026-10-28) — tranche 1 FAITE : dépôt autonome ~/Downloads/hermes-web (fork à venir de NousResearch/hermes-agent, MIT), service Flask pilotant Hermes + front sombre (chat + rejeu QA), garde-fous par hub (loi>morale>véracité, supervision=lecture seule, maison=permissif), rejeu QA clé de voûte (trajectoires, cahier, avancement, régressions, interop from/value), config par hub, Dockerfile+compose, docs/architecture.md (feuille de route NéoPays : 4 rôles IA, double déploiement, portage EGroupware). 14 tests. Reste : brancher le vrai hermes CLI, intégration fine via EditApprovalRequester ACP, cahier QA réel, fork amont, panneau navigateur automatisé pour la QA.
