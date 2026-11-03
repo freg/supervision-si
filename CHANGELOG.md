@@ -1,3 +1,27 @@
+## 2026-11-03 — livraison #965 : sonde d'agent « flux éditeurs » — tester les flux depuis chaque VLAN et chaque position du réseau
+
+Demande : une sonde pour le même sujet, afin de nourrir les tests depuis plusieurs VLAN et positions dans le réseau.
+
+- **Sonde `flux-editeurs`** (agent 0.6.41, `si-agent/agent/plugins/flux-editeurs`) : à chaque passage (1 h par
+  défaut), pour chaque interface IPv4 du poste (`--ifaces auto` : hors docker, ponts, tunnels ; ou une liste), lit
+  les listes de cibles dans le hub (copie locale si le hub est injoignable), teste en sortant PAR CETTE INTERFACE
+  (source liée à son adresse ; interface sans route par défaut : `ip rule` + table de routage temporaire vers sa
+  passerelle, retirées en fin de passage) et envoie le passage au hub sous la source « <poste>-<interface> ».
+  Un poste à plusieurs pattes (mini-PC sur VLAN 20 + Wi-Fi, sous-interfaces VLAN, sondes Raspberry réparties) nourrit
+  ainsi l'analyse Nebula « VLAN couverts ».
+- Tests identiques au script : DNS, TCP, TLS (certificat vérifié ; non reconnu = INSPECTE ; expiration < 14 j = CERT),
+  NTP, ports attendus fermés (OUVERT), reclassement NS. Stdlib seulement.
+- Alertes tenues par le hub (tuile Flux éditeurs) : pas de double notification ; `--alertes agent` pour alerter aussi
+  par l'agent. Seul constat d'agent par défaut : hub injoignable / aucune cible.
+- Réglages (fiche agent › Sondes) : `--hub https://<hub>/api/nebula --site <id> --listes google,idruide --ifaces auto`.
+- **Correctif trouvé au passage** : le manifeste de la sonde `nas-qnap` se terminait par un `\n` littéral depuis #945
+  (piège déjà noté : `json.dump` puis `.write('\\n')` dans un heredoc) ; l'agent ignore en silence un manifeste
+  illisible : **la sonde nas-qnap n'était plus chargée par les agents depuis #945**. Réparé ; elle revient avec l'agent 0.6.41.
+
+Vérifié : `plugins/flux-editeurs/test_flux_editeurs.py` (3, dont bout en bout contre un hub simulé : liste lue, envoi,
+statuts OK / KO / OUVERT / DNS, copie locale quand le hub tombe). Non vérifié : tables de routage temporaires sur un vrai
+poste à plusieurs interfaces, build de l'archive de l'agent.
+
 ## 2026-11-03 — livraison #964 : Flux éditeurs — visualiseur et « ignorer », récapitulatif quotidien, onglet Pare-feu
 
 Demandes : visualiser un passage sans passer par le CSV ; une case « ignorer » sur le visualiseur ; une alerte

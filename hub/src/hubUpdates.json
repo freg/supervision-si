@@ -1,5 +1,11 @@
 [
  {
+  "n": 965,
+  "from": 965,
+  "date": "2026-11-03",
+  "title": "Sonde d'agent « flux éditeurs » (agent 0.6.41) : tests des flux Google, Idruide… depuis chaque interface / VLAN du poste, envoyés à la tuile Flux éditeurs (une source par interface)"
+ },
+ {
   "n": 964,
   "from": 964,
   "date": "2026-11-03",
