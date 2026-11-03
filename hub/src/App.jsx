@@ -78,6 +78,7 @@ const HtopView = lazyView(() => import("./HtopView.jsx"));   // #800 : htop en d
 const DataRfView = lazyView(() => import("./DataRfView.jsx"));   // #806 : sondes radio des sites
 const UrgenceView = lazyView(() => import("./UrgenceView.jsx"));   // #796 : écran Urgence (application installée)
 const ReperageView = lazyView(() => import("./ReperageView.jsx"));   // #949 : repérage physique sur site (téléphone)
+const FluxView = lazyView(() => import("./FluxView.jsx"));   // #962 : supervision des flux sortants exigés par les éditeurs
 const EquipementsSiteView = lazyView(() => import("./EquipementsSiteView.jsx"));   // #960 : registre des équipements du site (saisie des notes de terrain)
 const AuditSecuriteView = lazyView(() => import("./AuditSecuriteView.jsx"));   // #958 : audit de sécurité réseau (matrice de risques)
 const MigrationView = lazyView(() => import("./MigrationView.jsx"));   // #774 : tuile « Migration 2026-2027 »
@@ -179,6 +180,7 @@ const UNIVERSE_ALIASES = (() => {
     "view:equipements-site": ["inventaire", "registre", "plan", "ip", "mac", "rôle", "étiquettes", "tags"],
     "view:audit-securite": ["audit", "risques", "matrice", "préconisations", "sécurité réseau"],
     "view:reperage": ["prises", "brassage", "sonde", "radar", "terrain"],
+    "view:flux-editeurs": ["ports", "flux", "pare-feu", "google", "idruide", "android", "mdm", "ouverture"],
   };
   for (const [k, v] of Object.entries(SYN)) a[k] = [...(a[k] || []), ...v];
   return a;
@@ -1566,7 +1568,7 @@ export default function App() {
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
     VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory", "synthese", "aujourdhui",
     NETWORK_AGENT_API_BASE_URL && "network-agent", NETWORK_EQUIPMENT_API_BASE_URL && "network-equipment", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
-    ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula", NEBULA_API_BASE_URL && "reperage", NEBULA_API_BASE_URL && "equipements-site", NEBULA_API_BASE_URL && "audit-securite",
+    ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula", NEBULA_API_BASE_URL && "reperage", NEBULA_API_BASE_URL && "equipements-site", NEBULA_API_BASE_URL && "flux-editeurs", NEBULA_API_BASE_URL && "audit-securite",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
     RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", SI_AGENT_API_BASE_URL && "mailbox", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "nas", SI_AGENT_API_BASE_URL && "sauvegardes", SI_AGENT_API_BASE_URL && "vpn", SI_AGENT_API_BASE_URL && "postes-windows", SI_AGENT_API_BASE_URL && "sockets", "messages", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", SI_AGENT_API_BASE_URL && "hermes", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "orchestration", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
@@ -1754,6 +1756,8 @@ vm === "agent-page" ? (
         <UrgenceView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} notifyApiBase={NOTIFY_API_BASE_URL} accessToken={auth.user?.access_token} />
       ) : vm === "reperage" ? (
         <ReperageView onBack={goBack} nebulaApiBase={NEBULA_API_BASE_URL} actor={loginForLayout} />
+      ) : vm === "flux-editeurs" ? (
+        <FluxView onBack={goBack} nebulaApiBase={NEBULA_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "equipements-site" ? (
         <EquipementsSiteView onBack={goBack} nebulaApiBase={NEBULA_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "audit-securite" ? (

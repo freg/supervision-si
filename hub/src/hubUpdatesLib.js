@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  962: [{ view: "flux-editeurs", hint: "Réseau › Flux éditeurs : onglet par site, Mise en place (commande du script), Listes (coller Idruide), Analyse Nebula" }],
   960: [{ view: "equipements-site", hint: "Réseau › Équipements du site : saisir nom, rôle, IP, MAC, cliquer le plan pour placer, « Enregistrer et suivant »" }],
   959: [{ view: "reperage", hint: "Repérage › 🔌 Sonde filaire : relevés du Raspberry, nommer la prise, « Enregistrer → prise suivante »" }],
   958: [{ view: "audit-securite", hint: "Réseau › Audit de sécurité : Collecter, importer les relevés Proxmox / hôtes, matrice, rapport .md" }],

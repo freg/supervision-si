@@ -1697,3 +1697,7 @@ def _audit_org_of(site_id):
 audit_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites,
                             "devices": lambda sid: (_refresh_inventory(_connect()), _inventory["devices"].get(sid) or [])[1],
                             "vlan_map": lambda sid: _vlan_map_cached(sid), "anomalies": lambda sid: _anomalies(sid)[0], "org_of": _audit_org_of})
+
+# #962 : supervision des flux sortants exigés par les éditeurs (Google, Idruide…) + analyse Nebula -- flux_routes.py
+import flux_routes  # noqa: E402
+flux_routes.register(app, {"conn": get_connection, "sites": _report_sites, "vlan_map": lambda sid: _vlan_map_cached(sid)})

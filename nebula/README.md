@@ -4,6 +4,18 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
+## 2026-11-03 — Flux éditeurs : ports exigés par Google, Idruide… ouverts ? (#962)
+
+`flux.py` (pur) + `flux_routes.py`. Les tests tournent SUR LE SITE : `tools/test-flux.sh` (lecture seule : DNS, TCP,
+TLS avec détection d'inspection SSL par l'émetteur du certificat, NTP ; reclassement « NS » d'un port refusé par un hôte
+mais ouvert vers un autre) envoie ses résultats (`HUB=… SITE=… SOURCE=…`, réglages mémorisés dans `~/.test-flux.env`,
+listes du hub par `-l google,idruide`, `-q` pour cron). Tables `flux_listes` (listes collées depuis la page de
+l'éditeur ; Google Android Enterprise intégrée), `flux_passages` (2000 derniers par site), `flux_alertes` (KO / inspecté
+ouverts, fermés au rétablissement, acquittement + note ; notifications « flux.ferme » / « flux.retabli »). Analyse
+Nebula : terminaux mobiles (fabricants Android / iOS) par VLAN / SSID d'après l'historique des clients × VLAN d'où
+partent les tests (adresse source) → VLAN non couverts, réseau invité, rappel que les security policies ne sont pas
+lisibles par l'OpenAPI. Vue hub `FluxView.jsx` (onglet par site), logique `fluxLib.js`. Tests `tests/test_flux.py`.
+
 ## 2026-11-03 — Registre des équipements du site (#960)
 
 Report au bureau des notes de terrain : table `reperage_equipements` (site, id, fiche JSON : nom, rôle, IP, MAC, local,

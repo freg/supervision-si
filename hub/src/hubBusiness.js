@@ -92,6 +92,7 @@ export const PATHS = {
   "view:fusion": ["equipements/inventaire"],
   "view:nebula": ["equipements/reseau/wifi", "services/metier"],
   "view:reperage": ["equipements/reseau/wifi", "etats/maintenant"],   // #949 : repérage physique sur site
+  "view:flux-editeurs": ["equipements/reseau/wifi", "droits/acces"],   // #962 : flux sortants exigés par les éditeurs
   "view:equipements-site": ["equipements/reseau/wifi"],   // #960 : registre des équipements du site
   "view:audit-securite": ["equipements/reseau/wifi", "droits/acces"],   // #958 : audit de sécurité réseau
   "view:datarf": ["equipements/reseau/wifi", "etats/maintenant"],   // #806 : sondes radio des sites

@@ -1,3 +1,27 @@
+## 2026-11-03 — livraison #962 : tuile « Flux éditeurs » — les ports Google, Idruide… sont-ils ouverts ? par site, alertes, analyse Nebula
+
+Question récurrente au campus comme au bureau. Le premier passage réel de `test-flux.sh` au campus (VLAN 20) a montré
+78 flux ouverts, aucune inspection SSL, et 28 « KO » qui n'en étaient pas (5228-5230 vers des hôtes Google qui ne
+servent pas ces ports, alors que mtalk / fcm-xmpp les acceptent) : reclassés « NS ».
+
+- **Script** `nebula/tools/test-flux.sh` : envoi des résultats au hub (`HUB=… SITE=… SOURCE=…`, réglages mémorisés dans
+  `~/.test-flux.env`), listes tenues dans le hub (`-l google,idruide`), mode silencieux `-q` pour une supervision
+  continue par cron, interface de sortie au choix (`IFACE=wlp3s0` : tester par le Wi-Fi des tablettes).
+- **nebula-api** (`flux.py` pur + `flux_routes.py`) : listes de cibles (Google Android Enterprise intégrée ; autres
+  collées depuis la page de l'éditeur, formats `groupe;hôte;proto;ports`, `hôte tcp 443`, `hôte:port`, adresses
+  https:// réduites à l'hôte), sites (Nebula + sites ayant envoyé des résultats, ex. « bureau »), passages, matrice
+  hôte × port, alertes KO / inspecté ouvertes puis fermées au rétablissement, acquittement avec note, notifications
+  (actions « flux.ferme » / « flux.retabli »), export CSV d'un passage. **Analyse Nebula** : terminaux mobiles vus dans
+  l'historique des clients (7 jours) par VLAN / SSID × VLAN d'où partent les tests → VLAN non couverts signalés,
+  réseau invité, rappel que les règles de sécurité de la passerelle ne sont pas lisibles par l'OpenAPI.
+- **hub** : vue « Réseau › Flux éditeurs » (onglet par site : Synthèse, Alertes, Historique, Analyse Nebula, Listes de
+  cibles, Mise en place avec la commande et la ligne cron prêtes à copier).
+
+Vérifié : `tests/test_flux.py` (5, pur + routes Flask), essai de bout en bout du script contre l'API locale (liste du
+hub, envoi, alerte ouverte, réglages mémorisés, second passage `-q`), `node --test hub/tests/*.test.mjs` (19), syntaxe
+JSX. Non vérifié : build du hub, analyse Nebula sur les vraies données du campus, liste Idruide (page de l'éditeur non
+lisible sans JavaScript : à coller dans « Listes de cibles »).
+
 ## 2026-11-03 — livraison #961 : le filtre de l'Univers du hub comprend « droits » et « utilisateurs »
 
 Constat : chercher « droits » ou « utilisateurs » dans l'Univers du hub ne menait pas à « Comptes et groupes » (le

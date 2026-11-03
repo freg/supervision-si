@@ -7,10 +7,16 @@
 #   IFACE=enp1s0 bash test-flux.sh         # forcer l'interface de sortie (tester depuis un autre VLAN du mini-PC)
 #   bash test-flux.sh -g                   # sans la liste Google (seulement -f)
 # Sorties : /tmp/flux-<hote>-<date>.txt (lisible) et .csv (pour le hub / un tableur).
+# Envoi au hub (#962, tuile « Flux éditeurs ») : HUB=https://<hub>/api/nebula SITE=<id site> SOURCE="mini-PC" bash test-flux.sh
+#   -l google,idruide : listes tenues dans le hub (au lieu de la liste integree) ; reglages memorises dans ~/.test-flux.env
+#   supervision continue (cron) : 17 * * * * HOME=/home/freg bash /home/freg/test-flux.sh -q >/dev/null 2>&1
 # Ports : 443  |  5228-5230  |  5235,5236     Proto : tcp | udp      Lignes commencant par # ignorees.
 set -u
-GOOGLE=1; EXTRA=()
-while [ $# -gt 0 ]; do case "$1" in -f) EXTRA+=("$2"); shift 2;; -g) GOOGLE=0; shift;; *) echo "option inconnue : $1"; exit 2;; esac; done
+CONF="$HOME/.test-flux.env"; [ -f "$CONF" ] && . "$CONF"
+GOOGLE=1; EXTRA=(); LISTES="${LISTES:-}"; QUIET=0
+while [ $# -gt 0 ]; do case "$1" in -f) EXTRA+=("$2"); shift 2;; -g) GOOGLE=0; shift;; -l) LISTES="$2"; shift 2;; -q) QUIET=1; shift;; *) echo "option inconnue : $1"; exit 2;; esac; done
+HUB="${HUB:-}"; SITE="${SITE:-}"; SOURCE="${SOURCE:-$(hostname)}"
+[ -n "$HUB" ] && printf 'HUB=%q\nSITE=%q\nSOURCE=%q\nLISTES=%q\nIFACE=%q\n' "$HUB" "$SITE" "$SOURCE" "$LISTES" "${IFACE:-}" > "$CONF"
 T=$(date +%Y%m%d-%H%M); OUT="/tmp/flux-$(hostname)-$T"; TO=5
 IF="${IFACE:-}"; CURLIF=(); [ -n "$IF" ] && CURLIF=(--interface "$IF")
 
@@ -96,13 +102,14 @@ s.sendto(b'\x1b' + 47 * b'\0', (sys.argv[1], 123)); d, _ = s.recvfrom(48); print
 PY
 }
 
-{ [ "$GOOGLE" = 1 ] && google_list; for f in "${EXTRA[@]}"; do cat "$f"; done; } | grep -v '^\s*#' | grep -v '^\s*$' > "$OUT.liste"
+{ if [ -n "$HUB" ] && [ -n "$LISTES" ]; then for l in ${LISTES//,/ }; do curl -sf -m 15 "$HUB/flux/listes/$l.txt" || echo "# liste $l introuvable sur le hub" >&2; done
+  elif [ "$GOOGLE" = 1 ]; then google_list; fi; for f in "${EXTRA[@]}"; do cat "$f"; done; } | grep -v '^\s*#' | grep -v '^\s*$' > "$OUT.liste"
 echo "groupe;hote;ip;proto;port;resultat;detail" > "$OUT.csv"
 {
 echo "=== Test des flux sortants - $(hostname) - $(date '+%d/%m/%Y %H:%M') ==="
 echo "Sortie : ${IF:-route par defaut} ($(ip -4 -o addr show ${IF:+dev "$IF"} scope global 2>/dev/null | awk '{print $2" "$4}' | head -3 | tr '\n' ' '))"
 echo "Passerelle : $(ip route show default | awk '{print $3" via "$5}' | head -1) ; DNS : $(awk '/^nameserver/{print $2}' /etc/resolv.conf | tr '\n' ' ')"
-echo "IP publique vue de l'exterieur : $(curl -s -m 5 "${CURLIF[@]}" https://ifconfig.me 2>/dev/null || echo '?')"
+IPPUB=$(curl -s -m 5 "${CURLIF[@]}" https://ifconfig.me 2>/dev/null); echo "IP publique vue de l'exterieur : ${IPPUB:-?}"
 [ -n "${https_proxy:-}${HTTPS_PROXY:-}" ] && echo "ATTENTION : proxy defini dans l'environnement (${https_proxy:-$HTTPS_PROXY}) - Google exige un acces direct"
 echo
 nok=0; nko=0; ninsp=0
@@ -138,5 +145,21 @@ nns=$(awk -F';' 'NR>1 && $6=="NS"' "$OUT.csv" | wc -l); nko=$((nko - nns))
 awk -F';' 'NR>1 && $6=="KO"' "$OUT.csv" | awk -F';' '{print "  KO reel : "$2" "$4"/"$5" - "$7}'
 echo "Bilan : $nok OK, $nko KO reel(s), $nns NS, $ninsp inspecte(s) SSL. Detail tableur : $OUT.csv"
 echo "Rappel : ce test vaut pour le VLAN du mini-PC ; les tablettes sur un autre VLAN / SSID peuvent avoir d'autres regles (IFACE=<sous-interface du VLAN>)."
-} | tee "$OUT.txt"
+} > >(if [ "$QUIET" = 1 ]; then cat > "$OUT.txt"; else tee "$OUT.txt"; fi)
+wait $! 2>/dev/null
 rm -f "$OUT.liste"
+if [ -n "$HUB" ] && [ -n "$SITE" ]; then
+  IPSRC=$(ip -4 -o addr show ${IFACE:+dev "$IFACE"} scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+  [ -z "${IFACE:-}" ] && IPSRC=$(ip -4 route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
+  python3 - "$OUT.csv" "$SOURCE" "${IFACE:-}" "$IPSRC" "${IPPUB:-}" > "$OUT.json" <<'PY'
+import csv, json, sys
+f, src, iface, ipsrc, ippub = sys.argv[1:6]
+rows = list(csv.DictReader(open(f, encoding="utf-8"), delimiter=";"))
+print(json.dumps({"source": src, "iface": iface, "ip_source": ipsrc, "ip_publique": ippub,
+  "resultats": [{"groupe": r["groupe"], "hote": r["hote"], "ip": r["ip"], "proto": r["proto"], "port": r["port"], "statut": r["resultat"], "detail": r["detail"]} for r in rows]}))
+PY
+  rep=$(curl -s -m 30 -w '\n%{http_code}' -X POST "$HUB/sites/$SITE/flux/resultats" -H 'Content-Type: application/json' --data-binary @"$OUT.json")
+  code=$(echo "$rep" | tail -1); corps=$(echo "$rep" | sed '$d')
+  if [ "$code" = 200 ]; then echo "Envoye au hub ($SITE) : $(echo "$corps" | python3 -c 'import json,sys; d=json.load(sys.stdin); a=d["alertes"]; print("passage #%s, %s alerte(s) ouverte(s), %s nouvelle(s), %s retablie(s)" % (d["passage"], a["ouvertes"], a["nouvelles"], a["retablies"]))')"
+  else echo "Envoi au hub impossible (HTTP $code) : $(echo "$corps" | head -c 200)"; fi
+fi
