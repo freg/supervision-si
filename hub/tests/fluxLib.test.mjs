@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resumeBilan, age, filtrerMatrice, dureeAlerte, commandesSite, exempleListe, STATUTS } from "../src/fluxLib.js";
+import { resumeBilan, age, filtrerMatrice, dureeAlerte, commandesSite, exempleListe, STATUTS, lignesPassage } from "../src/fluxLib.js";
 
 test("bilan, âge, durée", () => {
   assert.equal(resumeBilan(null), "aucun passage");
@@ -18,4 +18,14 @@ test("matrice filtrée et commandes", () => {
   const c = commandesSite("https://hub/api/nebula", "s1", ["google", "idruide"], "wlp3s0");
   assert.match(c, /HUB=https:\/\/hub\/api\/nebula SITE=s1/); assert.match(c, /IFACE=wlp3s0/); assert.match(c, /-l google,idruide/); assert.match(c, /crontab/);
   assert.match(exempleListe("Idruide"), /^# une cible/); assert.match(exempleListe("Idruide"), /idruide;api\.exemple\.com;tcp;443/);
+});
+
+test("visualiseur : filtres et tri", () => {
+  const L = [{ hote: "b", port: 1, statut: "NS", groupe: "", detail: "" }, { hote: "a", port: 2, statut: "KO", groupe: "", detail: "" },
+    { hote: "c", port: 3, statut: "OK", groupe: "", detail: "" }, { hote: "d", port: 4, statut: "KO", groupe: "", detail: "", ignore: true }];
+  assert.deepEqual(lignesPassage(L).map((l) => l.hote), ["a", "b"]);
+  assert.deepEqual(lignesPassage(L, "ignores").map((l) => l.hote), ["d"]);
+  assert.deepEqual(lignesPassage(L, "tous").map((l) => l.hote), ["a", "d", "b", "c"]);
+  assert.deepEqual(lignesPassage(L, "tous", "c").map((l) => l.hote), ["c"]);
+  assert.equal(STATUTS.IGN.couleur, "var(--muted)");
 });

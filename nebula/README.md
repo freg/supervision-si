@@ -6,6 +6,13 @@ données d'un site sous nebula.zyxel.com").
 
 ## 2026-11-03 — Flux éditeurs : ports exigés par Google, Idruide… ouverts ? (#962)
 
+**#964** : visualiseur d'un passage (filtres à traiter / ignorés / tout) avec case « ignorer » par flux
+(`flux_ignores`, par site : la ligne reste mesurée mais ne compte plus, n'alerte plus, sort du récapitulatif) ;
+récapitulatif quotidien par courriel (`flux.recapitulatif`, réglages `PUT /flux/reglages` : heure, NS inclus,
+destinataires ; boucle toutes les 5 min avec verrou de fichier, un seul worker envoie ; `POST /flux/recap/envoyer`) ;
+onglet Pare-feu (`GET /sites/<s>/flux/parefeu`) : zones et interfaces, NAT avec dernière présence de la cible dans
+l'historique des clients, constats passerelle (#712), état (`gw/{dev}/system-status`) et journal (`gw/event-logs`,
+résumé par message), règles de filtrage collées et versionnées (`flux_regles`, comparatif), suggestions.
 **#963** : SI déclarés hors Nebula (`flux_sites`, `PUT /flux/sites`) avec plusieurs sources (ex. agent OVH qui teste
 l'extranet du LAN vu d'Internet, agent du LAN qui teste les services OVH) ; 5e champ `ferme` dans les listes (port qui
 doit rester fermé vu de la source → statut OUVERT) ; expiration des certificats sur le 443 (statut CERT si expiré ou à

@@ -304,3 +304,129 @@ def csv_passage(lignes):
     for l in lignes:
         w.writerow([l["groupe"], l["hote"], l.get("ip") or "", l["proto"], l["port"], l["statut"], l["detail"]])
     return "﻿" + buf.getvalue()
+
+
+# ----------------------------------------------------------------- flux ignorés (#964)
+def cle_ignore(hote, proto, port):
+    return "%s|%s/%d" % (str(hote).lower(), str(proto).lower(), int(port))
+
+
+def appliquer_ignores(lignes, ignores):
+    """ignores : ensemble de clés cle_ignore -> lignes avec `ignore` (le statut mesuré est conservé)."""
+    return [dict(l, ignore=cle_ignore(l["hote"], l["proto"], l["port"]) in (ignores or set())) for l in lignes]
+
+
+def bilan_ignores(lignes):
+    """Bilan qui ne compte pas les flux ignorés (comptés à part dans IGN)."""
+    b = bilan([l for l in lignes if not l.get("ignore")])
+    b["IGN"] = sum(1 for l in lignes if l.get("ignore"))
+    b["total"] = len(lignes)
+    return b
+
+
+def alertants(lignes):
+    """Lignes qui ouvrent une alerte : statut alertant et non ignorées (une ligne ignorée ferme son alerte)."""
+    return [dict(l, statut=("IGN" if l.get("ignore") else l["statut"])) for l in lignes]
+
+
+# ----------------------------------------------------------------- récapitulatif quotidien (#964)
+def recap(sites, avec_ns=True, maintenant=None):
+    """sites : [{site_id, nom, sources: [{source, at, lignes}]}] -> (sujet, texte, nombre de lignes signalées).
+    Liste par site et par source les flux KO / OUVERT / CERT / INSPECTE (et NS si demandé), hors ignorés."""
+    import datetime
+    garder = set(ALERTANT) | ({"NS"} if avec_ns else set())
+    blocs, n = [], 0
+    for s in sites:
+        lignes_site = []
+        for src in s.get("sources") or []:
+            sel = [l for l in src.get("lignes") or [] if l["statut"] in garder and not l.get("ignore")]
+            if not sel:
+                continue
+            quand = datetime.datetime.fromtimestamp(src["at"]).strftime("%d/%m %H:%M") if src.get("at") else "?"
+            lignes_site.append("  Source %s (dernier passage %s) :" % (src["source"], quand))
+            for l in sorted(sel, key=lambda x: (x["statut"] == "NS", x["hote"], x["port"])):
+                lignes_site.append("    %-8s %s %s/%d — %s" % (l["statut"], l["hote"], l["proto"], l["port"], l["detail"]))
+                n += 1
+        if lignes_site:
+            blocs.append("%s (%s)\n%s" % (s.get("nom") or s["site_id"], s["site_id"], "\n".join(lignes_site)))
+    if not blocs:
+        return "[flux] récapitulatif : aucun flux fermé%s" % (" ni non servi" if avec_ns else ""), "Tous les flux suivis sont ouverts (hors flux ignorés).", 0
+    sujet = "[flux] récapitulatif : %d flux à examiner" % n
+    texte = ("Flux sortants exigés par les éditeurs — lignes KO (fermé / filtré / DNS), OUVERT (devrait être fermé), CERT "
+             "(certificat), INSPECTE (inspection SSL)%s. Les flux marqués « ignorer » dans le hub n'apparaissent pas.\n\n" % (", NS (port non servi par l'hôte)" if avec_ns else "")) + "\n\n".join(blocs)
+    return sujet, texte, n
+
+
+# ----------------------------------------------------------------- pare-feu du site Nebula (#964)
+def synthese_nat(nat_rules, clients_vus, maintenant):
+    """Règles NAT (gwpolicy.parse_nat) + dernière présence de la cible dans l'historique des clients -> lignes + suggestions."""
+    import gwpolicy
+    vus = {}
+    for c in clients_vus or []:
+        ip = c.get("ip")
+        if ip and (c.get("last_seen") or 0) > vus.get(ip, 0):
+            vus[ip] = c.get("last_seen") or 0
+    lignes, sugg = [], []
+    for r in nat_rules or []:
+        ip = r.get("private_ip")
+        dv = vus.get(ip)
+        sensibles = sorted(p for p in r.get("explicit_ports", r.get("ports") or []) if p in gwpolicy.SENSITIVE)
+        l = {"type": r.get("kind"), "nom": r.get("name") or "", "actif": bool(r.get("enabled")), "interface": r.get("interface"), "ip_publique": r.get("public_ip"),
+             "ip_privee": ip, "ports": "tous" if r.get("all_ports") else ",".join(str(p) for p in r.get("ports") or []), "ports_prives": ",".join(map(str, r.get("private_ports") or [])),
+             "protocole": r.get("protocol"), "origine": "toute origine" if r.get("any_remote") else ", ".join(r.get("remote") or []),
+             "sensibles": ["%d (%s)" % (p, gwpolicy.SENSITIVE[p]) for p in sensibles], "cible_vue": dv, "cible_inactive": bool(ip and dv is not None and maintenant - dv > 30 * 86400)}
+        lignes.append(l)
+        nom = l["nom"] or "%s → %s" % (l["type"], ip or "?")
+        if not l["actif"]:
+            sugg.append({"niveau": "info", "texte": "Règle NAT « %s » désactivée : la supprimer si elle n'a plus d'usage (lisibilité de la configuration)." % nom})
+        elif ip and dv is None and clients_vus:
+            sugg.append({"niveau": "alerte", "texte": "Règle NAT « %s » vers %s : cette adresse n'a jamais été vue parmi les clients du site (cible obsolète ou hors réseau supervisé ?)." % (nom, ip)})
+        elif l["cible_inactive"]:
+            sugg.append({"niveau": "alerte", "texte": "Règle NAT « %s » vers %s : cible absente depuis plus de 30 jours — publication à fermer si le service n'existe plus." % (nom, ip)})
+        if l["actif"] and l["origine"] == "toute origine" and sensibles:
+            sugg.append({"niveau": "critique", "texte": "Règle NAT « %s » : service(s) sensible(s) %s publiés sans restriction d'origine — limiter aux adresses sources connues ou passer par le VPN." % (nom, ", ".join(l["sensibles"]))})
+        elif l["actif"] and l["origine"] == "toute origine" and l["ports"] == "tous":
+            sugg.append({"niveau": "critique", "texte": "Règle NAT « %s » : tous les ports publiés sans restriction d'origine." % nom})
+    return lignes, sugg
+
+
+def zones(vmap):
+    out = []
+    for v in (vmap or {}).get("vlans") or []:
+        out.append({"vlan": v.get("vid"), "sous_reseau": v.get("subnet"), "interface": v.get("gateway_interface"), "zone": "invité" if v.get("guest") else ("LAN" if v.get("gateway_interface") else "sans interface passerelle"),
+                    "ssids": [s.get("name") for s in v.get("ssids") or [] if s.get("enabled", True)], "clients": v.get("clients") or 0})
+    return out
+
+
+def suggestions_zones(zs):
+    s = []
+    for z in zs:
+        if z["zone"] == "sans interface passerelle" and (z["clients"] or z["ssids"]):
+            s.append({"niveau": "info", "texte": "VLAN %s (%s) sans interface sur la passerelle : son trafic ne passe pas par le pare-feu (routé ailleurs ou VLAN isolé) — vérifier que c'est voulu." % (z["vlan"], ", ".join(z["ssids"]) or "filaire")})
+    return s
+
+
+def resume_journal(evenements, n=20):
+    """Événements de la passerelle (forme variable) -> [{message, n, dernier}] les plus fréquents, catégories mises à plat."""
+    cpt = {}
+    for e in evenements or []:
+        if not isinstance(e, dict):
+            continue
+        msg = str(e.get("message") or e.get("msg") or e.get("description") or e.get("event") or e.get("category") or "")[:160]
+        msg = re.sub(r"\b\d{1,3}(\.\d{1,3}){3}(:\d+)?\b", "<ip>", msg)
+        msg = re.sub(r"\b[0-9a-f]{2}(:[0-9a-f]{2}){5}\b", "<mac>", msg, flags=re.I)
+        if not msg:
+            continue
+        t = e.get("timestamp") or e.get("time") or e.get("ts") or 0
+        c = cpt.setdefault(msg, {"message": msg, "n": 0, "dernier": 0})
+        c["n"] += 1
+        try:
+            c["dernier"] = max(c["dernier"], float(t) / (1000 if float(t) > 1e11 else 1))
+        except (TypeError, ValueError):
+            pass
+    return sorted(cpt.values(), key=lambda c: -c["n"])[:n]
+
+
+def diff_regles(ancien, nouveau):
+    import difflib
+    return "\n".join(difflib.unified_diff((ancien or "").splitlines(), (nouveau or "").splitlines(), "version précédente", "nouvelle version", lineterm="", n=1))

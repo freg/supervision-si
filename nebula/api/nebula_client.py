@@ -245,6 +245,14 @@ class NebulaClient:
         # une erreur est simplement signalée « non disponible »
         return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/traffic-usage?period={period}", f"usage de la passerelle '{dev_id}' échoué")
 
+    def gw_system_status(self, site_id, dev_id):
+        """#964 : état de la passerelle (sessions actives, processeur, mémoire selon le modèle)."""
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/system-status", f"état de la passerelle '{dev_id}' échoué")
+
+    def gw_event_logs(self, site_id, period="1d"):
+        """#964 : journal d'événements de la passerelle (POST .../gw/event-logs ; corps non documenté publiquement : période, tolérant)."""
+        return self._post(f"/v1/nebula/{site_id}/gw/event-logs", {"period": period}, f"journal de la passerelle du site '{site_id}' échoué")
+
     def sw_clients(self, site_id, period="1d"):
         # `featrues` (sic, nom du champ dans l'API) : l'énumération acceptée n'est
         # pas documentée ; "mac_address" seul est accepté et la réponse porte

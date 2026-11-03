@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  964: [{ view: "flux-editeurs", hint: "Flux éditeurs : « 🔍 visualiser / ignorer » sur chaque source ; Alertes › récapitulatif quotidien ; onglet Pare-feu (site Nebula)" }],
   963: [{ view: "flux-editeurs", hint: "Flux éditeurs › ＋ SI / site : déclarer « SI Optline », puis listes extranet-lan (vue d'OVH) et services-ovh (vue du LAN)" }],
   962: [{ view: "flux-editeurs", hint: "Réseau › Flux éditeurs : onglet par site, Mise en place (commande du script), Listes (coller Idruide), Analyse Nebula" }],
   960: [{ view: "equipements-site", hint: "Réseau › Équipements du site : saisir nom, rôle, IP, MAC, cliquer le plan pour placer, « Enregistrer et suivant »" }],

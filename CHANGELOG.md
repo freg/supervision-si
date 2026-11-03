@@ -1,3 +1,26 @@
+## 2026-11-03 — livraison #964 : Flux éditeurs — visualiseur et « ignorer », récapitulatif quotidien, onglet Pare-feu
+
+Demandes : visualiser un passage sans passer par le CSV ; une case « ignorer » sur le visualiseur ; une alerte
+quotidienne par courriel sur les NS / KO avec la liste ; pour le site Nebula : listing du filtrage, configuration NAT
+et ce qui est utile pour optimiser et gérer le pare-feu.
+
+- **Visualiseur** : « 🔍 visualiser / ignorer » sur chaque source (Synthèse) et « voir » (Historique) ouvrent la liste du
+  passage, triée par gravité, filtres « à traiter » / « ignorés » / « tout ». **Ignorer** (par site, toutes sources) :
+  la ligne reste mesurée et visible, mais ne compte plus dans le bilan (compteur IGN), n'ouvre plus d'alerte (une
+  alerte ouverte se ferme) et sort du récapitulatif.
+- **Récapitulatif quotidien** (Alertes) : actif, heure, NS inclus ou non, destinataires (vide = abonnés de l'action
+  « flux.recapitulatif » du module Notifications) ; aperçu et « Envoyer maintenant ». Un seul worker envoie (verrou).
+- **Onglet Pare-feu** (sites Nebula) : interfaces et zones de la passerelle par VLAN ; configuration NAT (type, ports,
+  ports sensibles, origine autorisée, cible, dernière présence de la cible parmi les clients) ; état de la passerelle
+  et journal d'événements résumé (appels OpenAPI tolérants : une erreur est affichée, le reste s'affiche) ; règles de
+  filtrage : non publiées par l'OpenAPI ni exportables depuis Nebula (réponse Zyxel) → collées depuis Nebula, gardées
+  par version datée avec comparatif ; suggestions : NAT désactivé, cible jamais vue ou absente depuis 30 jours,
+  services sensibles sans restriction d'origine, VLAN sans interface passerelle, constats passerelle existants.
+
+Vérifié : `tests/test_flux.py` (9), `node --test hub/tests/*.test.mjs` (20), syntaxe JSX. Non vérifié : build du hub,
+appels réels `system-status` / `event-logs` (le corps de la requête du journal n'est pas documenté publiquement :
+erreur affichée si refusé), envoi réel du courriel.
+
 ## 2026-11-03 — livraison #963 : Flux éditeurs — onglet SI Optline (agent OVH ↔ agent du LAN), ports qui doivent rester fermés, certificats
 
 Demande : le même onglet pour le SI de l'entreprise, avec un agent chez OVH qui vérifie l'extranet du LAN et un agent

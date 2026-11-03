@@ -7,6 +7,7 @@ export const STATUTS = {
   OUVERT: { libelle: "ouvert alors qu'il devrait être fermé", couleur: "var(--danger)", fond: "var(--danger-bg)" },
   CERT: { libelle: "certificat expiré ou à moins de 14 jours", couleur: "var(--warning)", fond: "var(--warning-bg)" },
   "?": { libelle: "UDP non vérifiable", couleur: "var(--muted)", fond: "var(--panel)" },
+  IGN: { libelle: "ignoré (ne compte plus, n'alerte plus)", couleur: "var(--muted)", fond: "var(--panel)" },
 };
 export const SITE_KEY = "hub.flux.site";
 
@@ -60,4 +61,13 @@ export function commandesSite(hub, siteId, listes, iface) {
 export function exempleListe(nom) {
   const g = (nom || "editeur").toLowerCase().replace(/[^a-z0-9]+/g, "-");
   return `# une cible par ligne : groupe;hôte;proto;ports[;ferme] (ou « hôte proto ports », ou « hôte:port »)\n# 5e champ « ferme » : le port doit rester FERMÉ vu de la source (ex. SSH ou base de données vus d'Internet)\n${g};api.exemple.com;tcp;443\n${g};push.exemple.com;tcp;443,5223-5225\n${g};api.exemple.com;tcp;22,3306;ferme`;
+}
+
+/** Lignes d'un passage pour le visualiseur : filtre « a_traiter » (KO, NS, alertes, non ignorées), « ignores », « tous » ; tri par gravité. */
+const ORDRE = { OUVERT: 0, KO: 1, CERT: 2, INSPECTE: 3, NS: 4, "?": 5, OK: 6 };
+export function lignesPassage(lignes, filtre = "a_traiter", q = "") {
+  const s = q.trim().toLowerCase();
+  return (lignes || []).filter((l) => (filtre === "tous" || (filtre === "ignores" ? l.ignore : !l.ignore && l.statut !== "OK" && l.statut !== "?"))
+    && (!s || `${l.hote} ${l.groupe} ${l.port} ${l.detail}`.toLowerCase().includes(s)))
+    .sort((a, b) => (ORDRE[a.statut] ?? 9) - (ORDRE[b.statut] ?? 9) || a.hote.localeCompare(b.hote) || a.port - b.port);
 }

@@ -145,3 +145,85 @@ class TestSI(unittest.TestCase):
         self.assertEqual(cl.put("/flux/sites", json={"nom": "SI Optline", "description": "agent OVH + agent LAN"}).get_json()["site_id"], "si-optline")
         s = cl.get("/flux/sites").get_json()["sites"]; self.assertEqual((s[0]["site_id"], s[0]["nom"], s[0]["declare"]), ("si-optline", "SI Optline", True))
         cl.delete("/flux/sites/si-optline"); self.assertEqual(cl.get("/flux/sites").get_json()["sites"], [])
+
+
+class Test964(unittest.TestCase):
+    def test_pur(self):
+        L = [res("a.com", 443, "KO", "DNS"), res("b.com", 5228, "NS"), res("c.com", 443, "OK")]
+        li = F.appliquer_ignores(L, {F.cle_ignore("A.com", "tcp", 443)})
+        self.assertEqual([l["ignore"] for l in li], [True, False, False])
+        b = F.bilan_ignores(li); self.assertEqual((b["KO"], b["IGN"], b["NS"], b["etat"]), (0, 1, 1, "ok"))
+        n, r, m = F.diff_alertes({}, F.alertants(li), "s", 1); self.assertEqual(n, [])
+        sujet, texte, k = F.recap([{"site_id": "s1", "nom": "Campus", "sources": [{"source": "mini", "at": 0, "lignes": li}]}], avec_ns=True)
+        self.assertEqual(k, 1); self.assertIn("b.com tcp/5228", texte); self.assertNotIn("a.com", texte); self.assertIn("1 flux", sujet)
+        self.assertEqual(F.recap([{"site_id": "s1", "sources": [{"source": "m", "at": 0, "lignes": li}]}], avec_ns=False)[2], 0)
+        nat = [{"kind": "redirection", "name": "rdp", "enabled": True, "public_ip": "1.2.3.4", "private_ip": "10.0.0.5", "ports": [3389], "explicit_ports": [3389], "all_ports": False,
+                "any_remote": True, "remote": [], "protocol": "TCP"},
+               {"kind": "1:1", "name": "vieux", "enabled": True, "private_ip": "10.0.0.9", "ports": [], "all_ports": True, "any_remote": False, "remote": ["5.6.7.8"]},
+               {"kind": "redirection", "name": "off", "enabled": False, "private_ip": "10.0.0.7", "ports": [80], "all_ports": False, "any_remote": True, "remote": []}]
+        lignes, sugg = F.synthese_nat(nat, [{"ip": "10.0.0.5", "last_seen": 1000}, {"ip": "10.0.0.7", "last_seen": 1000}], 1000 + 40 * 86400)
+        self.assertEqual(lignes[0]["sensibles"], ["3389 (Bureau à distance (RDP))"]); self.assertTrue(lignes[0]["cible_inactive"])
+        t = " ".join(x["texte"] for x in sugg)
+        self.assertIn("jamais été vue", t); self.assertIn("désactivée", t); self.assertIn("sans restriction d'origine", t); self.assertIn("30 jours", t)
+        zs = F.zones({"vlans": [{"vid": 22, "subnet": "172.16.22.0/24", "gateway_interface": None, "ssids": [{"name": "X"}], "clients": 3}]})
+        self.assertEqual(zs[0]["zone"], "sans interface passerelle"); self.assertEqual(len(F.suggestions_zones(zs)), 1)
+        j = F.resume_journal([{"message": "Blocked 10.0.0.1:443 -> 8.8.8.8", "timestamp": 1700000000000}, {"message": "Blocked 10.0.0.2:443 -> 8.8.8.8"}, {"msg": "VPN up"}, "x"])
+        self.assertEqual((j[0]["message"], j[0]["n"]), ("Blocked <ip> -> <ip>", 2)); self.assertEqual(j[0]["dernier"], 1700000000.0)
+        self.assertIn("+allow 443", F.diff_regles("deny 22", "deny 22\nallow 443"))
+
+    def test_routes(self):
+        try:
+            import flask  # noqa: F401
+        except ImportError:
+            self.skipTest("flask absent")
+        import sqlite3
+        from flask import Flask
+        import flux_routes as R
+
+        class N:
+            envois = []
+            @staticmethod
+            def notify(*a, **k): N.envois.append((a, k)); return {"status": "sent", "recipients": 1}
+            @staticmethod
+            def register_actions(a): pass
+        R.notify_client = N
+        db = os.path.join(tempfile.mkdtemp(), "n.db")
+
+        def conn():
+            c = sqlite3.connect(db); c.row_factory = sqlite3.Row; return c
+
+        class Cl:
+            def gw_system_status(self, sid, gw): return {"sessions": 1234}
+            def gw_event_logs(self, sid): return {"data": [{"message": "Blocked 1.2.3.4"}]}
+        vmap = {"vlans": [{"vid": 20, "subnet": "172.16.20.0/24", "gateway_interface": "lan1", "ssids": []}],
+                "nat": [{"kind": "redirection", "name": "web", "enabled": True, "private_ip": "172.16.20.5", "ports": [443], "explicit_ports": [443], "all_ports": False, "any_remote": True, "remote": []}],
+                "anomalies_detail": [{"kind": "nat_to_guest", "message": "pub invité"}, {"kind": "vlan_x", "message": "autre"}]}
+        app = Flask(__name__)
+        R.register(app, {"conn": conn, "sites": lambda: [{"siteId": "campus", "name": "Campus"}], "vlan_map": lambda s: vmap, "client": lambda: Cl(), "gw_of": lambda s: "gw1"})
+        cl = app.test_client()
+        cl.post("/sites/campus/flux/resultats", json={"source": "m", "resultats": [res("a.com", 443, "KO", "nom non resolu (DNS)"), res("b.com", 5228, "KO")]})
+        self.assertEqual(len(cl.get("/sites/campus/flux").get_json()["alertes_ouvertes"]), 2)
+        self.assertEqual(cl.put("/sites/campus/flux/ignores", json={"hote": "a.com"}).status_code, 400)
+        self.assertEqual(cl.put("/sites/campus/flux/ignores", json={"hote": "a.com", "proto": "tcp", "port": 443, "par": "freg"}).get_json()["ignores"], 1)
+        f = cl.get("/sites/campus/flux").get_json()
+        self.assertEqual(len(f["alertes_ouvertes"]), 1); self.assertEqual(f["sources"][0]["bilan"]["IGN"], 1)
+        self.assertEqual(next(l for l in f["sources"][0]["matrice"]["lignes"] if l["hote"] == "a.com")["cellules"]["tcp/443"], "IGN")
+        pid = f["historique"][0]["id"]
+        p = cl.get("/sites/campus/flux/passages/%d" % pid).get_json(); self.assertEqual([l["ignore"] for l in p["lignes"]], [True, False])
+        time.sleep(1.01)
+        r = cl.post("/sites/campus/flux/resultats", json={"source": "m", "resultats": [res("a.com", 443, "KO", "nom non resolu (DNS)"), res("b.com", 5228, "KO")]}).get_json()
+        self.assertEqual((r["bilan"]["KO"], r["bilan"]["IGN"], r["alertes"]["nouvelles"]), (1, 1, 0))
+        cl.delete("/sites/campus/flux/ignores", json={"hote": "a.com", "proto": "tcp", "port": 443}); self.assertEqual(cl.get("/sites/campus/flux/ignores").get_json()["ignores"], [])
+        reg = cl.put("/flux/reglages", json={"heure": 30, "ns": False, "destinataires": "a@b.fr"}).get_json()["recap"]; self.assertEqual((reg["heure"], reg["ns"]), (23, False))
+        self.assertIn("b.com", cl.get("/flux/recap").get_json()["texte"])
+        e = cl.post("/flux/recap/envoyer").get_json(); self.assertEqual(e["resultat"]["status"], "sent")
+        self.assertEqual(N.envois[-1][1]["to"], ["a@b.fr"]); self.assertEqual(N.envois[-1][0][0], "flux.recapitulatif")
+        pf = cl.get("/sites/campus/flux/parefeu").get_json()
+        self.assertEqual((pf["systeme"], pf["journal"]["total"], pf["passerelle"]), ({"sessions": 1234}, 1, "gw1"))
+        self.assertEqual([c["texte"] for c in pf["constats"]], ["pub invité"]); self.assertEqual(pf["nat"][0]["ip_privee"], "172.16.20.5")
+        self.assertEqual(cl.put("/sites/campus/flux/parefeu/regles", json={}).status_code, 400)
+        cl.put("/sites/campus/flux/parefeu/regles", json={"texte": "1 LAN1>WAN allow any", "par": "freg"}); time.sleep(1.01)
+        self.assertTrue(cl.put("/sites/campus/flux/parefeu/regles", json={"texte": "1 LAN1>WAN allow any"}).get_json()["inchange"])
+        d = cl.put("/sites/campus/flux/parefeu/regles", json={"texte": "1 LAN1>WAN allow any\n2 GUEST>LAN deny"}).get_json(); self.assertIn("+2 GUEST>LAN deny", d["diff"])
+        pf = cl.get("/sites/campus/flux/parefeu").get_json(); self.assertEqual(pf["versions"], 2); self.assertIn("+2 GUEST", pf["regles"]["diff"])
+        R.notify_client = None

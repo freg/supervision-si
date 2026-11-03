@@ -1700,4 +1700,11 @@ audit_routes.register(app, {"conn": get_connection, "client": _connect, "sites":
 
 # #962 : supervision des flux sortants exigés par les éditeurs (Google, Idruide…) + analyse Nebula -- flux_routes.py
 import flux_routes  # noqa: E402
-flux_routes.register(app, {"conn": get_connection, "sites": _report_sites, "vlan_map": lambda sid: _vlan_map_cached(sid)})
+def _flux_gw_of(site_id):
+    devs = _inventory["devices"].get(site_id) or []
+    return next((d["devId"] for d in devs if str(d.get("type") or "").upper() in ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")), None)
+
+
+flux_routes.register(app, {"conn": get_connection, "sites": _report_sites, "vlan_map": lambda sid: _vlan_map_cached(sid), "client": _connect,
+                           "gw_of": _flux_gw_of, "lock_dir": os.path.dirname(DB_PATH),
+                           "boucle": os.environ.get("NEBULA_POLL_DISABLED") != "1"})
