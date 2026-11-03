@@ -127,7 +127,16 @@ while IFS=';' read -r grp hote proto pl; do
   done
 done < "$OUT.liste"
 echo
-echo "Bilan : $nok OK, $nko KO, $ninsp inspecte(s) SSL. Detail tableur : $OUT.csv"
+# Un port refuse par un hote mais accepte par un autre n'est pas filtre par le pare-feu : l'hote ne le sert pas (ex. 5228 sur
+# play.google.com alors que mtalk.google.com l'accepte). Reclassement « NS » (non servi par cet hote).
+ouverts=$(awk -F';' 'NR>1 && $6=="OK" {print $4"/"$5}' "$OUT.csv" | sort -u)
+nns=0; tmp=$(mktemp)
+awk -F';' -v OFS=';' -v ouv="$ouverts" 'BEGIN{n=split(ouv,a,"\n"); for(i=1;i<=n;i++) o[a[i]]=1}
+  NR>1 && $6=="KO" && $7 !~ /DNS/ && (($4"/"$5) in o) {$6="NS"; $7="port ouvert vers d autres hotes : non servi par celui-ci (pas un blocage)"} {print}' "$OUT.csv" > "$tmp" && cat "$tmp" > "$OUT.csv"; rm -f "$tmp"
+nns=$(awk -F';' 'NR>1 && $6=="NS"' "$OUT.csv" | wc -l); nko=$((nko - nns))
+[ "$nns" -gt 0 ] && echo "$nns KO reclasses NS (port non servi par cet hote, ouvert vers d'autres) : voir le CSV."
+awk -F';' 'NR>1 && $6=="KO"' "$OUT.csv" | awk -F';' '{print "  KO reel : "$2" "$4"/"$5" - "$7}'
+echo "Bilan : $nok OK, $nko KO reel(s), $nns NS, $ninsp inspecte(s) SSL. Detail tableur : $OUT.csv"
 echo "Rappel : ce test vaut pour le VLAN du mini-PC ; les tablettes sur un autre VLAN / SSID peuvent avoir d'autres regles (IFACE=<sous-interface du VLAN>)."
 } | tee "$OUT.txt"
 rm -f "$OUT.liste"
