@@ -1,3 +1,12 @@
+## Tuile « Flux éditeurs » : supervision des flux sortants exigés par les éditeurs, par SI / site (2026-11-03) — DEMANDÉ, après validation manuelle de `nebula/tools/test-flux.sh`
+
+Question récurrente au campus comme au bureau : « les ports Google / Idruide sont-ils ouverts ? ». Étape 1 FAITE :
+`nebula/tools/test-flux.sh` (lecture seule : DNS, TCP, TLS avec détection d'inspection SSL par l'émetteur du certificat,
+NTP ; liste Google Android Enterprise intégrée, autres éditeurs en fichier `groupe;hôte;proto;ports`, `IFACE=` pour
+tester depuis un autre VLAN ; sortie texte + CSV). Demandé ensuite : une tuile avec onglets par SI / site qui liste les
+cibles (listes d'éditeurs versionnées, ajout manuel), lance les tests depuis les agents / sondes du site (tournées
+périodiques), garde l'historique, et gère des alertes (flux fermé, inspection SSL, DNS) avec rétablissement signalé.
+
 ## Relevés de postes avant réinstallation : stockage et consultation sur le hub (2026-11-03) — DEMANDÉ, PAS COMMENCÉ (moins urgent)
 
 Contexte : pc-paul réinstallé ; `avant-reinstall.ps1` produit `releve-<poste>.txt` (configuration : comptes, profils,
