@@ -113,3 +113,35 @@ class TestRoutes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSI(unittest.TestCase):
+    def test_ferme_cert_sites(self):
+        lignes, err = F.lire_liste("lan;extranet.exemple.fr;tcp;443\nlan;extranet.exemple.fr;tcp;22,3306;ferme\nx.fr tcp 3389\n")
+        self.assertEqual([l["attendu"] for l in lignes], ["ouvert", "ferme", "ouvert"]); self.assertIn("22,3306;ferme", F.texte_liste(lignes))
+        p, _ = F.valider_resultats({"source": "agent-ovh", "resultats": [
+            res("e.fr", 22, "OUVERT"), dict(res("e.fr", 3306, "OK", "ferme comme attendu"), attendu="ferme"), res("e.fr", 443, "CERT", "expire dans 5 j"),
+            dict(res("f.fr", 22, "KO"), attendu="ferme")]})
+        b = F.bilan(p["lignes"]); self.assertEqual((b["OUVERT"], b["CERT"], b["etat"]), (1, 1, "alerte"))
+        self.assertEqual([l["statut"] for l in p["lignes"] if l["hote"] == "f.fr"], ["KO"])      # attendu fermé : jamais reclassé NS
+        n, _, _ = F.diff_alertes({}, p["lignes"], "agent-ovh", 1); self.assertEqual(sorted(a["statut"] for a in n), ["CERT", "KO", "OUVERT"])
+
+    def test_route_sites(self):
+        try:
+            import flask  # noqa: F401
+        except ImportError:
+            self.skipTest("flask absent")
+        import sqlite3
+        from flask import Flask
+        import flux_routes as R
+        R.notify_client = None
+        db = os.path.join(tempfile.mkdtemp(), "n.db")
+
+        def conn():
+            c = sqlite3.connect(db); c.row_factory = sqlite3.Row; return c
+        app = Flask(__name__); R.register(app, {"conn": conn, "sites": lambda: []})
+        cl = app.test_client()
+        self.assertEqual(cl.put("/flux/sites", json={}).status_code, 400)
+        self.assertEqual(cl.put("/flux/sites", json={"nom": "SI Optline", "description": "agent OVH + agent LAN"}).get_json()["site_id"], "si-optline")
+        s = cl.get("/flux/sites").get_json()["sites"]; self.assertEqual((s[0]["site_id"], s[0]["nom"], s[0]["declare"]), ("si-optline", "SI Optline", True))
+        cl.delete("/flux/sites/si-optline"); self.assertEqual(cl.get("/flux/sites").get_json()["sites"], [])

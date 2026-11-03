@@ -6,6 +6,11 @@ données d'un site sous nebula.zyxel.com").
 
 ## 2026-11-03 — Flux éditeurs : ports exigés par Google, Idruide… ouverts ? (#962)
 
+**#963** : SI déclarés hors Nebula (`flux_sites`, `PUT /flux/sites`) avec plusieurs sources (ex. agent OVH qui teste
+l'extranet du LAN vu d'Internet, agent du LAN qui teste les services OVH) ; 5e champ `ferme` dans les listes (port qui
+doit rester fermé vu de la source → statut OUVERT) ; expiration des certificats sur le 443 (statut CERT si expiré ou à
+moins de 14 jours). OUVERT et CERT ouvrent des alertes comme KO et INSPECTE.
+
 `flux.py` (pur) + `flux_routes.py`. Les tests tournent SUR LE SITE : `tools/test-flux.sh` (lecture seule : DNS, TCP,
 TLS avec détection d'inspection SSL par l'émetteur du certificat, NTP ; reclassement « NS » d'un port refusé par un hôte
 mais ouvert vers un autre) envoie ses résultats (`HUB=… SITE=… SOURCE=…`, réglages mémorisés dans `~/.test-flux.env`,

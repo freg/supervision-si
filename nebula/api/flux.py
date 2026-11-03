@@ -7,8 +7,10 @@ Nebula (où sont les appareils concernés, quels VLAN ont été testés). Aucune
 import ipaddress
 import re
 
-STATUTS = ("OK", "KO", "NS", "INSPECTE", "?")
-ALERTANT = ("KO", "INSPECTE")
+STATUTS = ("OK", "KO", "NS", "INSPECTE", "OUVERT", "CERT", "?")
+# OUVERT : port qui devrait être fermé (5e champ « ferme ») ; CERT : certificat expiré ou à moins de 14 jours.
+ALERTANT = ("KO", "INSPECTE", "OUVERT", "CERT")
+FERME = ("ferme", "fermé", "closed", "close", "!")
 
 # Liste Google Android Enterprise (support.google.com/work/android/answer/10513641, relevé du 03/11/2026) ; les jokers
 # (*.x) sont testés sur un hôte représentatif. Le format est celui du script : groupe;hôte;proto;ports.
@@ -96,8 +98,9 @@ def ports(spec):
 
 
 def lire_liste(texte):
-    """Texte « groupe;hôte;proto;ports » (ou « hôte proto ports », ou « hôte:port ») -> (lignes, erreurs).
-    Accepte les copies d'une page d'éditeur : séparateurs ; , tabulation ou espaces, commentaires #."""
+    """Texte « groupe;hôte;proto;ports[;ferme] » (ou « hôte proto ports », ou « hôte:port ») -> (lignes, erreurs).
+    Accepte les copies d'une page d'éditeur : séparateurs ; , tabulation ou espaces, commentaires #.
+    5e champ « ferme » : le port doit être FERMÉ vu de ce point (ex. SSH ou base de données vus d'Internet)."""
     lignes, erreurs = [], []
     for n, l in enumerate(str(texte or "").splitlines(), 1):
         l = l.strip()
@@ -108,6 +111,7 @@ def lire_liste(texte):
             h, p = champs[0].rsplit(":", 1); champs = ["", h, "tcp", p]
         if len(champs) == 3:
             champs = [""] + champs
+        attendu = "ferme" if len(champs) > 4 and champs[4].strip().lower() in FERME else "ouvert"
         if len(champs) < 4:
             erreurs.append("ligne %d : 4 champs attendus (groupe;hôte;proto;ports)" % n); continue
         grp, hote, proto, pl = champs[0] or "cibles", champs[1].lower(), champs[2].lower(), champs[3]
@@ -122,12 +126,12 @@ def lire_liste(texte):
             erreurs.append("ligne %d : %s" % (n, e)); continue
         if not ps:
             erreurs.append("ligne %d : aucun port" % n); continue
-        lignes.append({"groupe": re.sub(r"[^\w.-]", "-", grp)[:40], "hote": hote, "proto": proto, "ports": pl.replace(" ", "")})
+        lignes.append({"groupe": re.sub(r"[^\w.-]", "-", grp)[:40], "hote": hote, "proto": proto, "ports": pl.replace(" ", ""), "attendu": attendu})
     return lignes, erreurs
 
 
 def texte_liste(lignes):
-    return "\n".join("%s;%s;%s;%s" % (l["groupe"], l["hote"], l["proto"], l["ports"]) for l in lignes) + "\n"
+    return "\n".join("%s;%s;%s;%s%s" % (l["groupe"], l["hote"], l["proto"], l["ports"], ";ferme" if l.get("attendu") == "ferme" else "") for l in lignes) + "\n"
 
 
 def valider_resultats(d):
@@ -149,7 +153,8 @@ def valider_resultats(d):
         except (TypeError, ValueError):
             continue
         lignes.append({"groupe": str(r.get("groupe") or "")[:40], "hote": str(r.get("hote") or "")[:253].lower(), "ip": str(r.get("ip") or "")[:45],
-                       "proto": "udp" if str(r.get("proto")).lower() == "udp" else "tcp", "port": port, "statut": st, "detail": str(r.get("detail") or "")[:200]})
+                       "proto": "udp" if str(r.get("proto")).lower() == "udp" else "tcp", "port": port, "statut": st, "detail": str(r.get("detail") or "")[:200],
+                       "attendu": "ferme" if str(r.get("attendu") or "").lower() in FERME else "ouvert"})
     if not lignes:
         return None, "aucun résultat exploitable"
     return {"source": src, "iface": str(d.get("iface") or "")[:30] or None, "ip_source": str(d.get("ip_source") or "").split("/")[0][:45] or None,
@@ -158,11 +163,11 @@ def valider_resultats(d):
 
 def reclasser_ns(lignes):
     """Un port refusé par un hôte mais accepté par un autre n'est pas filtré : l'hôte ne le sert pas -> NS."""
-    ouverts = {(l["proto"], l["port"]) for l in lignes if l["statut"] == "OK"}
+    ouverts = {(l["proto"], l["port"]) for l in lignes if l["statut"] == "OK" and l.get("attendu") != "ferme"}
     out = []
     for l in lignes:
         l = dict(l)
-        if l["statut"] == "KO" and "DNS" not in l["detail"].upper() and (l["proto"], l["port"]) in ouverts:
+        if l["statut"] == "KO" and l.get("attendu") != "ferme" and "DNS" not in l["detail"].upper() and (l["proto"], l["port"]) in ouverts:
             l["statut"], l["detail"] = "NS", "port ouvert vers d'autres hôtes : non servi par celui-ci (pas un blocage)"
         out.append(l)
     return out
@@ -173,7 +178,7 @@ def bilan(lignes):
     for l in lignes:
         b[l["statut"]] = b.get(l["statut"], 0) + 1
     b["total"] = len(lignes)
-    b["etat"] = "alerte" if b["KO"] or b["INSPECTE"] else "ok"
+    b["etat"] = "alerte" if any(b[s] for s in ALERTANT) else "ok"
     return b
 
 

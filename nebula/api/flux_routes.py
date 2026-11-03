@@ -25,6 +25,7 @@ ACTIONS = [{"id": "flux.ferme", "label": "Flux éditeur fermé ou inspecté (Goo
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS flux_listes (id TEXT PRIMARY KEY, data TEXT NOT NULL, maj INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS flux_sites (id TEXT PRIMARY KEY, nom TEXT NOT NULL, description TEXT, maj INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS flux_passages (
     id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, source TEXT NOT NULL, at INTEGER NOT NULL, data TEXT NOT NULL, bilan TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_flux_passages ON flux_passages (site_id, source, at);
@@ -144,11 +145,30 @@ def register(app, hooks):
                     sites[sid] = {"site_id": sid, "nom": s.get("name") or sid, "nebula": True}
         except Exception:  # noqa: BLE001 -- sans Nebula, les sites viennent des résultats reçus
             pass
+        for r in q("SELECT id, nom, description FROM flux_sites"):
+            sites.setdefault(r["id"], {"site_id": r["id"], "nebula": False}).update(nom=r["nom"], description=r["description"], declare=True)
         for r in q("SELECT site_id, MAX(at) AS at FROM flux_passages GROUP BY site_id"):
             sites.setdefault(r["site_id"], {"site_id": r["site_id"], "nom": r["site_id"], "nebula": False})["dernier_at"] = r["at"]
         for s in sites.values():
             s["alertes"] = q("SELECT COUNT(*) AS n FROM flux_alertes WHERE site_id = ? AND fin IS NULL", (s["site_id"],), un=True)["n"]
         return jsonify({"sites": sorted(sites.values(), key=lambda s: (not s.get("nebula"), s["nom"].lower()))}), 200
+
+    @app.route("/flux/sites", methods=["PUT"])
+    def flux_site_put():
+        """Déclare un SI / site hors Nebula (ex. « optline » : SI de l'entreprise, sources = agent OVH + agent du LAN)."""
+        b = request.get_json(silent=True) or {}
+        sid = re.sub(r"[^A-Za-z0-9_-]+", "-", str(b.get("id") or b.get("nom") or "").strip().lower()).strip("-")[:64]
+        nom = str(b.get("nom") or sid).strip()[:80]
+        if not sid:
+            return jsonify({"error": "identifiant ou nom requis (ex. « optline »)"}), 400
+        q("INSERT OR REPLACE INTO flux_sites (id, nom, description, maj) VALUES (?, ?, ?, ?)",
+          (sid, nom, str(b.get("description") or "")[:300] or None, int(time.time())), ecrit=True)
+        return jsonify({"ok": True, "site_id": sid, "nom": nom}), 200
+
+    @app.route("/flux/sites/<sid>", methods=["DELETE"])
+    def flux_site_suppr(sid):
+        q("DELETE FROM flux_sites WHERE id = ?", (sid,), ecrit=True)
+        return jsonify({"ok": True, "note": "déclaration retirée ; les passages déjà reçus restent consultables"}), 200
 
     # -- résultats envoyés par le script ---------------------------------------------------------------------------------
     @app.route("/sites/<site_id>/flux/resultats", methods=["POST"])
@@ -168,7 +188,7 @@ def register(app, hooks):
         try:
             for a in nouv:
                 c.execute("INSERT INTO flux_alertes (site_id, cle, source, data, debut, dernier) VALUES (?, ?, ?, ?, ?, ?)",
-                          (site_id, a["cle"], a["source"], json.dumps({k: a[k] for k in ("hote", "proto", "port", "groupe", "statut", "detail")}, ensure_ascii=False), now, now))
+                          (site_id, a["cle"], a["source"], json.dumps({k: a.get(k) for k in ("hote", "proto", "port", "groupe", "statut", "detail")}, ensure_ascii=False), now, now))
             for a in maint:
                 c.execute("UPDATE flux_alertes SET dernier = ?, data = ? WHERE id = ?",
                           (now, json.dumps({k: a[k] for k in ("hote", "proto", "port", "groupe", "statut", "detail")}, ensure_ascii=False), a["id"]))

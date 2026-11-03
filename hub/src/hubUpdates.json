@@ -1,5 +1,11 @@
 [
  {
+  "n": 963,
+  "from": 963,
+  "date": "2026-11-03",
+  "title": "Flux éditeurs : SI déclarés hors Nebula (ex. SI Optline, sources agent OVH et agent du LAN), ports qui doivent rester fermés (« ;ferme » → OUVERT à tort), expiration des certificats sur le 443 (CERT à moins de 14 jours)"
+ },
+ {
   "n": 962,
   "from": 962,
   "date": "2026-11-03",

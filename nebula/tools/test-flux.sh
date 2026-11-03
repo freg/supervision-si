@@ -10,6 +10,8 @@
 # Envoi au hub (#962, tuile « Flux éditeurs ») : HUB=https://<hub>/api/nebula SITE=<id site> SOURCE="mini-PC" bash test-flux.sh
 #   -l google,idruide : listes tenues dans le hub (au lieu de la liste integree) ; reglages memorises dans ~/.test-flux.env
 #   supervision continue (cron) : 17 * * * * HOME=/home/freg bash /home/freg/test-flux.sh -q >/dev/null 2>&1
+# 5e champ « ferme » : le port doit etre FERME vu d'ici (ex. extranet teste depuis OVH : SSH, bases, RDP) -> OUVERT sinon.
+# Port 443 : emetteur et expiration du certificat (CERT si expire ou < 14 jours).
 # Ports : 443  |  5228-5230  |  5235,5236     Proto : tcp | udp      Lignes commencant par # ignorees.
 set -u
 CONF="$HOME/.test-flux.env"; [ -f "$CONF" ] && . "$CONF"
@@ -93,6 +95,8 @@ if src: s.bind((src, 0))
 s.connect((h, p)); s.close()
 PY
 }
+cert_jours() { local fin; fin=$(echo | timeout 8 openssl s_client ${SRC:+-bind "$SRC:0"} -connect "$1:$2" -servername "$1" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+  [ -n "$fin" ] && echo $(( ( $(date -d "$fin" +%s) - $(date +%s) ) / 86400 )); }
 tls_emetteur() { echo | timeout 8 openssl s_client ${SRC:+-bind "$SRC:0"} -connect "$1:443" -servername "$1" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null | sed 's/^issuer= *//; s/.*O *= *\([^,]*\).*/\1/'; }
 ntp_ok() { python3 - "$1" "$SRC" <<'PY' 2>/dev/null
 import socket, sys
@@ -104,7 +108,7 @@ PY
 
 { if [ -n "$HUB" ] && [ -n "$LISTES" ]; then for l in ${LISTES//,/ }; do curl -sf -m 15 "$HUB/flux/listes/$l.txt" || echo "# liste $l introuvable sur le hub" >&2; done
   elif [ "$GOOGLE" = 1 ]; then google_list; fi; for f in "${EXTRA[@]}"; do cat "$f"; done; } | grep -v '^\s*#' | grep -v '^\s*$' > "$OUT.liste"
-echo "groupe;hote;ip;proto;port;resultat;detail" > "$OUT.csv"
+echo "groupe;hote;ip;proto;port;resultat;detail;attendu" > "$OUT.csv"
 {
 echo "=== Test des flux sortants - $(hostname) - $(date '+%d/%m/%Y %H:%M') ==="
 echo "Sortie : ${IF:-route par defaut} ($(ip -4 -o addr show ${IF:+dev "$IF"} scope global 2>/dev/null | awk '{print $2" "$4}' | head -3 | tr '\n' ' '))"
@@ -113,9 +117,10 @@ IPPUB=$(curl -s -m 5 "${CURLIF[@]}" https://ifconfig.me 2>/dev/null); echo "IP p
 [ -n "${https_proxy:-}${HTTPS_PROXY:-}" ] && echo "ATTENTION : proxy defini dans l'environnement (${https_proxy:-$HTTPS_PROXY}) - Google exige un acces direct"
 echo
 nok=0; nko=0; ninsp=0
-while IFS=';' read -r grp hote proto pl; do
+while IFS=';' read -r grp hote proto pl att; do
+  case "${att,,}" in ferme|fermé|closed|close|!) att=ferme;; *) att=ouvert;; esac
   ip=$(getent ahostsv4 "$hote" | awk 'NR==1{print $1}')
-  if [ -z "$ip" ]; then printf '%-8s %-40s %-5s %-11s %s\n' "KO" "$hote" "$proto" "$pl" "nom non resolu (DNS)"; echo "$grp;$hote;;$proto;$pl;KO;DNS" >> "$OUT.csv"; nko=$((nko+1)); continue; fi
+  if [ -z "$ip" ]; then printf '%-8s %-40s %-5s %-11s %s\n' "KO" "$hote" "$proto" "$pl" "nom non resolu (DNS)"; echo "$grp;$hote;;$proto;$pl;KO;DNS;$att" >> "$OUT.csv"; nko=$((nko+1)); continue; fi
   for p in $(ports "$pl"); do
     if [ "$proto" = udp ]; then
       if [ "$p" = 123 ]; then r=$(ntp_ok "$hote"); [ "$r" = ok ] && st=OK det="reponse NTP" || { st=KO; det="pas de reponse NTP (UDP/123 filtre ?)"; }
@@ -123,27 +128,35 @@ while IFS=';' read -r grp hote proto pl; do
     else
       if tcp_ok "$ip" "$p"; then st=OK; det="connexion TCP"; else st=KO; det="connexion refusee ou filtree"; fi
     fi
-    if [ "$st" = OK ] && [ "$p" = 443 ]; then
+    if [ "$att" = ferme ]; then       # port qui doit rester ferme vu d'ici (ex. SSH, base de donnees vus d'Internet)
+      if [ "$st" = OK ]; then st=OUVERT; det="OUVERT alors qu'il devrait etre ferme vu d'ici"; elif [ "$st" = KO ]; then st=OK; det="ferme comme attendu"; fi
+    fi
+    if [ "$st" = OK ] && [ "$att" = ouvert ] && [ "$p" = 443 ]; then
       em=$(tls_emetteur "$hote")
       if [ -n "$em" ] && [[ "$grp" == google* ]] && ! echo "$em" | grep -qiE 'google|GTS|GlobalSign'; then st=INSPECTE; det="certificat emis par « $em » : inspection SSL (Google demande de l'exclure)"; ninsp=$((ninsp+1))
       else det="TLS ok${em:+, emetteur $em}"; fi
+      j=$(cert_jours "$hote" "$p")
+      if [ -n "$j" ] && [ "$st" = OK ]; then
+        if [ "$j" -lt 0 ]; then st=CERT; det="certificat EXPIRE depuis $(( -j )) j${em:+ ($em)}"; elif [ "$j" -lt 14 ]; then st=CERT; det="certificat expire dans $j j${em:+ ($em)}"; else det="$det, certificat $j j"; fi
+      fi
     fi
     [ "$st" = OK ] && nok=$((nok+1)); [ "$st" = KO ] && nko=$((nko+1))
     printf '%-8s %-40s %-5s %-11s %s\n' "$st" "$hote" "$proto" "$p" "$det"
-    echo "$grp;$hote;$ip;$proto;$p;$st;$det" >> "$OUT.csv"
+    echo "$grp;$hote;$ip;$proto;$p;$st;$det;$att" >> "$OUT.csv"
   done
 done < "$OUT.liste"
 echo
 # Un port refuse par un hote mais accepte par un autre n'est pas filtre par le pare-feu : l'hote ne le sert pas (ex. 5228 sur
 # play.google.com alors que mtalk.google.com l'accepte). Reclassement « NS » (non servi par cet hote).
-ouverts=$(awk -F';' 'NR>1 && $6=="OK" {print $4"/"$5}' "$OUT.csv" | sort -u)
+ouverts=$(awk -F';' 'NR>1 && $6=="OK" && $8!="ferme" {print $4"/"$5}' "$OUT.csv" | sort -u)
 nns=0; tmp=$(mktemp)
 awk -F';' -v OFS=';' -v ouv="$ouverts" 'BEGIN{n=split(ouv,a,"\n"); for(i=1;i<=n;i++) o[a[i]]=1}
-  NR>1 && $6=="KO" && $7 !~ /DNS/ && (($4"/"$5) in o) {$6="NS"; $7="port ouvert vers d autres hotes : non servi par celui-ci (pas un blocage)"} {print}' "$OUT.csv" > "$tmp" && cat "$tmp" > "$OUT.csv"; rm -f "$tmp"
+  NR>1 && $6=="KO" && $8!="ferme" && $7 !~ /DNS/ && (($4"/"$5) in o) {$6="NS"; $7="port ouvert vers d autres hotes : non servi par celui-ci (pas un blocage)"} {print}' "$OUT.csv" > "$tmp" && cat "$tmp" > "$OUT.csv"; rm -f "$tmp"
 nns=$(awk -F';' 'NR>1 && $6=="NS"' "$OUT.csv" | wc -l); nko=$((nko - nns))
 [ "$nns" -gt 0 ] && echo "$nns KO reclasses NS (port non servi par cet hote, ouvert vers d'autres) : voir le CSV."
-awk -F';' 'NR>1 && $6=="KO"' "$OUT.csv" | awk -F';' '{print "  KO reel : "$2" "$4"/"$5" - "$7}'
-echo "Bilan : $nok OK, $nko KO reel(s), $nns NS, $ninsp inspecte(s) SSL. Detail tableur : $OUT.csv"
+awk -F';' 'NR>1 && ($6=="KO" || $6=="OUVERT" || $6=="CERT")' "$OUT.csv" | awk -F';' '{print "  "$6" : "$2" "$4"/"$5" - "$7}'
+nouv=$(awk -F';' 'NR>1 && $6=="OUVERT"' "$OUT.csv" | wc -l); ncert=$(awk -F';' 'NR>1 && $6=="CERT"' "$OUT.csv" | wc -l)
+echo "Bilan : $nok OK, $nko KO reel(s), $nns NS, $ninsp inspecte(s) SSL, $nouv ouvert(s) a tort, $ncert certificat(s) a renouveler. Detail tableur : $OUT.csv"
 echo "Rappel : ce test vaut pour le VLAN du mini-PC ; les tablettes sur un autre VLAN / SSID peuvent avoir d'autres regles (IFACE=<sous-interface du VLAN>)."
 } > >(if [ "$QUIET" = 1 ]; then cat > "$OUT.txt"; else tee "$OUT.txt"; fi)
 wait $! 2>/dev/null
@@ -156,7 +169,7 @@ import csv, json, sys
 f, src, iface, ipsrc, ippub = sys.argv[1:6]
 rows = list(csv.DictReader(open(f, encoding="utf-8"), delimiter=";"))
 print(json.dumps({"source": src, "iface": iface, "ip_source": ipsrc, "ip_publique": ippub,
-  "resultats": [{"groupe": r["groupe"], "hote": r["hote"], "ip": r["ip"], "proto": r["proto"], "port": r["port"], "statut": r["resultat"], "detail": r["detail"]} for r in rows]}))
+  "resultats": [{"groupe": r["groupe"], "hote": r["hote"], "ip": r["ip"], "proto": r["proto"], "port": r["port"], "statut": r["resultat"], "detail": r["detail"], "attendu": r.get("attendu") or "ouvert"} for r in rows]}))
 PY
   rep=$(curl -s -m 30 -w '\n%{http_code}' -X POST "$HUB/sites/$SITE/flux/resultats" -H 'Content-Type: application/json' --data-binary @"$OUT.json")
   code=$(echo "$rep" | tail -1); corps=$(echo "$rep" | sed '$d')

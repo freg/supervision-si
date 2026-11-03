@@ -1,3 +1,22 @@
+## 2026-11-03 — livraison #963 : Flux éditeurs — onglet SI Optline (agent OVH ↔ agent du LAN), ports qui doivent rester fermés, certificats
+
+Demande : le même onglet pour le SI de l'entreprise, avec un agent chez OVH qui vérifie l'extranet du LAN et un agent
+du LAN qui vérifie les services OVH.
+
+- **SI / site hors Nebula** : « ＋ SI / site » dans la tuile (`PUT /flux/sites`, table `flux_sites`) ; chaque point de vue
+  est une source (`SOURCE=agent-ovh`, `SOURCE=agent-lan`) avec sa propre liste (`-l extranet-lan`, `-l services-ovh`),
+  les deux passages côte à côte dans la Synthèse.
+- **Ports qui doivent rester fermés** : 5e champ `;ferme` dans les listes ; vu de la source, un tel port ouvert donne
+  **OUVERT** (alerte), fermé donne OK. Utile pour l'extranet vu d'Internet (SSH, RDP, bases, interfaces
+  d'administration).
+- **Certificats** : sur le 443, expiration lue à chaque passage ; **CERT** si expiré ou à moins de 14 jours (alerte),
+  sinon le nombre de jours restants dans le détail.
+- Les listes de l'entreprise (noms et adresses) se saisissent dans la tuile : elles restent en base, jamais dans le dépôt.
+
+Vérifié : `tests/test_flux.py` (7), essai du script contre l'API locale (port attendu fermé trouvé ouvert → OUVERT et
+alerte), `node --test hub/tests/*.test.mjs` (19), syntaxe JSX. Non vérifié : build du hub, lecture d'un vrai certificat
+proche de l'expiration.
+
 ## 2026-11-03 — livraison #962 : tuile « Flux éditeurs » — les ports Google, Idruide… sont-ils ouverts ? par site, alertes, analyse Nebula
 
 Question récurrente au campus comme au bureau. Le premier passage réel de `test-flux.sh` au campus (VLAN 20) a montré

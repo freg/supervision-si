@@ -36,6 +36,7 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
   const [etatAlertes, setEtatAlertes] = useState("ouvertes");
   const [form, setForm] = useState(null);           // liste en édition {nom, editeur, source, texte}
   const [iface, setIface] = useState("");
+  const [nouveauSite, setNouveauSite] = useState(null);   // {nom, description} : SI / site hors Nebula
   const [busy, setBusy] = useState(null);
   const [msg, setMsg] = useState(null);
   const [aide, setAide] = useState(null);
@@ -86,6 +87,11 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
     setBusy(`del:${l.id}`);
     try { await getJson(`${nebulaApiBase}/flux/listes/${l.id}`, { method: "DELETE" }); chargerListes(); } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
   };
+  const declarerSite = async () => {
+    setBusy("site"); setMsg(null);
+    try { const r = await getJson(`${nebulaApiBase}/flux/sites`, corps("PUT", nouveauSite)); setNouveauSite(null); setSiteId(r.site_id); await chargerSites(); setOnglet("installer"); setMsg({ ok: true, text: `✓ « ${r.nom} » déclaré (SITE=${r.site_id})` }); }
+    catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
+  };
   const voirPassage = async (p) => {
     setBusy(`p:${p.id}`);
     try { setPassage(await getJson(`${base}/flux/passages/${p.id}`)); } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
@@ -119,7 +125,16 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
             {s.nebula ? "📶 " : "🏢 "}{s.nom}{s.alertes ? <span style={{ color: "var(--danger)", fontWeight: 700 }}> · {s.alertes}</span> : ""}
           </button>))}
         {!sites.length && <span className="muted">Aucun site : lancer un premier test (onglet Mise en place).</span>}
+        <button type="button" className="secondary" onClick={() => setNouveauSite(nouveauSite ? null : { nom: "SI Optline", description: "agent OVH (extranet du LAN vu d'Internet) + agent du LAN (services OVH)" })}>＋ SI / site</button>
       </nav>
+      {nouveauSite && (
+        <div className="panel">
+          <p>Un SI ou un site hors Nebula (ex. le SI de l'entreprise) : chaque <strong>source</strong> (machine qui teste) y envoie ses résultats avec sa propre liste — par ex. un agent chez OVH qui vérifie l'extranet du LAN vu d'Internet, et un agent du LAN qui vérifie les services hébergés chez OVH.</p>
+          <p><label>Nom <input value={nouveauSite.nom} onChange={(e) => setNouveauSite({ ...nouveauSite, nom: e.target.value })} /></label>{" "}
+            <label>Description <input style={{ width: 420 }} value={nouveauSite.description} onChange={(e) => setNouveauSite({ ...nouveauSite, description: e.target.value })} /></label>{" "}
+            <button type="button" onClick={declarerSite} disabled={!!busy || !nouveauSite.nom.trim()}>{busy === "site" ? "⏳ …" : "Déclarer"}</button></p>
+        </div>
+      )}
       <nav style={{ display: "flex", gap: 4, flexWrap: "wrap", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
         {ONGLETS.map(([k, l]) => <button key={k} type="button" className={onglet === k ? "" : "secondary"} onClick={() => setOnglet(k)}>{l}{k === "alertes" && data?.alertes_ouvertes?.length ? ` (${data.alertes_ouvertes.length})` : ""}</button>)}
       </nav>
@@ -220,7 +235,8 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
           <p><label>Interface à tester (vide = route par défaut ; ex. wlp3s0 pour passer par le Wi-Fi des tablettes) <input value={iface} onChange={(e) => setIface(e.target.value.replace(/[^\w.-]/g, ""))} /></label></p>
           <pre className="copiable" style={{ whiteSpace: "pre-wrap" }}>{commandesSite(hubAbs, siteId || "<site>", listes.map((l) => l.id), iface)}</pre>
           <button type="button" className="secondary" onClick={() => setAide({ titre: "Commandes de mise en place", texte: commandesSite(hubAbs, siteId || "<site>", listes.map((l) => l.id), iface) })}>copier dans une fenêtre</button>
-          <p className="muted">Un site sans Nebula (ex. le bureau) apparaît en onglet dès son premier envoi : choisir un identifiant court (<code>SITE=bureau</code>).</p>
+          <p className="muted">Un site sans Nebula (ex. le bureau) apparaît en onglet dès son premier envoi : choisir un identifiant court (<code>SITE=bureau</code>), ou le déclarer avec « ＋ SI / site ».</p>
+          <p className="muted"><strong>SI avec plusieurs points de vue</strong> (ex. SI Optline) : une source par point de vue, chacune avec sa liste et son <code>SOURCE</code> — sur l'agent OVH : <code>SOURCE=agent-ovh … -l extranet-lan</code> (services publiés par le LAN, avec les ports qui doivent rester fermés marqués <code>;ferme</code>) ; sur un agent du LAN : <code>SOURCE=agent-lan … -l services-ovh</code>. Les deux passages apparaissent côte à côte dans la Synthèse, et le port 443 contrôle aussi l'expiration des certificats.</p>
         </div>
       )}
       {aide && <FenetreTexte titre={aide.titre} texte={aide.texte} onFermer={() => setAide(null)} />}

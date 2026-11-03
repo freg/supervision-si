@@ -4,6 +4,8 @@ export const STATUTS = {
   NS: { libelle: "non servi par cet hôte", couleur: "var(--muted)", fond: "var(--panel)" },
   KO: { libelle: "fermé / filtré / DNS", couleur: "var(--danger)", fond: "var(--danger-bg)" },
   INSPECTE: { libelle: "inspection SSL", couleur: "var(--warning)", fond: "var(--warning-bg)" },
+  OUVERT: { libelle: "ouvert alors qu'il devrait être fermé", couleur: "var(--danger)", fond: "var(--danger-bg)" },
+  CERT: { libelle: "certificat expiré ou à moins de 14 jours", couleur: "var(--warning)", fond: "var(--warning-bg)" },
   "?": { libelle: "UDP non vérifiable", couleur: "var(--muted)", fond: "var(--panel)" },
 };
 export const SITE_KEY = "hub.flux.site";
@@ -13,6 +15,8 @@ export function resumeBilan(b) {
   const p = [`${b.OK || 0} ouvert(s)`];
   if (b.KO) p.push(`${b.KO} fermé(s)`);
   if (b.INSPECTE) p.push(`${b.INSPECTE} inspecté(s)`);
+  if (b.OUVERT) p.push(`${b.OUVERT} ouvert(s) à tort`);
+  if (b.CERT) p.push(`${b.CERT} certificat(s) à renouveler`);
   if (b.NS) p.push(`${b.NS} non servi(s)`);
   if (b["?"]) p.push(`${b["?"]} UDP non vérifiable(s)`);
   return p.join(" · ");
@@ -28,7 +32,7 @@ export function age(at, maintenant) {
 export function filtrerMatrice(m, { problemes = false, q = "" } = {}) {
   if (!m) return { colonnes: [], lignes: [] };
   const s = q.trim().toLowerCase();
-  const lignes = m.lignes.filter((l) => (!problemes || Object.values(l.cellules).some((v) => v === "KO" || v === "INSPECTE"))
+  const lignes = m.lignes.filter((l) => (!problemes || Object.values(l.cellules).some((v) => ["KO", "INSPECTE", "OUVERT", "CERT"].includes(v)))
     && (!s || `${l.hote} ${l.groupe}`.toLowerCase().includes(s)));
   return { colonnes: m.colonnes, lignes };
 }
@@ -55,5 +59,5 @@ export function commandesSite(hub, siteId, listes, iface) {
 /** Une ligne de liste « groupe;hôte;proto;ports » lisible. */
 export function exempleListe(nom) {
   const g = (nom || "editeur").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return `# une cible par ligne : groupe;hôte;proto;ports (ou « hôte proto ports », ou « hôte:port »)\n${g};api.exemple.com;tcp;443\n${g};push.exemple.com;tcp;443,5223-5225`;
+  return `# une cible par ligne : groupe;hôte;proto;ports[;ferme] (ou « hôte proto ports », ou « hôte:port »)\n# 5e champ « ferme » : le port doit rester FERMÉ vu de la source (ex. SSH ou base de données vus d'Internet)\n${g};api.exemple.com;tcp;443\n${g};push.exemple.com;tcp;443,5223-5225\n${g};api.exemple.com;tcp;22,3306;ferme`;
 }
