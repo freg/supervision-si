@@ -169,6 +169,18 @@ const NEBULA_TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Camp
 const UNIVERSE_ALIASES = (() => {
   const a = parseAliases(import.meta.env.VITE_HUB_ALIASES);
   a["view:nebula"] = [NEBULA_TILE_TITLE, "campus", "wifi", "bornes", "vlan", "santé du réseau", ...(a["view:nebula"] || [])];
+  // #961 : synonymes intégrés -- « droits », « utilisateurs », « permissions » ne trouvaient pas « Comptes et groupes »
+  const SYN = {
+    "view:accounts": ["utilisateurs", "droits", "groupes", "membres", "permissions", "habilitations", "annuaire", "ldap", "keycloak", "mot de passe"],
+    "view:rights": ["droits", "permissions", "habilitations", "autorisations", "matrice des droits", "utilisateurs", "groupes"],
+    "front:keycloak-admin": ["utilisateurs", "droits", "groupes", "authentification", "sso", "rôles"],
+    "front:ldap-admin": ["utilisateurs", "droits", "groupes", "annuaire", "uid"],
+    "view:personal": ["rgpd", "utilisateurs"],
+    "view:equipements-site": ["inventaire", "registre", "plan", "ip", "mac", "rôle", "étiquettes", "tags"],
+    "view:audit-securite": ["audit", "risques", "matrice", "préconisations", "sécurité réseau"],
+    "view:reperage": ["prises", "brassage", "sonde", "radar", "terrain"],
+  };
+  for (const [k, v] of Object.entries(SYN)) a[k] = [...(a[k] || []), ...v];
   return a;
 })();
 const UNIVERSE_LABELS = { "view:nebula": NEBULA_TILE_TITLE };

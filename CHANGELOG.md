@@ -1,3 +1,11 @@
+## 2026-11-03 — livraison #961 : le filtre de l'Univers du hub comprend « droits » et « utilisateurs »
+
+Constat : chercher « droits » ou « utilisateurs » dans l'Univers du hub ne menait pas à « Comptes et groupes » (le
+filtre ne porte que sur le libellé, la thématique et les mots-clés du .env) ; la tuile « Droits » n'apparaît qu'au
+groupe admin_hub. Synonymes intégrés (`App.jsx`, fusionnés avec `VITE_HUB_ALIASES`) : Comptes et groupes, Droits,
+Administration Keycloak / OpenLDAP, Données personnelles, et les vues récentes (Équipements du site, Audit de sécurité,
+Repérage). Vérifié : syntaxe JSX. Non vérifié : build du hub.
+
 ## 2026-11-03 — livraison #960 : registre des équipements du site (report des notes de terrain)
 
 Demande : reporter dans le hub les notes manuscrites et le plan dessinés sur le campus — IP / MAC, position sur le plan,
