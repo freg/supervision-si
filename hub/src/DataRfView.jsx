@@ -4,8 +4,8 @@
 // enrôlées directement). Rafraîchie toutes les 30 s.
 import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
 import { useEffect, useMemo, useState } from "react";
-import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand } from "./siAgentClient.js";
-import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE } from "./datarfLib.js";
+import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand, fetchFleet, declareDataRfSonde, removeDataRfSonde } from "./siAgentClient.js";
+import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE, agentsDeclarables } from "./datarfLib.js";
 
 import { useNavState } from "./navContext.js";   // #874
 const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`);
@@ -147,11 +147,49 @@ function ReseauSondes({ data, ouvrir }) {
   );
 }
 
+// #968 : un agent avec une carte Wi-Fi (mini-PC, sonde GMKtec…) devient « sonde Wi-Fi » de la tuile sans mesure radio
+// préalable -- sinon sa configuration radio (SSID et clés du coffre) était inaccessible.
+function DeclarerSonde({ base, actor, sondes, recharger }) {
+  const [agents, setAgents] = useState(null);
+  const [choix, setChoix] = useState("");
+  const [busy, setBusy] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const ouvrir = () => { setBusy("liste"); fetchFleet(base).then((a) => { setAgents(a); setMsg(null); }).catch((e) => setMsg({ ok: false, text: e.message })).finally(() => setBusy(null)); };
+  const declarer = async () => {
+    setBusy("declarer"); setMsg(null);
+    try {
+      const r = await declareDataRfSonde(base, { agent_id: choix, actor });
+      if (r?.error) throw new Error(r.error);
+      setMsg({ ok: true, text: `✓ ${r.sonde} est une sonde Wi-Fi : sa « Configuration » reçoit les SSID ; activer wifi-probe et path-probe dans sa fiche` });
+      setAgents(null); setChoix(""); recharger(r.sonde);
+    } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
+  };
+  const retirer = async (s) => {
+    if (!window.confirm(`Retirer ${s.sonde} des sondes Wi-Fi de la tuile ? (sa configuration radio reste sur la sonde)`)) return;
+    setBusy("ret:" + s.agent_id);
+    try { await removeDataRfSonde(base, s.agent_id); recharger(); } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
+  };
+  const declarees = (sondes || []).filter((s) => s.declaree);
+  const possibles = agentsDeclarables(agents, sondes);
+  return (
+    <div style={{ padding: "6px 0" }}>
+      {agents === null
+        ? <button className="secondary" disabled={!!busy} onClick={ouvrir}>{busy === "liste" ? "⏳ lecture des agents…" : "＋ Déclarer un agent comme sonde Wi-Fi"}</button>
+        : <span><select value={choix} onChange={(e) => setChoix(e.target.value)} aria-label="agent"><option value="">choisir l'agent…</option>{possibles.map((a) => <option key={a.agent_id} value={a.agent_id}>{a.libelle}{a.site ? ` · ${a.site}` : ""}</option>)}</select>{" "}
+          <button disabled={!choix || !!busy} onClick={declarer}>{busy === "declarer" ? "⏳ déclaration…" : "Déclarer"}</button>{" "}
+          <button className="secondary" onClick={() => setAgents(null)}>Annuler</button></span>}
+      {declarees.length > 0 && <span className="infra-muted"> · déclarées : {declarees.map((s) => <span key={s.agent_id}>{s.sonde} <button className="secondary" disabled={!!busy} onClick={() => retirer(s)}>{busy === "ret:" + s.agent_id ? "⏳" : "retirer"}</button> </span>)}</span>}
+      {msg && <p className={msg.ok ? "infra-muted" : "infra-error"}>{msg.text}{!msg.ok && <> — <a href={hubLink("si-agent", {})}>Agents hôtes →</a></>}</p>}
+    </div>
+  );
+}
+
 export default function DataRfView({ onBack, siAgentApiBase, username }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [choix, setChoix] = useState("");
   const [at, setAt] = useState(null);
+  const [tick, setTick] = useState(0);   // #968 : relecture après déclaration
   const [onglet, setOnglet] = useNavState("DataRfView", "onglet", "reseau");   // #874 : gardé au rechargement
   const ouvrir = (nom, config) => {
     setChoix(nom); setOnglet("detail");
@@ -163,8 +201,9 @@ export default function DataRfView({ onBack, siAgentApiBase, username }) {
     load();
     const id = setInterval(load, 30000);
     return () => { stop = true; clearInterval(id); };
-  }, [siAgentApiBase]);
+  }, [siAgentApiBase, tick]);
   const sondes = data?.sondes || [];
+  const recharger = (nom) => { setTick((t) => t + 1); if (nom) { setChoix(nom); setOnglet("detail"); } };
   const s = sondes.find((x) => x.sonde === choix) || sondes[0];
   const canaux = useMemo(() => croiser(s?.rf_spectrum, s?.wifi_monitor), [s]);
   const bs = useMemo(() => bornes(s?.wifi_monitor), [s]);
@@ -180,6 +219,7 @@ export default function DataRfView({ onBack, siAgentApiBase, username }) {
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
       </div>
       {err && <p className="infra-error">{err}</p>}
+      {data && <DeclarerSonde base={siAgentApiBase} actor={username} sondes={sondes} recharger={recharger} />}
       {data && !sondes.length && <p className="infra-muted">Aucune sonde : installer le collecteur sur le mini-PC du site (si-agent/local-central/installer-collecteur.sh), y enrôler les sondes, puis activer la sonde <code>collecte-sondes</code> sur l'agent du mini-PC (fiche de l'agent › Sondes). <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
       {data && onglet === "reseau" && sondes.length > 0 && <ReseauSondes data={data} ouvrir={ouvrir} />}
       {s && onglet === "detail" && (

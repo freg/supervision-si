@@ -2877,7 +2877,36 @@ def datarf_route():
     finally:
         conn.close()
     borne = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 2 * 3600))   # #812 : sondes directes désactivées depuis 2 h
-    return jsonify(datarf.assembler(collectes, directes, borne)), 200
+    return jsonify(datarf.assembler(collectes, directes, borne, store.get_setting(DB_PATH, "datarf_sondes", []) or [])), 200
+
+
+@app.route("/datarf/sondes", methods=["GET"])
+def datarf_sondes_get():
+    """#968 : agents déclarés « sonde Wi-Fi » (sonde cliente : configuration radio, wifi-probe, path-probe)."""
+    return jsonify({"sondes": store.get_setting(DB_PATH, "datarf_sondes", []) or []}), 200
+
+
+@app.route("/datarf/sondes", methods=["POST"])
+def datarf_sondes_post():
+    b = request.get_json(silent=True) or {}
+    aid = str(b.get("agent_id") or "").strip()
+    a = store.get_agent(DB_PATH, aid) if re.match(r"^[A-Za-z0-9._-]{1,64}$", aid) else None
+    if not a:
+        return jsonify({"error": "agent inconnu : %s" % aid}), 404
+    nom = str(a.get("hostname") or aid)
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", nom):
+        nom = aid
+    liste = [d for d in (store.get_setting(DB_PATH, "datarf_sondes", []) or []) if d.get("agent_id") != aid]
+    liste.append({"agent_id": aid, "nom": nom, "par": str(b.get("actor") or "")[:80] or None, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    store.set_setting(DB_PATH, "datarf_sondes", liste)
+    return jsonify({"ok": True, "sonde": nom, "agent_id": aid}), 201
+
+
+@app.route("/datarf/sondes/<agent_id>", methods=["DELETE"])
+def datarf_sondes_delete(agent_id):
+    liste = store.get_setting(DB_PATH, "datarf_sondes", []) or []
+    store.set_setting(DB_PATH, "datarf_sondes", [d for d in liste if d.get("agent_id") != agent_id])
+    return jsonify({"ok": True}), 200
 
 
 @app.route("/datarf/config", methods=["GET"])

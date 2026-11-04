@@ -32,6 +32,14 @@ class Assemblage(unittest.TestCase):
         self.assertEqual([s["sonde"] for s in r["sondes"]], ["sonde-3b"])            # #812 : ni le collecteur, ni une mesure ancienne
         r = datarf.assembler([], {"plugin:wifi-probe": [("i9", "i9freg", "2026-10-21T15:00:00Z", {"link": {}})]})
         self.assertEqual(r["sondes"], [])                                       # poste avec wifi-probe seulement : pas une sonde radio
+        # #968 : agent déclaré « sonde Wi-Fi » : listé sans mesure, puis avec sa mesure wifi-probe
+        decl = [{"agent_id": "sondeGMKtec", "nom": "sondeGMKtec"}]
+        r = datarf.assembler([], {}, None, decl)
+        self.assertEqual(r["sondes"], [{"sonde": "sondeGMKtec", "agent_id": "sondeGMKtec", "via": None, "recu": None, "declaree": True}])
+        r = datarf.assembler([], {"plugin:wifi-probe": [("sondeGMKtec", "sondeGMKtec", "2026-11-04T15:00:00Z", {"link": {"ssid": "Campus"}})]}, None, decl)
+        self.assertEqual(len(r["sondes"]), 1)
+        self.assertEqual((r["sondes"][0]["wifi_probe"]["link"]["ssid"], r["sondes"][0]["declaree"]), ("Campus", True))
+        self.assertEqual(datarf.assembler([], {}, None, ["x", {"nom": "sans-id"}])["sondes"], [])
 
 
 class Configuration(unittest.TestCase):   # #807
@@ -78,6 +86,14 @@ class Routes(unittest.TestCase):   # #807
         self.assertEqual(cl.get("/datarf/config?sonde=sonde-3b").get_json()["config"]["ssids"][0]["acces"], "wifi-campus")
         self.assertEqual(cl.post("/datarf/config", json={"sonde": "sonde-3b"}).status_code, 400)
         self.assertEqual(cl.post("/datarf/config", json={"sonde": "sonde-3b", "via_agent": "inconnu", "action": "etat"}).status_code, 404)
+        # #968 : déclaration d'un agent comme sonde Wi-Fi
+        self.assertEqual(cl.post("/datarf/sondes", json={"agent_id": "inconnu"}).status_code, 404)
+        self.assertEqual(cl.post("/datarf/sondes", json={"agent_id": aid, "actor": "alice"}).status_code, 201)
+        self.assertEqual(cl.post("/datarf/sondes", json={"agent_id": aid}).status_code, 201)       # redéclaration : pas de doublon
+        self.assertEqual([d["agent_id"] for d in cl.get("/datarf/sondes").get_json()["sondes"]], [aid])
+        self.assertIn(aid, [x["agent_id"] for x in cl.get("/datarf").get_json()["sondes"]])
+        cl.delete("/datarf/sondes/" + aid)
+        self.assertEqual(cl.get("/datarf/sondes").get_json()["sondes"], [])
 
 
 if __name__ == "__main__":

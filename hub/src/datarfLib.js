@@ -88,6 +88,7 @@ const pire = (cases) => cases.reduce((a, c) => (NIV[c.niveau] > NIV[a.niveau] ? 
 
 export function caseActivite(s) {
   const a = s.age_s ?? age(s.recu);
+  if (a == null && s.declaree) return { niveau: "attention", texte: "déclarée, sans mesure", action: "Fiche de l'agent › Sondes : activer wifi-probe et path-probe ; puis « Configuration » ici pour ses SSID (#968)" };
   if (a == null) return { niveau: "critique", texte: "jamais vue", action: "Enrôler la sonde au collecteur du site (netprobe/rpi/README.md § 6)" };
   if (a <= 300) return { niveau: "ok", texte: `vue il y a ${fmtAge(a)}` };
   if (a <= 1800) return { niveau: "attention", texte: `muette depuis ${fmtAge(a)}`, action: "Relevés en retard : vérifier l'alimentation (hub USB alimenté) et le réseau de la sonde" };
@@ -148,3 +149,11 @@ export function etatSondes(sondes, constats = []) {
   }).sort((a, b) => NIV[b.global] - NIV[a.global] || a.sonde.localeCompare(b.sonde));
 }
 export const SYMBOLE = { ok: "✔", attention: "⚠", critique: "⛔", absent: "—" };
+
+// #968 : agents qu'on peut déclarer « sonde Wi-Fi » (sonde cliente) : pas déjà dans la tuile, triés par nom
+export function agentsDeclarables(agents, sondes) {
+  const deja = new Set((sondes || []).flatMap((s) => [String(s.agent_id || "").toLowerCase(), String(s.sonde || "").toLowerCase()]));
+  return (agents || []).filter((a) => a && a.agent_id && !deja.has(String(a.agent_id).toLowerCase()) && !deja.has(String(a.hostname || "").toLowerCase()))
+    .map((a) => ({ agent_id: a.agent_id, libelle: a.hostname && a.hostname !== a.agent_id ? `${a.agent_id} (${a.hostname})` : a.agent_id, site: a.site || "" }))
+    .sort((x, y) => x.libelle.localeCompare(y.libelle, "fr"));
+}

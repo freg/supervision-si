@@ -8,10 +8,18 @@ DIRECTES = (("plugin:wifi-monitor", "wifi_monitor"), ("plugin:rf-spectrum", "rf_
             ("plugin:path-probe", "path_probe"))   # #811 : chemin, pour la colonne LAN
 
 
-def assembler(collectes, directes, maintenant=None):
+def assembler(collectes, directes, maintenant=None, declarees=()):
     """collectes : [(agent_id, hostname, at, data)] de plugin:collecte-sondes ; directes : {tâche: [(agent_id, hostname, at, data)]}.
     -> {sondes: [...], constats: [...]} ; une sonde vue des deux façons garde la mesure la plus récente.
-    maintenant (ISO, optionnel) : borne d'ancienneté -- une mesure directe antérieure est ignorée."""
+    maintenant (ISO, optionnel) : borne d'ancienneté -- une mesure directe antérieure est ignorée.
+    declarees (#968) : [{agent_id, nom}] agents déclarés « sonde Wi-Fi » dans la tuile -- listés même sans mesure radio
+    (sonde cliente seulement : wifi-probe / path-probe), pour pouvoir configurer leur radio."""
+    decl = {}
+    for d in declarees or []:
+        if isinstance(d, dict) and d.get("agent_id"):
+            for k in (d.get("agent_id"), d.get("nom")):
+                if k:
+                    decl[str(k).lower()] = d
     sondes, constats = {}, []
     for aid, host, at, d in collectes:
         for s in (d or {}).get("sondes") or []:
@@ -28,7 +36,7 @@ def assembler(collectes, directes, maintenant=None):
             nom = str(host or aid)
             if str(aid) in collecteurs or (maintenant and at and at < maintenant):
                 continue   # mesure d'un collecteur, ou trop ancienne (sonde désactivée depuis)
-            if tache in ("plugin:wifi-probe", "plugin:path-probe") and nom.lower() not in sondes:
+            if tache in ("plugin:wifi-probe", "plugin:path-probe") and nom.lower() not in sondes and nom.lower() not in decl and str(aid).lower() not in decl:
                 continue   # un poste qui n'a que la sonde client (wifi-probe) n'est pas une sonde radio : section Wi-Fi de sa fiche
             e = sondes.setdefault(nom.lower(), {"sonde": nom, "agent_id": aid, "via": None, "recu": at})
             if (e.get(cle + "_at") or "") <= (at or ""):
@@ -37,6 +45,13 @@ def assembler(collectes, directes, maintenant=None):
                 for c in (d or {}).get("alerts") or []:
                     if isinstance(c, dict):
                         constats.append(dict(c, message="%s : %s" % (nom, c.get("message", "")), via=None))
+    vus = {str(e.get("agent_id") or "").lower() for e in sondes.values()} | set(sondes)
+    for d in {id(x): x for x in decl.values()}.values():
+        nom = str(d.get("nom") or d["agent_id"])
+        if nom.lower() in vus or str(d["agent_id"]).lower() in vus:
+            sondes.get(nom.lower(), {}).update(declaree=True)
+            continue
+        sondes[nom.lower()] = {"sonde": nom, "agent_id": d["agent_id"], "via": None, "recu": None, "declaree": True}
     return {"sondes": sorted(sondes.values(), key=lambda s: str(s.get("sonde")).lower()), "constats": constats}
 
 

@@ -1,3 +1,22 @@
+## 2026-11-04 — livraison #969 : Data RF — déclarer un agent comme sonde Wi-Fi (configuration radio sans mesure préalable)
+
+Constat : « je ne vois pas l'agent dans Data RF » (sondeGMKtec, pour y saisir les SSID et clés du campus). La tuile ne
+listait que les sondes radio (collecte d'un site, wifi-monitor, rf-spectrum) ; un agent n'ayant qu'une carte Wi-Fi
+cliente n'y apparaissait jamais — et sa « Configuration » radio (#807) était donc inaccessible.
+
+- **Data RF › « ＋ Déclarer un agent comme sonde Wi-Fi »** : liste des agents du hub (hors sondes déjà présentes),
+  déclaration en un clic (bouton « en cours »), puis la sonde s'ouvre dans « Détail d'une sonde » : sa
+  « Configuration » reçoit les SSID reliés au coffre. « retirer » pour annuler une déclaration (la configuration
+  reste sur la sonde). Refus (agent inconnu…) : lien vers Agents hôtes.
+- Une sonde déclarée est listée même sans mesure (activité « déclarée, sans mesure » + quoi faire : activer
+  wifi-probe et path-probe dans sa fiche), puis avec ses mesures wifi-probe / path-probe.
+- Central : `GET|POST /datarf/sondes`, `DELETE /datarf/sondes/<agent>` (réglage `datarf_sondes`) ;
+  `datarf.assembler(…, declarees)`.
+
+Vérifié : `si-agent/api/test_z_datarf.py` (assemblage avec sonde déclarée, routes, pas de doublon),
+`hub/tests/datarfLib.test.mjs` (agents déclarables, activité), syntaxe JSX. Non vérifié : build, rendu réel,
+NetworkManager réel de la sonde.
+
 ## 2026-11-04 — livraison #968 : correctif — hub blanc après #967
 
 Cause : dans #967, l'état et l'effet de la recherche silencieuse de l'Univers étaient déclarés APRÈS les retours

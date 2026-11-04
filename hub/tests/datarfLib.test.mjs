@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { traces, croiser, bornes, age, fmtAge, freqCanal, BANDES } from "../src/datarfLib.js";
+import { agentsDeclarables, caseActivite as caseActivite968 } from "../src/datarfLib.js";
 
 test("tracés du spectre d'une bande", () => {
   const t = traces([[2400, -90, -80], [2450, -60, -30], [2500, -90, null], [5180, -50, -40]], BANDES[0], 100, 60, -90, -30);
@@ -68,4 +69,14 @@ test("état du réseau de sondes (#811)", () => {
   assert.equal(caseLan({ path_probe: { summary: { state: "critical" }, paths: [{}] } }).niveau, "critique");
   const t = etatSondes([{ sonde: "b", age_s: 30, rf_spectrum: { canaux: [] } }, { sonde: "a", age_s: 9000 }], [{ message: "a : x" }, { message: "ab : y" }]);
   assert.deepEqual(t.map((r) => [r.sonde, r.global, r.constats]), [["a", "critique", 1], ["b", "ok", 0]]);
+});
+
+test("#968 : agents déclarables comme sonde Wi-Fi, activité d'une sonde déclarée", () => {
+  const agents = [{ agent_id: "sondeGMKtec", hostname: "sondeGMKtec", site: "campus" }, { agent_id: "pc-1", hostname: "PC-PAUL" }, { agent_id: "deja" }, null, {}];
+  const r = agentsDeclarables(agents, [{ sonde: "deja", agent_id: "deja" }]);
+  assert.deepEqual(r.map((a) => a.agent_id), ["pc-1", "sondeGMKtec"]);
+  assert.equal(r[0].libelle, "pc-1 (PC-PAUL)");
+  assert.equal(agentsDeclarables(null, null).length, 0);
+  assert.equal(caseActivite968({ declaree: true, recu: null }).niveau, "attention");
+  assert.equal(caseActivite968({ recu: null }).texte, "jamais vue");
 });
