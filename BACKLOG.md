@@ -1,4 +1,4 @@
-## Mise à jour automatique sûre : déploiement auto, contrôles en cascade, retour arrière automatique (2026-11-04) — DEMANDÉ, À CADRER
+## Mise à jour automatique sûre : déploiement auto, contrôles en cascade, retour arrière automatique (2026-11-04) — DEMANDÉ, CADRÉ, REPORTÉ
 Demande (après le hub blanc de #967) : détecter un changement dans le git (déjà actif) ; créer les nouvelles API/fronts par
 un mécanisme d'inscription général (changelog) ; déployer automatiquement avec retour arrière automatique sur anomalie ;
 détection d'anomalie par une cascade curl / grep / « ne correspond pas » ; détection d'anomalie aux déploiements
@@ -17,6 +17,9 @@ Proposition (à valider) :
 4. Nouveau service (absent de `.deploye.json`) : inscription automatique depuis docker-compose + contrôle
    obligatoire déclaré, sinon déploiement refusé avec lien vers le registre.
 5. Déclenchement automatique (fenêtre horaire réglable) depuis la tour, désactivable.
+Décision (2026-11-04) : déclenchement MIXTE -- activité détectée sur le hub => fenêtre de demande proposant la mise à
+jour, avec lien vers la tour et les livraisons ; aucune activité depuis un délai réglable => mise à jour automatique.
+Chantier REPORTÉ (« on développera ça plus tard »).
 
 ## Coffre-fort : modifier un secret partout où on le voit (2026-11-04) — DEMANDÉ
 - Demande : « on doit pouvoir modifier un secret dans le coffre fort » (en saisissant les clés Wi-Fi du campus pour Data RF › Configuration radio).
