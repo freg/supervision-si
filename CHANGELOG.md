@@ -1,3 +1,13 @@
+## 2026-11-04 — livraison #968 : correctif — hub blanc après #967
+
+Cause : dans #967, l'état et l'effet de la recherche silencieuse de l'Univers étaient déclarés APRÈS les retours
+anticipés d'App (écran de connexion / chargement) : le nombre de hooks React changeait d'un rendu à l'autre et le hub
+restait blanc une fois connecté. Ils sont désormais déclarés avant ces retours ; les listes de l'Univers du rendu
+courant leur parviennent par une référence. Aucune autre modification.
+
+Vérifié : aucun hook après les retours anticipés d'App (contrôle par script), syntaxe JSX (esbuild). Non vérifié :
+build et rendu réel.
+
 ## 2026-11-04 — livraison #967 : recherche silencieuse dans l'Univers du hub, états précédents des listes de flux
 
 Demande : « une IA qui prenne en charge, en parallèle et silencieusement si elle n'a pas de solution, la demande faite

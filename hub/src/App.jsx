@@ -1151,6 +1151,19 @@ export default function App() {
     }, 350);
     return () => { fini = true; clearTimeout(t); };
   }, [universeQuery]);
+  // #967/#968 : recherche silencieuse de l'Univers -- état et effet déclarés ICI, avant les retours anticipés (connexion),
+  // sinon le nombre de hooks change entre deux rendus et le hub reste blanc. Les listes viennent du rendu courant (ref).
+  const [universeIA, setUniverseIA] = useState(null);
+  const universeRef = useRef({ statique: [], tous: [] });
+  useEffect(() => {
+    const q = universeQuery.trim();
+    const { statique, tous } = universeRef.current;
+    if (!ASSISTANT_URL || openNavMenu !== "universe" || !doitInterroger(q, statique.length, looksLikeAddress(q))) { setUniverseIA(null); return undefined; }
+    let annule = false;
+    const cands = candidatsIA(tous);
+    const t = setTimeout(() => deviner(ASSISTANT_URL, q, cands, (e) => { if (!annule) setUniverseIA({ q, ...e }); }, { annule: () => annule }), DELAI_MS);
+    return () => { annule = true; clearTimeout(t); };
+  }, [universeQuery, openNavMenu]);
   // #554 : pages publiées par les agents (menu « Pages ouvertes »)
   const [publishedAgents, setPublishedAgents] = useState([]);
   useEffect(() => {
@@ -1637,15 +1650,7 @@ export default function App() {
   // #967 : recherche silencieuse -- peu de résultats statiques => assistant en arrière-plan (catalogue, puis modèle) ;
   // seul un indice discret « recherche… / inférence… », puis les suggestions s'ajoutent sous la réponse statique.
   const universeTous = universeEntries(hubCatalog, { sort: "alpha", since: SINCE, query: "", themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
-  const [universeIA, setUniverseIA] = useState(null);
-  useEffect(() => {
-    const q = universeQuery.trim();
-    if (!ASSISTANT_URL || openNavMenu !== "universe" || !doitInterroger(q, universe.length, looksLikeAddress(q))) { setUniverseIA(null); return undefined; }
-    let annule = false;
-    const cands = candidatsIA(universeTous);
-    const t = setTimeout(() => deviner(ASSISTANT_URL, q, cands, (e) => { if (!annule) setUniverseIA({ q, ...e }); }, { annule: () => annule }), DELAI_MS);
-    return () => { annule = true; clearTimeout(t); };
-  }, [universeQuery, universe.length, openNavMenu]);  // eslint-disable-line react-hooks/exhaustive-deps
+  universeRef.current = { statique: universe, tous: universeTous };   // #968 : lu par l'effet (déclaré AVANT les retours anticipés)
   const universeAjouts = universeIA && universeIA.phase === "fini" && universeIA.q === universeQuery.trim() ? ajoutsIA(universeIA.suggestions, universeTous, universe) : [];
   const choisirSuggestion = (s) => {
     const ap = apprendre(universeAppris, universeIA ? universeIA.q : universeQuery, s.id);
