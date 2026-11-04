@@ -13,8 +13,14 @@ Tests, en lecture seule : résolution DNS, connexion TCP, TLS (certificat vérif
 probable ; expiration < 14 jours = CERT), NTP (UDP/123). Ports attendus fermés (5e champ « ferme ») : OUVERT s'ils
 répondent. Stdlib seulement (`ip` pour les routes, `openssl` facultatif pour l'émetteur d'un certificat non reconnu).
 
-Usage : flux_editeurs.py --hub URL --site ID [--listes google,idruide] [--ifaces auto|eth0,wlan0] [--nom POSTE]
-                         [--timeout 5] [--cache /var/lib/si-agent/flux-editeurs] [--alertes hub|agent]
+Réglages, du plus fort au plus faible (#966 : AUCUN argument n'est nécessaire dans le cas courant) :
+  1. arguments --hub / --site / --listes / --ifaces ;
+  2. fichier /etc/si-agent/flux-editeurs.json : {"hub": "...", "site": "...", "listes": ["google"], "ifaces": ["auto"]} ;
+  3. déduits de l'agent : hub = son central (…/api/si-agent → …/api/nebula, variable SI_AGENT_CENTRAL), site = son
+     réglage « site » (SI_AGENT_SITE), retrouvé dans la liste des sites du hub par identifiant ou par nom ; listes = google.
+
+Usage : flux_editeurs.py [--hub URL] [--site ID] [--listes google,idruide] [--ifaces auto|eth0,wlan0] [--nom POSTE]
+                         [--timeout 5] [--cache /var/lib/si-agent/flux-editeurs] [--alertes hub|agent] [--conf FICHIER]
 """
 import datetime
 import json
@@ -29,6 +35,7 @@ import urllib.request
 
 VERSION = "1"
 CACHE_DEFAUT = "/var/lib/si-agent/flux-editeurs"
+CONF_DEFAUT = "/etc/si-agent/flux-editeurs.json"
 TABLE_BASE = 270
 FERME = ("ferme", "fermé", "closed", "close", "!")
 SENSIBLES_TLS = (443,)
@@ -290,7 +297,7 @@ def ip_publique(src, timeout):
 def collect(hub, site, listes, ifaces, nom, timeout, cache, alertes_agent):
     res = {"plugin": "flux-editeurs", "version": VERSION, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "site": site, "passages": [], "alerts": []}
     if not hub or not site:
-        res["error"] = "réglages manquants : --hub URL et --site ID (voir la tuile « Flux éditeurs », onglet Mise en place)"
+        res["error"] = "réglages manquants : hub ou site introuvables (site de l'agent vide ?) — régler « site » dans la fiche de l'agent ou écrire /etc/si-agent/flux-editeurs.json (voir la tuile « Flux éditeurs », onglet Mise en place)"
         return res
     cibles, err = charger_listes(hub, listes, cache)
     res["erreurs"] = err
@@ -321,12 +328,62 @@ def collect(hub, site, listes, ifaces, nom, timeout, cache, alertes_agent):
     return res
 
 
+def hub_depuis_central(central):
+    """https://hôte/api/si-agent -> https://hôte/api/nebula (même frontal que le central de l'agent)."""
+    c = str(central or "").rstrip("/")
+    if not c:
+        return ""
+    if re.search(r"/api/si-agent$", c):
+        return re.sub(r"/api/si-agent$", "/api/nebula", c)
+    m = re.match(r"^(https?://[^/]+)", c)
+    return (m.group(1) + "/api/nebula") if m else ""
+
+
+def resoudre_site(hub, site, timeout=15):
+    """Site de l'agent (identifiant ou nom libre) -> identifiant du hub : identique, ou nom de site Nebula (sans casse,
+    contenu dans l'un ou l'autre). Sans correspondance : le nom tel quel (le hub en fait un onglet hors Nebula)."""
+    if not site:
+        return site, None
+    try:
+        with urllib.request.urlopen("%s/flux/sites" % hub.rstrip("/"), timeout=timeout) as r:
+            sites = json.loads(r.read().decode("utf-8")).get("sites") or []
+    except Exception:  # noqa: BLE001
+        return site, None
+    s = site.strip().lower()
+    for x in sites:
+        if x.get("site_id") == site:
+            return site, x.get("nom")
+    for x in sites:
+        n = str(x.get("nom") or "").lower()
+        if n and (n == s or s in n or n in s):
+            return x["site_id"], x.get("nom")
+    return re.sub(r"[^A-Za-z0-9_-]+", "-", site).strip("-")[:64], None
+
+
+def reglages(o, env, conf_path):
+    """Fusionne arguments > fichier > environnement de l'agent."""
+    conf = {}
+    try:
+        with open(conf_path, encoding="utf-8") as fh:
+            conf = json.load(fh) or {}
+    except (OSError, ValueError):
+        conf = {}
+    out = dict(o)
+    out["hub"] = o.get("hub") or conf.get("hub") or hub_depuis_central(env.get("SI_AGENT_CENTRAL"))
+    out["site"] = o.get("site") or conf.get("site") or env.get("SI_AGENT_SITE") or ""
+    for k, d in (("listes", ["google"]), ("ifaces", ["auto"])):
+        v = o.get(k) or conf.get(k) or d
+        out[k] = v if isinstance(v, list) else [x for x in str(v).split(",") if x]
+    out["origine"] = "arguments" if o.get("site") else "fichier" if conf.get("site") else "agent"
+    return out
+
+
 def main(argv):
-    o = {"hub": "", "site": "", "listes": ["google"], "ifaces": ["auto"], "nom": socket.gethostname().split(".")[0], "timeout": 5.0, "cache": CACHE_DEFAUT, "alertes": "hub"}
+    o = {"hub": "", "site": "", "listes": None, "ifaces": None, "nom": socket.gethostname().split(".")[0], "timeout": 5.0, "cache": CACHE_DEFAUT, "alertes": "hub", "conf": CONF_DEFAUT}
     i = 0
     while i < len(argv):
         a, v = argv[i], argv[i + 1] if i + 1 < len(argv) else None
-        if a in ("--hub", "--site", "--nom", "--cache", "--alertes") and v is not None:
+        if a in ("--hub", "--site", "--nom", "--cache", "--alertes", "--conf") and v is not None:
             o[a[2:]] = v; i += 2; continue
         if a in ("--listes", "--ifaces") and v is not None:
             o[a[2:]] = [x for x in v.split(",") if x]; i += 2; continue
@@ -334,7 +391,11 @@ def main(argv):
             o["timeout"] = float(v); i += 2; continue
         i += 1
     try:
-        print(json.dumps(collect(o["hub"], o["site"], o["listes"], o["ifaces"], o["nom"], o["timeout"], o["cache"], o["alertes"] == "agent")))
+        r = reglages(o, os.environ, o["conf"])
+        site, nom_site = resoudre_site(r["hub"], r["site"]) if r["hub"] else (r["site"], None)
+        res = collect(r["hub"], site, r["listes"], r["ifaces"], o["nom"], o["timeout"], o["cache"], o["alertes"] == "agent")
+        res["reglages"] = {"hub": r["hub"], "site": site, "site_nom": nom_site, "site_agent": r["site"], "listes": r["listes"], "ifaces": r["ifaces"], "origine": r["origine"]}
+        print(json.dumps(res))
     except Exception as exc:  # noqa: BLE001 -- une sonde ne doit jamais planter l'agent
         print(json.dumps({"error": "collecte échouée : %s" % exc}))
     return 0

@@ -59,5 +59,31 @@ class TestFluxEditeurs(unittest.TestCase):
         ecoute.close()
 
 
+class TestReglages(unittest.TestCase):
+    def test_reglages(self):
+        self.assertEqual(F.hub_depuis_central("https://sup.exemple.fr/api/si-agent/"), "https://sup.exemple.fr/api/nebula")
+        self.assertEqual(F.hub_depuis_central("https://10.0.0.1:6443/autre"), "https://10.0.0.1:6443/api/nebula")
+        self.assertEqual(F.hub_depuis_central(""), "")
+        d = tempfile.mkdtemp(); conf = os.path.join(d, "c.json")
+        env = {"SI_AGENT_CENTRAL": "https://h/api/si-agent", "SI_AGENT_SITE": "numeria"}
+        r = F.reglages({"hub": "", "site": "", "listes": None, "ifaces": None}, env, conf)
+        self.assertEqual((r["hub"], r["site"], r["listes"], r["ifaces"], r["origine"]), ("https://h/api/nebula", "numeria", ["google"], ["auto"], "agent"))
+        json.dump({"site": "68d4", "listes": "google,idruide"}, open(conf, "w"))
+        r = F.reglages({"hub": "", "site": "", "listes": None, "ifaces": ["eth0"]}, env, conf)
+        self.assertEqual((r["site"], r["listes"], r["ifaces"], r["origine"]), ("68d4", ["google", "idruide"], ["eth0"], "fichier"))
+
+    def test_resoudre_site(self):
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a): pass
+            def do_GET(self):
+                self.send_response(200); self.end_headers()
+                self.wfile.write(json.dumps({"sites": [{"site_id": "68d4", "nom": "Pavillon ASTRA FUTUROSCOPE"}, {"site_id": "si-optline", "nom": "SI Optline"}]}).encode())
+        srv = HTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        hub = "http://127.0.0.1:%d" % srv.server_address[1]
+        self.assertEqual(F.resoudre_site(hub, "68d4")[0], "68d4"); self.assertEqual(F.resoudre_site(hub, "si optline")[0], "si-optline")
+        self.assertEqual(F.resoudre_site(hub, "ASTRA")[0], "68d4"); self.assertEqual(F.resoudre_site(hub, "Bureau Paris"), ("Bureau-Paris", None))
+        srv.shutdown()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -342,6 +342,17 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
       {onglet === "installer" && (
         <div className="panel" style={{ marginTop: 10 }}>
           <p>Les tests partent d'une machine <strong>du site</strong> (mini-PC, agent, sonde) : c'est son réseau qui est éprouvé. Lecture seule : DNS, connexion, chiffrement TLS (repère l'inspection SSL), heure NTP.</p>
+          <div className="panel">
+            <h3 style={{ marginTop: 0 }}>Par l'agent (recommandé) : sonde « flux-editeurs »</h3>
+            <ol>
+              <li>Hub › Agents hôtes › fiche de l'agent du site › onglet <strong>Sondes</strong> › ligne <code>flux-editeurs</code> › <strong>activer</strong> (agent 0.6.42 ou plus récent).</li>
+              <li>Rien d'autre à régler dans le cas courant : le hub est celui de l'agent, le site est le <strong>site de l'agent</strong> (fiche › Réglages), retrouvé par son nom parmi les onglets ci-dessus{siteId ? <> — pour ce site : nom contenant « {site?.nom || siteId} » ou identifiant <code>{siteId}</code></> : null}. Chaque interface du poste devient une source « poste-interface ».</li>
+              <li>Pour forcer d'autres réglages (autre site, listes, interfaces) : sur le poste, fichier <code>/etc/si-agent/flux-editeurs.json</code> :</li>
+            </ol>
+            <pre className="copiable" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify({ site: siteId || "<site>", listes: listes.map((l) => l.id), ifaces: iface ? [iface] : ["auto"] }, null, 1)}</pre>
+            <p className="muted">Le dernier passage de la sonde (fiche agent › Sondes) montre les réglages retenus (hub, site, origine : agent / fichier) et chaque interface testée.</p>
+          </div>
+          <h3>Sans agent : script</h3>
           <p><label>Interface à tester (vide = route par défaut ; ex. wlp3s0 pour passer par le Wi-Fi des tablettes) <input value={iface} onChange={(e) => setIface(e.target.value.replace(/[^\w.-]/g, ""))} /></label></p>
           <pre className="copiable" style={{ whiteSpace: "pre-wrap" }}>{commandesSite(hubAbs, siteId || "<site>", listes.map((l) => l.id), iface)}</pre>
           <button type="button" className="secondary" onClick={() => setAide({ titre: "Commandes de mise en place", texte: commandesSite(hubAbs, siteId || "<site>", listes.map((l) => l.id), iface) })}>copier dans une fenêtre</button>

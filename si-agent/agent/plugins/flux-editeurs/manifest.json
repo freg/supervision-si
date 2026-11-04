@@ -5,9 +5,9 @@
   "entry": "flux_editeurs.py",
   "interval_seconds": 3600,
   "timeout_seconds": 600,
-  "args": ["--hub", "", "--site", "", "--listes", "google", "--ifaces", "auto"],
+  "args": [],
   "enabled": false,
-  "description": "Sonde « flux éditeurs » (#965) : les flux sortants exigés par les éditeurs (Google Android Enterprise, Idruide…) sont-ils ouverts depuis CHAQUE interface / VLAN du poste ? Listes lues dans le hub (tuile Flux éditeurs), tests en sortant par chaque interface (source liée ; interface sans route par défaut : table de routage temporaire vers sa passerelle) : DNS, TCP, TLS (certificat non reconnu = inspection SSL, expiration < 14 j = CERT), NTP ; ports attendus fermés (OUVERT s'ils répondent). Chaque interface est une source « <poste>-<interface> » envoyée au hub, qui tient alertes, historique, analyse Nebula et récapitulatif quotidien (--alertes agent pour alerter aussi par l'agent). Réglages : --hub https://<hub>/api/nebula --site <id> --listes google,idruide --ifaces auto|eth0,wlan0. Lecture seule ; privilégiée (ip rule/route le temps du passage).",
+  "description": "Sonde « flux éditeurs » (#965) : les flux sortants exigés par les éditeurs (Google Android Enterprise, Idruide…) sont-ils ouverts depuis CHAQUE interface / VLAN du poste ? Listes lues dans le hub (tuile Flux éditeurs), tests en sortant par chaque interface (source liée ; interface sans route par défaut : table de routage temporaire vers sa passerelle) : DNS, TCP, TLS (certificat non reconnu = inspection SSL, expiration < 14 j = CERT), NTP ; ports attendus fermés (OUVERT s'ils répondent). Chaque interface est une source « <poste>-<interface> » envoyée au hub, qui tient alertes, historique, analyse Nebula et récapitulatif quotidien (--alertes agent pour alerter aussi par l'agent). Sans réglage : hub = central de l'agent (…/api/nebula), site = site de l'agent (retrouvé par nom parmi les sites du hub), listes google, toutes les interfaces ; sinon /etc/si-agent/flux-editeurs.json ({hub, site, listes, ifaces}). Lecture seule ; privilégiée (ip rule/route le temps du passage).",
   "source": "bundled",
   "privileged": true
 }

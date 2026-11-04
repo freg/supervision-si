@@ -1,3 +1,20 @@
+## 2026-11-03 — livraison #966 : sonde flux-editeurs sans réglage à saisir (hub et site déduits de l'agent)
+
+Question : « où se paramètre flux-editeurs ? ». Réponse honnête : nulle part dans le hub — une sonde livrée avec
+l'agent garde les arguments de son manifeste, communs à tous les agents ; avec #965 il fallait donc éditer le manifeste.
+Désormais :
+- **aucun argument nécessaire** : hub = central de l'agent (`…/api/si-agent` → `…/api/nebula`, nouvelle variable
+  `SI_AGENT_CENTRAL` passée aux sondes par l'agent 0.6.42) ; site = réglage « site » de l'agent (`SI_AGENT_SITE`),
+  retrouvé parmi les sites du hub par identifiant ou par nom (sans casse, contenu) — sinon le nom devient un onglet
+  hors Nebula ; listes `google` ; toutes les interfaces ;
+- **forçage** par `/etc/si-agent/flux-editeurs.json` (`{site, listes, ifaces, hub}`), puis par arguments ;
+- chaque passage rapporte les réglages retenus (hub, site, origine agent / fichier / arguments) ;
+- tuile Flux éditeurs › Mise en place : procédure « par l'agent » (fiche agent › Sondes › activer) et le fichier de
+  réglages prêt à copier pour le site affiché.
+
+Vérifié : `plugins/flux-editeurs/test_flux_editeurs.py` (5), syntaxe JSX. Non vérifié : build du hub et de l'archive de
+l'agent.
+
 ## 2026-11-03 — livraison #965 : sonde d'agent « flux éditeurs » — tester les flux depuis chaque VLAN et chaque position du réseau
 
 Demande : une sonde pour le même sujet, afin de nourrir les tests depuis plusieurs VLAN et positions dans le réseau.

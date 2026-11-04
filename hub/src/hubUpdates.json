@@ -1,5 +1,11 @@
 [
  {
+  "n": 966,
+  "from": 966,
+  "date": "2026-11-03",
+  "title": "Sonde flux-editeurs sans réglage à saisir : hub déduit du central de l'agent, site = site de l'agent retrouvé par son nom ; forçage par /etc/si-agent/flux-editeurs.json (agent 0.6.42)"
+ },
+ {
   "n": 965,
   "from": 965,
   "date": "2026-11-03",

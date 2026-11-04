@@ -2217,7 +2217,8 @@ class Agent(object):
             except Exception:  # noqa: BLE001
                 live_path = None
                 _log.warning("poste-charge : préparation du suivi direct impossible", exc_info=True)
-        env = {"SI_AGENT_ID": self.agent_id, "SI_AGENT_SITE": str(self.cfg.get("site") or "")}
+        env = {"SI_AGENT_ID": self.agent_id, "SI_AGENT_SITE": str(self.cfg.get("site") or ""),
+               "SI_AGENT_CENTRAL": str(self.cfg.get("central_url") or "")}   # #966 : flux-editeurs déduit le hub du central
         confine = self._confinement(manifest)
         _log.debug("sonde %s : lancement (%s, privilégiée=%s, utilisateur=%s)", manifest["id"], manifest.get("runner"),
                    bool(manifest.get("privileged")), (confine or {}).get("preexec_fn") and self._plugins_user_effective())
