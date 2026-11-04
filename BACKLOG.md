@@ -1,3 +1,23 @@
+## Mise à jour automatique sûre : déploiement auto, contrôles en cascade, retour arrière automatique (2026-11-04) — DEMANDÉ, À CADRER
+Demande (après le hub blanc de #967) : détecter un changement dans le git (déjà actif) ; créer les nouvelles API/fronts par
+un mécanisme d'inscription général (changelog) ; déployer automatiquement avec retour arrière automatique sur anomalie ;
+détection d'anomalie par une cascade curl / grep / « ne correspond pas » ; détection d'anomalie aux déploiements
+initiaux de front/API ; sauvegarde complète du contexte pour les accès en cours.
+Existant : tour (`services/api/tower.py`) — état git (ahead/behind), plan ciblé ou cascade, jobs, `.deploye.json`,
+historique `.maj-historique.jsonl`, auto-réparation (`heal_decide`), `scripts/backup-full.sh`.
+Proposition (à valider) :
+1. Contrats de contrôle déclarés par service (registre unique, ex. `deploy/controles.json` ou bloc dans le
+   CHANGELOG/hubUpdates) : URL, code attendu, motif attendu (grep) et motif interdit (« not match »), délai ;
+   pour un front : page servie + bundle JS chargé + absence d'écran blanc (rendu sans navigateur : présence de
+   l'id racine ET d'un marqueur rendu côté client via un contrôle Playwright optionnel).
+2. Avant déploiement : étiquetage des images en cours (`<service>:avant-<sha>`) + sauvegarde du contexte
+   (fichiers .env, volumes de données des services touchés, jetons/sessions Keycloak non concernés).
+3. Déploiement par lots, contrôles en cascade après chaque lot ; anomalie => remise des images `avant-<sha>`,
+   `git checkout` du commit précédent pour les fichiers servis, notification, ligne dans l'historique.
+4. Nouveau service (absent de `.deploye.json`) : inscription automatique depuis docker-compose + contrôle
+   obligatoire déclaré, sinon déploiement refusé avec lien vers le registre.
+5. Déclenchement automatique (fenêtre horaire réglable) depuis la tour, désactivable.
+
 ## Coffre-fort : modifier un secret partout où on le voit (2026-11-04) — DEMANDÉ
 - Demande : « on doit pouvoir modifier un secret dans le coffre fort » (en saisissant les clés Wi-Fi du campus pour Data RF › Configuration radio).
 - Existant : « ✏️ Modifier » (avec historique et versions) dans le détail d'une collection du portail, MASQUÉ quand l'accès à la collection est en lecture seule (`isReadOnly`) ; absent de la recherche et du choix d'accès depuis Data RF.
