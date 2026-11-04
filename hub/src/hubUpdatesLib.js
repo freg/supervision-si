@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  967: [{ view: "flux-editeurs", params: {}, hint: "Flux éditeurs › Listes de cibles : « États précédents des listes » (restaurer) ; et l'Univers du hub cherche seul quand le filtre trouve peu" }],
   966: [{ view: "flux-editeurs", params: {}, hint: "Flux éditeurs › Mise en place : activer la sonde flux-editeurs dans la fiche de l'agent, rien d'autre à régler" }],
   965: [{ view: "si-agent", hint: "Fiche agent › Sondes : activer « flux-editeurs » avec --hub, --site, --listes, --ifaces" }, { view: "flux-editeurs", hint: "une source par interface du poste" }],
   964: [{ view: "flux-editeurs", hint: "Flux éditeurs : « 🔍 visualiser / ignorer » sur chaque source ; Alertes › récapitulatif quotidien ; onglet Pare-feu (site Nebula)" }],

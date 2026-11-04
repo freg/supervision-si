@@ -47,6 +47,7 @@ const HubTreeView = lazyView(() => import("./HubTreeView.jsx"));
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 const SyntheseView = lazyView(() => import("./SyntheseView.jsx"));
 const TodayView = lazyView(() => import("./TodayView.jsx"));
+import { doitInterroger, candidats as candidatsIA, ajouts as ajoutsIA, apprendre, lireAppris, ecrireAppris, fusionnerSynonymes, deviner, DELAI_MS } from "./universeIA.js";  // #967
 import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl, parseAliases, looksLikeAddress } from "./hubTree.js";
 const LogsManagerView = lazyView(() => import("./LogsManagerView.jsx"));
 const SchemaAnalyzerView = lazyView(() => import("./SchemaAnalyzerView.jsx"));
@@ -1132,6 +1133,9 @@ export default function App() {
   // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
   const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
   const [universeQuery, setUniverseQuery] = useState("");
+  // #967 : synonymes appris (suggestions choisies) fusionnés aux synonymes du hub
+  const [universeAppris, setUniverseAppris] = useState(() => lireAppris());
+  const universeAliases = useMemo(() => fusionnerSynonymes(UNIVERSE_ALIASES, universeAppris), [universeAppris]);
   // #846 : une adresse IP ou MAC saisie dans l'Univers est cherchée dans les sources du hub (assistant, sans modèle)
   const [universeLocate, setUniverseLocate] = useState(null);
   useEffect(() => {
@@ -1629,7 +1633,25 @@ export default function App() {
     window.open(leaf.url, "_blank", "noopener");
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
-  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: UNIVERSE_ALIASES, labels: UNIVERSE_LABELS });
+  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
+  // #967 : recherche silencieuse -- peu de résultats statiques => assistant en arrière-plan (catalogue, puis modèle) ;
+  // seul un indice discret « recherche… / inférence… », puis les suggestions s'ajoutent sous la réponse statique.
+  const universeTous = universeEntries(hubCatalog, { sort: "alpha", since: SINCE, query: "", themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
+  const [universeIA, setUniverseIA] = useState(null);
+  useEffect(() => {
+    const q = universeQuery.trim();
+    if (!ASSISTANT_URL || openNavMenu !== "universe" || !doitInterroger(q, universe.length, looksLikeAddress(q))) { setUniverseIA(null); return undefined; }
+    let annule = false;
+    const cands = candidatsIA(universeTous);
+    const t = setTimeout(() => deviner(ASSISTANT_URL, q, cands, (e) => { if (!annule) setUniverseIA({ q, ...e }); }, { annule: () => annule }), DELAI_MS);
+    return () => { annule = true; clearTimeout(t); };
+  }, [universeQuery, universe.length, openNavMenu]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const universeAjouts = universeIA && universeIA.phase === "fini" && universeIA.q === universeQuery.trim() ? ajoutsIA(universeIA.suggestions, universeTous, universe) : [];
+  const choisirSuggestion = (s) => {
+    const ap = apprendre(universeAppris, universeIA ? universeIA.q : universeQuery, s.id);
+    setUniverseAppris(ap); ecrireAppris(ap);
+    openLeaf(decorateLeaf(s.leaf), null);
+  };
   const headerParts = splitHeader(hubRootOrder);  // #554
   const openPages = [...PUBLIC_LINKS, ...agentPublishedLinks(publishedAgents)];  // #554
   const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
@@ -2314,6 +2336,15 @@ vm === "agent-page" ? (
                       <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
                     </button>
                   ))}
+                  {universeIA && universeIA.phase !== "fini" && (
+                    <span className="muted hub-universe-ia-indice" role="status" aria-live="polite">{universeIA.phase === "recherche" ? "🔎 recherche…" : "🧠 inférence…"}</span>
+                  )}
+                  {universeAjouts.map((s) => (
+                    <button key={"ia-" + s.id} type="button" className="hub-universe-ia-item" onClick={() => choisirSuggestion(s)}>
+                      <span className="hub-universe-label">💡 {s.leaf.label}</span>
+                      <span className="muted hub-universe-meta">{s.source === "modele" ? "suggéré par l'IA" : "trouvé dans les descriptions"}{s.raison ? " · " + s.raison : ""}</span>
+                    </button>
+                  ))}
                   {universeLocate && (
                     <div className="hub-universe-locate">
                       {universeLocate.enCours ? <span className="muted">Recherche de {universeLocate.q} dans les sources du hub…</span>
@@ -2327,7 +2358,7 @@ vm === "agent-page" ? (
                         ))}
                     </div>
                   )}
-                  {universe.length === 0 && !universeLocate && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
+                  {universe.length === 0 && !universeLocate && !universeAjouts.length && !(universeIA && universeIA.phase !== "fini") && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
                   {hubCatalog.has("front:assistant") && assistantAskUrl(ASSISTANT_URL, universeQuery) && (
                     <a className="hub-universe-ask" href={assistantAskUrl(ASSISTANT_URL, universeQuery)} target="_blank" rel="noreferrer" title="Questions sur le hub : vues, API, adresse IP ou MAC, dernier redémarrage d'un poste (#715)">
                       💬 Demander à l'assistant : « {universeQuery.trim()} »

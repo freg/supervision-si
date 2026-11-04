@@ -1,3 +1,32 @@
+## 2026-11-04 — livraison #967 : recherche silencieuse dans l'Univers du hub, états précédents des listes de flux
+
+Demande : « une IA qui prenne en charge, en parallèle et silencieusement si elle n'a pas de solution, la demande faite
+dans la recherche de l'Univers du hub […] quelque chose de discret qui n'apparaît que si le dialogue est nécessaire »,
+« avec simplement un indice visuel de recherche en cours puis d'inférence ajoutée à la réponse statique ».
+
+- **Univers du hub** : quand le filtre statique donne 2 résultats ou moins (saisie de 3 caractères ou plus, hors
+  adresse IP/MAC), après 0,7 s de pause de frappe, la saisie part vers l'assistant :
+  - temps 1, sans modèle : mots de la saisie contre libellés, thèmes, synonymes et descriptions de l'index du hub ;
+  - temps 2, seulement si le temps 1 n'a rien donné : petit modèle (`ASSISTANT_DEVINE_MODEL`, sinon `LLM_MODEL`),
+    qui choisit dans la liste NUMÉROTÉE des entrées envoyées par le hub — tout numéro hors liste est écarté, aucun
+    lien inventé possible ;
+  - à l'écran, seulement « 🔎 recherche… » puis « 🧠 inférence… » (discret, pulsé), puis les suggestions « 💡 »
+    s'ajoutent sous la réponse statique avec leur raison ; rien trouvé ou assistant injoignable = rien n'apparaît ;
+  - une suggestion choisie devient un synonyme appris (navigateur, `hub.universe.appris`) : la fois suivante, le
+    filtre statique la trouve sans IA ;
+  - chaque recherche est tracée dans le journal de l'assistant (`kind: devine`).
+  - Nouveau : `POST /assistant/hub/devine {question, candidats, llm}` ; `llm_chat` accepte un modèle et un délai.
+- **Flux éditeurs › Listes de cibles** : l'état d'une liste est gardé avant chaque modification et chaque
+  suppression (30 par liste, table `flux_listes_versions`) ; « États précédents des listes » : contenu (mini bouton)
+  et « restaurer » (l'état courant reste lui-même restaurable). Avertissement dans le formulaire de modification.
+  Routes `GET /flux/listes/versions[?id=]`, `POST /flux/listes/versions/<vid>/restaurer`.
+- **Flux éditeurs** : liens « page de l'éditeur », « voir », « CSV » aux couleurs du thème (ils sortaient en violet
+  souligné, couleur par défaut du navigateur).
+
+Vérifié : `assistant/tests/test_hubqa.py` (4 nouveaux : candidats filtrés, lexical, lecture du modèle, route et modèle
+simulé), `hub/tests/universeIA.test.mjs` (4), `nebula/tests/test_flux.py` (versions, restauration), syntaxe JSX
+(esbuild) d'App.jsx et FluxView.jsx. Non vérifié : build du hub, rendu réel, temps de réponse du modèle réel.
+
 ## 2026-11-03 — livraison #966 : sonde flux-editeurs sans réglage à saisir (hub et site déduits de l'agent)
 
 Question : « où se paramètre flux-editeurs ? ». Réponse honnête : nulle part dans le hub — une sonde livrée avec

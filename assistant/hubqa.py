@@ -501,3 +501,79 @@ def format_vm(rows, info, hub_url="/"):
                                                     "agent" if g["source"] == "agent" else "PVE distant, relevé ssh", g.get("status") or "état inconnu"))
     lines.append("Détail : Hyperviseurs → %s ; sauvegardes : %s?view=pve-maint" % (link, hub_url))
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------------ #967 : recherche silencieuse de l'« Univers du hub »
+# Le hub envoie la saisie et la liste de ses entrées (candidats) ; on répond par des identifiants DE CETTE LISTE
+# uniquement (jamais un lien inventé). Deux temps : lexical (catalogue + descriptions de l'index, sans modèle), puis
+# modèle si demandé. Aucune suggestion = réponse vide : le hub n'affiche rien.
+DEVINE_MAX = 3
+
+
+def _cand_id(c):
+    return str(c.get("id") or "") if isinstance(c, dict) else ""
+
+
+def devine_candidats(candidats, limite=600):
+    out, vus = [], set()
+    for c in candidats or []:
+        i = _cand_id(c)
+        if not re.match(r"^(view|front|action):[A-Za-z0-9_.@-]{1,80}$", i) or i in vus:
+            continue
+        vus.add(i)
+        out.append({"id": i, "label": str(c.get("label") or i)[:80], "themes": [str(t)[:40] for t in (c.get("themes") or [])][:4],
+                    "aliases": [str(a)[:40] for a in (c.get("aliases") or [])][:20]})
+        if len(out) >= limite:
+            break
+    return out
+
+
+def devine_lexical(question, candidats, catalog=(), k=DEVINE_MAX):
+    """Saisie -> [{id, raison, source: "catalogue"}] : mots de la saisie (préfixes de 5 lettres) contre libellé, thèmes,
+    synonymes du hub ET description de la vue dans l'index (README, thématiques)."""
+    qw = words(question)
+    if not qw:
+        return []
+    desc = {}
+    for e in catalog or []:
+        key = ("view:" + e["view"]) if e.get("view") else ("front:" + e["front"]) if e.get("front") else None
+        if key:
+            desc[key] = " ".join([e.get("theme", ""), e.get("description", "")])
+    scored = []
+    for c in candidats:
+        s = 3 * _score(qw, c["label"]) + 2 * _score(qw, " ".join(c["aliases"])) + _score(qw, " ".join(c["themes"]) + " " + desc.get(c["id"], ""))
+        if s >= 4:
+            scored.append((s, c))
+    scored.sort(key=lambda x: (-x[0], x[1]["label"]))
+    return [{"id": c["id"], "raison": "mots proches dans la description de « %s »" % c["label"], "source": "catalogue"} for s, c in scored[:k]]
+
+
+def devine_messages(question, candidats):
+    lignes = ["%d. %s%s" % (n, c["label"], " (" + ", ".join(c["themes"]) + ")" if c["themes"] else "") for n, c in enumerate(candidats, 1)]
+    sys_ = ("Tu aides à trouver une page dans un hub de supervision informatique. On te donne une demande et la liste NUMÉROTÉE "
+            "des pages du hub. Réponds UNIQUEMENT en JSON : {\"choix\": [numéros, 3 au plus, du plus probable au moins probable], "
+            "\"raison\": \"une phrase courte en français\"}. Si aucune page ne convient vraiment, réponds {\"choix\": []}. "
+            "N'invente jamais de numéro.")
+    return [{"role": "system", "content": sys_}, {"role": "user", "content": "Pages :\n" + "\n".join(lignes) + "\n\nDemande : " + str(question)[:300]}]
+
+
+def devine_lire(texte, candidats, k=DEVINE_MAX):
+    """Réponse du modèle -> [{id, raison, source: "modele"}] ; tout numéro hors liste est ignoré."""
+    m = re.search(r"\{.*\}", str(texte or ""), re.S)
+    if not m:
+        return []
+    try:
+        j = json.loads(m.group(0))
+    except ValueError:
+        return []
+    raison = str(j.get("raison") or "")[:160]
+    out, vus = [], set()
+    for n in j.get("choix") or []:
+        try:
+            n = int(n)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= n <= len(candidats) and n not in vus:
+            vus.add(n)
+            out.append({"id": candidats[n - 1]["id"], "raison": raison, "source": "modele"})
+    return out[:k]

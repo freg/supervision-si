@@ -80,7 +80,7 @@ def parse_chat_response(j):
     return text, j.get("usage") or {}, None
 
 
-def llm_chat(messages, temperature=0.2, max_tokens=None, json_mode=False):
+def llm_chat(messages, temperature=0.2, max_tokens=None, json_mode=False, model=None, timeout=None):
     """Appel du modèle ; renvoie {text, usage, ms, tok_s, error}.
 
     API native Ollama (think désactivable) quand LLM_THINK est faux et que la
@@ -88,18 +88,18 @@ def llm_chat(messages, temperature=0.2, max_tokens=None, json_mode=False):
     native = None if LLM_THINK else native_chat_url(LLM_BASE)
     if native:
         url = native
-        body = {"model": LLM_MODEL, "messages": messages, "stream": False, "think": False,
+        body = {"model": model or LLM_MODEL, "messages": messages, "stream": False, "think": False,
                 "options": {"temperature": temperature, "num_predict": max_tokens or LLM_MAX_TOKENS}}
         if json_mode:
             body["format"] = "json"
     else:
         url = LLM_BASE + "/chat/completions"
-        body = {"model": LLM_MODEL, "messages": messages, "temperature": temperature, "max_tokens": max_tokens or LLM_MAX_TOKENS, "stream": False}
+        body = {"model": model or LLM_MODEL, "messages": messages, "temperature": temperature, "max_tokens": max_tokens or LLM_MAX_TOKENS, "stream": False}
         if json_mode:
             body["response_format"] = {"type": "json_object"}
     t0 = time.monotonic()
     try:
-        r = requests.post(url, json=body, timeout=LLM_TIMEOUT)
+        r = requests.post(url, json=body, timeout=timeout or LLM_TIMEOUT)
         ms = round((time.monotonic() - t0) * 1000.0)
         if r.status_code != 200:
             return {"text": "", "error": "modèle : HTTP %s %s" % (r.status_code, r.text[:200]), "ms": ms}
@@ -666,6 +666,41 @@ def hub_ask_route():
     if not q:
         return _bad("question vide")
     return jsonify(hub_ask(q, llm=bool(b.get("llm")))), 200
+
+
+# #967 : recherche silencieuse de l'« Univers du hub » -- temps 1 lexical (sans modèle), temps 2 modèle (llm=true).
+DEVINE_MODEL = os.environ.get("ASSISTANT_DEVINE_MODEL", "").strip() or None   # vide = LLM_MODEL ; un petit modèle suffit (qwen3:4b)
+
+
+def hub_devine(question, candidats, llm=False, chat=None):
+    cands = hubqa.devine_candidats(candidats)
+    out = {"question": question, "phase": "modele" if llm else "catalogue", "suggestions": [], "ms": 0}
+    if not cands:
+        return out
+    t0 = time.monotonic()
+    if not llm:
+        out["suggestions"] = hubqa.devine_lexical(question, cands, _hub_index.get("catalog") or [])
+    else:
+        chat = chat or llm_chat
+        msgs = hubqa.devine_messages(question, cands)
+        r = chat(msgs, temperature=0.0, max_tokens=120, json_mode=True, **({"model": DEVINE_MODEL, "timeout": 90} if chat is llm_chat else {}))
+        out["suggestions"] = [] if r.get("error") else hubqa.devine_lire(r.get("text"), cands)
+        out["erreur"] = r.get("error")
+    out["ms"] = round((time.monotonic() - t0) * 1000.0)
+    journal("devine", {"question": question, "phase": out["phase"], "ms": out["ms"], "error": out.get("erreur"),
+                       "result": [s["id"] for s in out["suggestions"]]})
+    return out
+
+
+@app.route(PREFIX + "/hub/devine", methods=["POST"])
+def hub_devine_route():
+    b = request.get_json(silent=True) or {}
+    q = (b.get("question") or "").strip()[:300]
+    if len(q) < 2:
+        return _bad("question vide")
+    if not isinstance(b.get("candidats"), list):
+        return _bad("candidats : liste attendue")
+    return jsonify(hub_devine(q, b["candidats"], llm=bool(b.get("llm")))), 200
 
 
 @app.route(PREFIX + "/hub/sources", methods=["GET"])

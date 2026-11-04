@@ -1,6 +1,7 @@
 """Routes de la supervision des flux éditeurs (#962) -- logique : flux.py.
 
 Listes de cibles   GET /flux/listes · PUT /flux/listes · DELETE /flux/listes/<id> · GET /flux/listes/<id>.txt (pour le script)
+                   #967 : GET /flux/listes/versions[?id=] · POST /flux/listes/versions/<vid>/restaurer (état précédent gardé à chaque modification / suppression)
 Sites              GET /flux/sites (sites Nebula + sites ayant envoyé des résultats, état du dernier passage)
 Résultats          POST /sites/<s>/flux/resultats  (envoyés par nebula/tools/test-flux.sh : HUB=… SITE=…)
 Consultation       GET /sites/<s>/flux · GET /sites/<s>/flux/passages/<id>[.csv] · GET /sites/<s>/flux/alertes?etat=
@@ -27,6 +28,7 @@ RECAP_DEFAUT = {"actif": True, "heure": 7, "ns": True, "destinataires": ""}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS flux_listes (id TEXT PRIMARY KEY, data TEXT NOT NULL, maj INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS flux_listes_versions (vid INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL, at INTEGER NOT NULL, motif TEXT NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS flux_sites (id TEXT PRIMARY KEY, nom TEXT NOT NULL, description TEXT, maj INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS flux_ignores (site_id TEXT NOT NULL, cle TEXT NOT NULL, par TEXT, note TEXT, at INTEGER NOT NULL, PRIMARY KEY (site_id, cle));
 CREATE TABLE IF NOT EXISTS flux_kv (cle TEXT PRIMARY KEY, valeur TEXT NOT NULL);
@@ -41,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_flux_alertes ON flux_alertes (site_id, fin);
 """
 SITE_RX = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RETENTION_PASSAGES = 2000          # par site : les plus anciens sont purgés
+VERSIONS_LISTE = 30                # #967 : états précédents gardés par liste
 
 
 def register(app, hooks):
@@ -79,6 +82,15 @@ def register(app, hooks):
             lignes, err = lib.lire_liste(d.get("texte"))
             d["n_cibles"], d["n_tests"] = len(lignes), sum(len(lib.ports(x["ports"])) for x in lignes)
         return out
+
+    def _archiver(lid, motif, nouveau=None):
+        """#967 : garde l'état actuel d'une liste avant modification / suppression (rien si inchangé ou absente)."""
+        r = q("SELECT data FROM flux_listes WHERE id = ?", (lid,), un=True)
+        if not r or (nouveau is not None and r["data"] == nouveau):
+            return
+        q("INSERT INTO flux_listes_versions (id, at, motif, data) VALUES (?, ?, ?, ?)", (lid, int(time.time()), motif, r["data"]), ecrit=True)
+        q("DELETE FROM flux_listes_versions WHERE id = ? AND vid NOT IN (SELECT vid FROM flux_listes_versions WHERE id = ? ORDER BY vid DESC LIMIT ?)",
+          (lid, lid, VERSIONS_LISTE), ecrit=True)
 
     def _site_ok(s):
         return bool(SITE_RX.match(s or ""))
@@ -137,15 +149,38 @@ def register(app, hooks):
         if lid in lib.LISTES_INTEGREES:
             return jsonify({"error": "« %s » est une liste intégrée : choisir un autre nom" % lid}), 400
         d = {"nom": nom, "editeur": str(b.get("editeur") or nom)[:80], "source": str(b.get("source") or "")[:300], "texte": lib.texte_liste(lignes)}
-        q("INSERT OR REPLACE INTO flux_listes (id, data, maj) VALUES (?, ?, ?)", (lid, json.dumps(d, ensure_ascii=False), int(time.time())), ecrit=True)
+        data = json.dumps(d, ensure_ascii=False)
+        _archiver(lid, "modification", data)
+        q("INSERT OR REPLACE INTO flux_listes (id, data, maj) VALUES (?, ?, ?)", (lid, data, int(time.time())), ecrit=True)
         return jsonify({"ok": True, "id": lid, "cibles": len(lignes), "erreurs": err}), 200
 
     @app.route("/flux/listes/<lid>", methods=["DELETE"])
     def flux_liste_suppr(lid):
         if lid in lib.LISTES_INTEGREES:
             return jsonify({"error": "liste intégrée : non supprimable"}), 400
+        _archiver(lid, "suppression")
         q("DELETE FROM flux_listes WHERE id = ?", (lid,), ecrit=True)
         return jsonify({"ok": True}), 200
+
+    @app.route("/flux/listes/versions", methods=["GET"])
+    def flux_listes_versions():
+        lid = request.args.get("id") or ""
+        rows = q("SELECT vid, id, at, motif, data FROM flux_listes_versions" + (" WHERE id = ?" if lid else "") + " ORDER BY vid DESC LIMIT 200", (lid,) if lid else ())
+        out = []
+        for r in rows:
+            d = json.loads(r["data"])
+            lignes, _ = lib.lire_liste(d.get("texte"))
+            out.append({"vid": r["vid"], "id": r["id"], "at": r["at"], "motif": r["motif"], "nom": d.get("nom"), "cibles": len(lignes), "texte": d.get("texte", "")})
+        return jsonify({"versions": out}), 200
+
+    @app.route("/flux/listes/versions/<int:vid>/restaurer", methods=["POST"])
+    def flux_liste_restaurer(vid):
+        r = q("SELECT id, data FROM flux_listes_versions WHERE vid = ?", (vid,), un=True)
+        if not r:
+            return jsonify({"error": "version inconnue : %s" % vid}), 404
+        _archiver(r["id"], "avant restauration", r["data"])
+        q("INSERT OR REPLACE INTO flux_listes (id, data, maj) VALUES (?, ?, ?)", (r["id"], r["data"], int(time.time())), ecrit=True)
+        return jsonify({"ok": True, "id": r["id"]}), 200
 
     @app.route("/flux/listes/<lid>.txt", methods=["GET"])
     def flux_liste_txt(lid):

@@ -208,5 +208,47 @@ class Api(unittest.TestCase):
         self.assertGreater(self.client.get("/assistant/hub/sources").get_json()["routes"], 100)
 
 
+class Devine(unittest.TestCase):   # #967 : recherche silencieuse de l'Univers du hub
+    CANDS = [{"id": "view:accounts", "label": "Comptes et groupes", "themes": ["Sécurité & accès"], "aliases": ["utilisateurs", "droits"]},
+             {"id": "view:flux-editeurs", "label": "Flux éditeurs", "themes": ["Réseau"], "aliases": ["ports", "pare-feu"]},
+             {"id": "view:ups", "label": "Onduleurs", "themes": ["Supervision"]},
+             {"id": "javascript:alert(1)", "label": "piège"}, {"id": "view:ups", "label": "doublon"}]
+
+    def test_candidats_filtres(self):
+        c = hubqa.devine_candidats(self.CANDS)
+        self.assertEqual([x["id"] for x in c], ["view:accounts", "view:flux-editeurs", "view:ups"])
+
+    def test_lexical(self):
+        c = hubqa.devine_candidats(self.CANDS)
+        self.assertEqual(hubqa.devine_lexical("modifier les droits d'un utilisateur", c)[0]["id"], "view:accounts")
+        cat = [{"view": "ups", "theme": "Supervision", "description": "batteries, coupures de courant, autonomie électrique"}]
+        self.assertEqual([s["id"] for s in hubqa.devine_lexical("autonomie des batteries", c, cat)], ["view:ups"])
+        self.assertEqual(hubqa.devine_lexical("xyzzy", c), [])
+        self.assertEqual(hubqa.devine_lexical("le la", c), [])
+
+    def test_lecture_modele(self):
+        c = hubqa.devine_candidats(self.CANDS)
+        self.assertEqual([s["id"] for s in hubqa.devine_lire('ok {"choix": [2, 9, "1", 2], "raison": "ports"} fin', c)], ["view:flux-editeurs", "view:accounts"])
+        self.assertEqual(hubqa.devine_lire('{"choix": []}', c), [])
+        self.assertEqual(hubqa.devine_lire("pas de json", c), [])
+        self.assertEqual(hubqa.devine_lire("{cassé", c), [])
+        m = hubqa.devine_messages("ouvrir un port", c)
+        self.assertIn("2. Flux éditeurs (Réseau)", m[1]["content"])
+
+    def test_route_et_modele_simule(self):
+        import app as app_mod
+        cl = app_mod.app.test_client()
+        r = cl.post("/assistant/hub/devine", json={"question": "droits utilisateurs", "candidats": self.CANDS}).get_json()
+        self.assertEqual(r["phase"], "catalogue"); self.assertEqual(r["suggestions"][0]["id"], "view:accounts")
+        self.assertEqual(cl.post("/assistant/hub/devine", json={"question": "x"}).status_code, 400)
+        self.assertEqual(cl.post("/assistant/hub/devine", json={"question": "droits", "candidats": "non"}).status_code, 400)
+        vus = []
+        out = app_mod.hub_devine("ouvrir un port", self.CANDS, llm=True, chat=lambda m, **k: vus.append(k) or {"text": '{"choix":[2],"raison":"pare-feu"}'})
+        self.assertEqual(out["suggestions"], [{"id": "view:flux-editeurs", "raison": "pare-feu", "source": "modele"}])
+        self.assertEqual(vus[0]["json_mode"], True)
+        err = app_mod.hub_devine("ouvrir un port", self.CANDS, llm=True, chat=lambda m, **k: {"text": "", "error": "modèle injoignable"})
+        self.assertEqual(err["suggestions"], []); self.assertEqual(err["erreur"], "modèle injoignable")
+
+
 if __name__ == "__main__":
     unittest.main()

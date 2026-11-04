@@ -2971,3 +2971,11 @@ tr:hover .ft-mini, tr:focus-within .ft-mini, .ft-mini:focus-visible { visibility
 .mob-carte.on { border-color: var(--accent); }
 .mob-carte .t { font-size: 18px; font-weight: 700; }
 .mob-carte .d { color: var(--muted); font-size: 15px; }
+/* #967 : recherche silencieuse de l'Univers -- indice discret puis suggestions ajoutées */
+.hub-universe-ia-indice { display: block; padding: 4px 10px; font-size: 0.85em; animation: hub-ia-pulse 1.4s ease-in-out infinite; }
+@keyframes hub-ia-pulse { 50% { opacity: 0.45; } }
+.hub-universe-list button.hub-universe-ia-item { border-left: 2px solid var(--accent); }
+/* #967 : liens de la tuile Flux éditeurs aux couleurs du thème (plus de violet « lien visité ») */
+.flux-editeurs a, .flux-editeurs a:visited { color: var(--accent); }
+.flux-editeurs a.button { display: inline-block; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); text-decoration: none; }
+.flux-editeurs a.button:hover { border-color: var(--accent); }

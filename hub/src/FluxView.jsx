@@ -35,6 +35,7 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
   const [filtre, setFiltre] = useState({ problemes: true, q: "" });
   const [etatAlertes, setEtatAlertes] = useState("ouvertes");
   const [form, setForm] = useState(null);           // liste en édition {nom, editeur, source, texte}
+  const [versions, setVersions] = useState(null);   // #967 : états précédents des listes (modification, suppression)
   const [iface, setIface] = useState("");
   const [nouveauSite, setNouveauSite] = useState(null);
   const [vue, setVue] = useState({ filtre: "a_traiter", q: "" });   // visualiseur d'un passage
@@ -88,9 +89,21 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
     } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
   };
   const supprimerListe = async (l) => {
-    if (!window.confirm(`Supprimer la liste « ${l.nom} » ?`)) return;
+    if (!window.confirm(`Supprimer la liste « ${l.nom} » ? Elle restera restaurable depuis « États précédents ».`)) return;
     setBusy(`del:${l.id}`);
     try { await getJson(`${nebulaApiBase}/flux/listes/${l.id}`, { method: "DELETE" }); chargerListes(); } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
+  };
+  const chargerVersions = async () => {
+    setBusy("versions");
+    try { setVersions((await getJson(`${nebulaApiBase}/flux/listes/versions`)).versions || []); } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
+  };
+  const restaurerVersion = async (v) => {
+    if (!window.confirm(`Remettre la liste « ${v.nom} » dans son état du ${new Date(v.at * 1000).toLocaleString("fr-FR")} ? L'état actuel reste restaurable.`)) return;
+    setBusy(`rest:${v.vid}`); setMsg(null);
+    try {
+      await getJson(`${nebulaApiBase}/flux/listes/versions/${v.vid}/restaurer`, { method: "POST" });
+      setMsg({ ok: true, text: `✓ liste « ${v.id} » restaurée` }); chargerListes(); setVersions(null);
+    } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(null); }
   };
   const declarerSite = async () => {
     setBusy("site"); setMsg(null);
@@ -325,12 +338,23 @@ export default function FluxView({ onBack, nebulaApiBase, actor }) {
                   {!l.integree && <><button type="button" className="secondary" onClick={() => setForm({ id: l.id, nom: l.nom, editeur: l.editeur, source: l.source, texte: l.texte })}>modifier</button>{" "}
                     <button type="button" className="secondary" disabled={!!busy} onClick={() => supprimerListe(l)}>{busy === `del:${l.id}` ? "⏳" : "✕"}</button></>}</td></tr>))}
           </tbody></table>
+          <p>{versions === null
+            ? <button type="button" className="secondary" disabled={!!busy} onClick={chargerVersions}>{busy === "versions" ? "⏳ lecture…" : "États précédents des listes"}</button>
+            : <button type="button" className="secondary" onClick={() => setVersions(null)}>Masquer les états précédents</button>}</p>
+          {versions && (versions.length === 0 ? <p className="muted">Aucun état précédent : une liste n'en garde qu'à partir de sa première modification ou suppression (#967).</p> : (
+            <table className="table"><thead><tr><th>Liste</th><th>Date</th><th>Avant</th><th>Cibles</th><th /></tr></thead><tbody>
+              {versions.map((v) => (
+                <tr key={v.vid}><td>{v.nom} <code>{v.id}</code></td><td>{new Date(v.at * 1000).toLocaleString("fr-FR")}</td><td>{v.motif}</td><td>{v.cibles}</td>
+                  <td><BoutonDetail texte={v.texte} titre={`${v.nom} — état du ${new Date(v.at * 1000).toLocaleString("fr-FR")}`} urgence="info" libelle="contenu" />{" "}
+                    <button type="button" className="secondary" disabled={!!busy} onClick={() => restaurerVersion(v)}>{busy === `rest:${v.vid}` ? "⏳ restauration…" : "restaurer"}</button></td></tr>))}
+            </tbody></table>))}
           {!form && <button type="button" onClick={() => setForm({ nom: "Idruide", editeur: "Idruide", source: "https://aide.idruide.com/s/article/liste-des-ports-reseau-a-ouvrir", texte: "" })}>＋ Nouvelle liste (ex. Idruide)</button>}
           {form && (
             <div className="panel">
               <p><label>Nom <input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} /></label>{" "}
                 <label>Éditeur <input value={form.editeur || ""} onChange={(e) => setForm({ ...form, editeur: e.target.value })} /></label>{" "}
                 <label>Page source <input style={{ width: 360 }} value={form.source || ""} onChange={(e) => setForm({ ...form, source: e.target.value })} /></label></p>
+              {form.id && <p className="muted">Enregistrer remplace le contenu de « {form.id} » ; l'état actuel reste restaurable depuis « États précédents ».</p>}
               <p className="muted">Coller les domaines et ports de la page de l'éditeur, une cible par ligne : <code>groupe;hôte;proto;ports</code>, ou <code>hôte tcp 443,5223</code>, ou <code>hôte:443</code>. Les adresses https:// sont réduites au nom d'hôte.</p>
               <textarea rows={10} style={{ width: "100%", boxSizing: "border-box", fontFamily: "monospace" }} placeholder={exempleListe(form.nom)} value={form.texte} onChange={(e) => setForm({ ...form, texte: e.target.value })} />
               <p><button type="button" onClick={enregistrerListe} disabled={!!busy || !form.texte.trim()}>{busy === "liste" ? "⏳ enregistrement…" : "Enregistrer"}</button> <button type="button" className="secondary" onClick={() => setForm(null)}>Annuler</button></p>

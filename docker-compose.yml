@@ -2834,6 +2834,7 @@ services:
       - ASSISTANT_DOCS_DIR=/docs
       - LLM_BASE_URL=${LLM_BASE_URL:-http://ollama:11434/v1}
       - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      - ASSISTANT_DEVINE_MODEL=${ASSISTANT_DEVINE_MODEL:-}   # #967 : petit modèle de la recherche silencieuse de l'Univers (ex. qwen3:4b) ; vide = LLM_MODEL
       - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-600}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-700}
       - LLM_THINK=${LLM_THINK:-false}

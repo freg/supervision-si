@@ -87,6 +87,17 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual((r["id"], r["cibles"], len(r["erreurs"])), ("idruide", 1, 1))
         self.assertIn("admin.idruide.com;tcp;443", cl.get("/flux/listes/idruide.txt").get_data(as_text=True))
         self.assertEqual(cl.delete("/flux/listes/google").status_code, 400)
+        # #967 : versions des listes -- modification puis suppression gardent l'état précédent, restaurable
+        cl.put("/flux/listes", json={"nom": "Idruide", "texte": "idruide;admin.idruide.com;tcp;443"})   # inchangée : pas de version
+        self.assertEqual(cl.get("/flux/listes/versions?id=idruide").get_json()["versions"], [])
+        cl.put("/flux/listes", json={"id": "idruide", "nom": "Idruide", "texte": "idruide;maestro.v1.idruide.eu;tcp;443"})
+        cl.delete("/flux/listes/idruide")
+        v = cl.get("/flux/listes/versions?id=idruide").get_json()["versions"]
+        self.assertEqual([x["motif"] for x in v], ["suppression", "modification"])
+        self.assertIn("admin.idruide.com", v[1]["texte"])
+        self.assertEqual(cl.post("/flux/listes/versions/%d/restaurer" % v[1]["vid"]).get_json()["id"], "idruide")
+        self.assertIn("admin.idruide.com", cl.get("/flux/listes/idruide.txt").get_data(as_text=True))
+        self.assertEqual(cl.post("/flux/listes/versions/9999/restaurer").status_code, 404)
         self.assertEqual(cl.post("/sites/../flux/resultats", json={}).status_code, 400)
         self.assertEqual(cl.post("/sites/bad%20id/flux/resultats", json={"source": "x"}).status_code, 400)
         body = {"source": "mini-PC", "ip_source": "172.16.20.129", "resultats": [res("a.com", 443, "KO", "nom non resolu (DNS)"), res("b.com", 443, "OK"), res("c.com", 5228, "KO")]}
