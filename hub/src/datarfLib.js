@@ -157,3 +157,19 @@ export function agentsDeclarables(agents, sondes) {
     .map((a) => ({ agent_id: a.agent_id, libelle: a.hostname && a.hostname !== a.agent_id ? `${a.agent_id} (${a.hostname})` : a.agent_id, site: a.site || "" }))
     .sort((x, y) => x.libelle.localeCompare(y.libelle, "fr"));
 }
+
+// #970 : accès d'équipements (noms seulement) -> celui qui correspond à un SSID : identifiant = SSID, sinon nom qui le contient
+const plier = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+export function accesPourSsid(acces, ssid) {
+  const q = plier(ssid);
+  if (q.length < 2) return "";
+  const l = (acces || []).filter((a) => a && a.name);
+  const pref = (xs) => (xs.find((a) => a.has_password) || xs[0] || {}).name || "";
+  return pref(l.filter((a) => plier(a.username) === q)) || pref(l.filter((a) => plier(a.name) === q || plier(a.name).includes(q)));
+}
+// état de l'accès choisi pour un SSID : ok | ouvert (vide) | inconnu | sans-cle
+export function etatAcces(acces, nom) {
+  if (!String(nom || "").trim()) return "ouvert";
+  const a = (acces || []).find((x) => x && x.name === nom);
+  return !a ? "inconnu" : a.has_password ? "ok" : "sans-cle";
+}

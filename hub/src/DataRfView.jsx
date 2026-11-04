@@ -4,8 +4,9 @@
 // enrôlées directement). Rafraîchie toutes les 30 s.
 import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
 import { useEffect, useMemo, useState } from "react";
-import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand, fetchFleet, declareDataRfSonde, removeDataRfSonde } from "./siAgentClient.js";
-import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE, agentsDeclarables } from "./datarfLib.js";
+import { fetchDataRfAcces, fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand, fetchFleet, declareDataRfSonde, removeDataRfSonde } from "./siAgentClient.js";
+import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE, agentsDeclarables, accesPourSsid, etatAcces } from "./datarfLib.js";
+const ACCES_URL = import.meta.env.VITE_CREDENTIALS_URL || "";   // #970 : « Accès d'équipements » (Sécurité & accès)
 
 import { useNavState } from "./navContext.js";   // #874
 const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`);
@@ -43,6 +44,8 @@ function ConfigRadio({ base, s, actor }) {
   const [etat, setEtat] = useState(null);
   const [suivi, setSuivi] = useState(null);
   const [msg, setMsg] = useState("");
+  const [acces, setAcces] = useState([]);   // #970 : noms des accès d'équipements (jamais de clé)
+  useEffect(() => { fetchDataRfAcces(base).then((r) => setAcces(r?.acces || [])).catch(() => setAcces([])); }, [base]);
   const cible = s.via_agent ? { via_agent: s.via_agent } : { agent_id: s.agent_id };
   const sonde = s.via_agent ? (s.agent_id || s.sonde) : s.sonde;
   useEffect(() => { setCfg(null); setEtat(null); setSuivi(null); fetchDataRfConfig(base, s.sonde).then((r) => setCfg(configInitiale(null, r?.config))).catch(() => setCfg(configInitiale(null, null))); }, [base, s.sonde]);
@@ -92,12 +95,19 @@ function ConfigRadio({ base, s, actor }) {
               <td><select value={r} onChange={(e) => maj((c) => { c.interfaces[n] = e.target.value; return c; })}>{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td></tr>))}</tbody>
       </table>
       <table className="infra-table">
-        <thead><tr><th>Actif</th><th>SSID testé</th><th>Accès du coffre (clé)</th><th>Interface</th><th></th></tr></thead>
+        <thead><tr><th>Actif</th><th>SSID testé</th><th>Clé (Accès d'équipements)</th><th>Interface</th><th></th></tr></thead>
         <tbody>{cfg.ssids.map((x, i) => (
           <tr key={i}>
             <td><input type="checkbox" checked={x.actif} onChange={(e) => maj((c) => { c.ssids[i].actif = e.target.checked; return c; })} aria-label={`activer ${x.ssid}`} /></td>
-            <td><input value={x.ssid} onChange={(e) => maj((c) => { c.ssids[i].ssid = e.target.value; return c; })} placeholder="SSID" /></td>
-            <td><input value={x.acces} onChange={(e) => maj((c) => { c.ssids[i].acces = e.target.value; return c; })} placeholder="nom de l'accès (vide = réseau ouvert)" /></td>
+            <td><input value={x.ssid} onChange={(e) => maj((c) => { c.ssids[i].ssid = e.target.value; if (!c.ssids[i].accesManuel) c.ssids[i].acces = accesPourSsid(acces, e.target.value) || c.ssids[i].acces; return c; })} placeholder="SSID" /></td>
+            <td><select value={x.acces} onChange={(e) => maj((c) => { c.ssids[i].acces = e.target.value; c.ssids[i].accesManuel = true; return c; })} aria-label={`accès de ${x.ssid}`}>
+                <option value="">— réseau ouvert (sans clé) —</option>
+                {acces.map((a) => <option key={a.name} value={a.name}>{a.name}{a.username ? ` (${a.username})` : ""}{a.has_password ? "" : " — sans mot de passe"}</option>)}
+                {x.acces && !acces.some((a) => a.name === x.acces) && <option value={x.acces}>{x.acces} (introuvable)</option>}
+              </select>
+              {{ inconnu: "accès introuvable", "sans-cle": "accès sans mot de passe" }[etatAcces(acces, x.acces)] && <small className="infra-error"> {{ inconnu: "accès introuvable", "sans-cle": "accès sans mot de passe" }[etatAcces(acces, x.acces)]} — {ACCES_URL ? <a href={ACCES_URL} target="_blank" rel="noreferrer">Accès d'équipements ↗</a> : "Sécurité & accès › Accès d'équipements"} (mot de passe = clé Wi-Fi)</small>}
+              {!x.acces && x.ssid && <small className="infra-muted"> réseau ouvert — sinon créer l'accès (identifiant = {x.ssid}, mot de passe = clé) dans {ACCES_URL ? <a href={ACCES_URL} target="_blank" rel="noreferrer">Accès d'équipements ↗</a> : "Sécurité & accès › Accès d'équipements"}</small>}
+            </td>
             <td><select value={x.iface} onChange={(e) => maj((c) => { c.ssids[i].iface = e.target.value; return c; })}><option value="">automatique</option>{clients.map((n) => <option key={n} value={n}>{n}</option>)}</select></td>
             <td><button className="secondary" onClick={() => maj((c) => { c.ssids.splice(i, 1); return c; })} aria-label={`retirer ${x.ssid}`}>✕</button></td>
           </tr>))}

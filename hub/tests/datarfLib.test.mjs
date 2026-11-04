@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { traces, croiser, bornes, age, fmtAge, freqCanal, BANDES } from "../src/datarfLib.js";
-import { agentsDeclarables, caseActivite as caseActivite968 } from "../src/datarfLib.js";
+import { agentsDeclarables, caseActivite as caseActivite968, accesPourSsid, etatAcces } from "../src/datarfLib.js";
 
 test("tracés du spectre d'une bande", () => {
   const t = traces([[2400, -90, -80], [2450, -60, -30], [2500, -90, null], [5180, -50, -40]], BANDES[0], 100, 60, -90, -30);
@@ -79,4 +79,16 @@ test("#968 : agents déclarables comme sonde Wi-Fi, activité d'une sonde décla
   assert.equal(agentsDeclarables(null, null).length, 0);
   assert.equal(caseActivite968({ declaree: true, recu: null }).niveau, "attention");
   assert.equal(caseActivite968({ recu: null }).texte, "jamais vue");
+});
+
+test("#970 : accès d'équipements proposé pour un SSID", () => {
+  const A = [{ name: "wifi-groupe-i", username: "GROUPE_i", has_password: true }, { name: "groupe-i-vieux", username: "GROUPE_i", has_password: false },
+             { name: "wifi-astra-pedago", username: "", has_password: true }, { name: "mikrotik", username: "admin", has_password: true }];
+  assert.equal(accesPourSsid(A, "GROUPE_i"), "wifi-groupe-i");
+  assert.equal(accesPourSsid(A, "Astra Pédago"), "wifi-astra-pedago");
+  assert.equal(accesPourSsid(A, "inconnu"), "");
+  assert.equal(accesPourSsid(A, "x"), "");
+  assert.equal(accesPourSsid(null, "GROUPE_i"), "");
+  assert.equal(etatAcces(A, ""), "ouvert"); assert.equal(etatAcces(A, "wifi-groupe-i"), "ok");
+  assert.equal(etatAcces(A, "groupe-i-vieux"), "sans-cle"); assert.equal(etatAcces(A, "rien"), "inconnu");
 });

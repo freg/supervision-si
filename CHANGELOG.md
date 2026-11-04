@@ -1,3 +1,23 @@
+## 2026-11-04 — livraison #970 : Data RF — clé d'un SSID choisie dans une liste, proposée d'après le SSID
+
+Question : « je dois garder la clé au coffre en mémoire ? il n'y a pas moyen d'avoir un remplissage automatique ? ».
+Constat au passage : le champ demandait de retaper le NOM d'un accès, et la consigne donnée parlait du « coffre-fort »
+alors que la sonde lit les clés dans **Accès d'équipements** (Sécurité & accès, `credentials`, #498 : le serveur
+peut déchiffrer) — le coffre-fort de codes (`vault`, chiffré de bout en bout) lui est illisible. Résultat observé :
+SSID envoyé sans clé (`"ouvert": true`).
+
+- Colonne « Clé (Accès d'équipements) » : liste déroulante des accès (nom, identifiant, « sans mot de passe »), jamais
+  de mot de passe dans le navigateur ;
+- en tapant le SSID, l'accès est proposé tout seul : identifiant = SSID, sinon nom contenant le SSID (sans casse ni
+  accents), celui qui a un mot de passe d'abord ; un choix manuel n'est plus écrasé ;
+- accès introuvable ou sans mot de passe, ou SSID sans clé : message sur la ligne avec lien vers Accès d'équipements
+  et la consigne (identifiant = SSID, mot de passe = clé Wi-Fi).
+- Central : `GET /datarf/acces` (noms, identifiant, genre, présence d'un mot de passe ; service injoignable = liste
+  vide + erreur).
+
+Vérifié : `test_z_datarf.py` (aucun mot de passe renvoyé, service injoignable), `datarfLib.test.mjs` (proposition
+d'accès, état), syntaxe JSX. Non vérifié : build, rendu réel.
+
 ## 2026-11-04 — livraison #969 : Data RF — déclarer un agent comme sonde Wi-Fi (configuration radio sans mesure préalable)
 
 Constat : « je ne vois pas l'agent dans Data RF » (sondeGMKtec, pour y saisir les SSID et clés du campus). La tuile ne

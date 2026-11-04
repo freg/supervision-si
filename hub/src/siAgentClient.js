@@ -333,6 +333,7 @@ export const fetchHtop = (apiBase) => fetchJson(apiBase, "/htop");   // #800 : r
 export const fetchDataRf = (apiBase) => fetchJson(apiBase, "/datarf");   // #806 : sondes radio des sites
 export const fetchDataRfConfig = (apiBase, sonde) => fetchJson(apiBase, `/datarf/config?sonde=${encodeURIComponent(sonde)}`);   // #807
 export const sendDataRfConfig = (apiBase, body) => fetchJson(apiBase, "/datarf/config", json("POST", body));
+export const fetchDataRfAcces = (apiBase) => fetchJson(apiBase, "/datarf/acces");   // #970 : noms des accès (jamais de clé)
 export const declareDataRfSonde = (apiBase, body) => fetchJson(apiBase, "/datarf/sondes", json("POST", body));   // #968
 export const removeDataRfSonde = (apiBase, agentId) => fetchJson(apiBase, `/datarf/sondes/${encodeURIComponent(agentId)}`, { method: "DELETE" });
 export const fetchHtopHote = (apiBase, nom) => fetchJson(apiBase, `/htop/hote/${encodeURIComponent(nom)}`);

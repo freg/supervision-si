@@ -2880,6 +2880,20 @@ def datarf_route():
     return jsonify(datarf.assembler(collectes, directes, borne, store.get_setting(DB_PATH, "datarf_sondes", []) or [])), 200
 
 
+@app.route("/datarf/acces", methods=["GET"])
+def datarf_acces():
+    """#970 : NOMS des accès d'équipements (credentials-api) pour choisir la clé d'un SSID -- jamais de mot de passe."""
+    import urllib.error
+    import urllib.request
+    try:
+        with urllib.request.urlopen(CREDENTIALS_API_URL + "/credentials/list", timeout=6) as r:
+            items = (json.loads(r.read()) or {}).get("credentials") or []
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return jsonify({"acces": [], "error": "accès d'équipements injoignables : %s" % str(e)[:120]}), 200
+    return jsonify({"acces": [{"name": i.get("name"), "username": i.get("username") or "", "kind": i.get("kind") or "",
+                               "has_password": bool(i.get("has_password"))} for i in items if isinstance(i, dict) and i.get("name")]}), 200
+
+
 @app.route("/datarf/sondes", methods=["GET"])
 def datarf_sondes_get():
     """#968 : agents déclarés « sonde Wi-Fi » (sonde cliente : configuration radio, wifi-probe, path-probe)."""

@@ -93,6 +93,18 @@ class Routes(unittest.TestCase):   # #807
         self.assertEqual([d["agent_id"] for d in cl.get("/datarf/sondes").get_json()["sondes"]], [aid])
         self.assertIn(aid, [x["agent_id"] for x in cl.get("/datarf").get_json()["sondes"]])
         cl.delete("/datarf/sondes/" + aid)
+        # #970 : noms des accès d'équipements, jamais de mot de passe ; service injoignable = liste vide + erreur
+        import io, json as _j, urllib.request as _u
+        vrai = _u.urlopen
+        _u.urlopen = lambda url, timeout=6: io.BytesIO(_j.dumps({"credentials": [{"name": "wifi-campus", "username": "Campus", "kind": "other", "has_password": True, "password": "NE-PAS-FUIR"}, {"x": 1}]}).encode())
+        try:
+            r = cl.get("/datarf/acces")
+        finally:
+            _u.urlopen = vrai
+        self.assertEqual(r.get_json()["acces"], [{"name": "wifi-campus", "username": "Campus", "kind": "other", "has_password": True}])
+        self.assertNotIn("NE-PAS-FUIR", r.get_data(as_text=True))
+        appmod.CREDENTIALS_API_URL = "http://127.0.0.1:9"
+        self.assertIn("injoignables", cl.get("/datarf/acces").get_json()["error"])
         self.assertEqual(cl.get("/datarf/sondes").get_json()["sondes"], [])
 
 
