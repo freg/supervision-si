@@ -1,3 +1,8 @@
+## Coffre-fort : modifier un secret partout où on le voit (2026-11-04) — DEMANDÉ
+- Demande : « on doit pouvoir modifier un secret dans le coffre fort » (en saisissant les clés Wi-Fi du campus pour Data RF › Configuration radio).
+- Existant : « ✏️ Modifier » (avec historique et versions) dans le détail d'une collection du portail, MASQUÉ quand l'accès à la collection est en lecture seule (`isReadOnly`) ; absent de la recherche et du choix d'accès depuis Data RF.
+- À faire : bouton Modifier aussi depuis la recherche et le sélecteur d'accès du hub ; en lecture seule, afficher pourquoi + lien direct vers le réglage d'accès de la collection (règle « refus = lien vers le réglage »).
+
 ## Tuile « Flux éditeurs » : supervision des flux sortants exigés par les éditeurs, par SI / site (2026-11-03) — DEMANDÉ, après validation manuelle de `nebula/tools/test-flux.sh`
 
 Question récurrente au campus comme au bureau : « les ports Google / Idruide sont-ils ouverts ? ». Étape 1 FAITE :
