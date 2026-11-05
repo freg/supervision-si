@@ -7,6 +7,8 @@
 - Niveaux d'alerte par volume (seuils réglables, défaut attention / critique), date estimée de saturation d'après la tendance.
 - Sources existantes à réutiliser avant d'en créer : agent si-agent (disques, SMART, conseils #938), sondes relais (NAS QNAP,
   BackupPC, `systemes` SSH), Proxmox / PBS, flotte. Rien d'écrit sur les machines (lecture seule).
+- Second NAS QNAP identique au premier, réservé à la sauvegarde du premier : à gérer aussi (relève relais comme #939/#940,
+  volumes et alertes, et contrôle que la copie du premier vers le second est à jour : dernière exécution, volume copié, écarts).
 - À cadrer à l'ouverture : où vit l'onglet (thématique Sauvegardes, Supervision, ou Données) et liste des machines à couvrir.
 
 ## Réplication du hub vers le campus (prodia), filtrée par données et par rôles (2026-11-05) — DEMANDÉ, À CADRER
