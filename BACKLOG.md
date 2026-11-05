@@ -1,3 +1,14 @@
+## Onglet « Espaces disques / données » : configuration matérielle, volumes, extension, alertes (2026-11-05) — DEMANDÉ, À FAIRE (prochaine session)
+- Demande : « un onglet espaces disques/data — identifier par catégories (rôle, LAN, hébergeur) la configuration matérielle,
+  les volumes, les possibilités d'extension, les niveaux d'alerte ».
+- Par machine : disques physiques (modèle, taille, état SMART), RAID / ZFS / LVM, volumes et montages (taille, occupé, libre,
+  tendance), baies et emplacements libres, slots / RAM, capacité d'extension (disques ajoutables, taille max du pool).
+- Regroupement / filtres : rôle (hyperviseur, sauvegarde, NAS, IA, poste…), LAN (bureau, campus…), hébergeur (local, OVH…).
+- Niveaux d'alerte par volume (seuils réglables, défaut attention / critique), date estimée de saturation d'après la tendance.
+- Sources existantes à réutiliser avant d'en créer : agent si-agent (disques, SMART, conseils #938), sondes relais (NAS QNAP,
+  BackupPC, `systemes` SSH), Proxmox / PBS, flotte. Rien d'écrit sur les machines (lecture seule).
+- À cadrer à l'ouverture : où vit l'onglet (thématique Sauvegardes, Supervision, ou Données) et liste des machines à couvrir.
+
 ## Réplication du hub vers le campus (prodia), filtrée par données et par rôles (2026-11-05) — DEMANDÉ, À CADRER
 - Demande : « prévoir une réplication du hub filtré sur les données et les rôles, vers le campus sur prodia ».
 - À cadrer : sens (lecture seule sur le campus ou écriture locale remontée), périmètre des données (site du campus :
