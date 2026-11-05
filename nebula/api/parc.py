@@ -123,3 +123,32 @@ def deplacements(sessions, eqs, limite=500):
                 txt = lambda l: " · ".join(x for x in (l["piece"], l["ssid"], None if l["piece"] else l["borne"]) if x) or "?"
                 changements.append({"mac": mac, "nom": noms.get(mac), "at": b["de"], "de": txt(a), "vers": txt(b)})
     return {"par_mac": {m: ls[-limite:] for m, ls in par_mac.items()}, "changements": sorted(changements, key=lambda c: -c["at"])[:limite]}
+
+
+def _nom_mac(n):
+    """Nebula affiche la MAC quand l'appareil n'annonce pas de nom."""
+    return bool(re.fullmatch(r"[0-9a-f]{12}", norm_nom(n)))
+
+
+def ecarts_noms(eqs, vus):
+    """#972 : fiche dont une MAC est vue sur le réseau sous un AUTRE nom (tablette renommée, inventaire qui mélange deux
+    appareils). -> [{id, nom, mac, nom_reseau, derniere_vue, autre_fiche}] ; autre_fiche = fiche qui porte le nom réseau."""
+    par_mac = {v["mac"]: v for v in vus or [] if v.get("mac")}
+    par_nom = {norm_nom(e.get("nom")): e for e in eqs if e.get("nom")}
+    out = []
+    for e in eqs:
+        if not e.get("nom"):
+            continue
+        for m in macs_de(e):
+            v = par_mac.get(m)
+            nr = (v or {}).get("name")
+            if not nr or _nom_mac(nr) or norm_nom(nr) == norm_nom(e["nom"]):
+                continue
+            # « MED-05-Mediateurs » pour « Med-05 » : un nom réseau qui commence par le nom de la fiche n'est pas un écart
+            if norm_nom(nr).startswith(norm_nom(e["nom"])) and len(norm_nom(e["nom"])) >= 4:
+                continue
+            autre = par_nom.get(norm_nom(nr))
+            out.append({"id": e["id"], "nom": e["nom"], "mac": m, "nom_reseau": nr, "derniere_vue": v.get("last_seen"),
+                        "autre_fiche": ({"id": autre["id"], "nom": autre["nom"], "mac": autre.get("mac")} if autre and autre["id"] != e["id"] else None)})
+            break
+    return sorted(out, key=lambda x: x["nom"].lower())

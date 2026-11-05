@@ -1,5 +1,11 @@
 [
  {
+  "n": 972,
+  "from": 972,
+  "date": "2026-11-05",
+  "title": "Parc › onglet « Écarts de nom » : un terminal inscrit dont la MAC annonce un autre nom sur le réseau (ex. tablette renommée ou MAC attribuée au mauvais appareil), avec la fiche qui porte ce nom ; les MAC virtuelles « WAN Miniport » de Windows sont écartées à l'import"
+ },
+ {
   "n": 971,
   "from": 971,
   "date": "2026-11-05",

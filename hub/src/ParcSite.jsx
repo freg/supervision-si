@@ -10,7 +10,7 @@ async function getJson(url, init) {
   if (!r.ok) throw new Error(j.error || `${r.status}`);
   return j;
 }
-const ONGLETS = [["synthese", "Synthèse"], ["associer", "Associations"], ["baux", "Baux DHCP"], ["lieux", "Déplacements"], ["inconnus", "MAC inconnues"]];
+const ONGLETS = [["synthese", "Synthèse"], ["associer", "Associations"], ["ecarts", "Écarts de nom"], ["baux", "Baux DHCP"], ["lieux", "Déplacements"], ["inconnus", "MAC inconnues"]];
 
 export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire, onChange }) {
   const [jours, setJours] = useState(30);
@@ -39,7 +39,7 @@ export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire,
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <strong>📊 Parc des terminaux</strong>
         {ONGLETS.map(([k, l]) => <button key={k} type="button" className={onglet === k ? "" : "secondary"} onClick={() => setOnglet(k)}>{l}
-          {k === "associer" && d?.propositions?.length ? ` (${d.propositions.length})` : ""}{k === "baux" && d?.baux?.changements?.length ? ` (${d.baux.changements.length})` : ""}
+          {k === "associer" && d?.propositions?.length ? ` (${d.propositions.length})` : ""}{k === "ecarts" && d?.ecarts?.length ? ` ⚠ ${d.ecarts.length}` : ""}{k === "baux" && d?.baux?.changements?.length ? ` (${d.baux.changements.length})` : ""}
           {k === "inconnus" && d?.inconnus?.length ? ` (${d.inconnus.length})` : ""}</button>)}
         <select value={jours} onChange={(e) => setJours(Number(e.target.value))} aria-label="période">{[7, 30, 90, 365].map((j) => <option key={j} value={j}>{j} jours</option>)}</select>
         <button type="button" className="secondary" onClick={charger} disabled={!!busy}>{busy === "charger" ? "⏳" : "↻"}</button>
@@ -59,7 +59,7 @@ export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire,
 
       {onglet === "synthese" && s && (
         <div style={{ overflowX: "auto" }}>
-          <p>{s.total} terminaux au registre · {s.avec_mac} avec MAC · <strong>{s.sans_mac} sans MAC</strong>{d.propositions?.length ? ` (${d.propositions.length} associables tout de suite)` : ""}</p>
+          <p>{s.total} terminaux au registre · {s.avec_mac} avec MAC · <strong>{s.sans_mac} sans MAC</strong>{d.propositions?.length ? ` (${d.propositions.length} associables tout de suite)` : ""}{d.ecarts?.length ? <> · <a href="#ecarts" onClick={(e) => { e.preventDefault(); setOnglet("ecarts"); }}>⚠ {d.ecarts.length} écart(s) de nom</a></> : ""}</p>
           <table className="table"><thead><tr><th>Catégorie</th>{labs.map((l) => <th key={l}>{l}</th>)}<th>Total</th></tr></thead><tbody>
             {s.categories.map((c) => <tr key={c.nom}><td><strong>{c.nom}</strong></td>{labs.map((l) => <td key={l}>{s.tableau[c.nom]?.[l] || ""}</td>)}<td><strong>{c.n}</strong></td></tr>)}
             <tr><td><strong>Total</strong></td>{s.labs.map((l) => <td key={l.nom}><strong>{l.n}</strong></td>)}<td><strong>{s.total}</strong></td></tr>
@@ -77,6 +77,17 @@ export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire,
               {d.propositions.map((p) => <tr key={p.id}><td><a href="#fiche" onClick={(e) => { e.preventDefault(); onOuvrir(p.id); }}>{p.nom}</a></td><td>{p.nom_reseau}</td><td><code>{p.mac}</code></td><td>{p.ip || ""}</td><td>{p.fabricant || ""}</td><td>{horodatage(p.derniere_vue)}</td>
                 <td><button type="button" className="secondary" disabled={!!busy} onClick={() => associer([p.id])}>associer</button></td></tr>)}
             </tbody></table></> : <p>Aucune association en attente.</p>}
+        </div>
+      )}
+
+      {onglet === "ecarts" && d && (
+        <div>
+          <p className="muted">Terminal inscrit dont la MAC est vue sur le réseau sous un autre nom : tablette renommée, étiquette échangée, ou inventaire qui attribue la MAC au mauvais appareil. À vérifier sur l'appareil (Paramètres › À propos › adresse MAC Wi-Fi), puis corriger la fiche.</p>
+          <table className="table"><thead><tr><th>Fiche</th><th>Nom annoncé sur le réseau</th><th>MAC</th><th>Fiche qui porte ce nom</th><th>Vu</th></tr></thead><tbody>
+            {(d.ecarts || []).map((x) => <tr key={x.id + x.mac}><td><a href="#fiche" onClick={(e) => { e.preventDefault(); onOuvrir(x.id); }}>{x.nom}</a></td><td><strong>{x.nom_reseau}</strong></td><td><code>{x.mac}</code></td>
+              <td>{x.autre_fiche ? <><a href="#fiche" onClick={(e) => { e.preventDefault(); onOuvrir(x.autre_fiche.id); }}>{x.autre_fiche.nom}</a>{x.autre_fiche.mac ? <span className="muted"> ({x.autre_fiche.mac})</span> : <span className="muted"> (sans MAC)</span>}</> : <span className="muted">aucune</span>}</td><td>{horodatage(x.derniere_vue)}</td></tr>)}
+            {!(d.ecarts || []).length && <tr><td colSpan={5} className="muted">aucun écart : chaque MAC inscrite annonce le nom de sa fiche (ou aucun nom)</td></tr>}
+          </tbody></table>
         </div>
       )}
 

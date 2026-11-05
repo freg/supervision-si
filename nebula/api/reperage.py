@@ -469,6 +469,12 @@ def mac_locale(m):
         return False
 
 
+def mac_ras(m):
+    """#972 : adaptateurs virtuels « WAN Miniport » de Windows (accès à distance) -- MAC en xx:xx:20:52:41:53, « RAS » en ASCII.
+    Les inventaires les listent avec les vraies cartes ; ils ne sortent jamais sur le réseau : on les écarte."""
+    return str(m or "").lower().endswith("20:52:41:53")
+
+
 def macs_de(e):
     """Toutes les MAC d'une fiche (principale + autres)."""
     return [m for m in ([e.get("mac")] + list(e.get("macs") or [])) if m]
@@ -492,7 +498,7 @@ def valider_equipement(d):
         n = norm_mac(m)
         if not n:
             return None, "MAC invalide : %s (12 chiffres hexadécimaux)" % m
-        if n not in macs:
+        if n not in macs and not mac_ras(n):
             macs.append(n)
     out["mac"] = next((m for m in macs if not mac_locale(m)), macs[0] if macs else None)   # MAC « matérielle » d'abord
     out["macs"] = macs if len(macs) > 1 else None

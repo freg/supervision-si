@@ -1,3 +1,11 @@
+## 2026-11-05 — livraison #972 : écarts de nom entre le registre et le réseau
+
+- **Parc › onglet « Écarts de nom »** : terminal inscrit dont une MAC est vue sur le réseau (relevé Nebula) sous un AUTRE nom que sa fiche — tablette renommée, étiquette échangée, ou inventaire qui attribue la MAC au mauvais appareil. La ligne indique la fiche qui porte le nom annoncé, quand il y en a une. Le nombre d'écarts apparaît sur l'onglet et dans la Synthèse. Pas d'écart quand l'appareil n'annonce pas de nom (Nebula affiche alors sa MAC) ni quand le nom réseau commence par celui de la fiche (« MED-05-Mediateurs » pour « Med-05 »).
+- **Import de l'inventaire** : les MAC des adaptateurs virtuels « WAN Miniport » de Windows (se terminent par 20-52-41-53, « RAS » en ASCII) sont écartées — elles ne sortent jamais sur le réseau et l'une d'elles pouvait devenir la MAC principale d'un PC portable.
+
+Vérifié : tests nebula (test_parc, test_reperage, test_client_history : 26 réussis), syntaxe de ParcSite.jsx (esbuild).
+Non vérifié : rendu dans un navigateur, relève Nebula réelle.
+
 ## 2026-11-05 — livraison #971 : parc des terminaux du site, MAC associées automatiquement, baux DHCP et déplacements
 
 Demande : « avoir cette vision [inventaire fusionné terminaux / applications] dans le hub et associer automatiquement

@@ -583,7 +583,7 @@ def register(app, hooks):
         eqs = _equipements(site_id)
         vus, sess, poll, err = _historique(site_id, now - jours * 86400)
         return jsonify({"site_id": site_id, "jours": jours, "derniere_releve": poll, "erreur": err,
-                        "synthese": parc.synthese(eqs), "propositions": parc.associer(eqs, vus),
+                        "synthese": parc.synthese(eqs), "propositions": parc.associer(eqs, vus), "ecarts": parc.ecarts_noms(eqs, vus),
                         "inconnus": parc.inconnus(vus, eqs, now - jours * 86400)[:300], "baux": parc.baux(sess, eqs),
                         "deplacements": parc.deplacements(sess, eqs)["changements"][:300]}), 200
 

@@ -31,6 +31,26 @@ class TestParc(unittest.TestCase):
         inc = P.inconnus(VUS, EQS, depuis=100)
         self.assertEqual([x["mac"] for x in inc], ["aa:00:00:00:00:11", "aa:00:00:00:00:31", "aa:00:00:00:00:32"])
 
+    def test_macs_wan_miniport_ecartees(self):   # #972 : une ligne d'inventaire de PC portable
+        from reperage import valider_equipement
+        e, err = valider_equipement({"nom": "PC01", "mac": "2A-95-29-A0-55-14,22-AE-20-52-41-53,24-11-20-52-41-53,C8-41-8A-21-A7-0B,"
+                                     "28-95-29-A0-55-18,24-11-20-52-41-53,28-95-29-A0-55-14,28-95-29-A0-55-15"})
+        self.assertIsNone(err)
+        self.assertEqual(e["mac"], "c8:41:8a:21:a7:0b")
+        self.assertEqual(len(e["macs"]), 5)
+        self.assertFalse(any(m.endswith("20:52:41:53") for m in e["macs"]))
+
+    def test_ecarts_de_nom(self):   # #972
+        eqs = [{"id": "e22", "nom": "E22 LabCo", "mac": "e4:9f:7d:bd:a5:7e"}, {"id": "e11", "nom": "E11 AmpIm"},
+               {"id": "m5", "nom": "Med-05", "mac": "e4:9f:7d:bd:c7:1a"}, {"id": "e16", "nom": "E16 LabCo", "mac": "e4:9f:7d:c7:e5:90"},
+               {"id": "x", "nom": "Imprimante", "mac": "10:b6:76:a8:7e:9c"}]
+        vus = [{"mac": "e4:9f:7d:bd:a5:7e", "name": "E11-AmpIm", "last_seen": 9}, {"mac": "e4:9f:7d:bd:c7:1a", "name": "MED-05-Mediateurs"},
+               {"mac": "e4:9f:7d:c7:e5:90", "name": "E16-LabCo"}, {"mac": "10:b6:76:a8:7e:9c", "name": "10:B6:76:A8:7E:9C"}]
+        e = P.ecarts_noms(eqs, vus)
+        self.assertEqual([(x["id"], x["nom_reseau"]) for x in e], [("e22", "E11-AmpIm")])
+        self.assertEqual(e[0]["autre_fiche"]["id"], "e11")
+        self.assertEqual(P.ecarts_noms([], vus), [])
+
     def test_baux_et_deplacements(self):
         eqs = [dict(EQS[1]), {"id": "x", "nom": "Autre", "mac": "aa:00:00:00:00:07"}] + EQS[4:]
         ses = [{"mac": "aa:00:00:00:00:05", "start": 0, "end": 100, "ip": "172.16.20.5", "device": "WBE660S-Studio", "ssid": "Campus"},
@@ -54,11 +74,11 @@ class TestParc(unittest.TestCase):
         self.assertEqual((lignes[0]["serie"], lignes[0]["lab"], lignes[0]["mac"]), ("R5GY", "Amphi", "e4:9f:7d:bd:ce:52"))
         # plusieurs MAC (Wi-Fi, Ethernet, virtuelles) : la MAC matérielle devient la principale, toutes servent au rapprochement
         e, err = R.valider_equipement({"nom": "PC", "mac": "32-94-20-52-41-53, E4-1F-D5-C5-70-74;E4-1F-D5-C5-70-75"})
-        self.assertIsNone(err); self.assertEqual(e["mac"], "e4:1f:d5:c5:70:74"); self.assertEqual(len(e["macs"]), 3)
+        self.assertIsNone(err); self.assertEqual(e["mac"], "e4:1f:d5:c5:70:74"); self.assertEqual(len(e["macs"]), 2)   # #972 : WAN Miniport écartée
         self.assertIn("MAC invalide", R.valider_equipement({"nom": "PC", "mac": "e4-1f-d5-c5-70-74, zz"})[1])
         self.assertIsNone(R.valider_equipement({"nom": "PC", "mac": "e4-1f-d5-c5-70-74"})[0]["macs"])
         eqs = [dict(e, id="pc")]
-        self.assertEqual(P.inconnus([{"mac": "32:94:20:52:41:53", "last_seen": 5}], eqs), [])
+        self.assertEqual(P.inconnus([{"mac": "e4:1f:d5:c5:70:75", "last_seen": 5}], eqs), [])
         b = P.baux([{"mac": "e4:1f:d5:c5:70:75", "start": 0, "end": 1, "ip": "1.1.1.1"}, {"mac": "e4:1f:d5:c5:70:75", "start": 2, "end": 3, "ip": "1.1.1.2"}], eqs)
         self.assertEqual(b["changements"][0]["nom"], "PC")
 
