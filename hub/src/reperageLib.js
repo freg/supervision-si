@@ -207,3 +207,19 @@ export const EQUIPEMENT_VIDE = { id: null, nom: "", role: "", ip: "", mac: "", l
 export function versFormulaire(e) {
   return { ...EQUIPEMENT_VIDE, ...Object.fromEntries(Object.entries(e || {}).filter(([, v]) => v != null)), tags: (e?.tags || []).join(", ") };
 }
+
+// #971 : parc des terminaux -----------------------------------------------------------------------------------------
+export function horodatage(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+export function lieuTexte(l) {
+  if (!l) return "?";
+  const ou = l.piece || l.borne || "";
+  return [ou, l.ssid, !l.ssid && l.port ? `port ${l.port}` : null, l.vlan ? `VLAN ${l.vlan}` : null].filter(Boolean).join(" · ") || "?";
+}
+// pré-remplissage d'une fiche depuis une MAC inconnue vue sur le réseau
+export function ficheDepuisInconnu(x) {
+  return { ...EQUIPEMENT_VIDE, nom: x?.nom_reseau || "", mac: x?.mac || "", ip: x?.ip || "", note: x?.fabricant ? `fabricant : ${x.fabricant}` : "" };
+}

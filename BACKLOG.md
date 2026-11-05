@@ -1,3 +1,12 @@
+## Réplication du hub vers le campus (prodia), filtrée par données et par rôles (2026-11-05) — DEMANDÉ, À CADRER
+- Demande : « prévoir une réplication du hub filtré sur les données et les rôles, vers le campus sur prodia ».
+- À cadrer : sens (lecture seule sur le campus ou écriture locale remontée), périmètre des données (site du campus :
+  Nebula, registre / parc, flux, Data RF, sondes ; jamais les autres clients ni le coffre), rôles Keycloak du campus,
+  fréquence, fonctionnement si le lien est coupé (hub secondaire autonome), et ce qui existe déjà (hubs secondaires,
+  local-central / collecteur de site).
+- Suites de #971 : relevé des baux DHCP au fil de l'eau par le journal de la passerelle (événements « DHCP server
+  assigned ») en plus de la relève horaire ; pièce des bornes reprise automatiquement du plan.
+
 ## Mise à jour automatique sûre : déploiement auto, contrôles en cascade, retour arrière automatique (2026-11-04) — DEMANDÉ, CADRÉ, REPORTÉ
 Demande (après le hub blanc de #967) : détecter un changement dans le git (déjà actif) ; créer les nouvelles API/fronts par
 un mécanisme d'inscription général (changelog) ; déployer automatiquement avec retour arrière automatique sur anomalie ;

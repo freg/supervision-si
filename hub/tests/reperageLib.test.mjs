@@ -73,3 +73,14 @@ test("registre des équipements : filtre, couleurs, initiales, suggestion", asyn
   assert.equal(L.suggestionNebula(inv, { ip: "172.16.20.10" }).mac, "aa:bb:cc:00:00:01");
   assert.equal(L.versFormulaire(eqs[1]).tags, "caméra, critique"); assert.equal(L.versFormulaire(null).nom, "");
 });
+
+test("#971 : parc -- horodatage, lieu, fiche depuis une MAC inconnue", async () => {
+  const { horodatage, lieuTexte, ficheDepuisInconnu } = await import("../src/reperageLib.js");
+  assert.equal(horodatage(null), "—");
+  assert.match(horodatage(1793886788), /^\d{2}\/\d{2} \d{2}:\d{2}$/);
+  assert.equal(lieuTexte({ piece: "Amphi", ssid: "Campus", vlan: "20" }), "Amphi · Campus · VLAN 20");
+  assert.equal(lieuTexte({ borne: "GS2220", port: "12" }), "GS2220 · port 12");
+  assert.equal(lieuTexte({}), "?"); assert.equal(lieuTexte(null), "?");
+  const f = ficheDepuisInconnu({ mac: "aa:bb:cc:00:00:01", nom_reseau: "E11-AmpIm", ip: "172.16.20.11", fabricant: "Samsung" });
+  assert.equal(f.nom, "E11-AmpIm"); assert.equal(f.note, "fabricant : Samsung"); assert.equal(f.id, null);
+});

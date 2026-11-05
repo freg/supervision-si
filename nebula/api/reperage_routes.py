@@ -20,6 +20,7 @@ import uuid
 from flask import jsonify, request, send_from_directory, Response
 
 import reperage as lib
+import parc  # #971 : parc des terminaux, association MAC <-> terminal, changements de bail
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reperage_prises (
@@ -538,6 +539,11 @@ def register(app, hooks):
         e, err = lib.valider_equipement(body)
         if err:
             return jsonify({"error": err}), 400
+        prev = next((x for x in _equipements(site_id) if e.get("id") and x["id"] == e["id"]), None)
+        if prev:   # #971 : le formulaire n'envoie pas les champs de parc -- on garde ceux de la fiche
+            for k, _lim in lib.CHAMPS_PARC:
+                if e.get(k) is None and prev.get(k) is not None:
+                    e[k] = prev[k]
         eid = _enregistrer_eq(site_id, e, body.get("par"))
         eqs, _ = _eq_enrichis(site_id)
         return jsonify(next(x for x in eqs if x["id"] == eid)), 200
@@ -550,6 +556,77 @@ def register(app, hooks):
         finally:
             conn.close()
         return jsonify({"supprime": n}), 200
+
+    # -- #971 : parc des terminaux, association MAC <-> terminal, changements de bail DHCP -------------------------------------
+    def _historique(site_id, depuis):
+        """Clients vus (relève horaire #872) et sessions depuis `depuis` ; tables absentes = listes vides."""
+        conn = conn_fn()
+        try:
+            vus = [dict(r) for r in conn.execute("SELECT mac, ip, name, manufacturer, last_seen, first_seen, device, port, ssid, vlan "
+                                                 "FROM nebula_client_seen WHERE site_id = ?", (site_id,)).fetchall()]
+            sess = [dict(r) for r in conn.execute("SELECT mac, start, end, ip, device, port, ssid, vlan FROM nebula_client_sessions WHERE site_id = ? AND end >= ? "
+                                                  "ORDER BY mac, start", (site_id, depuis)).fetchall()]
+            poll = conn.execute("SELECT MAX(at) AS at FROM nebula_client_polls WHERE site_id = ? AND error IS NULL", (site_id,)).fetchone()
+            return vus, sess, (poll["at"] if poll else None), None
+        except Exception as exc:  # noqa: BLE001 -- historique pas encore créé
+            return [], [], None, "historique des clients indisponible : %s" % str(exc)[:120]
+        finally:
+            conn.close()
+
+    @app.route("/sites/<site_id>/reperage/parc", methods=["GET"])
+    def reperage_parc(site_id):
+        try:
+            jours = max(1, min(400, int(request.args.get("jours", 30))))
+        except ValueError:
+            jours = 30
+        now = int(time.time())
+        eqs = _equipements(site_id)
+        vus, sess, poll, err = _historique(site_id, now - jours * 86400)
+        return jsonify({"site_id": site_id, "jours": jours, "derniere_releve": poll, "erreur": err,
+                        "synthese": parc.synthese(eqs), "propositions": parc.associer(eqs, vus),
+                        "inconnus": parc.inconnus(vus, eqs, now - jours * 86400)[:300], "baux": parc.baux(sess, eqs),
+                        "deplacements": parc.deplacements(sess, eqs)["changements"][:300]}), 200
+
+    @app.route("/sites/<site_id>/reperage/parc/terminal/<eid>", methods=["GET"])
+    def reperage_parc_terminal(site_id, eid):
+        """#971 : où a été ce terminal (pièce du plan, SSID, borne, IP) sur la période, d'après l'historique des clients."""
+        try:
+            jours = max(1, min(400, int(request.args.get("jours", 30))))
+        except ValueError:
+            jours = 30
+        eqs = _equipements(site_id)
+        e = next((x for x in eqs if x["id"] == eid), None)
+        if not e:
+            return jsonify({"error": "fiche inconnue : %s" % eid}), 404
+        if not e.get("mac"):
+            return jsonify({"id": eid, "nom": e.get("nom"), "lieux": [], "message": "pas de MAC : associer d'abord la fiche (Parc › associations proposées)"}), 200
+        _v, sess, _p, err = _historique(site_id, int(time.time()) - jours * 86400)
+        mine = set(lib.macs_de(e))
+        d = parc.deplacements([x for x in sess if x["mac"] in mine], eqs)
+        lieux = sorted([l for m in mine for l in d["par_mac"].get(m, [])], key=lambda l: l["de"])
+        return jsonify({"id": eid, "nom": e.get("nom"), "mac": e["mac"], "macs": sorted(mine), "lieux": lieux, "erreur": err}), 200
+
+    @app.route("/sites/<site_id>/reperage/parc/associer", methods=["POST"])
+    def reperage_parc_associer(site_id):
+        """Écrit les MAC proposées (nom réseau = nom du terminal) dans les fiches sans MAC ; `ids` limite aux fiches choisies."""
+        body = request.get_json(silent=True) or {}
+        ids = set(body.get("ids") or [])
+        eqs = _equipements(site_id)
+        vus, _s, _p, err = _historique(site_id, 0)
+        if err:
+            return jsonify({"error": err}), 503
+        faits = 0
+        for p in parc.associer(eqs, vus):
+            if ids and p["id"] not in ids:
+                continue
+            e = next(x for x in eqs if x["id"] == p["id"])
+            if e.get("mac"):
+                continue
+            e = dict(e); e.update(mac=p["mac"], mac_source="appris (%s)" % p["par"], mac_appris_le=time.strftime("%Y-%m-%d"))
+            if not e.get("ip") and p.get("ip"):
+                e["ip"] = p["ip"]
+            _enregistrer_eq(site_id, e, body.get("par") or "association"); faits += 1
+        return jsonify({"associes": faits}), 200
 
     @app.route("/sites/<site_id>/reperage/equipements.csv", methods=["GET"])
     def reperage_equipements_csv(site_id):
@@ -565,7 +642,9 @@ def register(app, hooks):
         existants = _equipements(site_id)
         ajout = maj = 0
         for e in lignes:
-            prev = next((x for x in existants if (e["mac"] and x.get("mac") == e["mac"]) or (e["ip"] and x.get("ip") == e["ip"])), None)
+            prev = next((x for x in existants if (e["mac"] and set(lib.macs_de(x)) & set(lib.macs_de(e))) or (e["ip"] and x.get("ip") == e["ip"])
+                         or (e.get("serie") and x.get("serie") == e["serie"])
+                         or (not e["mac"] and not e["ip"] and e.get("nom") and parc.norm_nom(x.get("nom")) == parc.norm_nom(e["nom"]))), None)
             if prev:
                 fusion = dict(prev); fusion.update({k: v for k, v in e.items() if v not in (None, [], "") and k != "id"})
                 fusion["tags"] = lib.norm_tags((prev.get("tags") or []) + (e.get("tags") or []))

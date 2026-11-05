@@ -456,20 +456,46 @@ def norm_tags(v):
     return out[:20]
 
 
+# #971 : fiche de parc (inventaire des terminaux) -- champs facultatifs, gardés tels quels
+CHAMPS_PARC = (("categorie", 60), ("type", 60), ("designation", 80), ("modele", 60), ("serie", 60), ("lab", 60), ("compte", 120),
+               ("stockage", 60), ("profil", 60), ("parcours", 120), ("mise_en_service", 20), ("mac_source", 60), ("mac_appris_le", 20))
+
+
+def mac_locale(m):
+    """MAC administrée localement (bit 2 du premier octet) : adresse virtuelle ou aléatoire, pas celle de la carte."""
+    try:
+        return bool(int(m[:2], 16) & 2)
+    except (TypeError, ValueError):
+        return False
+
+
+def macs_de(e):
+    """Toutes les MAC d'une fiche (principale + autres)."""
+    return [m for m in ([e.get("mac")] + list(e.get("macs") or [])) if m]
+
+
 def valider_equipement(d):
     """Renvoie (equipement, erreur). Il faut au moins un nom, une IP ou une MAC."""
     if not isinstance(d, dict):
         return None, "objet attendu"
     out = {}
-    for k, lim in (("nom", 80), ("role", 80), ("local", 80), ("prise", 60), ("note", 1000), ("source", 40)):
+    for k, lim in (("nom", 80), ("role", 80), ("local", 80), ("prise", 60), ("note", 1000), ("source", 40)) + CHAMPS_PARC:
         v = d.get(k)
         out[k] = (str(v).strip()[:lim] if v not in (None, "") else None)
     out["ip"] = norm_ip(d.get("ip")) if d.get("ip") not in (None, "") else None
     if d.get("ip") not in (None, "") and not out["ip"]:
         return None, "IP invalide : %s (attendu a.b.c.d)" % d.get("ip")
-    out["mac"] = norm_mac(d.get("mac")) if d.get("mac") not in (None, "") else None
-    if d.get("mac") not in (None, "") and not out["mac"]:
-        return None, "MAC invalide : %s (12 chiffres hexadécimaux)" % d.get("mac")
+    # #971 : un terminal a souvent plusieurs MAC (Wi-Fi, Ethernet, Bluetooth, adresses virtuelles) -- liste séparée par , ; ou espaces
+    brut = [m for m in re.split(r"[,;\s/]+", str(d.get("mac") or "")) if m] + [m for m in (d.get("macs") or []) if m]
+    macs = []
+    for m in brut:
+        n = norm_mac(m)
+        if not n:
+            return None, "MAC invalide : %s (12 chiffres hexadécimaux)" % m
+        if n not in macs:
+            macs.append(n)
+    out["mac"] = next((m for m in macs if not mac_locale(m)), macs[0] if macs else None)   # MAC « matérielle » d'abord
+    out["macs"] = macs if len(macs) > 1 else None
     if not (out["nom"] or out["ip"] or out["mac"]):
         return None, "il faut au moins un nom, une IP ou une MAC"
     x, y = d.get("x"), d.get("y")
@@ -501,16 +527,16 @@ def enrichir_equipements(eqs, inv):
     out = []
     for e in eqs:
         e = dict(e)
-        c = par_mac.get(e.get("mac")) or par_ip.get(e.get("ip"))
+        c = next((par_mac[m] for m in macs_de(e) if m in par_mac), None) or par_ip.get(e.get("ip"))
         alertes = []
         if c:
             ou = ("%s port %s" % (c.get("commutateur") or c.get("commutateur_id") or "?", c.get("port") if c.get("port") is not None else "?")) if c.get("type") == "filaire" \
                 else ("borne %s · %s" % (c.get("borne") or c.get("borne_id") or "?", c.get("ssid") or "")) if c.get("type") == "wifi" else None
             e["nebula"] = {"mac": c.get("mac"), "ip": c.get("ip"), "nom": c.get("nom") or c.get("description"), "fabricant": c.get("fabricant"),
-                           "ou": ou, "vlan": c.get("vlan"), "derniere_vue": c.get("derniere_vue"), "par": "mac" if par_mac.get(e.get("mac")) is c else "ip"}
+                           "ou": ou, "vlan": c.get("vlan"), "derniere_vue": c.get("derniere_vue"), "par": "mac" if any(par_mac.get(m) is c for m in macs_de(e)) else "ip"}
             if e.get("ip") and c.get("ip") and e["ip"] != c["ip"]:
                 alertes.append("Nebula voit cette MAC en %s (saisi %s)" % (c["ip"], e["ip"]))
-            if e.get("mac") and c.get("mac") and e["mac"] != c["mac"]:
+            if e.get("mac") and c.get("mac") and c["mac"] not in macs_de(e):
                 alertes.append("Nebula voit cette IP avec la MAC %s (saisi %s)" % (c["mac"], e["mac"]))
         else:
             e["nebula"] = None
@@ -546,7 +572,11 @@ def lire_csv_equipements(texte):
         return [], ["fichier vide"]
     sep = "\t" if "\t" in texte.splitlines()[0] else (";" if ";" in texte.splitlines()[0] else ",")
     rd = csv.DictReader(io.StringIO(texte), delimiter=sep)
-    alias = {"rôle": "role", "adresse ip": "ip", "adresse mac": "mac", "nom": "nom", "name": "nom", "étiquettes": "tags", "tag": "tags", "commentaire": "note", "pièce": "local", "salle": "local"}
+    alias = {"rôle": "role", "adresse ip": "ip", "adresse mac": "mac", "nom": "nom", "name": "nom", "étiquettes": "tags", "tag": "tags", "commentaire": "note", "pièce": "local", "salle": "local",
+             # #971 : colonnes d'un inventaire de parc
+             "catégorie": "categorie", "désignation": "designation", "modèle": "modele", "numero de série": "serie", "numéro de série": "serie",
+             "n° de série": "serie", "localisation": "local", "parcours / classe": "parcours", "classe": "parcours", "mise en service": "mise_en_service",
+             "date de mise en service": "mise_en_service"}
     lignes, erreurs = [], []
     for i, r in enumerate(rd, start=2):
         d = {alias.get((k or "").strip().lower(), (k or "").strip().lower()): v for k, v in r.items()}

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Plan from "./PlanSite.jsx";
 import BoutonDetail from "./FenetreTexte.jsx";
+import ParcSite from "./ParcSite.jsx";   // #971
 import { SITE_KEY, filtrerEquipements, couleurRole, initiales, suggestionNebula, EQUIPEMENT_VIDE, versFormulaire } from "./reperageLib.js";
 
 const store = {
@@ -32,6 +33,7 @@ export default function EquipementsSiteView({ onBack, nebulaApiBase, actor }) {
   const [sansPos, setSansPos] = useState(false);
   const [importOuvert, setImportOuvert] = useState(false);
   const [importTexte, setImportTexte] = useState("");
+  const [parcOuvert, setParcOuvert] = useState(false);   // #971
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
   useEffect(() => {
@@ -102,18 +104,22 @@ export default function EquipementsSiteView({ onBack, nebulaApiBase, actor }) {
         <select value={tag} onChange={(e) => setTag(e.target.value)} aria-label="étiquette"><option value="">toutes étiquettes</option>{(data?.tags || []).map((t) => <option key={t} value={t}>{t}</option>)}</select>
         <label><input type="checkbox" checked={sansPos} onChange={(e) => setSansPos(e.target.checked)} /> sans position</label>
         <button type="button" className="secondary" onClick={() => setImportOuvert(!importOuvert)}>📥 Importer</button>
+        <button type="button" className={parcOuvert ? "" : "secondary"} onClick={() => setParcOuvert(!parcOuvert)}>📊 Parc, baux, déplacements</button>
         {siteId && <a className="button secondary" href={`${base}/reperage/equipements.csv`} download>⬇ CSV</a>}
       </header>
       {msg && <p className={msg.ok ? "ok" : "error"}>{msg.text}</p>}
       {data?.erreurs?.length > 0 && <p className="muted">Nebula partiel : {data.erreurs.join(" ; ")} (la saisie reste possible)</p>}
       {importOuvert && (
         <div className="panel">
-          <p>Coller un tableau (tableur, CSV `;` `,` ou tabulations) avec une ligne d'en-tête : <code>nom ; role ; ip ; mac ; local ; prise ; tags ; note</code>. Une ligne dont la MAC ou l'IP existe déjà complète la fiche.</p>
+          <p>Coller un tableau (tableur, CSV `;` `,` ou tabulations) avec une ligne d'en-tête : <code>nom ; role ; ip ; mac ; local ; prise ; tags ; note</code>, et pour un inventaire de parc : <code>catégorie ; type ; désignation ; modèle ; n° de série ; lab ; stockage ; compte ; profil ; parcours ; mise en service</code>. Une ligne dont la MAC, l'IP ou le n° de série existe déjà complète la fiche ; sans MAC ni IP, c'est le nom qui fait le lien.</p>
           <textarea rows={6} style={ch} value={importTexte} onChange={(e) => setImportTexte(e.target.value)} />
           <p><input type="file" accept=".csv,.txt,.tsv" onChange={(e) => { const f = e.target.files?.[0]; if (f) f.text().then(setImportTexte); }} />{" "}
             <button type="button" onClick={importer} disabled={!importTexte.trim() || !!busy}>{busy === "import" ? "⏳ import…" : "Importer"}</button></p>
         </div>
       )}
+
+      {parcOuvert && siteId && <ParcSite base={base} actor={actor} selection={form.id} onChange={charger}
+        onOuvrir={(id) => { const e = eqs.find((x) => x.id === id); if (e) setForm(versFormulaire(e)); }} onInscrire={(f) => setForm(f)} />}
 
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
         <div style={{ flex: "3 1 480px", minWidth: 0 }}>
@@ -158,7 +164,7 @@ export default function EquipementsSiteView({ onBack, nebulaApiBase, actor }) {
             <tr key={e.id} onClick={() => setForm(versFormulaire(e))} style={{ cursor: "pointer", outline: form.id === e.id ? "2px solid var(--accent)" : "none" }}>
               <td><strong>{e.nom || "—"}</strong></td>
               <td><span style={{ color: couleurRole(e.role, roles) }}>●</span> {e.role || ""}</td>
-              <td>{e.ip || ""}</td><td><code>{e.mac || ""}</code></td>
+              <td>{e.ip || ""}</td><td><code>{e.mac || ""}</code>{e.macs?.length > 1 && <BoutonDetail texte={e.macs.join("\n")} titre={`MAC de ${e.nom || e.ip}`} urgence="info" libelle={`+${e.macs.length - 1}`} />}</td>
               <td>{e.local || ""}{e.prise ? ` · ${e.prise}` : ""}</td>
               <td>{(e.tags || []).join(", ")}</td>
               <td>{e.nebula ? <small>{e.nebula.ou || "vu"}</small> : <small className="muted">non vu</small>}{" "}

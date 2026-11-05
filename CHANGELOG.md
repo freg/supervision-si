@@ -1,3 +1,35 @@
+## 2026-11-05 — livraison #971 : parc des terminaux du site, MAC associées automatiquement, baux DHCP et déplacements
+
+Demande : « avoir cette vision [inventaire fusionné terminaux / applications] dans le hub et associer automatiquement
+adresse MAC et terminal ; ensuite un apprentissage cyclique permanent des adresses IP/MAC pour identifier les changements
+de bail DHCP » ; « une fois associés la MAC et observés les baux, la localisation dans le temps sera possible avec
+l'intitulé des SSID et celui des pièces sur le plan ».
+
+- **Registre des équipements (#960) = fiche de parc** : champs facultatifs catégorie, type, désignation, modèle,
+  n° de série, lab, compte, stockage, profil, parcours, mise en service ; l'import accepte ces colonnes (en-têtes d'un
+  inventaire) ; une ligne se rattache à la fiche par MAC, IP, n° de série, ou par le nom quand elle n'a ni MAC ni IP ;
+  la modification d'une fiche par le formulaire garde ses champs de parc.
+- **Plusieurs MAC par terminal** (Wi-Fi, Ethernet, Bluetooth, adresses virtuelles) : liste séparée par `,` `;` ou
+  espaces ; la MAC matérielle (non administrée localement) devient la principale ; toutes servent aux rapprochements
+  (Nebula, historique, baux) ; « +N » dans le tableau.
+- **« 📊 Parc, baux, déplacements »** (Équipements du site), sur 7 / 30 / 90 / 365 jours, d'après l'historique horaire
+  des clients (#872, relève permanente toutes les heures) :
+  - Synthèse : catégorie × lab, avec / sans MAC ;
+  - Associations : fiche sans MAC dont le nom est celui qu'UN seul appareil annonce sur le réseau (nom DHCP,
+    « E11 AmpIm » = « E11-AmpIm ») → « Associer » (une ou toutes) : MAC (et IP) écrites, source « appris (nom réseau) » ;
+  - Baux DHCP : changements d'IP d'une même MAC, IP passées d'un appareil à un autre ;
+  - Déplacements : changement de pièce / SSID / borne ; la pièce est celle de la borne inscrite au registre (champ Local) ;
+  - MAC inconnues : vues sur le réseau, absentes du registre → « ＋ inscrire » pré-remplit une fiche ;
+  - fiche ouverte : « où a-t-il été ? » (pièce · SSID · borne · IP, du / au).
+- API nebula-api : `GET /sites/<s>/reperage/parc?jours=`, `POST /sites/<s>/reperage/parc/associer`,
+  `GET /sites/<s>/reperage/parc/terminal/<id>` ; logique pure `nebula/api/parc.py`.
+
+Vérifié : `nebula/tests/test_parc.py` (synthèse, association et ambiguïtés, inconnus, baux, IP réattribuées,
+déplacements avec pièce, champs de parc, plusieurs MAC, routes avec historique réel #872, import par nom, formulaire qui
+garde la fiche), `test_reperage.py`, `test_client_history.py`, `reperageLib.test.mjs`, syntaxe JSX ; import de
+l'inventaire du campus (220 terminaux, 48 à plusieurs MAC) validé hors dépôt. Non vérifié : build, rendu réel, noms
+DHCP réels des terminaux dans Nebula.
+
 ## 2026-11-04 — livraison #970 : Data RF — clé d'un SSID choisie dans une liste, proposée d'après le SSID
 
 Question : « je dois garder la clé au coffre en mémoire ? il n'y a pas moyen d'avoir un remplissage automatique ? ».
