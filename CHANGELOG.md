@@ -1,3 +1,15 @@
+## 2026-11-05 — livraison #973 : équipements du site — plan, tableau, calque, remontée vers l'amont
+
+- **Mise en page** : le plan est à gauche, réduit ou étendu (« ⤢ Étendre », bord étirable) et reste visible pendant que le tableau défile à droite dans son propre cadre (en-tête fixe, défilement vertical et horizontal). Colonnes à afficher et largeurs réglables (« ⚙ Colonnes », réglages mémorisés pour le compte) ; colonnes de parc disponibles (catégorie, lab, modèle, n° de série, compte, espace du plan), masquées par défaut.
+- **Fiche à la demande** : panneau qui s'ouvre sur « ＋ Équipement », un clic sur une ligne ou un marqueur, et se ferme (✕). Cliquer le plan place la fiche ouverte ; fiche fermée, le plan ne fait rien.
+- **Calque du plan** (« ✏️ Calque ») : délimiter des espaces ou des zones par des polygones (cliquer les angles, recliquer le premier point ferme), poser des étiquettes typées (nom d'espace, spot, zone, note), renommer, effacer, puis « 💾 Enregistrer le calque ». « ◱ Symbolique » estompe l'image pour ne garder que le calque et les équipements. Stockage : un fichier JSON par site dans les données de nebula-api (`reperage/calques/`), API `GET|PUT /sites/<site>/reperage/calque`.
+- **Pièce des bornes** (déplacements #971) : à défaut du champ Local, l'espace du calque qui contient la borne positionnée, ou l'étiquette « spot » qui porte son nom Nebula.
+- **⬆ Remonter vers l'amont** (fiche d'un terminal) : borne ou commutateur qui le sert, puis commutateurs jusqu'à la passerelle, avec les ports, d'après le synoptique ; terminal déconnecté : depuis son dernier raccordement connu (historique des clients). Les équipements amont inscrits et posés sur le plan sont entourés et reliés. « 🗺 Synoptique » et « 🗺 dans le synoptique » ouvrent Nebula › Carte des VLAN, mis au point sur le terminal ou l'équipement (`?view=nebula&tab=vlan&mac=…|name=…`).
+- **Correctif** : Nebula publie le SSID d'un client en objet `{name, security}` : il s'affichait brut dans la colonne Nebula, et la relève horaire de l'historique des clients (#872) échouait à l'écriture (d'où « dernière relève du réseau : — »). Le nom du SSID est extrait partout.
+
+Vérifié : tests nebula (test_parc, test_reperage, test_client_history : 27 réussis ; le reste de la suite nebula a les mêmes 7 échecs qu'avant, liés au bac à sable), tests hub planCalqueLib, reperageLib, tableLayout ; syntaxe des .jsx (esbuild).
+Non vérifié : rendu dans un navigateur (plan étiré, en-tête fixe, panneau), relève Nebula réelle après le correctif SSID.
+
 ## 2026-11-05 — livraison #972 : écarts de nom entre le registre et le réseau
 
 - **Parc › onglet « Écarts de nom »** : terminal inscrit dont une MAC est vue sur le réseau (relevé Nebula) sous un AUTRE nom que sa fiche — tablette renommée, étiquette échangée, ou inventaire qui attribue la MAC au mauvais appareil. La ligne indique la fiche qui porte le nom annoncé, quand il y en a une. Le nombre d'écarts apparaît sur l'onglet et dans la Synthèse. Pas d'écart quand l'appareil n'annonce pas de nom (Nebula affiche alors sa MAC) ni quand le nom réseau commence par celui de la fiche (« MED-05-Mediateurs » pour « Med-05 »).

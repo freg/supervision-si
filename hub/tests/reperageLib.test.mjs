@@ -84,3 +84,23 @@ test("#971 : parc -- horodatage, lieu, fiche depuis une MAC inconnue", async () 
   const f = ficheDepuisInconnu({ mac: "aa:bb:cc:00:00:01", nom_reseau: "E11-AmpIm", ip: "172.16.20.11", fabricant: "Samsung" });
   assert.equal(f.nom, "E11-AmpIm"); assert.equal(f.note, "fabricant : Samsung"); assert.equal(f.id, null);
 });
+
+test("#973 : remontée d'un terminal vers la passerelle, par MAC ou depuis le dernier appareil connu", async () => {
+  const { chaineAmont } = await import("../src/reperageLib.js");
+  const tree = { nodes: [
+    { id: "gw", name: "USG", kind: "gateway", status: "online", parent: null },
+    { id: "sw", name: "XS1930", kind: "switch", status: "online", parent: "gw", parent_port: "8" },
+    { id: "ap", name: "WBE660S-1", kind: "ap", status: "online", parent: "sw", parent_port: "12", mac: "BC:CF:4F:00:00:01",
+      clients: [{ mac: "E4-9F-7D-BD-A5-7E", name: "E11-AmpIm" }] },
+  ] };
+  const eqs = [{ id: "b1", nom: "WBE660S 1" }, { id: "s1", nom: "Commutateur cœur", mac: "bc:cf:4f:00:00:09" }];
+  const c = chaineAmont(tree, { macs: ["e4:9f:7d:bd:a5:7e"] }, eqs);
+  assert.deepEqual(c.map((x) => [x.nom, x.port_parent, x.parent, x.fiche?.id || null, x.connecte]),
+    [["WBE660S-1", "12", "XS1930", "b1", true], ["XS1930", "8", "USG", null, true], ["USG", null, null, null, true]]);
+  const d = chaineAmont(tree, { macs: ["aa:aa:aa:aa:aa:aa"], appareil: "WBE660S-1" }, eqs);
+  assert.equal(d.length, 3); assert.equal(d[0].connecte, false);
+  assert.deepEqual(chaineAmont(tree, { macs: [] }, eqs), []);
+  assert.deepEqual(chaineAmont(null, { macs: ["x"] }), []);
+  const boucle = { nodes: [{ id: "a", name: "A", parent: "b", clients: [{ mac: "x" }] }, { id: "b", name: "B", parent: "a" }] };
+  assert.equal(chaineAmont(boucle, { macs: ["x"] }).length, 2);   // jamais de boucle infinie
+});

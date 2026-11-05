@@ -223,3 +223,27 @@ export function lieuTexte(l) {
 export function ficheDepuisInconnu(x) {
   return { ...EQUIPEMENT_VIDE, nom: x?.nom_reseau || "", mac: x?.mac || "", ip: x?.ip || "", note: x?.fabricant ? `fabricant : ${x.fabricant}` : "" };
 }
+
+// #973 : remonter d'un terminal vers ses équipements amont (borne ou commutateur qui le sert, puis commutateurs jusqu'à la
+// passerelle) d'après l'arbre du synoptique (/sites/<id>/topology). Terminal absent de l'arbre (pas connecté) : on part du
+// dernier appareil connu (historique des clients). -> [{id, nom, type, etat, port_parent, fiche}] du plus proche au plus loin.
+const nomNorm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const macNorm = (m) => String(m || "").toLowerCase().replace(/-/g, ":");
+export function chaineAmont(tree, { macs = [], appareil = "" } = {}, eqs = []) {
+  const nodes = tree?.nodes || [];
+  const parId = new Map(nodes.map((n) => [n.id, n]));
+  const mesMacs = new Set(macs.map(macNorm).filter(Boolean));
+  let n = nodes.find((x) => (x.clients || []).some((c) => mesMacs.has(macNorm(c.mac))));
+  const connecte = !!n;
+  if (!n && appareil) n = nodes.find((x) => nomNorm(x.name) === nomNorm(appareil) || x.id === appareil);
+  const fiche = (x) => eqs.find((e) => (e.nom && nomNorm(e.nom) === nomNorm(x.name)) || (x.mac && [e.mac, ...(e.macs || [])].some((m) => m && macNorm(m) === macNorm(x.mac))));
+  const out = [];
+  const vus = new Set();
+  while (n && !vus.has(n.id)) {
+    vus.add(n.id);
+    const p = n.parent ? parId.get(n.parent) : null;
+    out.push({ id: n.id, nom: n.name, type: n.kind, etat: n.status, port_parent: p ? n.parent_port : null, parent: p ? p.name : null, fiche: fiche(n) || null, connecte });
+    n = p;
+  }
+  return out;
+}

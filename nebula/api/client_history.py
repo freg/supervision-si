@@ -60,6 +60,8 @@ def ts(v, default=None):
 def _first(c, *keys):
     for k in keys:
         v = c.get(k)
+        if isinstance(v, dict):   # #973 : Nebula publie le SSID en objet {name, security} -- un dict cassait l'écriture SQLite
+            v = v.get("name") or v.get("ssid") or v.get("id")
         if v not in (None, "", []):
             return v if not isinstance(v, (int, float)) else str(v)
     return None

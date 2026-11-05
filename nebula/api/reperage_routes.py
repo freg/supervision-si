@@ -20,6 +20,7 @@ import uuid
 from flask import jsonify, request, send_from_directory, Response
 
 import reperage as lib
+import calque as calque_lib  # #973 : calque du plan (espaces, étiquettes)
 import parc  # #971 : parc des terminaux, association MAC <-> terminal, changements de bail
 
 SCHEMA = """
@@ -557,6 +558,35 @@ def register(app, hooks):
             conn.close()
         return jsonify({"supprime": n}), 200
 
+    # -- #973 : calque du plan (espaces délimités, étiquettes typées), un fichier JSON par site à côté des photos ---------------
+    dossier_calques = os.path.join(os.path.dirname(db_path), "reperage", "calques")
+
+    def _fichier_calque(site_id):
+        return os.path.join(dossier_calques, "%s.json" % (re.sub(r"[^A-Za-z0-9_-]", "", site_id)[:80] or "site"))
+
+    def _calque(site_id):
+        try:
+            with open(_fichier_calque(site_id), encoding="utf-8") as fh:
+                return json.load(fh)
+        except (OSError, ValueError):
+            return {"formes": [], "etiquettes": []}
+
+    @app.route("/sites/<site_id>/reperage/calque", methods=["GET"])
+    def reperage_calque_get(site_id):
+        return jsonify(_calque(site_id)), 200
+
+    @app.route("/sites/<site_id>/reperage/calque", methods=["PUT"])
+    def reperage_calque_put(site_id):
+        c, err = calque_lib.valider(request.get_json(silent=True))
+        if err:
+            return jsonify({"error": err}), 400
+        os.makedirs(dossier_calques, exist_ok=True)
+        tmp = _fichier_calque(site_id) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(c, fh, ensure_ascii=False)
+        os.replace(tmp, _fichier_calque(site_id))
+        return jsonify(c), 200
+
     # -- #971 : parc des terminaux, association MAC <-> terminal, changements de bail DHCP -------------------------------------
     def _historique(site_id, depuis):
         """Clients vus (relève horaire #872) et sessions depuis `depuis` ; tables absentes = listes vides."""
@@ -585,7 +615,7 @@ def register(app, hooks):
         return jsonify({"site_id": site_id, "jours": jours, "derniere_releve": poll, "erreur": err,
                         "synthese": parc.synthese(eqs), "propositions": parc.associer(eqs, vus), "ecarts": parc.ecarts_noms(eqs, vus),
                         "inconnus": parc.inconnus(vus, eqs, now - jours * 86400)[:300], "baux": parc.baux(sess, eqs),
-                        "deplacements": parc.deplacements(sess, eqs)["changements"][:300]}), 200
+                        "deplacements": parc.deplacements(sess, eqs, calque=_calque(site_id))["changements"][:300]}), 200
 
     @app.route("/sites/<site_id>/reperage/parc/terminal/<eid>", methods=["GET"])
     def reperage_parc_terminal(site_id, eid):
@@ -602,7 +632,7 @@ def register(app, hooks):
             return jsonify({"id": eid, "nom": e.get("nom"), "lieux": [], "message": "pas de MAC : associer d'abord la fiche (Parc › associations proposées)"}), 200
         _v, sess, _p, err = _historique(site_id, int(time.time()) - jours * 86400)
         mine = set(lib.macs_de(e))
-        d = parc.deplacements([x for x in sess if x["mac"] in mine], eqs)
+        d = parc.deplacements([x for x in sess if x["mac"] in mine], eqs, calque=_calque(site_id))
         lieux = sorted([l for m in mine for l in d["par_mac"].get(m, [])], key=lambda l: l["de"])
         return jsonify({"id": eid, "nom": e.get("nom"), "mac": e["mac"], "macs": sorted(mine), "lieux": lieux, "erreur": err}), 200
 

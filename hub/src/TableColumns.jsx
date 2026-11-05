@@ -10,7 +10,9 @@ import { normalizeLayout, visibleColumns, toggleHidden, setWidth, resetWidth, re
   autoKeys, rawLayout, autoToggle, autoCss, clampWidth } from "./tableLayout.js";
 
 export function useTableColumns(tableId, columns) {
-  const [layout, setLayout] = useState(() => normalizeLayout(readLocal(tableId), columns));
+  // #973 : `defaultHidden: true` sur une colonne = masquée tant que la personne n'a rien réglé
+  const defaut = () => ({ widths: {}, hidden: columns.filter((c) => c.defaultHidden && !c.fixed).map((c) => c.id) });
+  const [layout, setLayout] = useState(() => normalizeLayout(readLocal(tableId) ?? defaut(), columns));
   const touched = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -29,7 +31,7 @@ export function useTableColumns(tableId, columns) {
     toggle: (id) => update(toggleHidden(layout, columns, id)),
     resize: (id, w, save = true) => (save ? update(setWidth(layout, id, w)) : setLayout(setWidth(layout, id, w))),
     autoWidth: (id) => update(resetWidth(layout, id)),
-    reset: () => update({ widths: {}, hidden: [] }),
+    reset: () => update(defaut()),
     isDefault: isDefault(layout),
     tableStyle: sized ? { tableLayout: "fixed", width: "max-content", minWidth: "100%" } : undefined,
   };

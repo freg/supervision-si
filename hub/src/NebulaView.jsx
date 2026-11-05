@@ -59,7 +59,8 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
   const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get("tab") || etatMemorise("NebulaView", "tab"); return TABS.some((x) => x.key === t) ? t : "veille"; } catch { return "veille"; } });
   useEffect(() => { memoriserEtat("NebulaView", "tab", tab); }, [tab]);   // #874
   const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
-  const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
+  // #566 : fiche à montrer dans le synoptique ; #973 : aussi depuis l'adresse (?view=nebula&tab=vlan&mac=… ou &name=…)
+  const [focus, setFocus] = useState(() => { try { const p = new URLSearchParams(window.location.search); return p.get("mac") || p.get("name") ? { mac: p.get("mac") || undefined, name: p.get("name") || undefined } : null; } catch { return null; } });
   const [siteId, setSiteId] = useState("");
   useEffect(() => {
     fetch(`${nebulaApiBase}/health-board?hours=1`, { credentials: "include" }).then((r) => r.json()).then((d) => { if (d?.sites?.[0]) setSiteId(d.sites[0].site_id); }).catch(() => {});

@@ -13,7 +13,8 @@
 import re
 import unicodedata
 
-from reperage import macs_de
+import calque as calque_lib
+from reperage import macs_de, nom_ssid
 
 
 def norm_nom(s):
@@ -64,7 +65,7 @@ def inconnus(vus, eqs, depuis=0):
     connues = {m for e in eqs for m in macs_de(e)}
     out = [{"mac": v["mac"], "ip": v.get("ip"), "nom_reseau": v.get("name"), "fabricant": v.get("manufacturer"),
             "derniere_vue": v.get("last_seen"), "premiere_vue": v.get("first_seen"),
-            "ou": v.get("ssid") or (("%s port %s" % (v.get("device"), v.get("port"))) if v.get("device") else None), "vlan": v.get("vlan")}
+            "ou": nom_ssid(v.get("ssid")) or (("%s port %s" % (v.get("device"), v.get("port"))) if v.get("device") else None), "vlan": v.get("vlan")}
            for v in vus or [] if v.get("mac") and v["mac"] not in connues and (v.get("last_seen") or 0) >= depuis]
     return sorted(out, key=lambda x: -(x["derniere_vue"] or 0))
 
@@ -98,22 +99,35 @@ def baux(sessions, eqs):
             "ip_partagees": sorted(partagees, key=lambda p: -max(x["a"] for x in p["macs"]))}
 
 
-def pieces_des_bornes(eqs):
-    """Bornes et commutateurs inscrits au registre -> {nom normalisé: pièce} (champ local, sinon lab)."""
-    return {norm_nom(e["nom"]): (e.get("local") or e.get("lab")) for e in eqs if e.get("nom") and (e.get("local") or e.get("lab"))}
+def pieces_des_bornes(eqs, calque=None):
+    """Bornes et commutateurs -> {nom normalisé: pièce}. Pièce = champ local (sinon lab) de la fiche ; à défaut (#973), espace du
+    calque du plan qui contient la fiche positionnée, ou l'étiquette « spot » qui porte le nom de la borne."""
+    out = {}
+    for t in (calque or {}).get("etiquettes") or []:
+        if t["type"] == "spot":
+            p = calque_lib.espace_de(calque, t["x"], t["y"])
+            if p:
+                out[norm_nom(t["texte"])] = p
+    for e in eqs:
+        if not e.get("nom"):
+            continue
+        p = e.get("local") or e.get("lab") or calque_lib.espace_de(calque, e.get("x"), e.get("y"))
+        if p:
+            out[norm_nom(e["nom"])] = p
+    return out
 
 
-def deplacements(sessions, eqs, limite=500):
+def deplacements(sessions, eqs, limite=500, calque=None):
     """Localisation dans le temps d'un terminal inscrit : à chaque session (#872), le SSID, la borne (ou le port du commutateur) et
     la pièce de cette borne sur le plan (registre). -> {par_mac: {mac: [{de, a, ip, ssid, borne, port, vlan, piece}]},
     changements: [{mac, nom, at, de, vers}]} -- un changement = autre pièce, autre SSID ou autre borne."""
     noms = {m: (e.get("nom") or e.get("ip")) for e in eqs for m in macs_de(e)}
-    pieces = pieces_des_bornes(eqs)
+    pieces = pieces_des_bornes(eqs, calque)
     par_mac, changements = {}, []
     for s in sorted(sessions or [], key=lambda s: (s["mac"], s["start"])):
         if s["mac"] not in noms:
             continue
-        lieu = {"de": s["start"], "a": s["end"], "ip": s.get("ip"), "ssid": s.get("ssid"), "borne": s.get("device"), "port": s.get("port"),
+        lieu = {"de": s["start"], "a": s["end"], "ip": s.get("ip"), "ssid": nom_ssid(s.get("ssid")), "borne": s.get("device"), "port": s.get("port"),
                 "vlan": s.get("vlan"), "piece": pieces.get(norm_nom(s.get("device")))}
         par_mac.setdefault(s["mac"], []).append(lieu)
     cle = lambda l: (l["piece"] or l["borne"], l["ssid"])

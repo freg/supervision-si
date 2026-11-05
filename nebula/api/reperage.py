@@ -75,7 +75,7 @@ def inventaire(sw_clients, ap_clients, site_clients, devices, now=None):
         dev = c.get("connectedTo") or c.get("connectedDeviceId")
         ws = c.get("wifiStation") or {}
         oh = c.get("osHostname") or {}
-        r.update({"type": "wifi", "borne_id": dev, "borne": _nom_appareil(dev, devices) if dev else r["borne"], "ssid": c.get("ssid") or r["ssid"],
+        r.update({"type": "wifi", "borne_id": dev, "borne": _nom_appareil(dev, devices) if dev else r["borne"], "ssid": nom_ssid(c.get("ssid")) or r["ssid"],
                   "signal": ws.get("signal") if isinstance(ws, dict) else None, "bande": ws.get("band") if isinstance(ws, dict) else None,
                   "canal": ws.get("channel") if isinstance(ws, dict) else None, "ip": c.get("ipv4Address") or r["ip"],
                   "nom": r["nom"] or (oh.get("hostname") if isinstance(oh, dict) else None), "description": r["description"] or c.get("description"),
@@ -467,6 +467,15 @@ def mac_locale(m):
         return bool(int(m[:2], 16) & 2)
     except (TypeError, ValueError):
         return False
+
+
+def nom_ssid(v):
+    """#973 : nom d'un SSID quel que soit son format Nebula (texte, objet {name, security}, ou objet déjà écrit en texte)."""
+    if isinstance(v, dict):
+        return v.get("name") or v.get("ssid") or None
+    t = str(v or "").strip()
+    m = re.match(r"""^\{.*['"]name['"]\s*:\s*['"]([^'"]*)['"]""", t)
+    return (m.group(1) if m else t) or None
 
 
 def mac_ras(m):

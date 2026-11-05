@@ -114,6 +114,33 @@ class TestParc(unittest.TestCase):
         t = cl.get("/sites/s1/reperage/parc/terminal/%s?jours=400" % eq["id"]).get_json()
         self.assertEqual(t["lieux"][0]["ssid"], "Campus")
         self.assertEqual(cl.get("/sites/s1/reperage/parc/terminal/zz").status_code, 404)
+        # #973 : calque du plan
+        self.assertEqual(cl.get("/sites/s1/reperage/calque").get_json()["formes"], [])
+        self.assertEqual(cl.put("/sites/s1/reperage/calque", json={"formes": [{"nom": "x", "points": [[0, 0], [1, 1]]}]}).status_code, 400)
+        r = cl.put("/sites/s1/reperage/calque", json={"formes": [{"nom": "Studio", "points": [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]}],
+                                                       "etiquettes": [{"type": "spot", "texte": "AP-1", "x": 0.2, "y": 0.2}]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(cl.get("/sites/s1/reperage/calque").get_json()["formes"][0]["nom"], "Studio")
+
+    def test_ssid_objet_et_calque(self):   # #973
+        import client_history as CH
+        import calque as C
+        f = CH.merge(None, [{"macAddress": "aa:00:00:00:00:01", "ssid": {"name": "Numeria", "security": "WPA2_PSK"}, "devId": "d1"}], None, {"d1": "AP-1"}, now=5)
+        self.assertEqual(next(iter(f.values()))["ssid"], "Numeria")
+        self.assertEqual(R.nom_ssid({"name": "Numeria", "security": "WPA2_PSK"}), "Numeria")
+        self.assertEqual(R.nom_ssid("{'name': 'Numeria', 'security': 'WPA2_PSK'}"), "Numeria")
+        self.assertEqual(R.nom_ssid("Campus"), "Campus")
+        self.assertIsNone(R.nom_ssid(None))
+        cal, err = C.valider({"formes": [{"nom": "Bâtiment", "type": "zone", "points": [[0, 0], [1, 0], [1, 1], [0, 1]]},
+                                         {"nom": "Studio", "points": [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]]}],
+                              "etiquettes": [{"type": "spot", "texte": "AP-Studio", "x": 0.1, "y": 0.1}]})
+        self.assertIsNone(err)
+        self.assertEqual(C.espace_de(cal, 0.2, 0.2), "Studio")      # l'espace prime sur la zone qui l'englobe
+        self.assertEqual(C.espace_de(cal, 0.8, 0.8), "Bâtiment")
+        self.assertIsNone(C.espace_de(cal, None, 0.1))
+        self.assertEqual(C.valider({"etiquettes": [{"type": "x", "texte": "a", "x": 0, "y": 0}]})[1][:12], "étiquette 1 ")
+        p = P.pieces_des_bornes([{"id": "b", "nom": "AP-Hall", "x": 0.9, "y": 0.9}], cal)
+        self.assertEqual(p, {"apstudio": "Studio", "aphall": "Bâtiment"})
 
 
 if __name__ == "__main__":
