@@ -1,3 +1,23 @@
+## Hub « politique » (vue décideurs) avec présentation générée et réglette temporelle (2026-11-05) — DEMANDÉ, À CADRER
+- Demande : « hub politique, intégrant une génération automatique de pptx ou équivalent en ligne avec réglette temporelle
+  permettant de voir l'évolution ».
+- Vue pour décideurs : peu de mots, non technique, quelques indicateurs (état, risques, avancement des chantiers, coûts).
+- Présentation générée automatiquement depuis les données du hub (fichier .pptx téléchargeable ET présentation en ligne).
+- Réglette temporelle : faire glisser la date pour revoir l'état à un instant donné et l'évolution (instantanés datés).
+- À cadrer : indicateurs retenus, public (direction, client), fréquence des instantanés, confidentialité (aucune donnée
+  technique précise dans ce qui sort du hub).
+
+## Principe transversal : remonter le fil des liens depuis n'importe quel point (2026-11-05) — PRINCIPE PERMANENT
+- Demande : « toujours penser à l'utilisateur qui, à partir d'un événement ou simplement d'une consultation, veut remonter
+  le fil des liens : synoptique réseau, catégorie d'usage et d'usagers, proximité physique et temporelle ».
+- Règle de conception pour toute nouvelle vue : chaque élément affiché (événement, alerte, terminal, équipement, volume,
+  ticket…) propose les liens vers ce qui lui est rattaché :
+  - réseau : amont / aval dans le synoptique (premier pas : « ⬆ Remonter vers l'amont » #973) ;
+  - usage et usagers : catégorie, lab, compte, profil, parcours (registre / parc #971) ;
+  - proximité physique : même espace ou même zone du plan (calque #973), même borne, même commutateur ;
+  - proximité temporelle : ce qui s'est passé juste avant / après (événements, déplacements, baux, alertes) dans une fenêtre réglable.
+- À terme : un panneau « Liens » commun réutilisable par toutes les vues, plutôt que des liens ajoutés vue par vue.
+
 ## Onglet « Espaces disques / données » : configuration matérielle, volumes, extension, alertes (2026-11-05) — DEMANDÉ, À FAIRE (prochaine session)
 - Demande : « un onglet espaces disques/data — identifier par catégories (rôle, LAN, hébergeur) la configuration matérielle,
   les volumes, les possibilités d'extension, les niveaux d'alerte ».
