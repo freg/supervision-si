@@ -1,3 +1,11 @@
+## 2026-11-06 — livraison #984 : tuile « Démonstrations »
+
+- **Hub › 🎞 Démonstrations** (thème Réseau, à côté des flux éditeurs) : liste des parcours de `demo/parcours` avec leurs variables modifiables (ex. la tablette suivie) et « ▶ Générer » — la visite tourne en job de la tour de contrôle (`./scripts/demo.sh`), bouton « en cours » puis terminé / échec avec son journal. Visites générées en vignettes (première capture) : « ▶ Diaporama » (ouvert dans un nouvel onglet), « ⬇ PowerPoint », « ⬇ HTML » (fichier autonome à envoyer), « ⚠ n » liste les éléments introuvables pendant la visite.
+- **services-api** (`demos.py`, logique pure) : `GET /demos`, `POST /demos/lancer` (parcours connu, variables restreintes et citées), `GET /demos/<dossier>/<fichier>` (noms contrôlés, jamais de chemin libre). Mêmes droits que la tour de contrôle.
+
+Vérifié : tests services/api test_demos (listes, fichiers contrôlés dont tentative de remontée de dossier, commande et refus d'une variable dangereuse) ; tests hub ; syntaxe.
+Non vérifié : génération réelle depuis la tuile (job de la tour), rendu dans un navigateur.
+
 ## 2026-11-06 — livraison #983 : correctif de l'outil de démonstration
 
 - Premier lancement réel : « No module named 'playwright' » — dans l'image officielle, le paquet Python n'est pas visible pour l'utilisateur non root sous lequel la visite tourne (fichiers de sortie au nom du propriétaire du dépôt). Installé pour tous dans `demo/Dockerfile`, à la version des navigateurs de l'image (1.48.0), `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`.

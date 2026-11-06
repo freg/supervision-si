@@ -95,6 +95,7 @@ export const PATHS = {
   "view:flux-editeurs": ["equipements/reseau/wifi", "droits/acces"],   // #962 : flux sortants exigés par les éditeurs
   "view:equipements-site": ["equipements/reseau/wifi"],   // #960 : registre des équipements du site
   "view:audit-securite": ["equipements/reseau/wifi", "droits/acces"],   // #958 : audit de sécurité réseau
+  "view:demos": ["services/hub", "equipements/reseau/wifi"],   // #984 : démonstrations automatisées
   "view:datarf": ["equipements/reseau/wifi", "etats/maintenant"],   // #806 : sondes radio des sites
   "view:ssh-tunnels": ["equipements/reseau/tunnels", "droits/acces"],
   "front:mikrotik": ["equipements/reseau/routeurs", "droits/acces"],

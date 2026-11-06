@@ -676,6 +676,40 @@ def job_get(jid):
     return jsonify(meta), 200
 
 
+# -- #984 : tuile « Démonstrations » (visites automatisées du hub, demo/ et scripts/demo.sh) -----------------------
+import demos as demos_lib  # noqa: E402
+
+
+@app.route("/demos", methods=["GET"])
+def demos_liste():
+    err = _need_project()
+    if err:
+        return err
+    return jsonify({"parcours": demos_lib.parcours(PROJECT_DIR), "visites": demos_lib.visites(PROJECT_DIR)}), 200
+
+
+@app.route("/demos/lancer", methods=["POST"])
+def demos_lancer():
+    err = _need_project()
+    if err:
+        return err
+    b = request.get_json(silent=True) or {}
+    connus = {x["id"] for x in demos_lib.parcours(PROJECT_DIR)}
+    cmd, e = demos_lib.commande(str(b.get("parcours") or ""), b.get("variables") or {}, connus)
+    if e:
+        return jsonify({"error": e}), 400
+    return jsonify(launch_job("demo", "démonstration %s" % b["parcours"], [{"label": "visite et fabrication", "cmd": cmd}], g.user["username"])), 200
+
+
+@app.route("/demos/<dossier>/<nom>", methods=["GET"])
+def demos_fichier(dossier, nom):
+    from flask import send_file
+    p = demos_lib.fichier(PROJECT_DIR, dossier, nom) if PROJECT_DIR else None
+    if not p:
+        return jsonify({"error": "fichier inconnu"}), 404
+    return send_file(p, mimetype=demos_lib.type_mime(nom), as_attachment=nom.endswith(".pptx"), download_name=nom, max_age=0)
+
+
 # -- #816 : tentatives en échec dans « Mises à jour » jusqu'à résolution, puis archivées pour retraitement ----------
 ARCHIVE_DIR = "jobs-archive"
 
