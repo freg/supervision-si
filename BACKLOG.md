@@ -40,7 +40,7 @@
   volumes et alertes, et contrôle que la copie du premier vers le second est à jour : dernière exécution, volume copié, écarts).
 - À cadrer à l'ouverture : où vit l'onglet (thématique Sauvegardes, Supervision, ou Données) et liste des machines à couvrir.
 
-## Réplication du hub vers le campus (prodia), filtrée par données et par rôles (2026-11-05) — DEMANDÉ, À CADRER
+## Réplication du hub vers le campus (prodia), filtrée par données et par rôles (2026-11-05) — CADRÉ le 06/11 (docs/hub-campus.md : autonome + remontée, VM sur prodia, Keycloak satellite filtré sur le groupe numeria, 5 tranches)
 - Demande : « prévoir une réplication du hub filtré sur les données et les rôles, vers le campus sur prodia ».
 - À cadrer : sens (lecture seule sur le campus ou écriture locale remontée), périmètre des données (site du campus :
   Nebula, registre / parc, flux, Data RF, sondes ; jamais les autres clients ni le coffre), rôles Keycloak du campus,
