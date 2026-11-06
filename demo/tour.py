@@ -21,21 +21,35 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 
 
 def connecter(page, base, user, mdp, journal):
+    """#985 : le hub affiche d'abord « Connexion en cours… » puis, sans session, un accueil avec un bouton de connexion :
+    on attend l'un des trois états (connecté, formulaire Keycloak, accueil), on clique la connexion si besoin, on remplit
+    le formulaire, et on vérifie qu'on est bien connecté (bouton « Se déconnecter »)."""
+    import re as _re
     page.goto(base, wait_until="domcontentloaded", timeout=60000)
-    try:
-        page.wait_for_selector("#username, #kc-form-login, .hub-shell", timeout=30000)
-    except Exception:  # noqa: BLE001
-        pass
-    if page.query_selector("#username"):
-        if not user or not mdp:
-            raise SystemExit("connexion Keycloak demandée : renseigner DEMO_USER et DEMO_PASSWORD dans le .env")
-        page.fill("#username", user)
-        page.fill("#password", mdp)
-        page.click("#kc-login")
-        page.wait_for_load_state("networkidle", timeout=60000)
-        if page.query_selector("#username"):
+    connecte = 'button:has-text("Se déconnecter")'
+    fin = time.time() + 90
+    clique, rempli = False, False
+    while time.time() < fin:
+        if page.query_selector(connecte):
+            journal.append("connecté%s" % (" en %s" % user if rempli else " (session existante)"))
+            return
+        if page.query_selector("#username") and not rempli:
+            if not user or not mdp:
+                raise SystemExit("connexion Keycloak demandée : renseigner DEMO_USER et DEMO_PASSWORD dans le .env")
+            page.fill("#username", user)
+            page.fill("#password", mdp)
+            page.click("#kc-login")
+            rempli = True
+        elif rempli and page.query_selector("#username") and page.query_selector(".kc-feedback-text, #input-error, .alert-error"):
             raise SystemExit("connexion refusée par Keycloak pour %s (mot de passe ? compte désactivé ?)" % user)
-        journal.append("connecté en %s" % user)
+        elif not clique and not rempli:
+            b = page.get_by_role("button", name=_re.compile(r"connecter|connexion|s.identifier", _re.I))
+            if b.count():
+                b.first.click()
+                clique = True
+        page.wait_for_timeout(1000)
+    page.screenshot(path="/tmp/connexion-echec.png")
+    raise SystemExit("connexion au hub impossible en 90 s (ni bouton « Se déconnecter », ni formulaire Keycloak) : vérifier DEMO_HUB_URL")
 
 
 def etape(page, base, e, masquer_css, journal):
@@ -94,6 +108,8 @@ def main():
     base = os.environ.get("DEMO_HUB_URL", "").strip()
     if not base:
         raise SystemExit("DEMO_HUB_URL vide : renseigner l'adresse du hub dans le .env")
+    if not base.startswith(("http://", "https://")):   # #985 : « supervision.exemple.fr » -> https://…
+        base = "https://" + base
     horo = time.strftime("%Y%m%d-%H%M")
     out = os.path.join(a.sortie, L.nom_dossier(p["id"], horo))
     os.makedirs(out, exist_ok=True)

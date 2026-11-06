@@ -1,3 +1,10 @@
+## 2026-11-06 — livraison #985 : la visite de démonstration se connecte vraiment
+
+- Premier passage réel : aucune connexion, toutes les captures montraient l'accueil public et aucun onglet n'était trouvé. Le hub affiche d'abord « Connexion en cours… » (`.hub-shell`, pris pour une session ouverte), puis un accueil avec un bouton de connexion. La visite attend désormais l'un des états (connecté = bouton « Se déconnecter », formulaire Keycloak, accueil), clique la connexion, remplit le formulaire, vérifie la session ; échec explicite au bout de 90 s au lieu de captures inutiles.
+- `DEMO_HUB_URL` sans `https://` (« supervision.exemple.fr ») : préfixe ajouté.
+
+Vérifié : visite complète contre un faux hub reproduisant la séquence (attente, accueil, bouton, formulaire, rechargement) : « connecté en demo » puis captures. Non vérifié : vrai Keycloak.
+
 ## 2026-11-06 — livraison #984 : tuile « Démonstrations »
 
 - **Hub › 🎞 Démonstrations** (thème Réseau, à côté des flux éditeurs) : liste des parcours de `demo/parcours` avec leurs variables modifiables (ex. la tablette suivie) et « ▶ Générer » — la visite tourne en job de la tour de contrôle (`./scripts/demo.sh`), bouton « en cours » puis terminé / échec avec son journal. Visites générées en vignettes (première capture) : « ▶ Diaporama » (ouvert dans un nouvel onglet), « ⬇ PowerPoint », « ⬇ HTML » (fichier autonome à envoyer), « ⚠ n » liste les éléments introuvables pendant la visite.

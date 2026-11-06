@@ -1,5 +1,11 @@
 [
  {
+  "n": 985,
+  "from": 985,
+  "date": "2026-11-06",
+  "title": "Démonstrations : la visite se connecte vraiment au hub (accueil, bouton de connexion, formulaire Keycloak) avant de capturer ; adresse du hub sans « https:// » acceptée"
+ },
+ {
   "n": 984,
   "from": 984,
   "date": "2026-11-06",
