@@ -29,3 +29,20 @@ test("étiquette courte", async () => {
   assert.equal(etiquette({ titre: "x".repeat(60) }).length, 40);
   assert.equal(etiquette({ code: "a.b" }), "a.b");
 });
+
+test("#977 : erreurs des agents -- ignorer pour la journée, lien vers l'onglet de l'objet", async () => {
+  const L = await import("../src/defautsLib.js");
+  const items = [{ cle: "sonde|probe-alert|wifi-probe", agent_id: "sonde", kind: "probe-alert" }, { cle: "nas|agent-offline|", agent_id: "nas", kind: "agent-offline" },
+    { cle: "|fleet-blocked|", agent_id: null, kind: "fleet-blocked" }];
+  assert.deepEqual(L.lienAgent(items[0]), { view: "si-agent", agent: "sonde", section: "plugins" });
+  assert.deepEqual(L.lienAgent(items[2]), { view: "si-agent", tab: "events" });
+  assert.equal(L.sectionDuGenre("command-block"), "historique");
+  assert.equal(L.sectionDuGenre("inconnu"), "logs");
+  let c = L.basculerIgnore({ vieux: "2026-11-05" }, items[0].cle, true, "2026-11-06");
+  assert.deepEqual(c, { [items[0].cle]: "2026-11-06" });                     // la veille est oubliée
+  assert.deepEqual(L.actifs(items, c, "2026-11-06").map((x) => x.agent_id), ["nas", null]);
+  assert.equal(L.actifs(items, c, "2026-11-07").length, 3);                 // le lendemain : de nouveau à traiter
+  c = L.basculerIgnore(c, items[0].cle, false, "2026-11-06");
+  assert.deepEqual(c, {});
+  assert.equal(L.aujourdhui(new Date(2026, 10, 6, 23, 59).getTime()), "2026-11-06");
+});

@@ -5,9 +5,12 @@
 //   « ignorer » (case à cocher, jusqu'à réapparition), la copie / le téléchargement du rapport à transmettre, la vue concernée.
 import { useCallback, useEffect, useState } from "react";
 import { hubLink } from "./hubLinks.js";
-import { fetchEventsSummary } from "./siAgentClient.js";
-import { bannerTone, bannerHeadline } from "./siAgent.js";
-import { defautsAffiches, ignores, resume, nomFichier, etiquette } from "./defautsLib.js";
+import { eventKindLabel } from "./siAgent.js";
+import { defautsAffiches, ignores, resume, nomFichier, etiquette, lienAgent, CLE_IGNORE_JOUR, ignoresDuJour, basculerIgnore, actifs } from "./defautsLib.js";
+
+const lireIgnores = () => { try { return JSON.parse(localStorage.getItem(CLE_IGNORE_JOUR) || "{}") || {}; } catch { return {}; } };
+const ecrireIgnores = (c) => { try { localStorage.setItem(CLE_IGNORE_JOUR, JSON.stringify(c)); } catch { /* stockage indisponible */ } };
+const heure = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
 
 async function appel(base, token, chemin, init = {}) {
   const r = await fetch(`${base}${chemin}`, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}`, ...(init.body ? { "Content-Type": "application/json" } : {}) } });
@@ -23,7 +26,10 @@ const ETIQ = { display: "inline-flex", alignItems: "center", gap: 4, background:
 export default function BandeauAlertes({ notifyApiBase, token, siAgentApiBase, onOuvrirAgents }) {
   const [rep, setRep] = useState(null);
   const [panne, setPanne] = useState(null);
-  const [agents, setAgents] = useState(null);       // {tone, titre} | {injoignable}
+  const [agents, setAgents] = useState(null);       // #977 : {items} | {injoignable}
+  const [menuAgents, setMenuAgents] = useState(false);
+  const [ignJour, setIgnJour] = useState(lireIgnores);
+  const [voirIgnJour, setVoirIgnJour] = useState(false);
   const [busy, setBusy] = useState(null);
   const [rapport, setRapport] = useState(null);     // {d, texte}
   const [copie, setCopie] = useState(false);
@@ -34,7 +40,8 @@ export default function BandeauAlertes({ notifyApiBase, token, siAgentApiBase, o
         .catch((e) => { if (e.status === 401 || e.status === 403) { setRep(null); setPanne(null); } else setPanne(e.message); });
     }
     if (siAgentApiBase) {
-      fetchEventsSummary(siAgentApiBase, 24).then((s) => setAgents(s?.error ? { injoignable: true } : { tone: bannerTone(s), titre: bannerHeadline(s) })).catch(() => setAgents({ injoignable: true }));
+      fetch(`${siAgentApiBase}/events/a-traiter?hours=24`).then(async (r) => { const j = await r.json(); setAgents(r.ok ? { items: j.items || [] } : { injoignable: j.error || r.status }); })
+        .catch((e) => setAgents({ injoignable: e.message }));
     }
   }, [notifyApiBase, token, siAgentApiBase]);
   useEffect(() => { charger(); const t = setInterval(charger, 60000); return () => clearInterval(t); }, [charger]);
@@ -68,7 +75,26 @@ export default function BandeauAlertes({ notifyApiBase, token, siAgentApiBase, o
   if (panne) ds.unshift({ id: "panne", panne: true, code: "notify.injoignable", titre: "Défauts majeurs invisibles : notify-api ne répond pas",
     message: `notify-api ne répond pas (${panne}). Vérifier le service notify-api (docker ps) et VITE_NOTIFY_API_BASE_URL dans le .env, puis reconstruire le hub.` });
   const ign = ignores(rep?.defauts);
-  const agentsRouge = agents && (agents.tone === "bad" || agents.injoignable);
+  const aTraiter = actifs(agents?.items, ignJour);
+  const ignAujourdhui = (agents?.items || []).filter((x) => ignoresDuJour(ignJour)[x.cle]);
+  const agentsRouge = agents && (aTraiter.length > 0 || agents.injoignable);
+  const ignorerJour = (cle, oui) => { const c = basculerIgnore(ignJour, cle, oui); setIgnJour(c); ecrireIgnores(c); };
+  const ligneAgent = (x, ignore) => {
+    const l = lienAgent(x);
+    return (
+      <div key={x.cle} style={{ display: "flex", gap: 8, alignItems: "baseline", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <strong>{x.agent_id || "flotte"}</strong> — {eventKindLabel(x.kind)}{x.tache ? ` (${x.tache.replace(/^plugin:/, "")})` : ""}{x.n > 1 ? ` ×${x.n}` : ""}
+          {x.derniere && <span className="muted"> · {heure(x.derniere)}</span>}
+          {x.message && <div className="muted" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={x.message}>{x.message}</div>}
+        </span>
+        <label style={{ whiteSpace: "nowrap", fontSize: 11 }} title="Ne plus le compter aujourd'hui (revient demain s'il persiste)">
+          <input type="checkbox" checked={!!ignore} onChange={(e) => ignorerJour(x.cle, e.target.checked)} /> ignorer aujourd'hui
+        </label>
+        <a href={hubLink(l.view, Object.fromEntries(Object.entries(l).filter(([k]) => k !== "view")))} style={{ whiteSpace: "nowrap", fontSize: 12 }}>résoudre →</a>
+      </div>
+    );
+  };
   if (!ds.length && !agentsRouge && !rapport) return null;
 
   const lv = rapport && lienVue(rapport.d.lien);
@@ -78,7 +104,31 @@ export default function BandeauAlertes({ notifyApiBase, token, siAgentApiBase, o
     <div role="alert" style={{ flex: "0 0 auto", margin: "4px 12px", padding: "4px 8px", border: "1px solid var(--danger)", background: "var(--danger-bg)", borderRadius: 6,
       display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
       {agentsRouge && (
-        <button type="button" style={ETIQ} onClick={onOuvrirAgents} title={agents.injoignable ? "Agents hôtes : central injoignable" : agents.titre}>⛔ Agents</button>
+        <span style={{ position: "relative" }}>
+          <button type="button" style={ETIQ} onClick={() => setMenuAgents(!menuAgents)} aria-expanded={menuAgents}
+            title={agents.injoignable ? "Agents hôtes : central injoignable" : `${aTraiter.length} erreur(s) à traiter — clic : la liste`}>
+            ⛔ Agents{aTraiter.length ? <span style={{ fontWeight: 400 }}> {aTraiter.length}</span> : null} ▾
+          </button>
+          {menuAgents && (
+            <div className="panel" style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60, width: "min(640px, 92vw)", maxHeight: "60vh", overflow: "auto",
+              padding: 8, border: "1px solid var(--danger)", boxShadow: "0 8px 24px var(--bg)" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                <strong style={{ flex: 1 }}>Erreurs des agents à traiter (24 h)</strong>
+                <button type="button" className="secondary" onClick={() => { setMenuAgents(false); onOuvrirAgents && onOuvrirAgents(); }}>Agents hôtes</button>
+                <button type="button" className="secondary" onClick={() => setMenuAgents(false)} aria-label="fermer">✕</button>
+              </div>
+              {agents.injoignable && <p className="error" style={{ margin: 0 }}>Central des agents injoignable ({String(agents.injoignable)}) : vérifier le service si-agent-api.</p>}
+              {aTraiter.map((x) => ligneAgent(x, false))}
+              {!agents.injoignable && !aTraiter.length && <p className="muted" style={{ margin: 0 }}>rien à traiter</p>}
+              {ignAujourdhui.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" className="secondary" style={{ fontSize: 11 }} onClick={() => setVoirIgnJour(!voirIgnJour)}>ignorées aujourd'hui ({ignAujourdhui.length}) {voirIgnJour ? "▴" : "▾"}</button>
+                  {voirIgnJour && ignAujourdhui.map((x) => ligneAgent(x, true))}
+                </div>
+              )}
+            </div>
+          )}
+        </span>
       )}
       {ds.map((d) => (
         <button key={d.id} type="button" style={ETIQ} onClick={() => ouvrir(d)} title={`${d.titre}${d.occurrences ? ` — ${resume(d)}` : ""} · clic : détail et journal`}>

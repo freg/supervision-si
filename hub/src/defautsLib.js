@@ -37,3 +37,33 @@ export function etiquette(d) {
   const t = String(d?.titre || d?.code || "défaut").split(" : ")[0].trim();
   return t.length > 40 ? t.slice(0, 39) + "…" : t;
 }
+
+// -- #977 : erreurs à traiter des agents (si-agent /events/a-traiter) : ignorer pour la journée, lien vers l'objet --------
+const SECTION_GENRE = {
+  "probe-alert": "plugins", "plugin-failed": "plugins", "plugin-blocked": "plugins", "plugin-refused": "plugins",
+  "backup-alert": "sauvegardes", "sauvegarde": "sauvegardes", "disk-full": "disks",
+  "auth-refused": "settings", "central-auth-refused": "settings", "config-replayed": "settings", "agent-blocked": "settings",
+  "agent-offline": "resume", "command": "historique",
+};
+export const sectionDuGenre = (kind) => SECTION_GENRE[kind] || (String(kind || "").startsWith("command") ? "historique" : "logs");
+
+/** Lien de résolution : la fiche de l'agent, sur l'onglet de l'objet en cause ; sans agent, le journal des événements. */
+export function lienAgent(item) {
+  return item?.agent_id ? { view: "si-agent", agent: item.agent_id, section: sectionDuGenre(item.kind) } : { view: "si-agent", tab: "events" };
+}
+
+export const CLE_IGNORE_JOUR = "hub.alertes.ignore-jour";
+export function aujourdhui(maintenant = Date.now()) {
+  const d = new Date(maintenant);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/** {cle: "AAAA-MM-JJ"} -> seulement les clés ignorées aujourd'hui (les jours passés sont oubliés). */
+export function ignoresDuJour(carte, jour = aujourdhui()) {
+  return Object.fromEntries(Object.entries(carte || {}).filter(([, j]) => j === jour));
+}
+export function basculerIgnore(carte, cle, oui, jour = aujourdhui()) {
+  const c = ignoresDuJour(carte, jour);
+  if (oui) c[cle] = jour; else delete c[cle];
+  return c;
+}
+export const actifs = (items, carte, jour = aujourdhui()) => (items || []).filter((x) => !ignoresDuJour(carte, jour)[x.cle]);

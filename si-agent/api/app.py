@@ -963,6 +963,13 @@ def events_summary_route():
     return jsonify(store.events_summary(DB_PATH, hours=hours, offline_after_seconds=OFFLINE_AFTER_SECONDS)), 200
 
 
+@app.route("/events/a-traiter", methods=["GET"])
+def events_a_traiter_route():
+    """#977 : erreurs à traiter (bandeau du hub) -- critiques regroupées et non rétablies, agents hors ligne / bloqués."""
+    hours = max(1, min(request.args.get("hours", 24, type=int), 24 * 30))
+    return jsonify(store.events_a_traiter(DB_PATH, hours=hours, offline_after_seconds=OFFLINE_AFTER_SECONDS)), 200
+
+
 @app.route("/notifications/test", methods=["POST"])
 def notifications_test_route():
     body = request.get_json(silent=True) or {}

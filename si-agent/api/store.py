@@ -354,6 +354,27 @@ def events_summary(db_path, hours=24, offline_after_seconds=300):
     }
 
 
+def events_a_traiter(db_path, hours=24, offline_after_seconds=300):
+    """#977 : erreurs à traiter (critiques regroupées et non rétablies, agents hors ligne / bloqués) -- voir a_traiter.py."""
+    import a_traiter
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - hours * 3600))
+    genres = sorted(a_traiter.GENRES_RETABLISSEMENT)
+    conn = _connect(db_path)
+    try:
+        rows = [_event_public(r) for r in conn.execute(
+            "SELECT * FROM events WHERE at >= ? AND COALESCE(muted, 0) = 0 AND (severity = 'critical' OR kind IN (%s)) ORDER BY at, id"
+            % ",".join("?" * len(genres)), [since] + genres).fetchall()]
+    finally:
+        conn.close()
+    agents = fleet(db_path, offline_after_seconds=offline_after_seconds)
+    items = a_traiter.regrouper(rows, [a["agent_id"] for a in agents if a["online"] == "offline"], [a["agent_id"] for a in agents if a["blocked"]])
+    fb = fleet_block(db_path)
+    if fb.get("blocked"):
+        items.insert(0, {"cle": "|fleet-blocked|", "agent_id": None, "kind": "fleet-blocked", "tache": None, "severity": "critical", "n": 1,
+                         "premiere": fb.get("at"), "derniere": fb.get("at"), "message": "blocage général des sondes : %s" % (fb.get("reason") or "")})
+    return {"hours": hours, "since": since, "items": items}
+
+
 def purge_events(db_path, retention_days):
     if not retention_days or retention_days <= 0:
         return 0

@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #977 : erreurs des agents à traiter, ignorer pour la journée, résoudre sur l'objet
+
+- **Constat** : sondes en échec mises en pause, l'étiquette « ⛔ Agents » restait rouge — elle comptait les critiques des dernières 24 h, sans tenir compte de ce qui était réglé.
+- **si-agent-api `GET /events/a-traiter?hours=24`** (`a_traiter.py`, logique pure) : critiques regroupées par agent, genre et tâche de sonde (nombre, première et dernière, dernier message), RETIRÉES dès qu'un événement de rétablissement les suit (sonde revenue, sauvegarde rétablie, agent de nouveau en ligne, déblocage), plus les agents hors ligne, bloqués, et le blocage général. Clé stable par élément.
+- **Étiquette « ⛔ Agents N ▾ »** : menu des erreurs à traiter ; pour chacune, « ignorer aujourd'hui » (case à cocher, mémorisée dans le navigateur, revient le lendemain si le problème persiste ; liste « ignorées aujourd'hui » pour décocher) et « résoudre → » qui ouvre la fiche de l'agent sur l'onglet de l'objet en cause (Sondes, Sauvegardes, Disques, Réglages, Historique, Journal). L'étiquette disparaît quand il ne reste rien à traiter.
+
+Vérifié : tests si-agent (test_a_traiter : regroupement, rétablissement, hors ligne, bloqué), tests hub defautsLib (ignorer pour la journée, liens) ; syntaxe (esbuild).
+Non vérifié : rendu dans un navigateur, données réelles des agents.
+
 ## 2026-11-06 — livraison #976 : calendrier d'activité localisé par terminal, borne des clients Wi-Fi
 
 - **Format réel relevé sur le campus** (ap-clients v2) : la borne est dans `connectedTo` (et non `connected_device_id`), le VLAN dans `wifiStation.vlan`, le système dans `osHostname.os`, le SSID en objet. L'historique des clients n'enregistrait donc pas la borne des clients Wi-Fi (« Raccordé à : — · Numeria ») : impossible de les situer. Lu désormais, ainsi que `connectedPort` des clients de commutateur.
