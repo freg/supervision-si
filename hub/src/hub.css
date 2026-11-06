@@ -2979,3 +2979,16 @@ tr:hover .ft-mini, tr:focus-within .ft-mini, .ft-mini:focus-visible { visibility
 .flux-editeurs a, .flux-editeurs a:visited { color: var(--accent); }
 .flux-editeurs a.button { display: inline-block; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); text-decoration: none; }
 .flux-editeurs a.button:hover { border-color: var(--accent); }
+
+/* #978 : cadre « panel » (fiche d'équipement, menus d'alertes, parc, import…) -- jamais défini jusqu'ici : le contenu
+   s'affichait sans fond, par-dessus le tableau. Fond plein, bordure, ombre pour les panneaux flottants. */
+.panel {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.panel[role="dialog"] {
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}

@@ -1,3 +1,9 @@
+## 2026-11-06 — livraison #978 : fond des panneaux
+
+- La classe `panel` (fiche d'équipement ouverte en panneau, menu « ⛔ Agents », rapport d'un défaut, parc, import, barre du calque) n'était définie nulle part : le panneau était transparent et son texte se mêlait au tableau en dessous. Défini dans `hub.css` : fond `--panel`, bordure, coins arrondis, et ombre pour les panneaux flottants (`role="dialog"`).
+
+Vérifié : tests hub. Non vérifié : rendu dans un navigateur.
+
 ## 2026-11-06 — livraison #977 : erreurs des agents à traiter, ignorer pour la journée, résoudre sur l'objet
 
 - **Constat** : sondes en échec mises en pause, l'étiquette « ⛔ Agents » restait rouge — elle comptait les critiques des dernières 24 h, sans tenir compte de ce qui était réglé.
