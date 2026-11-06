@@ -25,3 +25,7 @@ correction du format de hubUpdates.json → fusion `-s ours` d'origin/dev, versi
 
 **Freg** : ajouter « supprimer » dans les cases diaporama. **Claude** (#992) : bouton « 🗑 Supprimer » par visite,
 `DELETE /demos/<dossier>` côté services-api.
+
+**Freg** : liste des réseaux en menu déroulant pour les parcours qui en demandent ; où trouve-t-on les réseaux dans le
+hub ? **Claude** (#993) : les variables `terminal` / `nom_reseau` désignent une tablette ; menu des terminaux du registre
+Équipements du site (nom réseau = nom annoncé vu par Nebula). Réseaux au sens SSID / VLAN : Nebula (onglets).

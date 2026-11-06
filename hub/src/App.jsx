@@ -1795,7 +1795,7 @@ vm === "agent-page" ? (
       ) : vm === "reperage" ? (
         <ReperageView onBack={goBack} nebulaApiBase={NEBULA_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "demos" ? (
-        <DemosView onBack={goBack} apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} />
+        <DemosView onBack={goBack} apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} nebulaApiBase={NEBULA_API_BASE_URL} />
       ) : vm === "flux-editeurs" ? (
         <FluxView onBack={goBack} nebulaApiBase={NEBULA_API_BASE_URL} actor={loginForLayout} />
       ) : vm === "equipements-site" ? (

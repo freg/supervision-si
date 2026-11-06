@@ -3,14 +3,45 @@
 // API : services-api /demos (parcours, visites), /demos/lancer (job de la tour), /demos/<dossier>/<fichier>.
 import { useCallback, useEffect, useState } from "react";
 import BoutonDetail from "./FenetreTexte.jsx";
+import { SITE_KEY } from "./reperageLib.js";
+import { demandeTerminal, optionsTerminaux, valeursTerminal } from "./demosLib.js";   // #993
 
-export default function DemosView({ onBack, apiBase, accessToken }) {
+async function getJsonCookie(url) {
+  const r = await fetch(url, { credentials: "include" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${r.status}`);
+  return j;
+}
+function siteMemorise() { try { return JSON.parse(localStorage.getItem(SITE_KEY) || "null") || ""; } catch { return ""; } }
+
+export default function DemosView({ onBack, apiBase, accessToken, nebulaApiBase }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
   const [vars, setVars] = useState({});           // {parcours: {nom: valeur}}
   const [jobs, setJobs] = useState({});           // {parcours: {id, status, log}}
   const [apercus, setApercus] = useState({});     // {dossier: blobURL}
   const [suppr, setSuppr] = useState({});         // #992 : {dossier: true} pendant la suppression
+  // #993 : terminaux du registre « Équipements du site » (Nebula) pour les parcours à variables terminal / nom_reseau
+  const [sites, setSites] = useState([]);
+  const [siteId, setSiteId] = useState(siteMemorise);
+  const [terminaux, setTerminaux] = useState(null);   // null = non chargé ; [] = aucun
+  const [errTerm, setErrTerm] = useState(null);
+  const besoinTerminal = !!nebulaApiBase && (d?.parcours || []).some((p) => demandeTerminal(p.variables));
+  useEffect(() => {
+    if (!besoinTerminal) return;
+    getJsonCookie(`${nebulaApiBase}/reperage/sites`).then((x) => {
+      const s = x.sites || [];
+      setSites(s);
+      setSiteId((cur) => (cur && s.some((y) => y.site_id === cur) ? cur : s[0]?.site_id || ""));
+    }).catch((e) => setErrTerm(`sites Nebula : ${e.message}`));
+  }, [besoinTerminal, nebulaApiBase]);
+  useEffect(() => {
+    if (!besoinTerminal || !siteId) return;
+    setTerminaux(null);
+    getJsonCookie(`${nebulaApiBase}/sites/${encodeURIComponent(siteId)}/reperage/equipements`)
+      .then((x) => { setTerminaux(optionsTerminaux(x.equipements)); setErrTerm(null); })
+      .catch((e) => { setTerminaux([]); setErrTerm(`équipements du site : ${e.message}`); });
+  }, [besoinTerminal, nebulaApiBase, siteId]);
   const entete = { Authorization: `Bearer ${accessToken}` };
 
   const charger = useCallback(async () => {
@@ -102,7 +133,25 @@ export default function DemosView({ onBack, apiBase, accessToken }) {
             <tr key={p.id}>
               <td><strong>{p.titre}</strong><div className="muted" style={{ fontSize: 12 }}>{p.sous_titre}</div></td>
               <td>{p.etapes}</td>
-              <td>{Object.entries(p.variables || {}).map(([k, v0]) => (
+              <td>{demandeTerminal(p.variables) && nebulaApiBase && (() => {
+                const courant = vars[p.id]?.terminal ?? p.variables.terminal ?? "";
+                const courantReseau = vars[p.id]?.nom_reseau ?? p.variables.nom_reseau ?? "";
+                const choisi = (terminaux || []).find((o) => ("terminal" in p.variables ? o.terminal === courant : o.nom_reseau === courantReseau));
+                return (
+                  <div style={{ marginBottom: 4 }}>
+                    {sites.length > 1 && <select value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="site" style={{ marginRight: 4 }}>
+                      {sites.map((s) => <option key={s.site_id} value={s.site_id}>{s.name || s.site_id}</option>)}
+                    </select>}
+                    <select value={choisi ? choisi.terminal : ""} aria-label="terminal du registre" style={{ maxWidth: 260 }}
+                      onChange={(e) => { const o = (terminaux || []).find((x) => x.terminal === e.target.value); if (o) setVars((x) => ({ ...x, [p.id]: { ...(x[p.id] || {}), ...valeursTerminal(o, p.variables) } })); }}>
+                      <option value="">{terminaux === null ? "⏳ chargement des terminaux…" : terminaux.length ? `— choisir parmi ${terminaux.length} terminaux —` : "— aucun terminal dans le registre —"}</option>
+                      {(terminaux || []).map((o) => <option key={o.terminal} value={o.terminal}>{o.libelle}{o.vu ? "" : " · non vu"}</option>)}
+                    </select>
+                    {errTerm && <> <BoutonDetail texte={errTerm} titre="Liste des terminaux indisponible" urgence="alerte" libelle="⚠" /></>}
+                  </div>
+                );
+              })()}
+              {Object.entries(p.variables || {}).map(([k, v0]) => (
                 <label key={k} style={{ display: "block", fontSize: 12 }}>{k} <input value={vars[p.id]?.[k] ?? v0} onChange={(e) => setVars((x) => ({ ...x, [p.id]: { ...(x[p.id] || {}), [k]: e.target.value } }))} style={{ width: 140 }} /></label>
               ))}</td>
               <td style={{ whiteSpace: "nowrap" }}>

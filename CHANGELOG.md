@@ -1,3 +1,15 @@
+## 2026-11-06 — livraison #993 : Démonstrations, terminal choisi dans une liste
+
+- **Hub › Démonstrations** : pour les parcours à variables `terminal` / `nom_reseau` (ex. « Mise à jour à distance :
+  suivre un terminal »), menu déroulant des terminaux du registre **Équipements du site** (nebula-api
+  `/sites/<site>/reperage/equipements`, site mémorisé comme dans cette vue, choix du site s'il y en a plusieurs).
+  Le choix remplit les deux champs : nom du registre et nom réseau vu par Nebula (à défaut, le nom aux espaces
+  remplacés par des tirets) ; « non vu » si Nebula ne le voit pas. Les champs restent modifiables à la main.
+- Logique pure `hub/src/demosLib.js`, testée (`hub/tests/demosLib.test.mjs`).
+
+Vérifié : tests hub (demosLib ; suite complète : 2 échecs PRÉEXISTANTS hors périmètre — hubBusiness « deux chemins »,
+hubIconSet emoji 🔌 🧵 sans pastille), syntaxe DemosView.jsx / App.jsx. Non vérifié : build, rendu navigateur.
+
 ## 2026-11-06 — livraison #992 : Démonstrations, bouton « Supprimer » sur chaque visite
 
 - **Hub › Démonstrations** : bouton « 🗑 Supprimer » dans chaque case de visite (confirmation, « ⏳ suppression… »
