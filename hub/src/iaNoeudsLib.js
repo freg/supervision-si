@@ -97,3 +97,13 @@ export function agentAJour(version, min = VERSION_AGENT_MIN) {
   for (let i = 0; i < b.length; i++) { const x = a[i] || 0; if (x !== b[i]) return x > b[i]; }
   return true;
 }
+
+/** #998 : réponse de /ia/<nœud>/api/version -> {ok, texte}. Une page HTML = la passerelle ne connaît pas le nœud. */
+export function diagnosticNoeud(statut, typeContenu) {
+  const t = String(typeContenu || "");
+  if (statut === 200 && t.includes("json")) return { ok: true, texte: "en service" };
+  if (statut === 200) return { ok: false, texte: "la passerelle ne sert pas encore ce nœud (réponse du hub au lieu de hermes-web)" };
+  if (statut === 401 || statut === 403) return { ok: false, texte: statut === 403 ? "accès refusé : groupe « ia » requis" : "refusé (jeton du nœud ou session) — se reconnecter ; si ça persiste, redéployer le nœud" };
+  if (statut === 502 || statut === 504) return { ok: false, texte: "hermes-web ne répond pas sur le nœud (déploiement en cours, ou adresse / publication du bastion)" };
+  return { ok: false, texte: `réponse ${statut}` };
+}

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { hubLink } from "./hubLinks.js";
 import IaDeploiement from "./IaDeploiement.jsx";   // #996
-import { PAGES_IA, cheminNoeud, noeudRetenu, pageDeVue } from "./iaNoeudsLib.js";
+import { PAGES_IA, cheminNoeud, noeudRetenu, pageDeVue, diagnosticNoeud } from "./iaNoeudsLib.js";
 
 const MEMO = "hub.ia.noeud";
 const lireMemo = () => { try { return localStorage.getItem(MEMO) || ""; } catch { return ""; } };
@@ -29,6 +29,15 @@ export default function IaNoeudView({ onBack, servicesApiBase, siAgentApiBase, a
       .catch((e) => setRep({ erreur: e.message }));
   }, [servicesApiBase, rev]);
   useEffect(() => { if (rep?.noeuds) setNoeud(noeudRetenu(rep.noeuds, lireMemo()) || ""); }, [rep]);
+  // #998 : le nœud est-il servi par la passerelle ? (sinon /ia/<nœud>/ retombe sur le hub : réponse HTML, pas JSON)
+  const [servi, setServi] = useState(null);
+  useEffect(() => {
+    if (!noeud) return;
+    setServi(null);
+    fetch(`${cheminNoeud(noeud, "api/version")}`, { credentials: "include" })
+      .then((r) => setServi(diagnosticNoeud(r.status, r.headers.get("content-type"))))
+      .catch((e) => setServi({ ok: false, texte: `injoignable : ${e.message}` }));
+  }, [noeud, rev]);
 
   const choisir = (n) => { setNoeud(n); ecrireMemo(n); };
   const base = noeud ? cheminNoeud(noeud, "").replace(/\/$/, "") : "";
@@ -72,7 +81,11 @@ export default function IaNoeudView({ onBack, servicesApiBase, siAgentApiBase, a
       {rep?.noeuds && rep.noeuds.length === 0 && (
         <p className="error">Aucun nœud IA déclaré. {admin ? "Le déployer ci-dessus (🚀 Déployer…)." : "Un administrateur le déploie depuis cette tuile (🚀 Déployer…)."}</p>
       )}
-      {src && (
+      {src && servi && !servi.ok && (
+        <p className="error">Nœud {noeud} : {servi.texte} — <a href={hubLink("services", { tab: "deliveries" })}>Tour › Livraisons &amp; jobs</a> (job « nœud IA … : déclaration dans la passerelle »).</p>
+      )}
+      {src && servi === null && <p className="muted">⏳ vérification du nœud {noeud}…</p>}
+      {src && servi?.ok && (
         <iframe key={src} title={`${titre} — ${noeud}`} src={src}
           style={{ width: "100%", height: haut, border: "1px solid var(--border)", borderRadius: 8, background: "var(--panel)" }} />
       )}

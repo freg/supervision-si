@@ -70,3 +70,11 @@ test("#996 version d'agent suffisante", () => {
   assert.equal(agentAJour("0.6.43"), true); assert.equal(agentAJour("0.6.100"), true); assert.equal(agentAJour("0.7"), true);
   assert.equal(agentAJour("0.6.42"), false); assert.equal(agentAJour(""), false); assert.equal(agentAJour("x.y"), false);
 });
+
+import { diagnosticNoeud } from "../src/iaNoeudsLib.js";
+test("#998 diagnostic d'un nœud servi ou non par la passerelle", () => {
+  assert.equal(diagnosticNoeud(200, "application/json").ok, true);
+  assert.match(diagnosticNoeud(200, "text/html; charset=utf-8").texte, /ne sert pas encore/);
+  assert.match(diagnosticNoeud(403, "text/html").texte, /groupe/);
+  assert.match(diagnosticNoeud(502, "text/html").texte, /ne répond pas/);
+});

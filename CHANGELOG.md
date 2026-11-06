@@ -1,3 +1,13 @@
+## 2026-11-06 — livraison #998 : tuile Hermes, plus de hub affiché dans lui-même
+
+- Quand la passerelle ne sert pas encore `/ia/<nœud>/` (nœud non déclaré, job de la passerelle en échec), la page du
+  nœud retombait sur le hub, qui s'affichait dans le cadre de la tuile à l'infini. Le cadre n'est plus ouvert tant que
+  `/ia/<nœud>/api/version` ne répond pas en JSON : message précis (pas encore servi, groupe, hermes-web injoignable)
+  avec lien vers les jobs de la tour ; et le hub refuse de s'afficher dans un cadre sous /ia/.
+
+Vérifié : tests hub (diagnostic), syntaxe ; configuration nginx des routes /ia/ validée par `nginx -t` (bloc isolé).
+Non vérifié : rendu navigateur.
+
 ## 2026-11-06 — livraison #997 : déployer Hermes / atelier / apprentissage sur un nœud IA depuis le hub
 
 - **Hub › Hermes › 🚀 Déployer…** (administrateurs) : 1) dépôt de l'archive de hermes-web (commande `git archive` du
