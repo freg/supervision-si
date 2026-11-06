@@ -20,12 +20,31 @@ import build
 ICI = os.path.dirname(os.path.abspath(__file__))
 
 
+ERREURS_PASSAGERES = ("ERR_NETWORK_CHANGED", "ERR_NETWORK_IO_SUSPENDED", "ERR_INTERNET_DISCONNECTED",
+                      "ERR_CONNECTION_RESET", "ERR_CONNECTION_REFUSED", "ERR_ADDRESS_UNREACHABLE")
+
+
+def aller(page, url, journal, essais=5):
+    """#989 : avec --network host, Chromium voit les interfaces de l'hôte ; un conteneur Docker qui démarre ou s'arrête
+    (tour de contrôle, reconstruction) change le réseau et Chromium abandonne la navigation (net::ERR_NETWORK_CHANGED).
+    Erreur passagère : on réessaie quelques fois avec un délai croissant."""
+    for n in range(1, essais + 1):
+        try:
+            return page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        except Exception as exc:  # noqa: BLE001 -- playwright Error
+            code = next((c for c in ERREURS_PASSAGERES if c in str(exc)), None)
+            if not code or n == essais:
+                raise
+            journal.append("%s sur %s, nouvel essai %d/%d" % (code, url, n + 1, essais))
+            time.sleep(2 * n)
+
+
 def connecter(page, base, user, mdp, journal):
     """#985 : le hub affiche d'abord « Connexion en cours… » puis, sans session, un accueil avec un bouton de connexion :
     on attend l'un des trois états (connecté, formulaire Keycloak, accueil), on clique la connexion si besoin, on remplit
     le formulaire, et on vérifie qu'on est bien connecté (bouton « Se déconnecter »)."""
     import re as _re
-    page.goto(base, wait_until="domcontentloaded", timeout=60000)
+    aller(page, base, journal)
     connecte = 'button:has-text("Se déconnecter")'
     fin = time.time() + 90
     clique, rempli = False, False
@@ -54,7 +73,7 @@ def connecter(page, base, user, mdp, journal):
 
 def etape(page, base, e, masquer_css, journal):
     remarques = []
-    page.goto(L.url_etape(base, e), wait_until="domcontentloaded", timeout=60000)
+    aller(page, L.url_etape(base, e), journal)
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
     except Exception:  # noqa: BLE001 -- vues qui interrogent en continu : on capture quand même

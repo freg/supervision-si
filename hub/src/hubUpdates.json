@@ -1,5 +1,11 @@
 [
  {
+  "n": 989,
+  "from": 989,
+  "date": "2026-11-06",
+  "title": "Démonstration automatisée : la visite réessaie une page quand le réseau de l'hôte change (net::ERR_NETWORK_CHANGED) au lieu d'échouer ; réseau du conteneur réglable (DEMO_RESEAU)"
+ },
+ {
   "n": 988,
   "from": 988,
   "date": "2026-11-06",
