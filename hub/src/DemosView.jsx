@@ -10,6 +10,7 @@ export default function DemosView({ onBack, apiBase, accessToken }) {
   const [vars, setVars] = useState({});           // {parcours: {nom: valeur}}
   const [jobs, setJobs] = useState({});           // {parcours: {id, status, log}}
   const [apercus, setApercus] = useState({});     // {dossier: blobURL}
+  const [suppr, setSuppr] = useState({});         // #992 : {dossier: true} pendant la suppression
   const entete = { Authorization: `Bearer ${accessToken}` };
 
   const charger = useCallback(async () => {
@@ -69,6 +70,18 @@ export default function DemosView({ onBack, apiBase, accessToken }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
 
+  const supprimer = async (v) => {
+    if (!window.confirm(`Supprimer la visite du ${v.date} (${v.titre}) : diaporama, PowerPoint et captures ?`)) return;
+    setSuppr((x) => ({ ...x, [v.dossier]: true }));
+    try {
+      const r = await fetch(`${apiBase}/demos/${v.dossier}`, { method: "DELETE", headers: entete });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      await charger();
+    } catch (e) { setErr(`suppression ${v.dossier} : ${e.message}`); }
+    setSuppr((x) => { const y = { ...x }; delete y[v.dossier]; return y; });
+  };
+
   const etat = (j) => (!j ? null : j.status === "envoi" ? "⏳ envoi…" : j.status === "running" ? "⏳ visite en cours (1 à 3 min)…" : j.status === "done" ? "✓ terminée" : "✗ échec");
 
   return (
@@ -115,6 +128,7 @@ export default function DemosView({ onBack, apiBase, accessToken }) {
               {v.diaporama && <button type="button" onClick={() => ouvrir(v)}>▶ Diaporama</button>}
               {v.pptx && <button type="button" className="secondary" onClick={() => telecharger(v, v.pptx)}>⬇ PowerPoint</button>}
               {v.diaporama && <button type="button" className="secondary" onClick={() => telecharger(v, "diaporama.html")} title="fichier autonome : à envoyer ou ouvrir hors du hub">⬇ HTML</button>}
+              <button type="button" className="danger" onClick={() => supprimer(v)} disabled={!!suppr[v.dossier]}>{suppr[v.dossier] ? "⏳ suppression…" : "🗑 Supprimer"}</button>
             </p>
           </div>
         ))}

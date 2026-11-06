@@ -19,3 +19,9 @@ page Démonstrations.
 
 **Claude** (#991) : le fichier venait de la visite de 10:12 (#984, avant le correctif de connexion) ; les visites
 14:39 / 14:51 (#989) sont connectées. Captures en clair (thème du compte) → thème sombre imposé par défaut.
+
+**Freg** : `git push` refusé (non-fast-forward). **Claude** : le premier commit #989 était déjà sur GitHub avant
+correction du format de hubUpdates.json → fusion `-s ours` d'origin/dev, version locale conservée.
+
+**Freg** : ajouter « supprimer » dans les cases diaporama. **Claude** (#992) : bouton « 🗑 Supprimer » par visite,
+`DELETE /demos/<dossier>` côté services-api.

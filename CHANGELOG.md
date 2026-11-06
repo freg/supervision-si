@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #992 : Démonstrations, bouton « Supprimer » sur chaque visite
+
+- **Hub › Démonstrations** : bouton « 🗑 Supprimer » dans chaque case de visite (confirmation, « ⏳ suppression… »
+  pendant l'appel, liste rechargée ensuite). **services-api** `DELETE /demos/<dossier>` : nom de dossier contrôlé
+  (`<parcours>-<date>`), seul un dossier de `demo/sorties` contenant un manifeste est supprimé.
+
+Vérifié : tests services-api test_demos (nom non conforme, visite inconnue, dossier sans manifeste épargné,
+suppression), syntaxe app.py et DemosView.jsx. Non vérifié : rendu navigateur, droits d'écriture réels sur demo/sorties.
+
 ## 2026-11-06 — livraison #991 : démonstration, captures en thème sombre
 
 - **Outil de démonstration** : les captures suivaient le thème enregistré du compte de démonstration (clair). Le

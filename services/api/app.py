@@ -730,6 +730,18 @@ def demos_lancer():
     return jsonify(launch_job("demo", "démonstration %s" % b["parcours"], [{"label": "visite et fabrication", "cmd": cmd}], g.user["username"])), 200
 
 
+@app.route("/demos/<dossier>", methods=["DELETE"])
+def demos_supprimer(dossier):
+    """#992 : supprime une visite générée (bouton « Supprimer » des cases de la tuile Démonstrations)."""
+    err = _need_project()
+    if err:
+        return err
+    e = demos_lib.supprimer(PROJECT_DIR, dossier)
+    if e:
+        return jsonify({"error": e}), (404 if e == "visite inconnue" else 400 if "conforme" in e else 500)
+    return jsonify({"ok": True, "dossier": dossier}), 200
+
+
 @app.route("/demos/<dossier>/<nom>", methods=["GET"])
 def demos_fichier(dossier, nom):
     from flask import send_file

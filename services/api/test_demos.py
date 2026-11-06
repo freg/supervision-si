@@ -32,6 +32,15 @@ class Demos(unittest.TestCase):
         self.assertEqual(v[0]["remarques"], ["Un : élément introuvable : x"])
         self.assertEqual(D.parcours("/inexistant"), [])
 
+    def test_supprimer(self):
+        self.assertEqual(D.supprimer(self.p, "../evasion-20261106-1000"), "nom de visite non conforme")
+        self.assertEqual(D.supprimer(self.p, "idruide-20261106-0900"), "visite inconnue")
+        os.makedirs(os.path.join(self.p, "demo", "sorties", "vide-20261106-1000"))
+        self.assertEqual(D.supprimer(self.p, "vide-20261106-1000"), "visite inconnue")      # pas de manifeste : on n'y touche pas
+        self.assertIsNone(D.supprimer(self.p, "idruide-20261106-1000"))
+        self.assertEqual(D.visites(self.p), [])
+        self.assertTrue(os.path.isdir(os.path.join(self.p, "demo", "evasion-20261106-1000")))
+
     def test_fichiers_controles(self):
         self.assertTrue(D.fichier(self.p, "idruide-20261106-1000", "diaporama.html"))
         self.assertIsNone(D.fichier(self.p, "idruide-20261106-1000", "../../../etc/passwd"))

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 
 RE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,40}$")
 RE_DOSSIER = re.compile(r"^[a-z0-9][a-z0-9_-]{0,40}-\d{8}-\d{4}$")
@@ -57,6 +58,21 @@ def fichier(projet, dossier, nom):
         return None
     p = os.path.join(projet, "demo", "sorties", dossier, nom)
     return p if os.path.isfile(p) else None
+
+
+def supprimer(projet, dossier):
+    """#992 : supprime une visite (dossier demo/sorties/<parcours>-<date>) ; nom contrôlé, jamais de chemin libre.
+    Renvoie un message d'erreur, ou None si c'est fait."""
+    if not RE_DOSSIER.match(dossier or ""):
+        return "nom de visite non conforme"
+    d = os.path.join(projet, "demo", "sorties", dossier)
+    if os.path.islink(d) or not os.path.isfile(os.path.join(d, "manifeste.json")):
+        return "visite inconnue"
+    try:
+        shutil.rmtree(d)
+    except OSError as exc:
+        return "suppression impossible : %s" % exc
+    return None
 
 
 def type_mime(nom):
