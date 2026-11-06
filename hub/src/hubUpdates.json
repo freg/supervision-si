@@ -1,5 +1,11 @@
 [
  {
+  "n": 990,
+  "from": 990,
+  "date": "2026-11-06",
+  "title": "Démonstration automatisée : chaque vue est capturée connecté — reconnexion automatique si le hub revient à l'accueil, diapositive signalée sinon"
+ },
+ {
   "n": 989,
   "from": 989,
   "date": "2026-11-06",

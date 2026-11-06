@@ -1,3 +1,14 @@
+## 2026-11-06 — livraison #990 : démonstration, captures prises sur l'accueil non connecté
+
+- **Outil de démonstration** (`demo/tour.py`) : le parcours idruide a produit des diapositives montrant l'accueil
+  (« Nouvel agent / Accès sécurisé / Se connecter ») au lieu des vues : la session ne tenait pas au rechargement de
+  chaque vue. Chaque étape attend désormais la fin de la vérification de session, se reconnecte et rouvre la vue si
+  le hub est revenu à l'accueil ; si elle reste déconnectée, la diapositive porte une remarque au lieu de passer pour
+  une vraie étape. Le journal (`journal.txt`) note chaque reconnexion.
+
+Vérifié : tests demo (unittest), étape simulée (reconnexion réussie ; échec signalé).
+Non vérifié : cause exacte de la perte de session (à lire dans journal.txt du prochain passage), visite réelle.
+
 ## 2026-11-06 — livraison #989 : démonstration, navigation relancée sur net::ERR_NETWORK_CHANGED
 
 - **Outil de démonstration** (`demo/tour.py`) : le conteneur tourne en `--network host`, Chromium voit donc les

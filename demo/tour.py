@@ -71,13 +71,32 @@ def connecter(page, base, user, mdp, journal):
     raise SystemExit("connexion au hub impossible en 90 s (ni bouton « Se déconnecter », ni formulaire Keycloak) : vérifier DEMO_HUB_URL")
 
 
-def etape(page, base, e, masquer_css, journal):
-    remarques = []
-    aller(page, L.url_etape(base, e), journal)
+CONNECTE = 'button:has-text("Se déconnecter")'
+
+
+def charger_vue(page, url, journal):
+    aller(page, url, journal)
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
     except Exception:  # noqa: BLE001 -- vues qui interrogent en continu : on capture quand même
         pass
+    try:  # le hub affiche « Connexion en cours… » le temps de la vérification silencieuse de la session
+        page.wait_for_selector(CONNECTE + ', button:has-text("Se connecter")', timeout=20000)
+    except Exception:  # noqa: BLE001
+        pass
+    return bool(page.query_selector(CONNECTE))
+
+
+def etape(page, base, e, masquer_css, journal, reconnecter=None):
+    """#990 : si la vue s'ouvre sur l'accueil non connecté (session perdue au rechargement), on se reconnecte et on
+    rouvre la vue ; si elle reste déconnectée, la capture porte une remarque au lieu de passer pour une vraie étape."""
+    remarques = []
+    url = L.url_etape(base, e)
+    if not charger_vue(page, url, journal) and reconnecter:
+        journal.append("  session perdue à l'ouverture de la vue, reconnexion")
+        reconnecter()
+        if not charger_vue(page, url, journal):
+            remarques.append("hub non connecté sur cette vue (session perdue après reconnexion)")
     if masquer_css:
         page.add_style_tag(content=masquer_css)
     for s in e.get("saisir") or []:
@@ -141,11 +160,14 @@ def main():
         ctx = nav.new_context(viewport={"width": int(p.get("largeur") or 1600), "height": int(p.get("hauteur") or 900)},
                               device_scale_factor=1, ignore_https_errors=True, locale="fr-FR", color_scheme="dark")
         page = ctx.new_page()
+        reconnecter = None
         if not a.sans_connexion:
-            connecter(page, base, os.environ.get("DEMO_USER"), os.environ.get("DEMO_PASSWORD"), journal)
+            def reconnecter():
+                connecter(page, base, os.environ.get("DEMO_USER"), os.environ.get("DEMO_PASSWORD"), journal)
+            reconnecter()
         for i, e in enumerate(p["etapes"], 1):
             journal.append("%02d %s" % (i, e["titre"]))
-            rem = etape(page, base, e, masquer_css, journal)
+            rem = etape(page, base, e, masquer_css, journal, reconnecter)
             img = "%02d.png" % i
             if e.get("zone") and page.query_selector(e["zone"]):
                 page.locator(e["zone"]).first.screenshot(path=os.path.join(out, img))
