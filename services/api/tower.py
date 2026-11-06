@@ -15,6 +15,7 @@ Docker ni fichiers réels :
   seuil et plafond horaire.
 """
 import fnmatch
+import os
 import posixpath
 import json
 import re
@@ -24,6 +25,17 @@ PROTECTED = (".env", "*.local.json", "*/certs/*.key", "services/data/*")   # jam
 KEEP_IF_EXISTS = ("*/data/*", "data/*", "backups/*", "gateway/ldap-seed/*")                        # créés s'ils manquent, jamais écrasés
 IGNORED_FOR_PLAN = ("shared/VERSION.json", "shared/EXPOSURE.json", "shared/DELIVERY_NUMBER", "CHANGELOG.md", "BACKLOG.md")
 SERVICE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+# #783 : services reconstruits par lot (40 en parallèle dépassaient le délai de BuildKit sur la VM du hub) ;
+# #995 : 4 par défaut (TOWER_BUILD_BATCH), lots aussi pour la mise à jour ciblée
+try:
+    BUILD_BATCH = max(1, int(os.environ.get("TOWER_BUILD_BATCH", "4")))
+except ValueError:
+    BUILD_BATCH = 4
+
+
+def batches(names, size=None):
+    size = size or BUILD_BATCH
+    return [names[i:i + size] for i in range(0, len(names), size)]
 
 
 def norm(path):
@@ -137,6 +149,12 @@ def _under(prefix, rel):
     return prefix == "" or rel == prefix or rel.startswith(prefix + "/")
 
 
+def declenche_redemarrage(prefixe):
+    """#995 : un service qui monte le dépôt ENTIER (« . ») le lit en direct -- aucun fichier changé ne justifie de le
+    redémarrer (5 services redémarrés à chaque mise à jour pour rien : backup-restore-api, launcher, prefs-api…)."""
+    return prefixe not in ("", ".")
+
+
 def relevant_changes(changed):
     return [r for r in changed if r not in IGNORED_FOR_PLAN and not r.lower().endswith(".md")]
 
@@ -150,7 +168,7 @@ def plan_for_changes(changed, main_paths, running, main_compose="docker-compose.
     for svc, p in (main_paths or {}).items():
         if any(_under(pre, r) for pre in p["build"] for r in rel):
             rebuild.add(svc)
-        elif any(_under(pre, r) for pre in p["mounts"] for r in rel):
+        elif any(_under(pre, r) for pre in p["mounts"] if declenche_redemarrage(pre) for r in rel):
             restart.add(svc)
     compose_changed = main_compose in changed
     gateway = any(r.startswith("tls-proxy/") or r.startswith("gateway/") for r in rel)
@@ -160,8 +178,11 @@ def plan_for_changes(changed, main_paths, running, main_compose="docker-compose.
     steps = []
     if ".env.example" in changed:
         steps.append({"label": "clés .env manquantes (sync-env)", "cmd": "python3 scripts/sync-env.py"})
-    if rebuild_r:
-        steps.append({"label": "reconstruire %d service(s)" % len(rebuild_r), "cmd": "./scripts/run.sh up -d --build " + " ".join(rebuild_r)})
+    if rebuild_r:   # #995 : par lots (comme la cascade) -- une modification de shared/ touche des dizaines de services
+        lots = batches(rebuild_r)
+        for i, lot in enumerate(lots, 1):
+            steps.append({"label": "reconstruire %d service(s)%s" % (len(rebuild_r), " (lot %d/%d)" % (i, len(lots)) if len(lots) > 1 else ""),
+                          "cmd": "./scripts/run.sh up -d --build " + " ".join(lot)})
     if compose_changed and running:
         steps.append({"label": "appliquer docker-compose.yml aux services en marche", "cmd": "./scripts/run.sh up -d " + " ".join(sorted(running))})
     if restart_r:
@@ -385,11 +406,6 @@ def registry_steps(steps):
     return out
 
 
-BUILD_BATCH = 6   # #783 : services reconstruits par lot (40 en parallèle dépassaient le délai de BuildKit sur la VM du hub)
-
-
-def batches(names, size=BUILD_BATCH):
-    return [names[i:i + size] for i in range(0, len(names), size)]
 
 
 def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=(), registry=False):
@@ -560,7 +576,7 @@ def plan_rattrapage(deploye, head, diff_depuis, main_paths, running, main_compos
         if any(_under(pre, r) for pre in p["build"] for r in rel):
             rebuild.append(svc)
             details[svc] = {"depuis": h, "numero": d.get("numero"), "fichiers": [r for r in rel if any(_under(pre, r) for pre in p["build"])][:12]}
-        elif any(_under(pre, r) for pre in p["mounts"] for r in rel):
+        elif any(_under(pre, r) for pre in p["mounts"] if declenche_redemarrage(pre) for r in rel):
             restart.append(svc)
         elif main_compose in changed:
             restart.append(svc)
@@ -611,3 +627,87 @@ def estimation_maj(historique, n_services=None, services=None):
         return None
     par_service = [h["duree_s"] / float(h["n"]) for h in ok[-20:]]
     return {"estimation_s": round(_mediane(par_service) * n_services), "base": "%.0f s par service (médiane de %d constructions)" % (_mediane(par_service), len(par_service)), "echantillons": len(par_service)}
+
+
+# -- #995 : mesure d'une mise à jour (durée et charge de l'hôte par étape, comparaison à la main / par la tour) ----------
+def lire_charge(texte):
+    """Lignes du relevé du runner « epoch load1 cpu_total cpu_iowait memdispo_ko » (toutes les 5 s) -> [dict] avec
+    iowait en % calculé entre deux relevés."""
+    out, prec = [], None
+    for l in str(texte or "").splitlines():
+        v = l.split()
+        if len(v) < 5:
+            continue
+        try:
+            t, load1, tot, iow, mem = float(v[0]), float(v[1]), float(v[2]), float(v[3]), float(v[4])
+        except ValueError:
+            continue
+        iow_pct = None
+        if prec and tot > prec[0]:
+            iow_pct = round(100.0 * max(0.0, iow - prec[1]) / (tot - prec[0]), 1)
+        prec = (tot, iow)
+        out.append({"t": t, "load1": load1, "iowait": iow_pct, "mem_mo": round(mem / 1024)})
+    return out
+
+
+def lire_etapes(texte):
+    """Lignes « n debut|fin epoch [rc] » écrites par le script du job -> {n: {debut, fin, rc}}."""
+    out = {}
+    for l in str(texte or "").splitlines():
+        v = l.split()
+        if len(v) < 3 or not v[0].isdigit() or v[1] not in ("debut", "fin"):
+            continue
+        try:
+            e = out.setdefault(int(v[0]), {})
+            e[v[1]] = float(v[2])
+            if v[1] == "fin" and len(v) > 3:
+                e["rc"] = int(v[3])
+        except ValueError:
+            continue
+    return out
+
+
+def mesures_job(steps, etapes_txt, charge_txt, maintenant=None):
+    """-> {etapes: [{label, duree_s, load_max, iowait_max, mem_min_mo}], duree_s, load_max, iowait_max, mem_min_mo,
+    coeurs?} ou None sans relevé. Une étape en cours se mesure jusqu'à `maintenant`."""
+    et, ch = lire_etapes(etapes_txt), lire_charge(charge_txt)
+    if not et and not ch:
+        return None
+
+    def resume(points):
+        lo = [p["load1"] for p in points]
+        io = [p["iowait"] for p in points if p["iowait"] is not None]
+        me = [p["mem_mo"] for p in points]
+        return {"load_max": max(lo) if lo else None, "iowait_max": max(io) if io else None, "mem_min_mo": min(me) if me else None}
+
+    lignes = []
+    for i, st in enumerate(steps or [], 1):
+        e = et.get(i)
+        if not e or "debut" not in e:
+            continue
+        fin = e.get("fin") or maintenant
+        r = {"label": st.get("label"), "duree_s": round(fin - e["debut"]) if fin else None, "rc": e.get("rc"), "en_cours": "fin" not in e}
+        r.update(resume([p for p in ch if e["debut"] <= p["t"] <= (fin or p["t"])]))
+        lignes.append(r)
+    debuts = [e["debut"] for e in et.values() if "debut" in e]
+    fins = [e.get("fin") or maintenant for e in et.values() if e.get("fin") or maintenant]
+    out = {"etapes": lignes, "duree_s": round(max(fins) - min(debuts)) if debuts and fins else None}
+    out.update(resume(ch))
+    return out
+
+
+def comparer_origines(historique):
+    """#995 : constructions réussies de .maj-historique.jsonl par origine (« main » = run.sh lancé à la main, « tour » =
+    job de la tour) -> {origine: {n, secondes_par_service (médiane), services_par_lancement (médiane)}}."""
+    par = {}
+    for h in historique or []:
+        if h.get("rc") != 0 or not h.get("n") or not h.get("duree_s"):
+            continue
+        o = h.get("origine") or "main"
+        par.setdefault(o, []).append(h)
+    out = {}
+    for o, hs in par.items():
+        hs = hs[-30:]
+        out[o] = {"n": len(hs), "secondes_par_service": round(_mediane([h["duree_s"] / float(h["n"]) for h in hs])),
+                  "services_par_lancement": _mediane([h["n"] for h in hs])}
+    return out

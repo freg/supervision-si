@@ -1,5 +1,11 @@
 [
  {
+  "n": 995,
+  "from": 995,
+  "date": "2026-11-06",
+  "title": "Tour de contrôle : chaque mise à jour mesurée (durée, charge, attente disque par étape ; comparaison à la main / par la tour) et allégée (lots, priorité basse, moins de redémarrages)"
+ },
+ {
   "n": 994,
   "from": 994,
   "date": "2026-11-06",

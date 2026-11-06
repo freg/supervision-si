@@ -616,6 +616,21 @@ def _runner_env():
     return {"HOME": "/tmp/tower-home", "DOCKER_CONFIG": "/tmp/tower-home/.docker", "XDG_CACHE_HOME": "/tmp/tower-home/.cache", "PYTHONDONTWRITEBYTECODE": "1"}
 
 
+def _runner_charge():
+    """#995 : variables des jobs -- origine « tour » dans .maj-historique.jsonl (comparaison avec les lancements à la main),
+    constructions parallèles limitées (COMPOSE_PARALLEL_LIMIT, TOWER_PARALLEL_LIMIT, défaut 2)."""
+    return {"SI_MAJ_ORIGINE": "tour", "COMPOSE_PARALLEL_LIMIT": os.environ.get("TOWER_PARALLEL_LIMIT", "2")}
+
+
+def _runner_poids():
+    """#995 : poids CPU du runner face aux services (cpu_shares 1024 = normal) ; TOWER_CPU_SHARES=0 pour ne rien fixer."""
+    try:
+        n = int(os.environ.get("TOWER_CPU_SHARES", "256"))
+    except ValueError:
+        n = 256
+    return {"cpu_shares": n} if n > 0 else {}
+
+
 def launch_job(kind, label, steps, user, extra=None):
     """Écrit le script, lance un conteneur runner (même image, socket Docker,
     dépôt au même chemin) qui l'exécute et écrit journal + code retour. Le
@@ -627,11 +642,20 @@ def launch_job(kind, label, steps, user, extra=None):
         script.append("export HOST_IP=%s" % json.dumps(HOST_IP))
     script.append('echo "tour de contrôle -- job %s (%s) lancé par %s"' % (jid, kind, user))
     script.append('mkdir -p "${HOME:-/tmp}" 2>/dev/null || true')
-    for st in steps:
-        script.append('echo; echo "▶ %s"; echo "$ %s"' % (st["label"].replace('"', "'"), st["cmd"].replace('"', "'")))
-        script.append('%s || { rc=$?; echo "✗ échec (code $rc)"; exit $rc; }' % st["cmd"])
-    script.append('echo; echo "✓ terminé"')
     base = os.path.join(jobs, jid)
+    # #995 : mesure -- relevé de charge de l'hôte toutes les 5 s (loadavg, compteurs CPU dont iowait, mémoire disponible :
+    # /proc n'est pas isolé pour ces compteurs) et horodatage de chaque étape ; lu par GET /jobs/<id> (tower.mesures_job).
+    ch, et = json.dumps(base + ".charge"), json.dumps(base + ".etapes")
+    script.append("( while :; do printf '%%s %%s %%s %%s\\n' \"$(date +%%s)\" \"$(cut -d' ' -f1 /proc/loadavg)\" "
+                  "\"$(awk '/^cpu /{print $2+$3+$4+$5+$6+$7+$8, $6}' /proc/stat)\" \"$(awk '/MemAvailable/{print $2}' /proc/meminfo)\" >> %s; "
+                  "sleep 5; done ) & RELEVE=$!" % ch)
+    script.append("trap 'kill $RELEVE 2>/dev/null' EXIT")
+    for i, st in enumerate(steps, 1):
+        script.append('echo; echo "▶ %s"; echo "$ %s"' % (st["label"].replace('"', "'"), st["cmd"].replace('"', "'")))
+        script.append('echo "%d debut $(date +%%s)" >> %s' % (i, et))
+        script.append('%s; rc=$?; echo "%d fin $(date +%%s) $rc" >> %s; echo "⏱ $(( $(date +%%s) - $(awk \'$1==%d && $2=="debut"{print $3}\' %s) )) s"; '
+                      '[ $rc -eq 0 ] || { echo "✗ échec (code $rc)"; exit $rc; }' % (st["cmd"], i, et, i, et))
+    script.append('echo; echo "✓ terminé"')
     own = _owner()
     if own:                                                           # #672 : le runner (uid du dépôt) écrit .log / .rc ici
         for d in (jobs, os.path.dirname(jobs)):
@@ -641,13 +665,16 @@ def launch_job(kind, label, steps, user, extra=None):
     meta = {"id": jid, "kind": kind, "label": label, "steps": steps, "user": user, "at": time.time()}
     meta.update(extra or {})
     _write(os.path.relpath(base + ".json", PROJECT_DIR), json.dumps(meta, ensure_ascii=False, indent=2))
-    cmd = "bash %s > %s 2>&1; echo $? > %s" % (json.dumps(base + ".sh"), json.dumps(base + ".log"), json.dumps(base + ".rc"))
+    # #995 : priorité basse pour tout ce que le runner exécute lui-même (git, empreinte du dépôt, scripts) ; la
+    # construction se fait dans le démon Docker : elle est limitée par les lots et COMPOSE_PARALLEL_LIMIT.
+    bas = "nice -n 10 $(command -v ionice >/dev/null 2>&1 && echo ionice -c2 -n7) " if os.environ.get("TOWER_PRIORITE_BASSE", "1") == "1" else ""
+    cmd = "%sbash %s > %s 2>&1; echo $? > %s" % (bas, json.dumps(base + ".sh"), json.dumps(base + ".log"), json.dumps(base + ".rc"))
     try:
         app.docker_client().containers.run(
             _self_image(), ["bash", "-c", cmd], detach=True, auto_remove=True, working_dir=PROJECT_DIR,
             name="tower-job-%s" % jid, labels={"supervision-si.tower-job": jid},
             volumes=dict({"/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}, PROJECT_DIR: {"bind": PROJECT_DIR, "mode": "rw"}}, **_extra_mounts()),
-            environment=dict({"HOST_IP": HOST_IP} if HOST_IP else {}, **_runner_env()), **_runner_identity())
+            environment=dict({"HOST_IP": HOST_IP} if HOST_IP else {}, **_runner_env(), **_runner_charge()), **_runner_identity(), **_runner_poids())
     except Exception as exc:  # noqa: BLE001
         _write(os.path.relpath(base + ".log", PROJECT_DIR), "runner non lancé : %s\n" % exc)
         _write(os.path.relpath(base + ".rc", PROJECT_DIR), "125\n")
@@ -702,7 +729,24 @@ def job_get(jid):
             meta["log"] = fh.read().splitlines()[-600:]
     except OSError:
         meta["log"] = []
+    meta["mesures"] = _job_mesures(jid, meta)   # #995
     return jsonify(meta), 200
+
+
+def _job_mesures(jid, meta):
+    """#995 : durée et charge de l'hôte par étape (relevés du runner) + comparaison à la main / par la tour."""
+    def lire(ext):
+        try:
+            with open(os.path.join(DATA_DIR, "jobs", jid + ext), encoding="utf-8", errors="replace") as fh:
+                return fh.read()
+        except OSError:
+            return ""
+    m = tower.mesures_job(meta.get("steps"), lire(".etapes"), lire(".charge"), maintenant=None if meta.get("status") in ("done", "failed") else time.time())
+    if m is None:
+        return None
+    m["coeurs"] = os.cpu_count()
+    m["comparaison"] = tower.comparer_origines(tower.lire_historique((_read(".maj-historique.jsonl") or b"").decode("utf-8", "replace")))
+    return m
 
 
 # -- #984 : tuile « Démonstrations » (visites automatisées du hub, demo/ et scripts/demo.sh) -----------------------

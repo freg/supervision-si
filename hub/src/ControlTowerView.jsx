@@ -12,6 +12,7 @@ import PageFrame from "./PageFrame.jsx";
 import TowerNetworkTab from "./TowerNetworkTab.jsx";
 import TowerInstances from "./TowerInstances.jsx";   // #733
 import ServicesView from "./ServicesView.jsx";
+import TowerMesures from "./TowerMesures.jsx";   // #995 : durée et charge par étape
 import { viewParams } from "./hubLinks.js";
 import versionInfo from "./VERSION.json";  // #700
 import {
@@ -65,6 +66,7 @@ function JobView({ apiBase, token, jobId, onClose }) {
       {lost > 0 && <p className="muted">tour de contrôle momentanément injoignable (reconstruction en cours ?) — nouvelle tentative…</p>}
       {job?.status === "done" && touchesHub(job) && <p><Tone tone="orange">Le hub ou la passerelle ont été relancés : </Tone><button type="button" onClick={() => window.location.reload()}>recharger la page</button></p>}
       <pre ref={pre} style={{ maxHeight: 360, overflow: "auto", fontSize: 12, margin: "8px 0 0" }}>{(job?.log || []).join("\n") || "…"}</pre>
+      <TowerMesures mesures={job?.mesures} />
     </div>
   );
 }

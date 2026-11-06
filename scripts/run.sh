@@ -204,7 +204,17 @@ fi
 # ENTRER dans le dossier ciblé -- testé et confirmé structurellement
 # différent de `-not -path` (voir CHANGELOG.md #188 pour le test).
 VERSION_FILE="$HERE_DIR/shared/VERSION.json"
-CONTENT_HASH="$(find "$HERE_DIR" \
+# #995 : empreinte par git (arbre de HEAD + différences des fichiers suivis + noms des fichiers non suivis) -- quelques
+# millisecondes, au lieu de relire et hacher tout le dépôt (~20 000 fichiers, 300 Mo) à CHAQUE lancement : c'était fait
+# plusieurs fois par mise à jour de la tour (une fois par étape), sur une VM déjà chargée. SI_VERSION_HASH=complet pour
+# l'ancien calcul (dossier sans git).
+CONTENT_HASH=""
+if [ "${SI_VERSION_HASH:-git}" != "complet" ] && git -C "$HERE_DIR" rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  CONTENT_HASH="$( (cd "$HERE_DIR" && git rev-parse 'HEAD^{tree}' \
+      && git diff HEAD -- . ':(exclude)shared/VERSION.json' ':(exclude)CHANGELOG.md' ':(exclude)ENV_CHANGELOG.md' \
+      && git ls-files -o --exclude-standard) 2>/dev/null | sha256sum | cut -c1-12)"
+fi
+[ -n "$CONTENT_HASH" ] || CONTENT_HASH="$(find "$HERE_DIR" \
   \( -path "*/node_modules" -o \
      -path "*/__pycache__" -o \
      -path "*/.git" -o \
@@ -371,7 +381,7 @@ except Exception:
     pass
 debut = float(maj.get("debut") or fin)
 with open(os.path.join(racine, ".maj-historique.jsonl"), "a") as fh:
-    fh.write(json.dumps({"numero": numero, "hash": hachage, "services": noms, "n": len(noms), "commande": args[:300], "debut": debut, "fin": fin, "duree_s": round(fin - debut), "rc": rc}) + "\n")
+    fh.write(json.dumps({"numero": numero, "hash": hachage, "services": noms, "n": len(noms), "commande": args[:300], "debut": debut, "fin": fin, "duree_s": round(fin - debut), "rc": rc, "origine": os.environ.get("SI_MAJ_ORIGINE", "main")}) + "\n")
 if rc == 0 and noms:
     p = os.path.join(racine, ".deploye.json")
     try:

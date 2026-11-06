@@ -143,7 +143,7 @@ class Heal(unittest.TestCase):
         many = ["svc-%02d" % i for i in range(14)]
         p = tower.git_update_plan("cascade", [], paths, many, gateway_running=True, nodes=1)
         builds = [s for s in p["steps"] if "--build svc" in s["cmd"]]
-        self.assertEqual([len(s["cmd"].split()) - 4 for s in builds], [6, 6, 2]); self.assertIn("lot 3/3", builds[-1]["label"])
+        self.assertEqual([len(s["cmd"].split()) - 4 for s in builds], [4, 4, 4, 2]); self.assertIn("lot 4/4", builds[-1]["label"])   # #995 : lots de 4
         self.assertEqual(p["steps"][-1]["cmd"], "./gateway/scripts/run.sh up -d --build tls-proxy")
         p = tower.git_update_plan("central", ["ged/app.py"], paths, running, start_new=["ged-api", "cisco-api", "x;y"]); self.assertEqual(p["started"], ["ged-api"]); self.assertEqual(p["steps"][-1]["cmd"], "./scripts/run.sh up -d --build ged-api")
 
@@ -163,6 +163,43 @@ class Heal(unittest.TestCase):
         f = tower.filter_plan(plan, {"hub", "services-api", "tickets-api"})
         self.assertEqual(f["not_here"], ["cisco-api", "snmp-api"]); self.assertEqual([st["cmd"] for st in f["steps"]], ["./scripts/run.sh up -d --build hub tickets-api", "./gateway/scripts/run.sh up -d --force-recreate tls-proxy"])
         self.assertEqual(f["steps"][0]["label"], "reconstruire 2 service(s)"); self.assertIs(tower.filter_plan(plan, None), plan); self.assertEqual(tower.filter_plan(plan, {"cisco-api", "hub", "tickets-api", "snmp-api"})["not_here"], [])
+
+
+
+class Charge995(unittest.TestCase):
+    """#995 : mise à jour moins lourde (lots, pas de redémarrage pour un montage du dépôt entier) et mesurée."""
+    PATHS = {"hub": {"build": ["hub", "shared/theme.css"], "mounts": []}, "launcher": {"build": ["launcher"], "mounts": [""]},
+             "prefs-api": {"build": ["prefs-api"], "mounts": ["", "CHANGELOG.md"]}, "notes": {"build": ["notes"], "mounts": ["docs"]}}
+
+    def test_montage_du_depot_entier_sans_redemarrage(self):
+        p = tower.plan_for_changes(["hub/src/App.jsx", "docs/x.txt"], self.PATHS, list(self.PATHS))
+        self.assertEqual(p["rebuild"], ["hub"]); self.assertEqual(p["restart"], ["notes"])
+        r = tower.plan_rattrapage({k: {"hash": "a"} for k in self.PATHS}, "b", lambda h: ["hub/x.js"], self.PATHS, list(self.PATHS))
+        self.assertEqual((r["rebuild"], r["restart"]), (["hub"], []))
+
+    def test_ciblee_par_lots(self):
+        paths = {("s%d" % i): {"build": ["shared/log_buffer.py"], "mounts": []} for i in range(9)}
+        p = tower.plan_for_changes(["shared/log_buffer.py"], paths, list(paths))
+        b = [s for s in p["steps"] if "--build" in s["cmd"]]
+        self.assertEqual([len(s["cmd"].split()) - 4 for s in b], [4, 4, 1]); self.assertIn("lot 3/3", b[-1]["label"])
+
+    def test_mesures(self):
+        steps = [{"label": "tirer"}, {"label": "reconstruire hub"}, {"label": "passerelle"}]
+        et = "1 debut 100\n1 fin 104 0\n2 debut 104\n2 fin 164 0\n3 debut 164\n"
+        ch = "100 0.5 1000 10 4096000\n110 3.2 2000 210 2048000\n150 6.0 3000 260 1024000\nabc\n170 1.0 4000 270 3072000\n"
+        m = tower.mesures_job(steps, et, ch, maintenant=180)
+        self.assertEqual([e["duree_s"] for e in m["etapes"]], [4, 60, 16])
+        self.assertEqual(m["etapes"][1]["load_max"], 6.0); self.assertEqual(m["etapes"][1]["iowait_max"], 20.0)
+        self.assertEqual(m["etapes"][1]["mem_min_mo"], 1000); self.assertTrue(m["etapes"][2]["en_cours"])
+        self.assertEqual(m["duree_s"], 80); self.assertEqual(m["load_max"], 6.0)
+        self.assertIsNone(tower.mesures_job(steps, "", ""))
+
+    def test_comparaison(self):
+        h = [{"rc": 0, "n": 2, "duree_s": 120}, {"rc": 0, "n": 2, "duree_s": 100, "origine": "main"},
+             {"rc": 0, "n": 4, "duree_s": 800, "origine": "tour"}, {"rc": 1, "n": 4, "duree_s": 50, "origine": "tour"}]
+        c = tower.comparer_origines(h)
+        self.assertEqual(c["main"], {"n": 2, "secondes_par_service": 55, "services_par_lancement": 2})
+        self.assertEqual(c["tour"]["secondes_par_service"], 200)
 
 if __name__ == "__main__":
     unittest.main()
@@ -222,7 +259,7 @@ class Rattrapage942(unittest.TestCase):
         # beaucoup de services : lots de BUILD_BATCH
         many = {("s%d" % i): {"build": ["s%d" % i], "mounts": []} for i in range(14)}
         r4 = tower.plan_rattrapage({("s%d" % i): {"hash": "a"} for i in range(14)}, "b", lambda h: ["s%d/x" % i for i in range(14)], many, ["s%d" % i for i in range(14)])
-        self.assertEqual(len(r4["steps"]), 3)
+        self.assertEqual(len(r4["steps"]), 4)   # #995 : 14 services en lots de 4
 
     def test_estimation(self):
         hist = "\n".join(json.dumps(x) for x in [

@@ -1,3 +1,20 @@
+## 2026-11-06 — livraison #995 : mises à jour de la tour mesurées et allégées
+
+- **Mesure** : chaque job de la tour relève la charge de l'hôte toutes les 5 s (charge, attente disque, mémoire
+  disponible) et horodate ses étapes ; le détail du job (Tour › Livraisons & jobs) affiche durée, charge max, attente
+  disque max et mémoire minimale par étape, l'étape la plus longue, et la comparaison « à la main / par la tour »
+  (secondes par service construit, médianes de `.maj-historique.jsonl`, qui note désormais l'origine `main` / `tour`).
+- **Allègement** : reconstruction ciblée par lots (`TOWER_BUILD_BATCH`, 4 ; avant : tous les services d'un coup, ce qui
+  arrive dès qu'un fichier de shared/ change) ; constructions parallèles de compose limitées (`TOWER_PARALLEL_LIMIT`, 2) ;
+  runner en priorité basse (nice / ionice, `TOWER_CPU_SHARES` 256) ; plus de redémarrage à chaque mise à jour des
+  5 services qui montent le dépôt entier (ils le lisent en direct) ; empreinte de version de `run.sh` calculée par git
+  au lieu de relire tout le dépôt à chaque lancement (`SI_VERSION_HASH=complet` pour l'ancien calcul).
+
+Vérifié : tests tour (lots, montages, mesures, comparaison), app, hub towerMesures ; script de job réellement exécuté
+(étapes horodatées, relevés, mesures lues par l'API) ; syntaxe de run.sh. Non vérifié : sur super (gain réel à mesurer
+avec la nouvelle vue), rendu navigateur. Lots plus petits = durée totale possiblement un peu plus longue, mais pics de
+charge plus bas.
+
 ## 2026-11-06 — livraison #994 : NAS, vue d'ensemble des deux NAS côte à côte
 
 - **Hub › NAS** : trois onglets. **Vue d'ensemble** (par défaut) : volumes, potentiel d'évolution et disques en tête,
