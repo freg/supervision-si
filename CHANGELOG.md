@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #996 : NAS, rappel sur une ligne pour aligner les deux NAS
+
+- **Hub › NAS › Vue d'ensemble** : les alertes du relevé (jusqu'à 9 lignes sur nas-grpi-1) repoussaient ses volumes
+  loin sous ceux de l'autre NAS. Elles passent dans un mini bouton « N alerte(s) » (fenêtre copiable, rouge si
+  critique) sur la ligne de rappel, avec les compteurs des conseils : les volumes commencent à la même hauteur.
+- Le lien « voir l'onglet Conseils » (bleu peu lisible sur fond sombre) devient un bouton.
+
+Vérifié : syntaxe. Non vérifié : build, rendu navigateur.
+
 ## 2026-11-06 — livraison #995 : mises à jour de la tour mesurées et allégées
 
 - **Mesure** : chaque job de la tour relève la charge de l'hôte toutes les 5 s (charge, attente disque, mémoire

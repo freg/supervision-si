@@ -33,3 +33,6 @@ hub ? **Claude** (#993) : les variables `terminal` / `nom_reseau` désignent une
 **Freg** : NAS — volumes / évolution / disques en tête, les deux NAS côte à côte, simple rappel avec lien vers
 « Propositions et conseils (SNMP) » en onglet plutôt qu'en défilement. **Claude** (#994) : onglets Vue d'ensemble /
 Conseils / Détails, NAS en grille côte à côte, rappel d'une ligne avec lien vers l'onglet Conseils.
+
+**Freg** : capture de la vue d'ensemble NAS (#995). **Claude** (#996) : les 9 alertes de nas-grpi-1 décalaient ses
+volumes ; alertes en mini bouton sur la ligne de rappel, lien « Conseils » en bouton lisible.

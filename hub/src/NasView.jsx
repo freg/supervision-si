@@ -10,8 +10,8 @@ import IpPing from "./IpPing.jsx";
 import { evolution } from "./nasEvolution.js";   // #927
 import { conseilsNas, bilanNas } from "./conseilsNas.js";   // #944, #994 : rappel en tête
 import ConseilsListe from "./ConseilsListe.jsx";   // #944
+import BoutonDetail from "./FenetreTexte.jsx";   // #996 : alertes en mini bouton
 
-const TON = { critical: "bad", warning: "warn", info: "neutral" };
 const to = (o) => (o == null ? "—" : o >= 1e12 ? `${(o / 1e12).toFixed(1).replace(".", ",")} To` : `${Math.round(o / 1e9)} Go`);
 const koTo = (k) => (k == null ? "—" : to(k * 1024));
 const ans = (h) => (h == null ? "—" : `${h.toLocaleString("fr-FR")} h (${(h / 8766).toFixed(1).replace(".", ",")} ans)`);
@@ -72,24 +72,28 @@ function EnTete({ n }) {
     <IpPing ip={n.host} /> · {n.systeme?.modele || ""} {n.systeme?.micrologiciel ? `· système ${n.systeme.micrologiciel}` : ""} · relevé par {n.relais} {n.at ? age(n.at) : ""}</span></h3>;
 }
 
-function RappelConseils({ liste, onOuvrir }) {
+// #996 : rappel sur UNE ligne (alertes du NAS en mini bouton, compteurs des conseils, bouton vers l'onglet) pour que
+// les volumes des NAS côte à côte commencent à la même hauteur.
+function RappelConseils({ liste, alertes, onOuvrir }) {
   const b = bilanNas(liste);
-  if (!liste.length) return <div className="np-tone good" style={{ margin: "6px 0" }}>Propositions et conseils (SNMP) : rien à signaler. ✔</div>;
+  const grave = alertes.some((a) => a.severity === "critical");
   return (
-    <div style={{ margin: "6px 0", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-      <span>Propositions et conseils (SNMP) :</span>
+    <div style={{ margin: "6px 0", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", minHeight: 30 }}>
+      {alertes.length > 0 && <BoutonDetail titre="Alertes du NAS (relevé SNMP)" urgence={grave ? "critique" : "alerte"}
+        libelle={`${alertes.length} alerte(s)`} texte={alertes.map((a) => `• ${a.message}`).join("\n")} />}
+      <span>Conseils :</span>
+      {!liste.length && <span className="np-tone good">rien à signaler ✔</span>}
       {b.critique > 0 && <span className="np-tone bad">{b.critique} critique(s)</span>}
       {b.alerte > 0 && <span className="np-tone warn">{b.alerte} à surveiller</span>}
       {b.info > 0 && <span className="np-tone neutral">{b.info} info</span>}
-      <a href="#conseils" onClick={(e) => { e.preventDefault(); onOuvrir(); }}>voir l'onglet Conseils →</a>
+      {liste.length > 0 && <button type="button" className="secondary" onClick={onOuvrir}>voir l'onglet Conseils →</button>}
     </div>
   );
 }
 
 function Ensemble({ n, evo, liste, onConseils }) {
   return <>
-    {(n.alertes || []).length > 0 && <div style={{ margin: "6px 0" }}>{n.alertes.map((a, i) => <div key={i} className={`np-tone ${TON[a.severity] || "neutral"}`}>• {a.message}</div>)}</div>}
-    <RappelConseils liste={liste} onOuvrir={onConseils} />
+    <RappelConseils liste={liste} alertes={n.alertes || []} onOuvrir={onConseils} />
     <h4>Volumes</h4>
     <table className="infra-table"><thead><tr><th>Volume</th><th>Remplissage</th><th>Utilisé</th><th>Taille</th><th title="taille + espace non alloué de la réserve">Extensible jusqu'à</th><th>État</th></tr></thead>
       <tbody>{(n.volumes || []).map((v) => <tr key={v._idx}><td>{v.nom}{v.leger ? <span className="infra-muted"> (léger)</span> : null}</td>
