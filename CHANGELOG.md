@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #991 : démonstration, captures en thème sombre
+
+- **Outil de démonstration** : les captures suivaient le thème enregistré du compte de démonstration (clair). Le
+  thème est désormais imposé à chaque vue : sombre par défaut, `"theme": "light"` dans un parcours pour l'impression.
+- Constat #990 : les visites de 14:39 et 14:51 (#989) sont bien connectées ; celle de 10:12 (#984, accueil non
+  connecté) est antérieure au correctif de connexion — elle peut être supprimée de `demo/sorties/`.
+
+Vérifié : tests demo (unittest), syntaxe. Non vérifié : rendu réel des captures.
+
 ## 2026-11-06 — livraison #990 : démonstration, captures prises sur l'accueil non connecté
 
 - **Outil de démonstration** (`demo/tour.py`) : le parcours idruide a produit des diapositives montrant l'accueil

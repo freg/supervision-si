@@ -87,7 +87,7 @@ def charger_vue(page, url, journal):
     return bool(page.query_selector(CONNECTE))
 
 
-def etape(page, base, e, masquer_css, journal, reconnecter=None):
+def etape(page, base, e, masquer_css, journal, reconnecter=None, theme="dark"):
     """#990 : si la vue s'ouvre sur l'accueil non connecté (session perdue au rechargement), on se reconnecte et on
     rouvre la vue ; si elle reste déconnectée, la capture porte une remarque au lieu de passer pour une vraie étape."""
     remarques = []
@@ -97,6 +97,8 @@ def etape(page, base, e, masquer_css, journal, reconnecter=None):
         reconnecter()
         if not charger_vue(page, url, journal):
             remarques.append("hub non connecté sur cette vue (session perdue après reconnexion)")
+    if theme in ("dark", "light"):  # #991 : thème imposé aux captures (sombre par défaut), quel que soit celui du compte
+        page.evaluate("t => { document.documentElement.dataset.theme = t; }", theme)
     if masquer_css:
         page.add_style_tag(content=masquer_css)
     for s in e.get("saisir") or []:
@@ -167,7 +169,7 @@ def main():
             reconnecter()
         for i, e in enumerate(p["etapes"], 1):
             journal.append("%02d %s" % (i, e["titre"]))
-            rem = etape(page, base, e, masquer_css, journal, reconnecter)
+            rem = etape(page, base, e, masquer_css, journal, reconnecter, p.get("theme") or "dark")
             img = "%02d.png" % i
             if e.get("zone") and page.query_selector(e["zone"]):
                 page.locator(e["zone"]).first.screenshot(path=os.path.join(out, img))

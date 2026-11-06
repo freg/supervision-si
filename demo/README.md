@@ -16,7 +16,7 @@ journal.txt). `python3 demo/build.py <dossier>` refait diaporama et pptx après 
 - `DEMO_USER`, `DEMO_PASSWORD` : compte Keycloak **dédié à la démonstration**, droits de lecture seulement.
 
 ## Parcours (`demo/parcours/<id>.json`)
-`id`, `titre`, `sous_titre`, `public`, `variables` (valeurs par défaut de `{nom}`), `masquer` (sélecteurs CSS cachés
+`id`, `titre`, `sous_titre`, `public`, `variables` (valeurs par défaut de `{nom}`), `theme` (`dark` par défaut, `light` pour une impression — #991), `masquer` (sélecteurs CSS cachés
 sur les captures, ex. le bandeau d'alertes), `largeur`/`hauteur` (1600×900), `etapes` : `titre`, `legende`, `vue`
 (identifiant de vue du hub), `params` (paramètres d'URL, ex. `{"tab": "vlan"}`), `saisir` (`[{selecteur, texte}]`),
 `cliquer` (sélecteurs Playwright, dans l'ordre : `button:has-text("Alertes")`, `tr:has-text("{terminal}")`…),
