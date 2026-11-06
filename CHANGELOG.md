@@ -1,3 +1,7 @@
+## 2026-11-06 — livraison #983 : correctif de l'outil de démonstration
+
+- Premier lancement réel : « No module named 'playwright' » — dans l'image officielle, le paquet Python n'est pas visible pour l'utilisateur non root sous lequel la visite tourne (fichiers de sortie au nom du propriétaire du dépôt). Installé pour tous dans `demo/Dockerfile`, à la version des navigateurs de l'image (1.48.0), `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`.
+
 ## 2026-11-06 — livraison #982 : démonstration automatisée (parcours, captures, diaporama, pptx)
 
 - **`demo/`** : visite automatisée du hub par Chromium (Playwright, image officielle) selon un **parcours** JSON (`demo/parcours/<id>.json` : vues, onglets à cliquer, champs à saisir, légendes, variables). Connexion Keycloak par un compte de démonstration (`DEMO_USER`/`DEMO_PASSWORD` du .env, passés par fichier). Captures 1600×900, bandeau d'alertes masqué.
