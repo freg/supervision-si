@@ -41,7 +41,8 @@ export function treeLayout(tree, opts = {}) {
   const kids = childrenMap(nodes);
   const roots = kids.get("") || [];
   const positions = new Map(), clientPositions = new Map(), groups = new Map(), widthOf = new Map();
-  for (const n of nodes) widthOf.set(n.id, labelWidth(n));
+  const lw = opts.labelWidthFn || labelWidth;   // #979 : étiquettes compactes (une ligne)
+  for (const n of nodes) widthOf.set(n.id, lw(n));
   const vertical = orientation === "vertical";
   const maxLabel = Math.max(120, ...nodes.map((n) => widthOf.get(n.id)));
   // "encombrement" d'une feuille dans l'axe de largeur : en vertical étagé, un
@@ -231,4 +232,54 @@ export function comptesSousArbre(tree, nevralgiques = new Set()) {
 /** Couleur dominante d'un ensemble (rouge > orange > vert > gris) -- pastille d'un groupe de clients. */
 export function tonDominant(c) {
   return c.rouge ? "rouge" : c.orange ? "orange" : c.vert ? "vert" : "gris";
+}
+
+// -- #979 : synoptique compact, masquage par couleur en gardant la structure, export autonome ---------------------------
+
+export const ORDRE_TONS = ["rouge", "orange", "vert", "gris"];
+
+/** Compteurs à afficher dans l'étiquette : rouge, orange (s'ils existent) puis vert (toujours). */
+export function comptesAffiches(c) {
+  return ["rouge", "orange", "vert"].filter((k) => k === "vert" || (c?.[k] || 0) > 0).map((k) => ({ ton: k, n: c?.[k] || 0 }));
+}
+
+/** Largeur (px) d'une étiquette sur une ligne : pastille d'état, nom, compteurs. */
+export function largeurCompacte(node, comptes, { charWidth = 6.3, min = 70, max = 320 } = {}) {
+  const cpt = comptesAffiches(comptes).map((x) => `● ${x.n}`).join("  ");
+  return Math.max(min, Math.min(max, Math.round(18 + (node.name || "").length * charWidth + 10 + cpt.length * 6 + 8)));
+}
+
+/** Masque appareils et clients dont la couleur n'est pas cochée, SANS casser l'arbre : un appareil masqué reste s'il
+ *  mène à quelque chose de visible (marqué `structure: true`, affiché estompé). -> nouvel arbre (nodes, loose_clients). */
+export function filtrerArbre(tree, visibles, nevralgiques = new Set()) {
+  if (!tree) return tree;
+  const vis = new Set(visibles);
+  if (ORDRE_TONS.every((t) => vis.has(t))) return tree;
+  const nodes = tree.nodes || [];
+  const enfants = childrenMap(nodes);
+  const garde = new Map();
+  const visite = (n, pile = new Set()) => {
+    if (garde.has(n.id)) return garde.get(n.id);
+    if (pile.has(n.id)) return null;
+    pile.add(n.id);
+    const clients = (n.clients || []).filter((c) => vis.has(tonClient(c, nevralgiques)));
+    let descendant = false;
+    for (const e of enfants.get(n.id) || []) if (visite(e, pile)) descendant = true;
+    const lui = vis.has(tonAppareil(n.status));
+    const r = lui || clients.length || descendant ? { ...n, clients, structure: !lui } : null;
+    garde.set(n.id, r);
+    return r;
+  };
+  for (const n of nodes) visite(n);
+  return { ...tree, nodes: nodes.map((n) => garde.get(n.id)).filter(Boolean),
+    loose_clients: (tree.loose_clients || []).filter((c) => vis.has(tonClient(c, nevralgiques))) };
+}
+
+/** SVG autonome pour l'export : variables CSS du thème remplacées par leur valeur, fond plein, dimensions explicites. */
+export function svgAutonome(svgTexte, valeurVariable, { fond = "var(--panel)", largeur, hauteur } = {}) {
+  const resoudre = (t) => t.replace(/var\(--([a-z0-9-]+)\)/gi, (m, nom) => (valeurVariable(nom) || "").trim() || "#888888");
+  let s = resoudre(svgTexte);
+  if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+  s = s.replace(/(<svg[^>]*>)/, `$1<rect x="0" y="0" width="${largeur || "100%"}" height="${hauteur || "100%"}" fill="${resoudre(fond)}"/>`);
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + s;
 }

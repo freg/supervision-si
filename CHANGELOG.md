@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #979 : synoptique compact, masquage par couleur, export
+
+- **Étiquettes compactes** (Nebula › Carte des VLAN, synoptique) : une ligne, sans marge haute ni basse, sans bordure — fond contrasté ; pastille d'état et compteurs (● rouge, ● orange s'ils existent, ● vert) DANS le cadre ; modèle et détail des comptes au survol. Clients et pastilles « n clients » au même format. Sélection = contour couleur d'accent.
+- **Masquer par couleur** : cases panne / doute / en ligne / absent (mémorisées dans le navigateur). Un appareil d'une couleur masquée qui mène à un élément affiché reste, estompé, pour garder la structure de l'arbre (`filtrerArbre`, nebulaTree.js) ; compteurs recalculés sur ce qui est affiché.
+- **Export** PNG, JPG (2× la taille affichée, borné) et SVG vectoriel autonome (couleurs du thème résolues, fond plein) : `synoptique-<site>-<date>.<ext>`.
+
+Vérifié : tests hub nebulaTree (masquage avec structure, compteurs, largeur, SVG autonome) ; syntaxe (esbuild).
+Non vérifié : rendu et export dans un navigateur.
+
 ## 2026-11-06 — livraison #978 : fond des panneaux
 
 - La classe `panel` (fiche d'équipement ouverte en panneau, menu « ⛔ Agents », rapport d'un défaut, parc, import, barre du calque) n'était définie nulle part : le panneau était transparent et son texte se mêlait au tableau en dessous. Défini dans `hub.css` : fond `--panel`, bordure, coins arrondis, et ombre pour les panneaux flottants (`role="dialog"`).

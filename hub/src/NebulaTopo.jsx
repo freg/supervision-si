@@ -3,8 +3,9 @@
 // d'accès et bornes, puis les clients sous chaque appareil (pastille
 // « n clients » dépliable). Données : /sites/<id>/topology. Nœuds et liaisons
 // cliquables ; la logique (arbre, positions) est dans nebulaTree.js.
-import { useEffect, useMemo, useState } from "react";
-import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit, TONS, tonAppareil, tonClient, comptesSousArbre, tonDominant, normMac } from "./nebulaTree.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit, TONS, tonAppareil, tonClient, comptesSousArbre, tonDominant, normMac,
+  filtrerArbre, largeurCompacte, comptesAffiches, ORDRE_TONS, svgAutonome } from "./nebulaTree.js";   // #979
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function getJson(url) {
@@ -14,7 +15,8 @@ async function getJson(url) {
   return j;
 }
 
-const NODE_W = 150, NODE_H = 46, CLIENT_W = 74, CLIENT_H = 30;
+const NODE_W = 150, NODE_H = 22, CLIENT_W = 74, CLIENT_H = 18;   // #979 : étiquettes sur une ligne
+const LIBELLE_TON = { rouge: "panne", orange: "doute", vert: "en ligne", gris: "absent" };
 export const STATUS_COLOR = { online: "#2e7d32", offline: "#c62828", alerting: "#ef6c00", inconnu: "#9e9e9e" };
 const KIND_GLYPH = { gateway: "⛨", switch: "▤", ap: "((•))", other: "▣" };
 const EDGE_COLOR = { ok: "#607d8b", bad: "#c62828", muted: "#9e9e9e", unlinked: "#bdbdbd" };
@@ -60,6 +62,11 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
   const [stagger, setStagger] = useState(() => { try { return Number(localStorage.getItem("hub.nebula.topo.stagger") || 3); } catch { return 3; } });
   const setOrient = (v) => { setOrientation(v); try { localStorage.setItem("hub.nebula.topo.orientation", v); } catch { /* ignore */ } };
   const setStag = (v) => { setStagger(v); try { localStorage.setItem("hub.nebula.topo.stagger", String(v)); } catch { /* ignore */ } };
+  // #979 : couleurs affichées (masquage en gardant la structure) et export
+  const [tons, setTons] = useState(() => { try { const t = JSON.parse(localStorage.getItem("hub.nebula.topo.tons") || "null"); return Array.isArray(t) && t.length ? t : ORDRE_TONS; } catch { return ORDRE_TONS; } });
+  const basculerTon = (t) => { const n = tons.includes(t) ? tons.filter((x) => x !== t) : [...tons, t]; const v = n.length ? n : ORDRE_TONS; setTons(v); try { localStorage.setItem("hub.nebula.topo.tons", JSON.stringify(v)); } catch { /* ignore */ } };
+  const svgRef = useRef(null);
+  const [exportEnCours, setExportEnCours] = useState(null);
 
   const load = async (refresh) => {
     if (!siteId) return;
@@ -70,13 +77,34 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
   };
   useEffect(() => { load(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [nebulaApiBase, siteId, period]);
 
-  const comptes = useMemo(() => (tree ? comptesSousArbre(tree, nevSet) : new Map()), [tree, nevSet]);
-  const lay = useMemo(() => (tree ? treeLayout(tree, { orientation, stagger, nodeHeight: NODE_H, rowHeight: 120, colWidth: 320, clientWidth: CLIENT_W, clientHeight: CLIENT_H, expanded }) : null), [tree, expanded, orientation, stagger]);
-  const edges = useMemo(() => (tree ? treeEdges(tree) : []), [tree]);
+  const vue = useMemo(() => filtrerArbre(tree, tons, nevSet), [tree, tons, nevSet]);   // #979
+  const comptes = useMemo(() => (vue ? comptesSousArbre(vue, nevSet) : new Map()), [vue, nevSet]);
+  const lay = useMemo(() => (vue ? treeLayout(vue, { orientation, stagger, nodeHeight: NODE_H, rowHeight: 80, colWidth: 320, clientWidth: CLIENT_W, clientHeight: CLIENT_H, gap: 8, expanded,
+    labelWidthFn: (n) => largeurCompacte(n, comptes.get(n.id)) }) : null), [vue, comptes, expanded, orientation, stagger]);
+  const edges = useMemo(() => (vue ? treeEdges(vue) : []), [vue]);
   if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
   if (!tree || !lay) return <p className="muted">Chargement du synoptique…</p>;
 
-  const byId = new Map(tree.nodes.map((n) => [n.id, n]));
+  const byId = new Map(vue.nodes.map((n) => [n.id, n]));
+  const exporter = async (format) => {
+    const el = svgRef.current; if (!el) return;
+    setExportEnCours(format);
+    try {
+      const cs = getComputedStyle(document.documentElement);
+      const texte = svgAutonome(new XMLSerializer().serializeToString(el), (v) => cs.getPropertyValue(`--${v}`), { largeur: lay.width, hauteur: lay.height });
+      const nom = `synoptique-${String(tree.site_name || siteId).replace(/[^A-Za-z0-9_-]+/g, "-")}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}`;
+      const telecharger = (blob, ext) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${nom}.${ext}`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+      const svgBlob = new Blob([texte], { type: "image/svg+xml;charset=utf-8" });
+      if (format === "svg") { telecharger(svgBlob, "svg"); return; }
+      const img = new Image();
+      await new Promise((ok, ko) => { img.onload = ok; img.onerror = () => ko(new Error("rendu de l'image impossible")); img.src = URL.createObjectURL(svgBlob); });
+      const k = Math.min(2, 16000 / Math.max(lay.width, lay.height));   // limite de taille des canevas
+      const cv = document.createElement("canvas"); cv.width = Math.round(lay.width * k); cv.height = Math.round(lay.height * k);
+      const ctx = cv.getContext("2d"); ctx.scale(k, k); ctx.drawImage(img, 0, 0, lay.width, lay.height);
+      await new Promise((ok) => cv.toBlob((b) => { if (b) telecharger(b, format === "jpg" ? "jpg" : "png"); ok(); }, format === "jpg" ? "image/jpeg" : "image/png", 0.92));
+    } catch (e) { setError(`export ${format} : ${e.message}`); }
+    finally { setExportEnCours(null); }
+  };
   const vertical = lay.orientation === "vertical";
   const anchor = (id, side) => { // point d'attache d'un nœud : bas/haut en vertical, droite/gauche en horizontal
     const p = pos(id); const w = lay.nodeWidth.get(id) || NODE_W;
@@ -94,9 +122,9 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
     const active = selected?.type === "client" && selected.id === key;
     return (
       <g key={key} transform={`translate(${x - CLIENT_W / 2},${y - CLIENT_H / 2})`} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: key, client: c, parent: parentId })}>
-        <rect width={CLIENT_W} height={CLIENT_H} rx={6} fill="var(--bg)" stroke={active ? "#1565c0" : TONS[tonClient(c, nevSet)]} strokeWidth={active ? 2.5 : nevSet.has(normMac(c.mac)) ? 2 : 1.2} />
-        <circle cx={9} cy={CLIENT_H / 2} r={3.5} fill={TONS[tonClient(c, nevSet)]} />
-        <text x={16} y={CLIENT_H / 2 + 4} fontSize="9.5" fill="var(--text)">{nevSet.has(normMac(c.mac)) ? "★" : ""}{String(c.name || c.mac || "?").length > 11 ? String(c.name || c.mac).slice(0, 10) + "…" : (c.name || c.mac)}</text>
+        <rect width={CLIENT_W} height={CLIENT_H} rx={4} fill="var(--border)" stroke={active ? "var(--accent)" : "none"} strokeWidth={active ? 2 : 0} />
+        <circle cx={8} cy={CLIENT_H / 2} r={3.5} fill={TONS[tonClient(c, nevSet)]} />
+        <text x={15} y={CLIENT_H / 2 + 3.5} fontSize="9.5" fill="var(--text)">{nevSet.has(normMac(c.mac)) ? "★" : ""}{String(c.name || c.mac || "?").length > 11 ? String(c.name || c.mac).slice(0, 10) + "…" : (c.name || c.mac)}</text>
         <title>{`${c.name || c.mac} — ${c.status}${nevSet.has(normMac(c.mac)) ? " — névralgique : " + (nev[normMac(c.mac)]?.raison || "") : ""}`}</title>
       </g>
     );
@@ -109,19 +137,21 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
         {sum.offline > 0 && <span style={{ color: "var(--danger)" }}>{sum.offline} hors ligne</span>}
         {sum.unlinked > 0 && <span className="muted">{sum.unlinked} sans liaison connue (rattaché{sum.unlinked > 1 ? "s" : ""} à la racine)</span>}
         {sum.loose > 0 && <span className="muted">{sum.loose} client{sum.loose > 1 ? "s" : ""} sans appareil identifié</span>}
-        <span className="muted" title="Rouge : appareil réseau hors ligne ou poste névralgique absent · orange : doute · vert : en ligne · gris : poste absent sans importance">
-          <span style={{ color: TONS.rouge }}>●</span> panne <span style={{ color: TONS.orange }}>●</span> doute <span style={{ color: TONS.vert }}>●</span> en ligne <span style={{ color: TONS.gris }}>●</span> absent ; ★ névralgique</span>
+        <span className="muted" title="Décocher une couleur la masque ; un appareil masqué qui mène à un élément affiché reste, estompé, pour garder la structure. Rouge : appareil réseau hors ligne ou poste névralgique absent · orange : doute · vert : en ligne · gris : poste absent sans importance">
+          {ORDRE_TONS.map((t) => <label key={t} style={{ marginRight: 8, whiteSpace: "nowrap", cursor: "pointer" }}><input type="checkbox" checked={tons.includes(t)} onChange={() => basculerTon(t)} /> <span style={{ color: TONS[t] }}>●</span> {LIBELLE_TON[t]}</label>)}
+          ★ névralgique{tons.length < ORDRE_TONS.length && <> · <b>masquage actif</b></>}</span>
         <span style={{ flex: 1 }} />
         <label className="muted">Clients vus depuis <select value={period} onChange={(e) => setPeriod(e.target.value)}><option value="2h">2 h</option><option value="1d">1 jour</option><option value="7d">7 jours</option></select></label>
         <button type="button" className="secondary" disabled={busy} onClick={() => load(true)}>{busy ? "Lecture…" : "Relire"}</button>
         <button type="button" className="secondary" onClick={() => setExpanded(expanded.size ? new Set() : new Set(tree.nodes.filter((n) => n.clients?.length).map((n) => n.id)))}>{expanded.size ? "Replier les clients" : "Déplier tous les clients"}</button>
+        <span className="muted">Exporter{["png", "jpg", "svg"].map((f) => <button key={f} type="button" className="secondary" style={{ marginLeft: 4 }} disabled={!!exportEnCours} onClick={() => exporter(f)}>{exportEnCours === f ? "⏳" : f.toUpperCase()}</button>)}</span>
         <label className="muted">Disposition <select value={orientation} onChange={(e) => setOrient(e.target.value)}><option value="vertical">arbre vertical étagé</option><option value="horizontal">arbre horizontal (une ligne par équipement)</option></select></label>
         {orientation === "vertical" && <label className="muted">Étages <select value={stagger} onChange={(e) => setStag(Number(e.target.value))}><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option></select></label>}
       </div>
       <p className="muted" style={{ margin: "0 0 8px", fontSize: 12 }}>Chaque appareil est relié à celui qui le dessert (voisinage LLDP) : arbre horizontal façon d3 (une ligne par équipement, étiquettes entières) ou vertical étagé. Liaison rouge = VLAN manquant d'un côté · pointillé = agrégat ou lien nu · gris clair = liaison inconnue. Cliquer une pastille « n clients » pour la déplier, un nœud ou un client pour le détail.</p>
       <div style={{ display: "grid", gridTemplateColumns: showPanel ? "1fr 340px" : "1fr", gap: 12 }}>
         <div style={{ overflow: "auto", border: "1px solid var(--border)", borderRadius: 8, background: "var(--panel)", maxHeight: "70vh" }}>
-          <svg viewBox={`0 0 ${lay.width} ${lay.height}`} width={lay.width} height={lay.height} style={{ display: "block" }} fontFamily="system-ui, sans-serif">
+          <svg ref={svgRef} viewBox={`0 0 ${lay.width} ${lay.height}`} width={lay.width} height={lay.height} style={{ display: "block" }} fontFamily="system-ui, sans-serif">
             {edges.map((e) => {
               const a = pos(e.a), b = pos(e.b); if (!a || !b) return null;
               const color = EDGE_COLOR[e.tone];
@@ -140,10 +170,10 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
               <g key={`g-${pid}`}>
                 <line x1={o.x} y1={o.y} x2={vertical ? g.x : g.x - CLIENT_W / 2} y2={vertical ? g.y - CLIENT_H / 2 : g.y} stroke="#90a4ae" strokeWidth={1.5} strokeDasharray="3 3" />
                 <g transform={`translate(${g.x - CLIENT_W / 2},${g.y - CLIENT_H / 2})`} style={{ cursor: "pointer" }} onClick={() => toggle(pid)}>
-                  <rect width={CLIENT_W} height={CLIENT_H} rx={15} fill="var(--bg)" stroke="#90a4ae" strokeWidth={1.5} />
-                  <text x={CLIENT_W / 2} y={CLIENT_H / 2 + 4} fontSize="10" fill="var(--text)" textAnchor="middle" fontWeight="600">{g.count} client{g.count > 1 ? "s" : ""}</text>
+                  <rect width={CLIENT_W} height={CLIENT_H} rx={9} fill="var(--border)" />
+                  <text x={CLIENT_W / 2} y={CLIENT_H / 2 + 3.5} fontSize="10" fill="var(--text)" textAnchor="middle" fontWeight="600">{g.count} client{g.count > 1 ? "s" : ""}</text>
                   {(() => { const cl = byId.get(pid)?.clients || []; const t = { rouge: 0, orange: 0, vert: 0, gris: 0 }; for (const c of cl) t[tonClient(c, nevSet)] += 1; const d = tonDominant(t);
-                    return <>{(d === "rouge" || d === "orange") && <circle cx={CLIENT_W - 8} cy={8} r={4} fill={TONS[d]} />}<title>{`${t.vert} en ligne · ${t.rouge} névralgique(s) absent(s) · ${t.orange} douteux · ${t.gris} absent(s) sans importance`}</title></>; })()}
+                    return <>{(d === "rouge" || d === "orange") && <circle cx={CLIENT_W - 7} cy={CLIENT_H / 2} r={3.5} fill={TONS[d]} />}<title>{`${t.vert} en ligne · ${t.rouge} névralgique(s) absent(s) · ${t.orange} douteux · ${t.gris} absent(s) sans importance`}</title></>; })()}
                 </g>
               </g>
             ); })}
@@ -153,22 +183,21 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups
                 {clientBox(key, cp.x, cp.y, cp.client, cp.parent)}
               </g>
             ); })}
-            {tree.nodes.map((n) => {
+            {vue.nodes.map((n) => {
               const p = pos(n.id); if (!p) return null;
               const w = lay.nodeWidth.get(n.id) || NODE_W;
               const active = selected?.type === "node" && selected.id === n.id;
               return (
-                <g key={n.id} transform={`translate(${p.x - w / 2},${p.y - NODE_H / 2})`} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "node", id: n.id })} opacity={n.unlinked ? 0.7 : 1}>
-                  <rect width={w} height={NODE_H} rx={8} fill="var(--bg)" stroke={active ? "#1565c0" : TONS[tonAppareil(n.status)]} strokeWidth={active ? 3 : 2} />
-                  <circle cx={14} cy={14} r={5} fill={TONS[tonAppareil(n.status)]} />
-                  {(() => { const c = comptes.get(n.id) || { rouge: 0, orange: 0, vert: 0, gris: 0 }; const tot = c.rouge + c.orange + c.vert + c.gris; let x = 3;
-                    return <g>
-                      {["rouge", "orange", "vert", "gris"].map((k) => { const ww = tot ? (w - 6) * c[k] / tot : 0; const el = ww > 0 ? <rect key={k} x={x} y={NODE_H - 6} width={ww} height={3} fill={TONS[k]} /> : null; x += ww; return el; })}
-                      <text x={w - 4} y={-4} fontSize="10" textAnchor="end" fontWeight="700">{c.rouge > 0 && <tspan fill={TONS.rouge}>● {c.rouge}  </tspan>}{c.orange > 0 && <tspan fill={TONS.orange}>● {c.orange}  </tspan>}<tspan fill={TONS.vert}>● {c.vert}</tspan></text>
-                      <title>{`${n.name} et en aval : ${c.rouge} en panne (rouge) · ${c.orange} douteux · ${c.vert} en ligne · ${c.gris} absents sans importance`}</title>
-                    </g>; })()}
-                  <text x={24} y={18} fontSize="11" fill="var(--text)" fontWeight="600">{n.name}</text>
-                  <text x={24} y={34} fontSize="10" fill="var(--muted)">{KIND_GLYPH[n.kind]} {n.model || KIND_LABEL[n.kind]}{n.clients?.length ? ` · ${n.clients.length}` : ""}</text>
+                <g key={n.id} transform={`translate(${p.x - w / 2},${p.y - NODE_H / 2})`} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "node", id: n.id })} opacity={n.structure ? 0.45 : n.unlinked ? 0.7 : 1}>
+                  {/* #979 : une ligne, pas de bordure -- fond contrasté, pastille d'état et compteurs dans le cadre */}
+                  <rect width={w} height={NODE_H} rx={4} fill="var(--border)" stroke={active ? "var(--accent)" : "none"} strokeWidth={active ? 2 : 0} />
+                  <circle cx={9} cy={NODE_H / 2} r={4} fill={TONS[tonAppareil(n.status)]} />
+                  <text x={18} y={NODE_H / 2 + 4} fontSize="11" fill="var(--text)" fontWeight="600">{n.name}</text>
+                  {(() => { const c = comptes.get(n.id) || { rouge: 0, orange: 0, vert: 0, gris: 0 };
+                    return <text x={w - 6} y={NODE_H / 2 + 4} fontSize="10" textAnchor="end" fontWeight="700">
+                      {comptesAffiches(c).map((x, i) => <tspan key={x.ton} fill={TONS[x.ton]} dx={i ? 6 : 0}>● {x.n}</tspan>)}
+                      <title>{`${n.name} (${KIND_GLYPH[n.kind]} ${n.model || KIND_LABEL[n.kind]}${n.clients?.length ? `, ${n.clients.length} client(s)` : ""}) et en aval : ${c.rouge} en panne · ${c.orange} douteux · ${c.vert} en ligne · ${c.gris} absents sans importance${n.structure ? " — affiché pour garder la structure (couleur masquée)" : ""}`}</title>
+                    </text>; })()}
                 </g>
               );
             })}

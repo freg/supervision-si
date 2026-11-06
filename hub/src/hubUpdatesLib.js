@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  979: [{ view: "nebula", params: { tab: "vlan" }, hint: "Nebula › Carte des VLAN : cases de couleur pour masquer, boutons PNG / JPG / SVG" }],
   977: [{ view: "si-agent", params: { tab: "events" }, hint: "Étiquette « ⛔ Agents » sous l'en-tête : clic = erreurs à traiter, ignorer aujourd'hui, résoudre →" }],
   976: [{ view: "equipements-site", params: {}, hint: "Équipements du site : ouvrir une fiche › 📅 Activité" }],
   975: [{ view: "nebula", params: { tab: "historique" }, hint: "Étiquettes rouges sous l'en-tête : clic sur une étiquette = détail et journal" }],

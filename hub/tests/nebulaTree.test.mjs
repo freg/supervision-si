@@ -104,3 +104,26 @@ test("#851 : couleurs -- poste absent gris sauf névralgique, borne absente roug
   assert.deepEqual(c.get("g"), { rouge: 2, orange: 0, vert: 3, gris: 1 });
   assert.equal(tonDominant({ rouge: 0, orange: 1, vert: 3, gris: 0 }), "orange");
 });
+
+test("#979 : masquage par couleur en gardant la structure, étiquettes compactes, export autonome", async () => {
+  const T = await import("../src/nebulaTree.js");
+  const tree = { nodes: [
+    { id: "gw", name: "USG", kind: "gateway", status: "online", parent: null, clients: [] },
+    { id: "sw", name: "XS", kind: "switch", status: "online", parent: "gw", clients: [] },
+    { id: "ap1", name: "AP-1", kind: "ap", status: "offline", parent: "sw", clients: [{ mac: "aa", status: "online" }] },
+    { id: "ap2", name: "AP-2", kind: "ap", status: "online", parent: "sw", clients: [{ mac: "bb", status: "online" }, { mac: "cc", status: "offline" }] },
+  ], loose_clients: [{ mac: "dd", status: "offline" }] };
+  assert.equal(T.filtrerArbre(tree, T.ORDRE_TONS), tree);                    // tout coché : inchangé
+  const r = T.filtrerArbre(tree, ["rouge"]);                                 // panne seule : AP-1 et le chemin jusqu'à la passerelle
+  assert.deepEqual(r.nodes.map((n) => [n.id, !!n.structure, n.clients.length]), [["gw", true, 0], ["sw", true, 0], ["ap1", false, 0]]);
+  assert.equal(r.loose_clients.length, 0);
+  const g = T.filtrerArbre(tree, ["gris"]);                                  // absents sans importance : client cc d'AP-2
+  assert.deepEqual(g.nodes.map((n) => [n.id, n.clients.map((c) => c.mac)]), [["gw", []], ["sw", []], ["ap2", ["cc"]]]);
+  assert.deepEqual(g.loose_clients.map((c) => c.mac), ["dd"]);
+  assert.deepEqual(T.comptesAffiches({ rouge: 2, orange: 0, vert: 5 }), [{ ton: "rouge", n: 2 }, { ton: "vert", n: 5 }]);
+  assert.ok(T.largeurCompacte({ name: "WBE660S-EU0101F-6" }, { vert: 3 }) > T.largeurCompacte({ name: "AP" }, { vert: 3 }));
+  const s = T.svgAutonome('<svg viewBox="0 0 10 10"><text fill="var(--text)">a</text></svg>', (v) => ({ text: " #eeeeee", panel: "#222222" })[v], { largeur: 10, hauteur: 10 });
+  assert.match(s, /fill="#eeeeee"/);
+  assert.match(s, /xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+  assert.match(s, /<rect x="0" y="0" width="10" height="10" fill="#222222"\/>/);
+});
