@@ -1678,10 +1678,22 @@ reperage_routes.register(app, {"conn": get_connection, "client": _connect, "db_p
                                "devices": lambda sid: _inventory["devices"].get(sid) or [],
                                "sites": lambda: (_refresh_inventory(_connect()), _inventory["sites"])[1]})
 
+def _noms_registre(site_id):
+    """#974 : noms des fiches du registre du site (correspondances repérées à chaque relève)."""
+    conn = get_connection()
+    try:
+        return [json.loads(r[0]).get("nom") for r in conn.execute("SELECT data FROM reperage_equipements WHERE site_id = ?", (site_id,))]
+    except Exception:  # noqa: BLE001 -- registre pas encore créé
+        return []
+    finally:
+        conn.close()
+
+
 # #872 : historique des clients (Nebula ne garde que 24 h) -- relève horaire + à la demande, requête filtrée et triée
 import client_history_routes  # noqa: E402
 client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
                                      "configured": lambda: bool(NEBULA_API_KEY),
+                                     "noms_registre": lambda sid: _noms_registre(sid),   # #974 : correspondances nom réseau <-> registre
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
 
 # #958 : audit de sécurité réseau (Nebula + historiques + relevés shell Proxmox / hôtes) -- audit_routes.py

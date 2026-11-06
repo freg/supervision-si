@@ -12,6 +12,7 @@
 Logique : client_history.py. Appels Nebula : v2 clients, v2 ap-clients, v2 sw-clients, période 2 h."""
 import csv
 import io
+import json
 import os
 import threading
 import time
@@ -38,24 +39,44 @@ def relever(deps, trigger="horaire", now=None):
             sid = site.get("siteId") or site.get("id")
             t0 = time.time()
             res, errs = {}, []
-            for nom, fn in (("clients", lambda: client.get_site_clients(sid, period="2h")),
-                            ("bornes", lambda: client.ap_clients_v2(sid, "2h")),
-                            ("commutateurs", lambda: client.sw_clients(sid, "2h"))):
+            # #974 : première relève réussie du site -> on reprend les 24 h que Nebula garde encore
+            conn = deps["conn"]()
+            try:
+                ch.ensure_columns(conn)
+                deja = conn.execute("SELECT 1 FROM nebula_client_polls WHERE site_id = ? AND clients IS NOT NULL LIMIT 1", (sid,)).fetchone()
+            finally:
+                conn.close()
+            periode = "2h" if deja else "1d"
+            for nom, fn in (("clients", lambda: client.get_site_clients(sid, period=periode)),
+                            ("bornes", lambda: client.ap_clients_v2(sid, periode)),
+                            ("commutateurs", lambda: client.sw_clients(sid, periode))):
                 try:
                     r = fn()
                     res[nom] = r if isinstance(r, list) else (r or {}).get("data", []) if isinstance(r, dict) else []
                 except Exception as e:  # noqa: BLE001 -- une source en échec n'empêche pas les autres
                     errs.append("%s : %s" % (nom, str(e)[:150]))
-            fiches = ch.merge(res.get("clients"), res.get("bornes"), res.get("commutateurs"), deps["device_names"](sid), now=now)
+            stats, n = ch.nouveautes_vides(), None
             conn = deps["conn"]()
             try:
-                n = ch.ingest(conn, sid, fiches, now=now)
-                conn.execute("INSERT INTO nebula_client_polls (at, site_id, clients, sources, error, duration_ms, trigger) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                             (int(now or time.time()), sid, n, ",".join(sorted(res)), "; ".join(errs) or None, int((time.time() - t0) * 1000), trigger))
+                try:
+                    noms = {ch.norm_nom(x) for x in (deps.get("noms_registre") or (lambda _s: []))(sid) if x}
+                except Exception:  # noqa: BLE001 -- registre absent : pas de correspondances, la relève continue
+                    noms = set()
+                try:
+                    fiches = ch.merge(res.get("clients"), res.get("bornes"), res.get("commutateurs"), deps["device_names"](sid), now=now)
+                    n = ch.ingest(conn, sid, fiches, now=now, stats=stats, noms_registre=noms)
+                except Exception as e:  # noqa: BLE001 -- #974 : un échec d'écriture est une relève en erreur, enregistrée (diode rouge)
+                    conn.rollback()
+                    errs.append("enregistrement : %s" % str(e)[:200])
+                if periode == "1d" and n is not None:
+                    stats["rattrapage_24h"] = True
+                conn.execute("INSERT INTO nebula_client_polls (at, site_id, clients, sources, error, duration_ms, trigger, nouveautes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                             (int(now or time.time()), sid, n, ",".join(sorted(res)), "; ".join(errs) or None, int((time.time() - t0) * 1000), trigger,
+                              json.dumps(stats, ensure_ascii=False)))
                 conn.commit()
             finally:
                 conn.close()
-            out.append({"site": sid, "clients": n, "sources": sorted(res), "error": "; ".join(errs) or None})
+            out.append({"site": sid, "clients": n, "sources": sorted(res), "error": "; ".join(errs) or None, "nouveautes": stats.get("n") or {}})
         _etat["last"] = int(time.time())
         return {"sites": out}
     finally:
@@ -139,6 +160,40 @@ def register(app, deps):
             conn.close()
         return jsonify({"interval_s": INTERVAL_S, "running": _etat["running"], "next": _etat["next"] or None, "configured": deps["configured"](),
                         "clients": n[0], "depuis": n[1], "retention_days": ch.RETENTION_DAYS, "polls": polls}), 200
+
+    @app.route("/client-history/calendar", methods=["GET"])
+    def client_history_calendar():
+        """#974 : relèves (une diode chacune) sur `jours` jours -> {premiere, derniere, interval_s, releves}."""
+        try:
+            jours = max(1, min(400, int(request.args.get("jours", 60))))
+        except ValueError:
+            jours = 60
+        conn = deps["conn"]()
+        try:
+            rel = ch.calendrier(conn, request.args.get("site") or None, int(time.time()) - jours * 86400)
+            prem = conn.execute("SELECT MIN(at) FROM nebula_client_polls" + (" WHERE site_id = ?" if request.args.get("site") else ""),
+                                ((request.args.get("site"),) if request.args.get("site") else ())).fetchone()[0]
+        finally:
+            conn.close()
+        return jsonify({"jours": jours, "premiere": prem, "derniere": rel[-1]["at"] if rel else None, "interval_s": INTERVAL_S, "releves": rel}), 200
+
+    @app.route("/client-history/poll/<int:pid>", methods=["GET"])
+    def client_history_poll_detail(pid):
+        """#974 : détail d'une relève (nouveautés : listes limitées à 40 par catégorie, comptes complets)."""
+        conn = deps["conn"]()
+        try:
+            ch.ensure_columns(conn)
+            r = conn.execute("SELECT id, at, site_id, clients, sources, error, duration_ms, trigger, nouveautes FROM nebula_client_polls WHERE id = ?", (pid,)).fetchone()
+        finally:
+            conn.close()
+        if not r:
+            return jsonify({"error": "relève inconnue : %s" % pid}), 404
+        try:
+            nv = json.loads(r[8]) if r[8] else {}
+        except ValueError:
+            nv = {}
+        return jsonify({"id": r[0], "at": r[1], "site_id": r[2], "clients": r[3], "sources": r[4], "error": r[5], "duration_ms": r[6],
+                        "trigger": r[7], "etat": ch.etat_releve(r[5], r[3], nv), "nouveautes": nv}), 200
 
     @app.route("/client-history/poll", methods=["POST"])
     def client_history_poll():

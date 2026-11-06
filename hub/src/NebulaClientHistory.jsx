@@ -3,6 +3,8 @@
 // vu entre deux dates ; « plus vu depuis ») et triée (clic sur l'en-tête). Clic sur une ligne : périodes de présence.
 import { Fragment, useCallback, useEffect, useState } from "react";
 import IpPing from "./IpPing.jsx";
+import NebulaRelevesCalendrier from "./NebulaRelevesCalendrier.jsx";   // #974 : diodes des relèves
+import { texteNouveautes } from "./relevesLib.js";
 
 const COLS = [
   ["mac", "MAC"], ["ip", "IP"], ["name", "Nom"], ["manufacturer", "Fabricant"], ["device", "Raccordé à"],
@@ -24,6 +26,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   const [sel, setSel] = useState(null);
   const [sess, setSess] = useState(null);
   const [page, setPage] = useState(0);
+  const [versionCal, setVersionCal] = useState(0);
   const PAGE = 200;
 
   const params = useCallback(() => {
@@ -57,8 +60,8 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
     try {
       const r = await fetch(`${nebulaApiBase}/client-history/poll`, { method: "POST", credentials: "include" });
       const j = await r.json();
-      setMsg(r.ok ? `relève faite : ${(j.sites || []).map((s) => `${s.clients} client(s)${s.error ? ` (${s.error})` : ""}`).join(", ")}` : j.error);
-      load(); loadStatus();
+      setMsg(r.ok ? `relève faite : ${(j.sites || []).map((s) => `${s.clients ?? 0} client(s)${texteNouveautes(s.nouveautes) ? ` — ${texteNouveautes(s.nouveautes)}` : " — rien de nouveau"}${s.error ? ` (${s.error})` : ""}`).join(", ")}` : j.error);
+      load(); loadStatus(); setVersionCal((v) => v + 1);
     } catch (e) { setMsg(String(e.message || e)); }
     setBusy(false);
   };
@@ -85,6 +88,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
         {" "}<a href={exportUrl}>Exporter (CSV)</a>
         {msg && <span> · {msg}</span>}
       </div>
+      <NebulaRelevesCalendrier nebulaApiBase={nebulaApiBase} siteId={siteId} version={versionCal} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         {champ("q", { placeholder: "MAC, IP, nom, fabricant, équipement, SSID", style: { minWidth: 260 } })}
         <select value={f.manufacturer} onChange={(e) => setF((x) => ({ ...x, manufacturer: e.target.value }))}>

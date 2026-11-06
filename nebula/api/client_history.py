@@ -11,8 +11,10 @@ période 2 h pour recouvrir deux relèves), conservée ici :
 Peu de lignes (une session par changement), index par site / MAC / date, rétention RETENTION_DAYS : la leçon des
 15 Go de la base des agents. Logique pure + SQLite ; les appels Nebula sont dans app.py.
 """
+import json
 import re
 import time
+import unicodedata
 
 GAP_S = 3 * 3600          # trou toléré entre deux vues pour rester dans la même session (relève horaire + aléas)
 RETENTION_DAYS = 400
@@ -61,7 +63,7 @@ def _first(c, *keys):
     for k in keys:
         v = c.get(k)
         if isinstance(v, dict):   # #973 : Nebula publie le SSID en objet {name, security} -- un dict cassait l'écriture SQLite
-            v = v.get("name") or v.get("ssid") or v.get("id")
+            v = v.get("name") or v.get("hostname") or v.get("ssid") or v.get("id")
         if v not in (None, "", []):
             return v if not isinstance(v, (int, float)) else str(v)
     return None
@@ -115,13 +117,64 @@ def merge(clients=None, ap_clients=None, sw_clients=None, device_names=None, now
     return out
 
 
-def ingest(conn, site_id, fiches, now=None):
-    """Fusionne une relève dans les deux tables -> nombre de clients. Transactions courtes (lot de 200)."""
+def ensure_columns(conn):
+    """#974 : nouveautés d'une relève (JSON) dans nebula_client_polls."""
+    conn.executescript(SCHEMA)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(nebula_client_polls)")}
+    if "nouveautes" not in cols:
+        conn.execute("ALTER TABLE nebula_client_polls ADD COLUMN nouveautes TEXT")
+        conn.commit()
+
+
+def norm_nom(s):
+    s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+MAX_DETAIL = 40   # éléments gardés par catégorie de nouveauté (les comptes, eux, sont complets)
+
+
+def nouveautes_vides():
+    return {k: [] for k in ("macs", "ips", "noms", "fabricants", "raccordements", "correspondances")}
+
+
+def ingest(conn, site_id, fiches, now=None, stats=None, noms_registre=None):
+    """Fusionne une relève dans les deux tables -> nombre de clients. Transactions courtes (lot de 200).
+    #974 : `stats` (dict de listes, voir nouveautes_vides) reçoit ce que la relève apporte de neuf : MAC jamais vue, nouvelle IP
+    d'une MAC connue, nouveau nom annoncé, fabricant jamais vu sur le site, équipement de raccordement (borne, commutateur)
+    jamais vu, et correspondance = MAC nouvelle dont le nom annoncé est celui d'une fiche du registre (`noms_registre`,
+    noms normalisés)."""
     now = int(now or time.time())
     conn.executescript(SCHEMA)
+    if stats is not None:
+        fab_connus = {r[0] for r in conn.execute("SELECT DISTINCT manufacturer FROM nebula_client_seen WHERE site_id = ?", (site_id,)) if r[0]}
+        racc_connus = {r[0] for r in conn.execute("SELECT DISTINCT device FROM nebula_client_seen WHERE site_id = ?", (site_id,)) if r[0]}
+        noms_registre = noms_registre or set()
+
+        def note(cat, v):
+            if len(stats[cat]) < MAX_DETAIL:
+                stats[cat].append(v)
+            stats.setdefault("n", {}).setdefault(cat, 0)
+            stats["n"][cat] += 1
     for i, f in enumerate(fiches.values(), 1):
         seen = min(f["last_seen"], now)
-        row = conn.execute("SELECT first_seen, last_seen FROM nebula_client_seen WHERE site_id = ? AND mac = ?", (site_id, f["mac"])).fetchone()
+        row = conn.execute("SELECT first_seen, last_seen, ip, name FROM nebula_client_seen WHERE site_id = ? AND mac = ?", (site_id, f["mac"])).fetchone()
+        if stats is not None:
+            if row is None:
+                note("macs", {"mac": f["mac"], "nom": f.get("name"), "ip": f.get("ip"), "fabricant": f.get("manufacturer")})
+                if f.get("name") and norm_nom(f["name"]) in noms_registre:
+                    note("correspondances", {"mac": f["mac"], "nom": f["name"], "ip": f.get("ip")})
+            else:
+                if f.get("ip") and row[2] and f["ip"] != row[2]:
+                    note("ips", {"mac": f["mac"], "nom": f.get("name") or row[3], "ancienne": row[2], "nouvelle": f["ip"]})
+                if f.get("name") and row[3] and norm_nom(f["name"]) != norm_nom(row[3]):
+                    note("noms", {"mac": f["mac"], "ancien": row[3], "nouveau": f["name"]})
+            if f.get("manufacturer") and f["manufacturer"] not in fab_connus:
+                fab_connus.add(f["manufacturer"])
+                note("fabricants", {"fabricant": f["manufacturer"], "mac": f["mac"], "nom": f.get("name")})
+            if f.get("device") and f["device"] not in racc_connus:
+                racc_connus.add(f["device"])
+                note("raccordements", {"equipement": f["device"], "mac": f["mac"], "nom": f.get("name")})
         cols = ("ip", "name", "manufacturer", "os", "device", "device_id", "port", "ssid", "vlan", "sources")
         vals = [f.get(k) for k in cols]
         if row is None:
@@ -147,6 +200,33 @@ def ingest(conn, site_id, fiches, now=None):
             conn.commit()
     conn.commit()
     return len(fiches)
+
+
+def etat_releve(error, clients, nouveautes):
+    """#974 : couleur de la diode d'une relève -- rouge (rien d'enregistré), vert (du neuf), bleu (rien de neuf)."""
+    if clients is None:
+        return "rouge"
+    n = (nouveautes or {}).get("n") or {}
+    return "vert" if any(n.values()) else "bleu"
+
+
+def calendrier(conn, site_id=None, depuis=0):
+    """Relèves depuis `depuis` -> [{id, at, site_id, etat, clients, error, trigger, duration_ms, n}] (n = comptes de nouveautés)."""
+    ensure_columns(conn)
+    q = "SELECT id, at, site_id, clients, error, trigger, duration_ms, nouveautes FROM nebula_client_polls WHERE at >= ?"
+    args = [depuis]
+    if site_id:
+        q += " AND site_id = ?"
+        args.append(site_id)
+    out = []
+    for r in conn.execute(q + " ORDER BY at", args):
+        try:
+            nv = json.loads(r[7]) if r[7] else {}
+        except ValueError:
+            nv = {}
+        out.append({"id": r[0], "at": r[1], "site_id": r[2], "clients": r[3], "error": r[4], "trigger": r[5], "duration_ms": r[6],
+                    "etat": etat_releve(r[4], r[3], nv), "n": nv.get("n") or {}})
+    return out
 
 
 def purge(conn, now=None, days=RETENTION_DAYS):

@@ -1,3 +1,15 @@
+## 2026-11-06 — livraison #974 : calendrier des relèves (diodes), relève de l'historique des clients réparée
+
+- **Constat** : depuis sa mise en place, la relève horaire de l'historique des clients (#872) échouait à chaque passage (« Error binding parameter 12: type 'dict' ») : Nebula publie le SSID en objet `{name, security}`. L'échec n'était visible que dans le journal du conteneur, et la relève à la demande répondait 500. Aucune donnée n'a été enregistrée. Le correctif du SSID est dans #973 ; les objets `osHostname {hostname}` sont aussi lus (nom annoncé).
+- **Relèves en erreur enregistrées** : un échec (Nebula injoignable, écriture impossible) est désormais une ligne de relève avec son erreur, et non plus une simple ligne de journal.
+- **Rattrapage** : la première relève réussie d'un site demande à Nebula les 24 h qu'il garde encore (au lieu de 2 h).
+- **Nouveautés de chaque relève** : MAC jamais vue, nouvelle IP d'une MAC connue, nouveau nom annoncé, fabricant jamais vu sur le site, équipement de raccordement (borne, commutateur) jamais vu, et correspondance = MAC nouvelle dont le nom annoncé est celui d'une fiche du registre. Comptes complets, listes limitées à 40 par catégorie.
+- **Nebula › Historique des clients › 📅 Relèves** : une diode par heure sur 7 à 92 jours — noir pas de relève, rouge erreur, bleu rien de nouveau, vert nouvelles informations ; date de la première relève ; clic sur une diode = détail (nouveautés, erreur copiable). « Relever maintenant » affiche aussi les nouveautés.
+- API : `GET /client-history/calendar?site=&jours=`, `GET /client-history/poll/<id>` ; colonne `nouveautes` ajoutée à `nebula_client_polls` (automatiquement).
+
+Vérifié : tests nebula (test_client_history, test_parc, test_reperage : 28 réussis, dont un scénario vert / bleu / vert / rouge avec SSID en objet ; le reste de la suite a les mêmes 7 échecs que la veille, liés au bac à sable), tests hub relevesLib ; syntaxe des .jsx (esbuild).
+Non vérifié : relève réelle sur Nebula, rendu dans un navigateur.
+
 ## 2026-11-05 — livraison #973 : équipements du site — plan, tableau, calque, remontée vers l'amont
 
 - **Mise en page** : le plan est à gauche, réduit ou étendu (« ⤢ Étendre », bord étirable) et reste visible pendant que le tableau défile à droite dans son propre cadre (en-tête fixe, défilement vertical et horizontal). Colonnes à afficher et largeurs réglables (« ⚙ Colonnes », réglages mémorisés pour le compte) ; colonnes de parc disponibles (catégorie, lab, modèle, n° de série, compte, espace du plan), masquées par défaut.

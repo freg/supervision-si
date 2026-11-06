@@ -75,6 +75,48 @@ class ClientHistory(unittest.TestCase):
         ch.ingest(self.c, "site-alpha", ch.merge([{"macAddress": "02:00:00:aa:bb:09", "description": "ma-passerelle"}], now=T0), now=T0)
         self.assertEqual(ch.query(self.c, q="passerelle")["rows"][0]["name"], "passerelle-lora")
 
+    def test_releves_diodes_et_nouveautes(self):   # #974
+        import tempfile
+        import client_history_routes as R
+        db = os.path.join(tempfile.mkdtemp(), "n.db")
+
+        def conn():
+            return sqlite3.connect(db)
+        etat = {"ip": "192.0.2.60", "ssid": {"name": "Numeria", "security": "WPA2_PSK"}, "panne": False, "periodes": []}
+
+        class Client:
+            def get_site_clients(self, sid, period):
+                etat["periodes"].append(period)
+                if etat["panne"]:
+                    raise RuntimeError("Nebula injoignable")
+                return [{"macAddress": "02:00:00:aa:bb:02", "ipv4Address": etat["ip"], "manufacturer": "Meta Platforms", "osHostname": {"hostname": "VR-001"}}]
+
+            def ap_clients_v2(self, sid, period):
+                return [{"macAddress": "02:00:00:aa:bb:02", "devId": "AP1", "ssid": etat["ssid"]}]
+
+            def sw_clients(self, sid, period):
+                return []
+        deps = {"client": Client, "sites": lambda: [{"siteId": "s1"}], "conn": conn, "device_names": lambda sid: {"AP1": "borne-hall"},
+                "noms_registre": lambda sid: ["VR 001", None]}
+        r = R.relever(deps, "test", now=T0)
+        self.assertIsNone(r["sites"][0]["error"])
+        self.assertEqual(etat["periodes"], ["1d"])                               # première relève : rattrapage des 24 h de Nebula
+        n = r["sites"][0]["nouveautes"]
+        self.assertEqual((n["macs"], n["correspondances"], n["fabricants"], n["raccordements"]), (1, 1, 1, 1))
+        R._etat["last"] = 0
+        R.relever(deps, "test", now=T0 + H)                                      # rien de neuf
+        self.assertEqual(etat["periodes"][-1], "2h")
+        etat["ip"] = "192.0.2.61"
+        R.relever(deps, "test", now=T0 + 2 * H)                                  # nouvelle IP
+        deps["device_names"] = lambda sid: (_ for _ in ()).throw(RuntimeError("inventaire"))
+        R.relever(deps, "test", now=T0 + 3 * H)                                  # échec d'enregistrement : relève en erreur, enregistrée
+        cal = ch.calendrier(conn(), "s1")
+        self.assertEqual([x["etat"] for x in cal], ["vert", "bleu", "vert", "rouge"])
+        self.assertEqual(cal[2]["n"], {"ips": 1})
+        self.assertIn("inventaire", cal[3]["error"])
+        self.assertEqual(conn().execute("SELECT ssid FROM nebula_client_seen").fetchone()[0], "Numeria")
+        self.assertEqual(ch.etat_releve(None, None, {}), "rouge")
+
     def test_purge(self):
         releve(self.c, T0)
         self.assertGreater(ch.purge(self.c, now=T0 + 500 * 86400), 0)

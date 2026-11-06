@@ -1,5 +1,11 @@
 [
  {
+  "n": 974,
+  "from": 974,
+  "date": "2026-11-06",
+  "title": "Nebula › Historique des clients : calendrier des relèves en diodes (noir pas de relève, rouge erreur, bleu rien de nouveau, vert nouvelles MAC / IP / noms / fabricants / bornes ou correspondances avec le registre) ; la relève horaire, bloquée par le SSID publié en objet, enregistre désormais aussi ses échecs, et la première relève reprend les 24 h gardées par Nebula"
+ },
+ {
   "n": 973,
   "from": 973,
   "date": "2026-11-05",

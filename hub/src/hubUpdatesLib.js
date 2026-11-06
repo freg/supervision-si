@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  974: [{ view: "nebula", params: { tab: "historique" }, hint: "Nebula › Historique des clients : 📅 Relèves, clic sur une diode pour le détail" }],
   973: [{ view: "equipements-site", params: {}, hint: "Équipements du site : ✏️ Calque pour délimiter les espaces ; une fiche › ⬆ Remonter vers l'amont" }],
   972: [{ view: "equipements-site", params: {}, hint: "Équipements du site › « 📊 Parc, baux, déplacements » › Écarts de nom" }],
   971: [{ view: "equipements-site", params: {}, hint: "Équipements du site : 📥 Importer l'inventaire du parc, puis « 📊 Parc, baux, déplacements » › Associations" }],
