@@ -1,0 +1,21 @@
+{
+ "id": "idruide",
+ "titre": "Idruide : tout est ouvert, les flux passent",
+ "sous_titre": "Les adresses exigées par Idruide et Google, testées en continu depuis le campus",
+ "public": "Campus Numéria",
+ "masquer": ["[role=\"alert\"]"],
+ "etapes": [
+  {"titre": "La synthèse par site", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Synthèse\")"],
+   "legende": "Chaque cible exigée par les éditeurs (Idruide, Google Play, mises à jour Android) est testée depuis le campus : ouverte, filtrée ou injoignable."},
+  {"titre": "La liste des adresses Idruide", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Listes de cibles\")", "text=Idruide"],
+   "legende": "La liste fournie par l'éditeur, versionnée : chaque modification est conservée et peut être restaurée."},
+  {"titre": "Les tests dans le temps", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Historique\")"],
+   "legende": "L'historique montre qu'un flux est resté ouvert, ou à quel moment il a été coupé."},
+  {"titre": "Ce que voit la passerelle", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Analyse Nebula\")"],
+   "legende": "Les journaux de la passerelle Nebula confirment le passage réel du trafic vers les serveurs Idruide et Google."},
+  {"titre": "Les alertes", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Alertes\")"],
+   "legende": "Une coupure ouvre une alerte ; elle se ferme seule quand le flux est rétabli."},
+  {"titre": "Le débit par SSID", "vue": "nebula", "params": {"tab": "charge"},
+   "legende": "Clients et débit moyen par borne, SSID et VLAN : les tablettes ont la bande passante nécessaire aux mises à jour."}
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "id": "vlan-ssid",
+ "titre": "Le bon VLAN pour chaque SSID, chaque borne… et le site 51",
+ "sous_titre": "Paramétrage des VLAN au regard des réseaux Wi-Fi, des bornes et des lieux — y compris le lab des métiers",
+ "public": "Campus Numéria",
+ "masquer": ["[role=\"alert\"]"],
+ "etapes": [
+  {"titre": "Le synoptique du réseau", "vue": "nebula", "params": {"tab": "vlan"},
+   "legende": "Passerelle, commutateurs, bornes et clients : chaque appareil relié à celui qui le dessert, avec son état et ses compteurs."},
+  {"titre": "Les anomalies de VLAN", "vue": "nebula", "params": {"tab": "vlan"}, "defiler": "text=anomalies",
+   "legende": "Chaque VLAN de SSID est vérifié sur tout le chemin borne → passerelle ; les écarts sont classés par gravité, avec l'action proposée."},
+  {"titre": "Les ports des bornes", "vue": "nebula", "params": {"tab": "vlan"}, "cliquer": ["summary:has-text(\"Ports des bornes\")"], "defiler": "summary:has-text(\"Ports des bornes\")",
+   "legende": "Le réglage des prises qui alimentent les bornes : VLAN de gestion et VLAN transportés."},
+  {"titre": "Les SSID et leur charge", "vue": "nebula", "params": {"tab": "charge"},
+   "legende": "Clients et débit par SSID et par VLAN."},
+  {"titre": "Le plan du site", "vue": "equipements-site", "cliquer": ["button:has-text(\"Symbolique\")"],
+   "legende": "Les espaces délimités sur le plan (labs, amphi, accueil… et le site 51, alias le lab des métiers) relient chaque borne à son lieu."}
+ ]
+}

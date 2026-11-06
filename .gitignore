@@ -168,3 +168,6 @@ messages/data/*
 # #942 : registre de déploiement et historique des durées (tour de contrôle)
 .deploye.json
 .maj-historique.jsonl
+
+# #982 : visites de démonstration générées (captures du hub : jamais dans git)
+demo/sorties/

@@ -1,3 +1,13 @@
+## 2026-11-06 — livraison #982 : démonstration automatisée (parcours, captures, diaporama, pptx)
+
+- **`demo/`** : visite automatisée du hub par Chromium (Playwright, image officielle) selon un **parcours** JSON (`demo/parcours/<id>.json` : vues, onglets à cliquer, champs à saisir, légendes, variables). Connexion Keycloak par un compte de démonstration (`DEMO_USER`/`DEMO_PASSWORD` du .env, passés par fichier). Captures 1600×900, bandeau d'alertes masqué.
+- **Sorties** (`demo/sorties/<parcours>-<date>/`, hors git) : `diaporama.html` autonome (images incluses ; flèches, lecture auto, plein écran, balayage au doigt, thème sombre) et `<parcours>.pptx` (16:9, titre avec public / livraison / date, une capture par diapositive, légende, notes). `python3 demo/build.py <dossier>` les refait après retouche des légendes.
+- **Parcours livrés** : `idruide` (tout est ouvert, les flux passent : synthèse, listes de cibles, historique, analyse Nebula, alertes, débit par SSID) ; `maj-terminal` (suivre une tablette : parc, fiche, activité, chemin réseau, passages, flux ; `--var terminal=… --var nom_reseau=…`) ; `vlan-ssid` (synoptique, anomalies, ports des bornes, charge par SSID, plan… et le site 51, alias le lab des métiers).
+- Lancement : `./scripts/demo.sh <parcours>` (sans argument : liste).
+
+Vérifié : tests demo/test_demo.py (parcours valides, variables, URL, diaporama et pptx) ; visite complète contre une page factice (captures, masquage, éléments introuvables signalés, pptx validé et rendu).
+Non vérifié : visite du vrai hub (connexion Keycloak, sélecteurs des vues réelles) — à valider au premier lancement, le journal liste les éléments introuvables.
+
 ## 2026-11-06 — livraison #981 : VLAN transportés par « All » = danger potentiel, pas une erreur
 
 - **Constat** : VLAN 21, 22, 30, 40, 52, 60, 66… signalés en gravité haute (« présent sur aucun port de commutateur ») alors que les ports sont réglés en VLAN « All ». `switch_vlans` n'inscrit pas un VLAN porté seulement par « All » sur le commutateur : la règle R-NET-03 le croyait absent.

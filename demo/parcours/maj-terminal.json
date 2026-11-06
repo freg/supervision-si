@@ -1,0 +1,26 @@
+{
+ "id": "maj-terminal",
+ "titre": "Mise à jour à distance : suivre un terminal",
+ "sous_titre": "Une tablette, ses passages sur le réseau, ses flux et ses erreurs",
+ "public": "Campus Numéria",
+ "variables": {"terminal": "E11 AmpIm", "nom_reseau": "E11-AmpIm"},
+ "masquer": ["[role=\"alert\"]"],
+ "etapes": [
+  {"titre": "Le parc des terminaux", "vue": "equipements-site", "cliquer": ["button:has-text(\"Parc, baux\")"],
+   "legende": "Les 220 terminaux de l'inventaire, rapprochés automatiquement de ce qui est vu sur le réseau (adresse MAC, nom annoncé)."},
+  {"titre": "La fiche de {terminal}", "vue": "equipements-site", "saisir": [{"selecteur": "input[placeholder^=\"rechercher\"]", "texte": "{terminal}"}],
+   "cliquer": ["tr:has-text(\"{terminal}\")"],
+   "legende": "Fiche de la tablette : adresse MAC, adresse IP, lab, borne où elle est connectée."},
+  {"titre": "Son activité heure par heure", "vue": "equipements-site", "saisir": [{"selecteur": "input[placeholder^=\"rechercher\"]", "texte": "{terminal}"}],
+   "cliquer": ["tr:has-text(\"{terminal}\")", "button:has-text(\"Activité\")"],
+   "legende": "Où et quand la tablette était connectée : on sait si elle était allumée et joignable au moment de la mise à jour."},
+  {"titre": "Son chemin dans le réseau", "vue": "equipements-site", "saisir": [{"selecteur": "input[placeholder^=\"rechercher\"]", "texte": "{terminal}"}],
+   "cliquer": ["tr:has-text(\"{terminal}\")", "button:has-text(\"Remonter\")"],
+   "legende": "De la tablette à la borne, au commutateur puis à la passerelle : chaque maillon et son état."},
+  {"titre": "Ses passages sur le réseau", "vue": "nebula", "params": {"tab": "historique"},
+   "saisir": [{"selecteur": "input[placeholder^=\"MAC, IP\"]", "texte": "{nom_reseau}"}], "cliquer": ["tr:has-text(\"{nom_reseau}\")"],
+   "legende": "Chaque connexion, avec l'heure, l'adresse IP, la borne, le SSID et le VLAN : relevé toutes les heures et conservé."},
+  {"titre": "Les flux de mise à jour", "vue": "flux-editeurs", "cliquer": ["button:has-text(\"Alertes\")"],
+   "legende": "Si un flux exigé par l'éditeur est coupé pendant la mise à jour, l'alerte le dit, avec l'heure de coupure et de rétablissement."}
+ ]
+}
