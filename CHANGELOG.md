@@ -1,3 +1,14 @@
+## 2026-11-06 — livraison #989 : démonstration, navigation relancée sur net::ERR_NETWORK_CHANGED
+
+- **Outil de démonstration** (`demo/tour.py`) : le conteneur tourne en `--network host`, Chromium voit donc les
+  interfaces de l'hôte ; un conteneur qui démarre ou s'arrête pendant la visite (tour de contrôle, reconstruction)
+  faisait échouer `page.goto` (net::ERR_NETWORK_CHANGED). Les erreurs réseau passagères sont réessayées 5 fois
+  (délai croissant), notées au journal ; les autres erreurs (nom inconnu, certificat…) remontent comme avant.
+- `scripts/demo.sh` : réglage `DEMO_RESEAU` (.env ou environnement), `host` par défaut, `bridge` pour isoler Chromium.
+
+Vérifié : tests demo (unittest), relance simulée (2 échecs puis succès ; erreur non passagère relancée), `bash -n`.
+Non vérifié : visite réelle sur le hub, mode `bridge` (le hub doit être joignable depuis un conteneur ordinaire).
+
 ## 2026-11-06 — livraison #988 : Hermes, atelier de codage et apprentissage sur les nœuds IA (groupe « ia »)
 
 - **Hub › Supervision › Hermes / Atelier de codage IA / Apprentissage des IA** : les pages du service hermes-web (même code
