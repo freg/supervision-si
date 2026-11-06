@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  988: [{ view: "hermes", params: {}, hint: "Hermes : choisir le nœud (prodia / preprodia) ; onglets Atelier et Apprentissage" }, { view: "ia-atelier", params: {}, hint: "Atelier de codage du nœud IA" }],
   986: [{ view: "espaces", params: {}, hint: "Espaces disques : regrouper par rôle, LAN ou hébergeur ; clic sur une machine pour le détail" }],
   984: [{ view: "demos", params: {}, hint: "Démonstrations : ▶ Générer sur un parcours, puis ▶ Diaporama ou ⬇ PowerPoint" }],
   979: [{ view: "nebula", params: { tab: "vlan" }, hint: "Nebula › Carte des VLAN : cases de couleur pour masquer, boutons PNG / JPG / SVG" }],

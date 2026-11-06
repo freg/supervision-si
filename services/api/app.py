@@ -102,6 +102,11 @@ if register_version_route:
     register_version_route(app, "services-api")
 
 verifier = KeycloakVerifier(JWKS_URL, ADMIN_USERS, expected_azp=EXPECTED_AZP, allowed_groups=ADMIN_GROUPS, what="la tour de contrôle")
+# #988 : nœuds IA (Hermes, atelier, apprentissage sur prodia / preprodia) -- groupe Keycloak « ia » (IA_GROUPES)
+import ia_noeuds as IA   # noqa: E402
+IA_NOEUDS = IA.noeuds(os.environ.get("IA_NOEUDS", ""))
+ia_verifier = KeycloakVerifier(JWKS_URL, [u for u in os.environ.get("IA_UTILISATEURS", "").split(",") if u.strip()],
+                               expected_azp=EXPECTED_AZP, allowed_groups=IA.groupes(os.environ.get("IA_GROUPES")), what="les nœuds IA")
 _client = None
 _cache = {"at": 0, "rows": None}
 _lock = threading.Lock()
@@ -118,7 +123,7 @@ app.docker_client = docker_client  # remplaçable dans les tests
 
 
 # -- garde d'identité -----------------------------------------------------
-PUBLIC = ("/health", "/version", "/host/public", "/version-hub")   # #830
+PUBLIC = ("/health", "/version", "/host/public", "/version-hub", "/ia/acces", "/ia/noeuds")   # #830 ; #988 : garde propre (groupe « ia »)
 
 
 @app.before_request
@@ -130,6 +135,30 @@ def _guard():
     except AuthError as exc:
         return jsonify({"error": str(exc)}), exc.status
     return None
+
+
+def _ia_personne():
+    return ia_verifier.verify(IA.jeton(request.headers.get("Authorization"), request.cookies))
+
+
+@app.route("/ia/acces", methods=["GET"])
+def ia_acces():
+    """#988 : auth_request de la passerelle pour /ia/<nœud>/… -- 204 si jeton valide et groupe admis, sinon 401 / 403."""
+    try:
+        _ia_personne()
+    except AuthError as exc:
+        return "", exc.status
+    return "", 204
+
+
+@app.route("/ia/noeuds", methods=["GET"])
+def ia_noeuds_liste():
+    """#988 : nœuds IA déclarés (noms seulement) pour les tuiles Hermes / Atelier / Apprentissage du hub."""
+    try:
+        u = _ia_personne()
+    except AuthError as exc:
+        return jsonify({"error": str(exc), "groupes": IA.groupes(os.environ.get("IA_GROUPES"))}), exc.status
+    return jsonify({"noeuds": IA_NOEUDS, "personne": u["username"]})
 
 
 @app.route("/health", methods=["GET"])

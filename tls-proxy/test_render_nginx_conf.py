@@ -19,6 +19,29 @@ class Relays(unittest.TestCase):
         self.assertIn("set $nav_upstream_0 http://si-proxy:6490;", conf)
         self.assertIn('proxy_set_header Connection "upgrade";', conf)
 
+    def test_ia_noeuds(self):   # #988
+        J = "a" * 32
+        env = {"IA_NOEUDS": "prodia=http://si-proxy:6491, preprodia=http://192.0.2.20:8092/", "IA_NOEUDS_JETONS": "prodia=%s,preprodia=%s" % (J, "b" * 32)}
+        self.assertEqual(r.ia_noeuds_from_env(env), [("prodia", "http://si-proxy:6491", J), ("preprodia", "http://192.0.2.20:8092", "b" * 32)])
+        self.assertEqual(r.ia_noeuds_from_env({}), [])
+        for bad in ({"IA_NOEUDS": "prodia=http://x:8092"},                                      # pas de jeton
+                    {"IA_NOEUDS": "prodia=http://x:8092", "IA_NOEUDS_JETONS": "prodia=court"},
+                    {"IA_NOEUDS": "Prodia=http://x:8092", "IA_NOEUDS_JETONS": "Prodia=" + J},
+                    {"IA_NOEUDS": "prodia=http://x:8092/chemin", "IA_NOEUDS_JETONS": "prodia=" + J},
+                    {"IA_NOEUDS": "prodia=http://x;rm:8092", "IA_NOEUDS_JETONS": "prodia=" + J},
+                    {"IA_NOEUDS": "prodia=http://x:8092,prodia=http://y:8092", "IA_NOEUDS_JETONS": "prodia=" + J}):
+            with self.assertRaises(ValueError):
+                r.ia_noeuds_from_env(bad)
+        conf, summary = r.build_config(env)
+        self.assertEqual(conf.count("location = /_ia_acces"), 1)
+        self.assertIn("location /ia/prodia/", conf); self.assertIn("location /ia/preprodia/", conf)
+        self.assertEqual(conf.count("auth_request /_ia_acces;"), 2)
+        self.assertIn('proxy_set_header X-Hermes-Jeton "%s";' % J, conf)
+        self.assertIn('proxy_set_header Cookie "";', conf)   # le jeton Keycloak de la personne ne part pas vers le nœud
+        self.assertNotIn(J, "\n".join(summary))              # jamais dans le résumé affiché
+        conf, _ = r.build_config({})
+        self.assertNotIn("_ia_acces", conf)
+
     def test_relays(self):
         env = {"GATEWAY_PORT": "6443", "HOST_IP": "192.0.2.1", "RELAY1_PORT": "6486", "RELAY1_TARGET": "ssh-tunnels-api:18006", "RELAY1_LABEL": "hyperviseur du site"}
         conf, summary = r.build_config(env)

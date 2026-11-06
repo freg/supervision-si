@@ -588,6 +588,72 @@ NAV_LOCATION_TEMPLATE = """
 """
 
 
+IA_ACCES_TEMPLATE = """
+    # Nœuds IA (#988) : contrôle d'accès de /ia/<nœud>/ -- services-api vérifie le jeton Keycloak (en-tête ou cookie
+    # si_ia_jeton posé par le hub) et le groupe « ia » ; 204 = passe, 401 / 403 = refus.
+    location = /_ia_acces {{
+        internal;
+        resolver 127.0.0.11 valid=10s;
+        set $ia_acces_hote services-api:5000;
+        proxy_pass http://$ia_acces_hote/ia/acces;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+    }}
+"""
+
+IA_LOCATION_TEMPLATE = """
+    # Nœud IA « {nom} » (#988) : Hermes, atelier, apprentissage (hermes-web du nœud) -- groupe Keycloak « ia »
+    location /ia/{nom}/ {{
+        auth_request /_ia_acces;
+        resolver 127.0.0.11 valid=10s;
+        set $ia_upstream_{i} {url};
+        rewrite ^/ia/{nom}/(.*)$ /$1 break;
+        proxy_pass $ia_upstream_{i};
+        proxy_set_header X-Hermes-Jeton "{jeton}";
+        proxy_set_header Authorization "";
+        proxy_set_header Cookie "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Prefix /ia/{nom};
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_read_timeout 960s;
+        client_max_body_size 50m;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }}
+"""
+
+
+def ia_noeuds_from_env(env):
+    """[(nom, url, jeton)] d'après IA_NOEUDS=nom=http://hôte:port,… et IA_NOEUDS_JETONS=nom=jeton,… (#988).
+    Un nœud sans jeton est refusé : hermes-web du nœud exige X-Hermes-Jeton (HERMES_WEB_JETON)."""
+    raw = os.environ.get("IA_NOEUDS", env.get("IA_NOEUDS", "")).strip()
+    jet = {}
+    for item in [x.strip() for x in os.environ.get("IA_NOEUDS_JETONS", env.get("IA_NOEUDS_JETONS", "")).split(",") if x.strip()]:
+        n, _, j = item.partition("=")
+        jet[n.strip()] = j.strip()
+    out, vus = [], set()
+    for item in [x.strip() for x in raw.split(",") if x.strip()]:
+        nom, _, url = item.partition("=")
+        nom, url = nom.strip(), url.strip().rstrip("/")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", nom):
+            raise ValueError("IA_NOEUDS : nom invalide « %s » (minuscules, chiffres, tirets)" % nom)
+        if not re.fullmatch(r"https?://[A-Za-z0-9._-]+:\d{2,5}", url):
+            raise ValueError("IA_NOEUDS : adresse attendue http://hôte:port pour %s : %s" % (nom, url))
+        if nom in vus:
+            raise ValueError("IA_NOEUDS : %s en double" % nom)
+        j = jet.get(nom, "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", j):
+            raise ValueError("IA_NOEUDS_JETONS : jeton absent ou invalide pour %s (HERMES_WEB_JETON du .env du nœud)" % nom)
+        vus.add(nom)
+        out.append((nom, url, j))
+    return out
+
+
 def navigateurs_from_env(env):
     """[(nom, port)] d'après NAVIGATEURS=nom=port,nom=port (noms : minuscules, chiffres, tirets)."""
     raw = os.environ.get("NAVIGATEURS", env.get("NAVIGATEURS", "")).strip()
@@ -662,6 +728,12 @@ def build_config(env):
     for i, (nom, port) in enumerate(navigateurs_from_env(env)):
         locations.append(NAV_LOCATION_TEMPLATE.format(nom=nom, port=port, i=i))
         summary.append(f"  /navigateur/{nom}/  -> si-proxy:{port}  (écran du navigateur de l'hôte, #798)")
+    ia = ia_noeuds_from_env(env)
+    if ia:
+        locations.append(IA_ACCES_TEMPLATE.format())
+    for i, (nom, url, jeton) in enumerate(ia):
+        locations.append(IA_LOCATION_TEMPLATE.format(nom=nom, url=url, jeton=jeton, i=i))
+        summary.append(f"  /ia/{nom}/  -> {url}  (nœud IA : Hermes / atelier / apprentissage, groupe « ia », #988)")
     config = HEADER_TEMPLATE.format(gateway_port=gateway_port) + "\n".join(locations) + FOOTER
     for port, target, label in relays_from_env(env):
         config += RELAY_TEMPLATE.format(port=port, target=target, label=label)

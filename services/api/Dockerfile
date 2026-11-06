@@ -15,6 +15,7 @@ COPY services/api/app.py .
 COPY services/api/lights.py .
 COPY services/api/tower.py .
 COPY services/api/demos.py .
+COPY services/api/ia_noeuds.py .
 COPY deploy/instances.py .
 # Vérificateur de jeton Keycloak partagé avec si-proxy-admin-api (#454).
 COPY si-proxy/admin/auth.py .

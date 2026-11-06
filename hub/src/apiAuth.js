@@ -1,4 +1,5 @@
 import { hubEnv } from "./runtimeEnv.js";   // #736
+import { cookieIa } from "./iaNoeudsLib.js";   // #988
 // A0 (livraison #615) : jeton Keycloak sur TOUS les appels d'API du hub.
 // Un seul intercepteur `fetch`, plutôt qu'une ligne dans chacun des ~30
 // clients JS : toute requête vers une base d'API du hub (VITE_*_API_BASE_URL,
@@ -35,7 +36,11 @@ export function withToken(init, token) {
   return { ...(init || {}), headers };
 }
 
-export function setApiToken(token) { currentToken = token || ""; }
+export function setApiToken(token) {
+  currentToken = token || "";
+  // #988 : les pages des nœuds IA (/ia/<nœud>/, iframes) passent par la passerelle avec ce jeton en cookie limité à /ia/
+  try { if (typeof document !== "undefined") document.cookie = cookieIa(currentToken, window.location.protocol === "https:"); } catch { /* sans DOM */ }
+}
 export function getApiToken() { return currentToken; }
 export function setSiteScope(sites) { currentScope = Array.isArray(sites) && sites.length ? sites : null; }
 export function getSiteScope() { return currentScope; }

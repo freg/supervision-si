@@ -12,7 +12,8 @@ import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
 import Accueil from "./Accueil.jsx";   // #899 : accueil sans authentification
 import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
-import { profilActif, restreindre, titreHub } from "./hubProfil.js";   // #987 : profil « campus » (docs/hub-campus.md)
+import { profilActif, restreindre, titreHub } from "./hubProfil.js";
+import { filtrerVuesIa } from "./iaNoeudsLib.js";   // #988 : tuiles des nœuds IA réservées au groupe « ia »   // #987 : profil « campus » (docs/hub-campus.md)
 const HUB_PROFIL = import.meta.env.VITE_HUB_PROFIL || "";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
@@ -88,7 +89,8 @@ const AuditSecuriteView = lazyView(() => import("./AuditSecuriteView.jsx"));   /
 const MigrationView = lazyView(() => import("./MigrationView.jsx"));   // #774 : tuile « Migration 2026-2027 »
 const FleetViewsView = lazyView(() => import("./FleetViewsView.jsx"));   // #753
 const IaParkView = lazyView(() => import("./IaParkView.jsx"));   // #756
-const HermesView = lazyView(() => import("./HermesView.jsx"));   // #912 : tuile Hermes (hermes-web, lecture seule)
+const HermesView = lazyView(() => import("./HermesView.jsx"));
+const IaNoeudView = lazyView(() => import("./IaNoeudView.jsx"));   // #988 : Hermes / atelier / apprentissage des nœuds IA (groupe « ia »)   // #912 : tuile Hermes (hermes-web, lecture seule)
 const BancView = lazyView(() => import("./BancView.jsx"));   // #826
 const EmulationView = lazyView(() => import("./EmulationView.jsx"));   // #831
 const OrchestrationView = lazyView(() => import("./OrchestrationView.jsx"));   // #832
@@ -1595,7 +1597,7 @@ export default function App() {
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula", NEBULA_API_BASE_URL && "reperage", NEBULA_API_BASE_URL && "equipements-site", NEBULA_API_BASE_URL && "flux-editeurs", NEBULA_API_BASE_URL && "audit-securite", SERVICES_API_BASE_URL && "demos",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", SI_AGENT_API_BASE_URL && "mailbox", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "nas", SI_AGENT_API_BASE_URL && "sauvegardes", SI_AGENT_API_BASE_URL && "espaces", SI_AGENT_API_BASE_URL && "vpn", SI_AGENT_API_BASE_URL && "postes-windows", SI_AGENT_API_BASE_URL && "sockets", "messages", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", SI_AGENT_API_BASE_URL && "hermes", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "orchestration", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", SI_AGENT_API_BASE_URL && "mailbox", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "nas", SI_AGENT_API_BASE_URL && "sauvegardes", SI_AGENT_API_BASE_URL && "espaces", SI_AGENT_API_BASE_URL && "vpn", SI_AGENT_API_BASE_URL && "postes-windows", SI_AGENT_API_BASE_URL && "sockets", "messages", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", (SI_AGENT_API_BASE_URL || SERVICES_API_BASE_URL) && "hermes", SERVICES_API_BASE_URL && "ia-atelier", SERVICES_API_BASE_URL && "ia-apprentissage", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "orchestration", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
@@ -1605,7 +1607,7 @@ export default function App() {
     LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
     MIKROTIK_API_BASE && "nat-map",  // #606
   ].filter(Boolean));
-  const availableViews = restreindre(visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw, profil);  // #559 ; #987
+  const availableViews = filtrerVuesIa(restreindre(visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw, profil), groups);  // #559 ; #987
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
   // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
   // disposition (hubTree.js) résolu contre le catalogue des feuilles
@@ -1810,8 +1812,8 @@ vm === "agent-page" ? (
         <FleetViewsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "iapark" ? (
         <IaParkView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
-      ) : vm === "hermes" ? (
-        <HermesView onBack={goBack} />
+      ) : vm === "hermes" || vm === "ia-atelier" || vm === "ia-apprentissage" ? (
+        SERVICES_API_BASE_URL ? <IaNoeudView onBack={goBack} servicesApiBase={SERVICES_API_BASE_URL} vue={vm} /> : <HermesView onBack={goBack} />
       ) : vm === "banc" ? (
         <BancView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "orchestration" ? (

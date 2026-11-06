@@ -1,3 +1,20 @@
+## 2026-11-06 — livraison #988 : Hermes, atelier de codage et apprentissage sur les nœuds IA (groupe « ia »)
+
+- **Hub › Supervision › Hermes / Atelier de codage IA / Apprentissage des IA** : les pages du service hermes-web (même code
+  que les tuiles du hub maison) servies par les nœuds IA prodia et preprodia, choix du nœud (mémorisé), onglets entre les
+  trois pages, liens plein écran / mobile / export. Tuiles visibles du seul groupe Keycloak **ia** (et des administrateurs,
+  admin_hub) ; refus 403 avec lien vers Comptes et groupes. Sans services-api, la tuile Hermes garde l'ancien écran (#912).
+- **Passerelle** (tls-proxy) : `/ia/<nœud>/` vers l'adresse du nœud (`IA_NOEUDS`), chaque requête contrôlée par
+  `auth_request` → **services-api** `GET /ia/acces` (jeton Keycloak en en-tête, ou cookie `si_ia_jeton` limité à /ia/
+  posé par le hub pour les iframes ; groupes `IA_GROUPES`) ; le jeton du nœud (`IA_NOEUDS_JETONS`) est posé en
+  `X-Hermes-Jeton`, le jeton Keycloak et les cookies ne partent pas vers le nœud. `GET /ia/noeuds` : noms des nœuds.
+- Côté nœud (dépôts séparés) : hermes-web 0.28.0 (profil `ia`, garde `HERMES_WEB_JETON`) ; hub-maison
+  `deploy/noeud-ia` (service hermes-web, installeur : jeton, dossiers, config de départ du moteur, contrôle avec jeton).
+
+Vérifié : tests services-api (accès par groupe, cookie, noms des nœuds, tour toujours réservée aux administrateurs),
+rendu de la passerelle (nœuds, jetons exigés, adresses refusées, jeton absent du résumé), tests hub iaNoeudsLib ; syntaxe.
+Non vérifié : `nginx -t` du rendu, rendu navigateur, nœuds réels (hermes-web non encore déployé sur prodia / preprodia).
+
 ## 2026-11-06 — livraison #987 : profil « campus » du hub (tranche 1 de docs/hub-campus.md)
 
 - **Hub du campus** (`VITE_HUB_PROFIL=campus` dans le .env de la VM du campus) : titre « Hub Campus », seules les tuiles du campus — Nebula, équipements du site, flux éditeurs, repérage, audit de sécurité réseau, Data RF, démonstrations — plus agents, parc IA et espaces disques (qui n'y montrent que les machines du campus) ; pas d'applications externes.
