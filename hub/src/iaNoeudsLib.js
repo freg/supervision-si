@@ -50,3 +50,50 @@ export function cookieIa(token, https = true) {
   const base = `${COOKIE_IA}=${token || ""}; Path=/ia/; SameSite=Strict${https ? "; Secure" : ""}`;
   return token ? base : base + "; Max-Age=0";
 }
+
+// -- #996 : déploiement d'un nœud IA depuis le hub ------------------------------------------------------------------
+export const CMD_ARCHIVE = "cd ~/Downloads/hermes-web && git archive --format=tar.gz --prefix=hermes-web/ -o ~/Downloads/hermes-web.tar.gz HEAD";
+
+/** Nom de nœud proposé d'après l'identifiant de l'agent (minuscules, chiffres, tirets ; « -ia » final retiré). */
+export function nomPropose(agentId) {
+  const n = String(agentId || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").replace(/-ia$/, "");
+  return n.slice(0, 31);
+}
+
+/** Formulaire de déploiement -> message d'erreur ou null (mêmes règles que l'API et la passerelle). */
+export function verifierFormulaire(f) {
+  if (!f.agent) return "choisir l'agent du nœud";
+  if (!/^[a-z0-9][a-z0-9-]{0,30}$/.test(f.nom || "")) return "nom du nœud : minuscules, chiffres, tirets (ex. prodia)";
+  if (!["direct", "bastion"].includes(f.acces)) return "accès : direct ou par le bastion";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(f.adresse || "")) return "adresse du nœud (IP ou nom, vue du hub ou du shim)";
+  const p = Number(f.port || 8092);
+  if (!Number.isInteger(p) || p < 1024 || p > 65535) return "port entre 1024 et 65535";
+  if (f.acces === "bastion" && !/^[a-z0-9][a-z0-9-]{0,30}$/.test(f.shim || "")) return "shim du bastion (ex. campus)";
+  return null;
+}
+
+/** État affiché d'un nœud d'après sa dernière commande et son dernier événement -> {texte, ton}. */
+export function etatNoeud(e) {
+  const ev = e?.evenement, c = e?.commande;
+  if (ev?.kind === "noeud-ia-deploye" && (!c || String(ev.ts || ev.at || "") >= String(c.created_at || ""))) return { texte: ev.message, ton: "ok" };
+  if (ev?.kind === "noeud-ia-echec" && (!c || String(ev.ts || ev.at || "") >= String(c.created_at || ""))) return { texte: ev.message, ton: "bad" };
+  if (c?.status === "pending") return { texte: "commande en attente de l'agent (relève suivante)", ton: "warn" };
+  if (c && c.status !== "pending" && c.result && c.result.ok === false) return { texte: `refusé par l'agent : ${c.result.error || "?"}`, ton: "bad" };
+  if (c?.params?.action === "deployer") return { texte: "déploiement en cours sur le nœud (construction de l'image : plusieurs minutes)", ton: "warn" };
+  if (c?.params?.action === "etat" && c.result?.result) {
+    const r = c.result.result;
+    if (r.en_cours) return { texte: `déploiement en cours : ${r.etape || "…"}`, ton: "warn" };
+    if (r.sante_actuelle) return { texte: r.sante_actuelle.ok ? `en service (${r.version || "?"})` : `ne répond pas : ${r.sante_actuelle.texte}`, ton: r.sante_actuelle.ok ? "ok" : "bad" };
+  }
+  return { texte: "état inconnu", ton: "" };
+}
+
+export const VERSION_AGENT_MIN = "0.6.43";   // première version de l'agent qui sait déployer un nœud IA (commande noeud_ia)
+
+/** Version de l'agent suffisante (comparaison numérique a.b.c) ; version inconnue = non. */
+export function agentAJour(version, min = VERSION_AGENT_MIN) {
+  const a = String(version || "").split(".").map(Number), b = min.split(".").map(Number);
+  if (!version || a.some(Number.isNaN)) return false;
+  for (let i = 0; i < b.length; i++) { const x = a[i] || 0; if (x !== b[i]) return x > b[i]; }
+  return true;
+}

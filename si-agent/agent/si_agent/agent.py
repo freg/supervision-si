@@ -970,6 +970,9 @@ class Agent(object):
                 # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture relais, nettoyage)
                 res = self.p2v_action(params, c.get("id"))
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "noeud_ia":
+                # #996 : Hermes / atelier / apprentissage installés et mis à jour depuis le hub (kit déposé, jeton signé)
+                return self._noeud_ia(params, c.get("id"))
             if ctype == "hostops":
                 # #756 : gestes encadrés (liste fermée, listes blanches d'agent.json, motif, audit) -- pas un shell
                 from . import hostops
@@ -3141,6 +3144,81 @@ class Agent(object):
         audit(True, msg)
         self.event("xfer-purge", "info", msg, {"path": it["path"], "size": it.get("size"), "actor": p.get("actor"), "reason": p.get("reason"), "force": bool(p.get("force"))})
         return {"ok": True, "message": msg, "freed": it.get("size") or 0}
+
+    def _noeud_ia(self, params, command_id=None):
+        """#996 : commande `noeud_ia` -- etat (lecture) / deployer (INTERVENTION, fil détaché). Voir noeudia.py."""
+        import shutil as _sh
+        import subprocess as _sp
+        import threading
+        from . import noeudia
+        if IS_WINDOWS:
+            return {"ok": False, "error": "nœud IA : hôtes Linux seulement"}
+        err = noeudia.valider(params)
+        if err:
+            return {"ok": False, "error": err}
+        racine = str(self.cfg.get("noeud_ia_racine") or noeudia.RACINE)
+        dep = getattr(self, "_noeud_ia_dep", None)
+
+        def sante(port, jeton=None):
+            jeton = jeton or noeudia.lire_jeton(racine)
+            try:
+                req = urllib.request.Request("http://127.0.0.1:%d/api/version" % int(port), headers={"X-Hermes-Jeton": jeton or ""})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    return True, r.read(300).decode("utf-8", "replace")
+            except Exception as exc:  # noqa: BLE001
+                return False, str(exc)[:200]
+
+        if (params.get("action") or "etat") == "etat":
+            etat = dict(dep.etat) if dep else (noeudia.etat_disque(racine) or {})
+            if not etat.get("en_cours") and noeudia.lire_jeton(racine):
+                ok, txt = sante(int(params.get("port") or 8092))
+                etat["sante_actuelle"] = {"ok": ok, "texte": txt}
+            return {"ok": True, "result": etat}
+        if self.is_blocked():
+            return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+        permis = str(self.cfg.get("remote_shell") or "off")
+        if permis != "intervention":
+            return {"ok": False, "error": "déployer un nœud IA = intervention : autoriser « intervention » dans Commandes à distance (fiche de l'agent)"}
+        if dep and dep.etat.get("en_cours"):
+            return {"ok": False, "error": "un déploiement est déjà en cours (étape : %s)" % dep.etat.get("etape")}
+        if not _sh.which("docker"):
+            return {"ok": False, "error": "docker absent sur cet hôte"}
+        base = "%s/agents/%s/noeud-ia" % (protocol.API_PREFIX, self.cfg["agent_id"])
+
+        def telecharger(dest):
+            try:
+                os.remove(dest + ".part")
+            except OSError:
+                pass
+            self.http.download_signed(base + "/kit", dest)
+
+        def jeton():
+            st, _h, data = self.http.get_raw_signed(base + "/jeton")
+            if st != 200:
+                raise RuntimeError("jeton refusé par le hub (HTTP %s)" % st)
+            return json.loads(data.decode("utf-8"))["jeton"]
+
+        def commande(argv, timeout):
+            if _sp.run(["docker", "compose", "version"], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL).returncode != 0:
+                argv = ["docker-compose"] + argv[2:]
+            r = _sp.run(argv, stdout=_sp.PIPE, stderr=_sp.STDOUT, timeout=timeout, universal_newlines=True)
+            return r.returncode, r.stdout
+
+        dep = noeudia.Deploiement(dict(params), telecharger, jeton, commande, sante, racine=racine)
+        self._noeud_ia_dep = dep
+        nom = params.get("nom")
+
+        def work():
+            e = dep.executer()
+            if e.get("ok"):
+                self.event("noeud-ia-deploye", "info", "nœud IA %s : hermes-web %s en service" % (nom, e.get("version") or "?"),
+                           {"command": command_id, "nom": nom, "version": e.get("version")})
+            else:
+                self.event("noeud-ia-echec", "warning", "nœud IA %s : déploiement en échec à l'étape « %s » : %s" % (nom, e.get("etape"), e.get("erreur")),
+                           {"command": command_id, "nom": nom, "etape": e.get("etape"), "erreur": e.get("erreur"), "sortie": (e.get("sortie") or "")[-1500:]})
+
+        threading.Thread(target=work, name="noeud-ia", daemon=True).start()
+        return {"ok": True, "result": {"demarre": True, "nom": nom}}
 
     def start_ollama_pull(self, url, model, command_id=None):
         """#746 : téléchargement d'un modèle Ollama dans un fil détaché ; progression lue par l'action status."""

@@ -1813,7 +1813,7 @@ vm === "agent-page" ? (
       ) : vm === "iapark" ? (
         <IaParkView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "hermes" || vm === "ia-atelier" || vm === "ia-apprentissage" ? (
-        SERVICES_API_BASE_URL ? <IaNoeudView onBack={goBack} servicesApiBase={SERVICES_API_BASE_URL} vue={vm} /> : <HermesView onBack={goBack} />
+        SERVICES_API_BASE_URL ? <IaNoeudView onBack={goBack} servicesApiBase={SERVICES_API_BASE_URL} siAgentApiBase={SI_AGENT_API_BASE_URL} admin={isAdmin(groups)} username={profile.preferred_username} vue={vm} /> : <HermesView onBack={goBack} />
       ) : vm === "banc" ? (
         <BancView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "orchestration" ? (

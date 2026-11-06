@@ -4481,5 +4481,129 @@ maint.register(app, DB_PATH, lambda: store.latest_proxmox(DB_PATH), start_loop=o
                emit=lambda kind, sev, msg, details: _event(kind, sev, msg, details=details, source="maintenance"))
 
 
+
+# -- #996 : nœuds IA déployés depuis le hub (hermes-web : Hermes, atelier, apprentissage) ---------------------------------
+import noeudia as _noeudia  # noqa: E402
+
+NOEUD_IA_DIR = os.environ.get("SI_AGENT_NOEUD_IA_DIR", os.path.join(os.path.dirname(DB_PATH), "noeud-ia"))
+
+
+def _ia_secret():
+    return os.environ.get("IA_NOEUDS_SECRET", "").strip()
+
+
+def _kit_meta():
+    try:
+        with open(os.path.join(NOEUD_IA_DIR, "kit.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _noeuds_ia():
+    return store.get_setting(DB_PATH, "noeud_ia_noeuds", {}) or {}
+
+
+@app.route("/noeud-ia", methods=["GET"])
+def noeud_ia_route():
+    """#996 : archive déposée, nœuds déployés (agent -> nom, port, demande), derniers états et événements."""
+    noeuds = _noeuds_ia()
+    etats = {}
+    for aid in noeuds:
+        cmds = [c for c in store.list_commands(DB_PATH, aid, limit=40) if c.get("type") == "noeud_ia"]
+        ev = [e for e in store.list_events(DB_PATH, agent_id=aid, limit=60) if str(e.get("kind", "")).startswith("noeud-ia")]
+        etats[aid] = {"commande": cmds[0] if cmds else None, "evenement": ev[0] if ev else None}
+    return jsonify({"kit": _kit_meta(), "secret": bool(_ia_secret()), "noeuds": noeuds, "etats": etats}), 200
+
+
+@app.route("/noeud-ia/kit", methods=["POST"])
+def noeud_ia_kit_route():
+    """#996 : dépôt de l'archive de hermes-web (git archive --prefix=hermes-web/ … HEAD), champ « archive »."""
+    f = request.files.get("archive")
+    data = f.read(_noeudia.TAILLE_MAX + 1) if f else request.get_data()
+    meta, err = _noeudia.analyser_kit(data)
+    if err:
+        return jsonify({"error": err}), 400
+    os.makedirs(NOEUD_IA_DIR, exist_ok=True)
+    tmp = os.path.join(NOEUD_IA_DIR, "kit.tar.gz.tmp")
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+    os.replace(tmp, os.path.join(NOEUD_IA_DIR, "kit.tar.gz"))
+    meta.update({"depose_le": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "depose_par": str(request.form.get("actor") or request.args.get("actor") or "?")[:64]})
+    with open(os.path.join(NOEUD_IA_DIR, "kit.json"), "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, ensure_ascii=False)
+    _event("noeud-ia-kit", "info", "nœuds IA : archive hermes-web %s déposée par %s" % (meta["version"], meta["depose_par"]), details={"version": meta["version"], "sha256": meta["sha256"]})
+    return jsonify(meta), 200
+
+
+@app.route("/agents/<agent_id>/noeud-ia", methods=["POST"])
+def noeud_ia_commande_route(agent_id):
+    """#996 : {action: etat|deployer, nom, port, modele, actor}. `deployer` = INTERVENTION (403 sinon), archive et secret requis."""
+    b = request.get_json(silent=True) or {}
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    params, err = _noeudia.valider_demande(b)
+    if err:
+        return jsonify({"error": err}), 400
+    actor = str(b.get("actor") or "?")[:64]
+    if params["action"] == "deployer":
+        permis = a.get("remote_shell") or "off"
+        if permis != "intervention":
+            return jsonify({"error": "déployer un nœud IA = intervention : passer Commandes à distance de l'agent en « intervention »", "reglage": "remote_shell"}), 403
+        kit = _kit_meta()
+        if not kit:
+            return jsonify({"error": "aucune archive hermes-web déposée : la déposer d'abord (bouton « Déposer l'archive »)"}), 409
+        if not _ia_secret():
+            return jsonify({"error": "IA_NOEUDS_SECRET vide dans le .env du serveur du hub (scripts/sync-env.py le génère) puis reconstruire si-agent-api"}), 409
+        params["sha256"] = kit["sha256"]
+        noeuds = _noeuds_ia()
+        noeuds[agent_id] = {"nom": params["nom"], "port": params["port"], "modele": params["modele"], "version": kit["version"],
+                            "demande_le": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "demande_par": actor}
+        store.set_setting(DB_PATH, "noeud_ia_noeuds", noeuds)
+    try:
+        c = store.create_command(DB_PATH, agent_id, "noeud_ia", params)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if params["action"] == "deployer":
+        _event("noeud-ia-demande", "warning", "nœud IA %s : déploiement de hermes-web %s demandé à %s par %s" % (params["nom"], params.get("sha256", "")[:8], agent_id, actor),
+               agent_id=agent_id, details={"nom": params["nom"], "port": params["port"]})
+    return jsonify({"command": c["id"], "action": params["action"]}), 200
+
+
+def _noeud_ia_agent(agent_id):
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return None, (jsonify({"error": err}), 401)
+    n = _noeuds_ia().get(agent_id)
+    if not n:
+        return None, (jsonify({"error": "aucun déploiement de nœud IA demandé pour cet agent"}), 404)
+    return n, None
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/noeud-ia/kit", methods=["GET"])
+def noeud_ia_kit_agent_route(agent_id):
+    """#996 : l'agent du nœud télécharge l'archive (requête signée, reprise par Range)."""
+    n, err = _noeud_ia_agent(agent_id)
+    if err:
+        return err
+    path = os.path.join(NOEUD_IA_DIR, "kit.tar.gz")
+    if not os.path.isfile(path):
+        return jsonify({"error": "archive absente"}), 404
+    return send_file(path, as_attachment=True, download_name="hermes-web.tar.gz", conditional=True, mimetype="application/gzip")
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/noeud-ia/jeton", methods=["GET"])
+def noeud_ia_jeton_agent_route(agent_id):
+    """#996 : jeton du nœud (HMAC du secret et du nom), remis par requête signée à l'agent du nœud seulement."""
+    n, err = _noeud_ia_agent(agent_id)
+    if err:
+        return err
+    j = _noeudia.jeton(_ia_secret(), n["nom"])
+    if not j:
+        return jsonify({"error": "IA_NOEUDS_SECRET absent"}), 409
+    return jsonify({"jeton": j}), 200
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

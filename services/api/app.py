@@ -104,6 +104,11 @@ if register_version_route:
 verifier = KeycloakVerifier(JWKS_URL, ADMIN_USERS, expected_azp=EXPECTED_AZP, allowed_groups=ADMIN_GROUPS, what="la tour de contrôle")
 # #988 : nœuds IA (Hermes, atelier, apprentissage sur prodia / preprodia) -- groupe Keycloak « ia » (IA_GROUPES)
 import ia_noeuds as IA   # noqa: E402
+try:
+    import ia_registre as IAR   # noqa: E402  -- #996 : registre des nœuds déployés depuis le hub (scripts/ia_registre.py)
+except ImportError:  # pragma: no cover -- hors image
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts"))
+    import ia_registre as IAR   # noqa: E402
 IA_NOEUDS = IA.noeuds(os.environ.get("IA_NOEUDS", ""))
 ia_verifier = KeycloakVerifier(JWKS_URL, [u for u in os.environ.get("IA_UTILISATEURS", "").split(",") if u.strip()],
                                expected_azp=EXPECTED_AZP, allowed_groups=IA.groupes(os.environ.get("IA_GROUPES")), what="les nœuds IA")
@@ -158,7 +163,43 @@ def ia_noeuds_liste():
         u = _ia_personne()
     except AuthError as exc:
         return jsonify({"error": str(exc), "groupes": IA.groupes(os.environ.get("IA_GROUPES"))}), exc.status
-    return jsonify({"noeuds": IA_NOEUDS, "personne": u["username"]})
+    reg = [e["nom"] for e in IAR.charger(_ia_registre_chemin())] if PROJECT_DIR else []
+    return jsonify({"noeuds": IA_NOEUDS + [n for n in reg if n not in IA_NOEUDS], "personne": u["username"]})
+
+
+def _ia_registre_chemin():
+    return os.path.join(PROJECT_DIR, "deploy", "ia-noeuds.json")
+
+
+@app.route("/ia/registre", methods=["GET"])
+def ia_registre_route():
+    """#996 : nœuds déclarés depuis le hub (administrateurs) -- nom, accès direct / bastion, adresse, port publié."""
+    if not PROJECT_DIR:
+        return jsonify({"error": "dépôt non monté (SERVICES_PROJECT_DIR)"}), 503
+    return jsonify({"noeuds": IAR.charger(_ia_registre_chemin()), "env": IA_NOEUDS}), 200
+
+
+@app.route("/ia/declarer", methods=["POST"])
+def ia_declarer_route():
+    """#996 : déclare un nœud IA dans la passerelle (administrateurs) : {nom, acces: direct|bastion, adresse, port, shim}
+    -> registre deploy/ia-noeuds.json, puis job : publication par le bastion si besoin (.env, copie de sécurité),
+    rendu et rechargement de la passerelle."""
+    if not PROJECT_DIR:
+        return jsonify({"error": "dépôt non monté (SERVICES_PROJECT_DIR)"}), 503
+    b = request.get_json(silent=True) or {}
+    e = {k: b.get(k) for k in ("nom", "acces", "adresse", "port", "shim")}
+    err = IAR.valider(e)
+    if err:
+        return jsonify({"error": err}), 400
+    IAR.enregistrer(IAR.declarer(IAR.charger(_ia_registre_chemin()), e), _ia_registre_chemin())
+    steps = []
+    if e["acces"] == "bastion":
+        steps += [{"label": "publier le nœud par le bastion (SI_PROXY_PUBLISH, copie du .env)", "cmd": "python3 scripts/ia_registre.py publier"},
+                  {"label": "appliquer au bastion (si-proxy)", "cmd": "./scripts/run.sh up -d si-proxy"}]
+    steps.append({"label": "rendre et recharger la passerelle (/ia/%s/)" % e["nom"], "cmd": "./gateway/scripts/run.sh up -d --force-recreate tls-proxy"})
+    job = launch_job("ia-noeud", "nœud IA %s : déclaration dans la passerelle" % e["nom"], steps, g.user["username"])
+    event("ia-noeud", "nœud IA %s déclaré (%s %s) par %s" % (e["nom"], e["acces"], e["adresse"], g.user["username"]), job=job["id"])
+    return jsonify({"job": job, "noeud": e["nom"]}), 200
 
 
 @app.route("/health", methods=["GET"])

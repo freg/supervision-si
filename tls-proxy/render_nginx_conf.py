@@ -98,6 +98,7 @@ TROIS types de service, traités différemment :
   ajouté dans docker-compose.yml) pour qu'il génère ses propres liens
   avec ce préfixe. Non plus vérifié en conditions réelles.
 """
+import json
 import os
 import re
 import sys
@@ -628,10 +629,45 @@ IA_LOCATION_TEMPLATE = """
 """
 
 
-def ia_noeuds_from_env(env):
-    """[(nom, url, jeton)] d'après IA_NOEUDS=nom=http://hôte:port,… et IA_NOEUDS_JETONS=nom=jeton,… (#988).
-    Un nœud sans jeton est refusé : hermes-web du nœud exige X-Hermes-Jeton (HERMES_WEB_JETON)."""
+def ia_jeton(secret, nom):
+    """#996 : jeton d'un nœud déployé par le hub -- même calcul que si-agent/api/noeudia.py (jamais écrit nulle part)."""
+    import hashlib
+    import hmac
+    if not secret:
+        return ""
+    return hmac.new(secret.encode("utf-8"), ("hermes-web:%s" % nom).encode("utf-8"), hashlib.sha256).hexdigest()[:48]
+
+
+def ia_registre(path=None):
+    """#996 : nœuds déclarés par la tour (deploy/ia-noeuds.json) -> « nom=url » (direct : adresse:port ; bastion :
+    si-proxy:<port publié>)."""
+    path = path or os.path.join(ROOT, "deploy", "ia-noeuds.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            noeuds = json.load(fh).get("noeuds") or []
+    except (OSError, ValueError):
+        return []
+    out = []
+    for e in noeuds:
+        if not isinstance(e, dict):
+            continue
+        if e.get("acces") == "bastion":
+            if e.get("publie"):
+                out.append("%s=http://si-proxy:%s" % (e.get("nom"), e["publie"]))
+        elif e.get("adresse"):
+            out.append("%s=http://%s:%s" % (e.get("nom"), e["adresse"], e.get("port") or 8092))
+    return out
+
+
+def ia_noeuds_from_env(env, registre=None):
+    """[(nom, url, jeton)] d'après IA_NOEUDS=nom=http://hôte:port,… et IA_NOEUDS_JETONS=nom=jeton,… (#988), plus les
+    nœuds déployés depuis le hub (deploy/ia-noeuds.json, #996 ; jeton = HMAC(IA_NOEUDS_SECRET, nom)). Un nœud sans
+    jeton est refusé : hermes-web du nœud exige X-Hermes-Jeton (HERMES_WEB_JETON)."""
     raw = os.environ.get("IA_NOEUDS", env.get("IA_NOEUDS", "")).strip()
+    deja = {x.strip().partition("=")[0].strip() for x in raw.split(",") if x.strip()}
+    plus = [x for x in (ia_registre() if registre is None else registre) if x.partition("=")[0] not in deja]
+    raw = ",".join([x for x in [raw] + plus if x])
+    secret = os.environ.get("IA_NOEUDS_SECRET", env.get("IA_NOEUDS_SECRET", "")).strip()
     jet = {}
     for item in [x.strip() for x in os.environ.get("IA_NOEUDS_JETONS", env.get("IA_NOEUDS_JETONS", "")).split(",") if x.strip()]:
         n, _, j = item.partition("=")
@@ -646,9 +682,9 @@ def ia_noeuds_from_env(env):
             raise ValueError("IA_NOEUDS : adresse attendue http://hôte:port pour %s : %s" % (nom, url))
         if nom in vus:
             raise ValueError("IA_NOEUDS : %s en double" % nom)
-        j = jet.get(nom, "")
+        j = jet.get(nom, "") or ia_jeton(secret, nom)
         if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", j):
-            raise ValueError("IA_NOEUDS_JETONS : jeton absent ou invalide pour %s (HERMES_WEB_JETON du .env du nœud)" % nom)
+            raise ValueError("IA_NOEUDS_JETONS : jeton absent ou invalide pour %s (HERMES_WEB_JETON du .env du nœud, ou IA_NOEUDS_SECRET)" % nom)
         vus.add(nom)
         out.append((nom, url, j))
     return out

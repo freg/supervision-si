@@ -3,17 +3,20 @@
 // La passerelle contrôle chaque requête (services-api /ia/acces) ; le hub pose son jeton dans un cookie limité à /ia/.
 import { useEffect, useState } from "react";
 import { hubLink } from "./hubLinks.js";
+import IaDeploiement from "./IaDeploiement.jsx";   // #996
 import { PAGES_IA, cheminNoeud, noeudRetenu, pageDeVue } from "./iaNoeudsLib.js";
 
 const MEMO = "hub.ia.noeud";
 const lireMemo = () => { try { return localStorage.getItem(MEMO) || ""; } catch { return ""; } };
 const ecrireMemo = (n) => { try { localStorage.setItem(MEMO, n); } catch { /* stockage indisponible */ } };
 
-export default function IaNoeudView({ onBack, servicesApiBase, vue = "hermes" }) {
+export default function IaNoeudView({ onBack, servicesApiBase, siAgentApiBase, admin = false, username, vue = "hermes" }) {
   const [page, setPage] = useState(pageDeVue(vue));
   const [rep, setRep] = useState(null);
   const [noeud, setNoeud] = useState("");
   const [haut, setHaut] = useState(() => Math.max(420, window.innerHeight - 190));
+  const [deployer, setDeployer] = useState(false);
+  const [rev, setRev] = useState(0);
   useEffect(() => { setPage(pageDeVue(vue)); }, [vue]);
   useEffect(() => {
     const f = () => setHaut(Math.max(420, window.innerHeight - 190));
@@ -24,7 +27,7 @@ export default function IaNoeudView({ onBack, servicesApiBase, vue = "hermes" })
     fetch(`${servicesApiBase}/ia/noeuds`, { credentials: "include" })
       .then(async (r) => { const j = await r.json().catch(() => ({})); setRep(r.ok ? j : { erreur: j.error || `${r.status}`, statut: r.status, groupes: j.groupes }); })
       .catch((e) => setRep({ erreur: e.message }));
-  }, [servicesApiBase]);
+  }, [servicesApiBase, rev]);
   useEffect(() => { if (rep?.noeuds) setNoeud(noeudRetenu(rep.noeuds, lireMemo()) || ""); }, [rep]);
 
   const choisir = (n) => { setNoeud(n); ecrireMemo(n); };
@@ -47,6 +50,7 @@ export default function IaNoeudView({ onBack, servicesApiBase, vue = "hermes" })
             </select>
           </label>
         )}
+        {admin && siAgentApiBase && <button type="button" className={deployer ? "" : "secondary"} onClick={() => setDeployer((x) => !x)}>🚀 Déployer…</button>}
         {base && <>
           <a href={src} target="_blank" rel="noreferrer">plein écran ↗</a>
           <a href={`${base}/mobile`} target="_blank" rel="noreferrer">📱 mobile ↗</a>
@@ -54,6 +58,9 @@ export default function IaNoeudView({ onBack, servicesApiBase, vue = "hermes" })
         </>}
       </header>
 
+      {(deployer || (admin && siAgentApiBase && rep?.noeuds?.length === 0)) && (
+        <IaDeploiement siAgentApiBase={siAgentApiBase} servicesApiBase={servicesApiBase} username={username} onDeclare={() => setRev((x) => x + 1)} />
+      )}
       {!rep && <p className="muted">⏳ nœuds IA…</p>}
       {rep?.erreur && rep.statut === 403 && (
         <p className="error">Accès réservé au groupe Keycloak « ia » ({rep.erreur}). Réglage : <a href={hubLink("accounts")}>Comptes et groupes</a> → ajouter la personne au groupe <strong>ia</strong>, puis se reconnecter.</p>
@@ -63,9 +70,7 @@ export default function IaNoeudView({ onBack, servicesApiBase, vue = "hermes" })
         <p className="error">Nœuds IA indisponibles : {rep.erreur} (services-api). <a href={hubLink("settings")}>Paramètres (feu tricolore des services)</a></p>
       )}
       {rep?.noeuds && rep.noeuds.length === 0 && (
-        <p className="error">Aucun nœud IA déclaré. Pas de lien : opération manuelle — dans le .env du serveur du hub, renseigner
-          {" "}<code>IA_NOEUDS</code> (nom=http://adresse:8092) et <code>IA_NOEUDS_JETONS</code> (nom=HERMES_WEB_JETON du nœud), puis rendre
-          la passerelle et reconstruire services-api (hub-maison : deploy/noeud-ia/README.md, étape 5).</p>
+        <p className="error">Aucun nœud IA déclaré. {admin ? "Le déployer ci-dessus (🚀 Déployer…)." : "Un administrateur le déploie depuis cette tuile (🚀 Déployer…)."}</p>
       )}
       {src && (
         <iframe key={src} title={`${titre} — ${noeud}`} src={src}

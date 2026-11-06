@@ -13,6 +13,7 @@ COPY si-agent/api/app.py .
 COPY si-agent/api/store.py .
 COPY si-agent/api/a_traiter.py .
 COPY si-agent/api/espaces.py .
+COPY si-agent/api/noeudia.py .
 COPY si-agent/api/publish.py .
 COPY si-agent/api/notify.py .
 COPY si-agent/api/alertfilters.py .

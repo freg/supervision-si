@@ -39,3 +39,34 @@ test("cookie du jeton limité à /ia/, effacé quand le jeton est vide", () => {
   assert.equal(cookieIa("abc", false), "si_ia_jeton=abc; Path=/ia/; SameSite=Strict");
   assert.match(cookieIa(""), /Max-Age=0$/);
 });
+
+import { nomPropose, verifierFormulaire, etatNoeud } from "../src/iaNoeudsLib.js";
+
+test("#996 nom proposé et formulaire de déploiement", () => {
+  assert.equal(nomPropose("Prodia-IA"), "prodia"); assert.equal(nomPropose("srv_01"), "srv-01");
+  const ok = { agent: "prodia", nom: "prodia", acces: "bastion", adresse: "192.0.2.30", shim: "campus", port: 8092 };
+  assert.equal(verifierFormulaire(ok), null);
+  assert.match(verifierFormulaire({ ...ok, agent: "" }), /agent/);
+  assert.match(verifierFormulaire({ ...ok, shim: "" }), /shim/);
+  assert.match(verifierFormulaire({ ...ok, adresse: "a b" }), /adresse/);
+  assert.match(verifierFormulaire({ ...ok, port: 80 }), /port/);
+  assert.equal(verifierFormulaire({ ...ok, acces: "direct", shim: "" }), null);
+});
+
+test("#996 état d'un nœud", () => {
+  const c = (o) => ({ created_at: "2026-11-06T10:00:00Z", status: "done", params: { action: "deployer" }, result: { ok: true }, ...o });
+  assert.equal(etatNoeud({ commande: c({ status: "pending" }) }).ton, "warn");
+  assert.match(etatNoeud({ commande: c({ result: { ok: false, error: "intervention" } }) }).texte, /refusé/);
+  assert.equal(etatNoeud({ commande: c(), evenement: { kind: "noeud-ia-deploye", at: "2026-11-06T10:20:00Z", message: "en service" } }).ton, "ok");
+  assert.equal(etatNoeud({ commande: c(), evenement: { kind: "noeud-ia-echec", at: "2026-11-06T10:20:00Z", message: "échec" } }).ton, "bad");
+  assert.match(etatNoeud({ commande: c(), evenement: { kind: "noeud-ia-deploye", at: "2026-11-05T10:00:00Z", message: "ancien" } }).texte, /en cours/);
+  const et = c({ params: { action: "etat" }, result: { ok: true, result: { version: "0.29.0", sante_actuelle: { ok: true } } } });
+  assert.equal(etatNoeud({ commande: et }).texte, "en service (0.29.0)");
+  assert.equal(etatNoeud(undefined).texte, "état inconnu");
+});
+
+import { agentAJour } from "../src/iaNoeudsLib.js";
+test("#996 version d'agent suffisante", () => {
+  assert.equal(agentAJour("0.6.43"), true); assert.equal(agentAJour("0.6.100"), true); assert.equal(agentAJour("0.7"), true);
+  assert.equal(agentAJour("0.6.42"), false); assert.equal(agentAJour(""), false); assert.equal(agentAJour("x.y"), false);
+});

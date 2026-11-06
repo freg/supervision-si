@@ -60,3 +60,62 @@ class Routes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Registre996(unittest.TestCase):
+    """#996 : registre des nœuds déployés depuis le hub (scripts/ia_registre.py) et publications du bastion."""
+    def setUp(self):
+        sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+        import ia_registre as R
+        self.R = R
+
+    def test_valider_declarer(self):
+        R = self.R
+        self.assertIsNone(R.valider({"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30", "shim": "campus"}))
+        self.assertIn("shim", R.valider({"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30"}))
+        self.assertIn("accès", R.valider({"nom": "prodia", "acces": "vpn", "adresse": "x"}))
+        self.assertIn("adresse", R.valider({"nom": "prodia", "acces": "direct", "adresse": "a b;c"}))
+        n = R.declarer([], {"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30", "shim": "campus"})
+        n[0]["publie"] = 6491
+        n = R.declarer(n, {"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30", "shim": "campus", "port": 8092})
+        self.assertEqual(n[0]["publie"], 6491)                     # même cible : port publié gardé
+        n = R.declarer(n, {"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.31", "shim": "campus"})
+        self.assertNotIn("publie", n[0])
+
+    def test_publications(self):
+        R = self.R
+        noeuds = [{"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30", "port": 8092, "shim": "campus"},
+                  {"nom": "preprodia", "acces": "direct", "adresse": "192.0.2.20", "port": 8092}]
+        spec, n, ch = R.publications("6488=campus:192.0.2.10:8006,6491=ia:192.0.2.5:11434", noeuds)
+        self.assertTrue(ch); self.assertEqual(spec, "6488=campus:192.0.2.10:8006,6491=ia:192.0.2.5:11434,6492=campus:192.0.2.30:8092")
+        self.assertEqual(n[0]["publie"], 6492); self.assertNotIn("publie", n[1])
+        spec2, n2, ch2 = R.publications(spec, n)
+        self.assertFalse(ch2); self.assertEqual(spec2, spec)
+        self.assertEqual(R.env_remplacer("A=1\nSI_PROXY_PUBLISH=\nB=2\n", "SI_PROXY_PUBLISH", spec), "A=1\nSI_PROXY_PUBLISH=%s\nB=2\n" % spec)
+        self.assertEqual(R.env_remplacer("A=1", "X", "y"), "A=1\nX=y\n")
+        self.assertEqual(R.env_valeur("SI_PROXY_PUBLISH='6488=a:b:1'\n", "SI_PROXY_PUBLISH"), "6488=a:b:1")
+
+    def test_routes(self):
+        import tempfile
+        import test_app as T
+        A = T.appmod
+        A.verifier = T.auth.KeycloakVerifier("u", ["freg"], fetch=lambda _u: T.jwks(), allowed_groups=["administrateurs"], what="la tour")
+        A.ia_verifier = T.auth.KeycloakVerifier("u", [], fetch=lambda _u: T.jwks(), allowed_groups=["ia"], what="les nœuds IA")
+        lances = []
+        orig = A.launch_job, A.verifier
+        A.launch_job = lambda kind, label, steps, user, extra=None: (lances.append(steps), {"id": "j1"})[1]
+        self.addCleanup(lambda: (setattr(A, "launch_job", orig[0]), setattr(A, "verifier", orig[1])))
+        cl = A.app.test_client()
+        adm = {"Authorization": "Bearer " + T.token("freg", ["administrateurs"])}
+        self.assertEqual(cl.post("/ia/declarer", json={"nom": "prodia"}, headers={"Authorization": "Bearer " + T.token("eve", ["ia"])}).status_code, 403)
+        self.assertEqual(cl.post("/ia/declarer", json={"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30"}, headers=adm).status_code, 400)
+        r = cl.post("/ia/declarer", json={"nom": "prodia", "acces": "bastion", "adresse": "192.0.2.30", "shim": "campus"}, headers=adm)
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual([s["cmd"] for s in lances[-1]], ["python3 scripts/ia_registre.py publier", "./scripts/run.sh up -d si-proxy",
+                                                          "./gateway/scripts/run.sh up -d --force-recreate tls-proxy"])
+        cl.post("/ia/declarer", json={"nom": "preprodia", "acces": "direct", "adresse": "192.0.2.20"}, headers=adm)
+        self.assertEqual(len(lances[-1]), 1)
+        self.assertEqual([e["nom"] for e in cl.get("/ia/registre", headers=adm).get_json()["noeuds"]], ["preprodia", "prodia"])
+        A.IA_NOEUDS = []
+        r = cl.get("/ia/noeuds", headers={"Authorization": "Bearer " + T.token("eve", ["ia"])})
+        self.assertEqual(r.get_json()["noeuds"], ["preprodia", "prodia"])

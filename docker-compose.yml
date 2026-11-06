@@ -1429,6 +1429,7 @@ services:
       # URL que les agents utilisent pour joindre le central (passerelle
       # TLS) -- affichée dans la commande d'installation.
       - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      - IA_NOEUDS_SECRET=${IA_NOEUDS_SECRET:-}   # #996 : jetons des nœuds IA déployés depuis le hub (HMAC, jamais stockés)
       # #905 : adresse LAN du central -> secours d'itinérance écrit dans agent.json (l'agent bascule nom public <-> LAN tout seul)
       - SI_AGENT_INTERNAL_URL=${SI_AGENT_INTERNAL_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
       # #648 : Python embarqué servi par le hub (/deploy/python) pour les postes

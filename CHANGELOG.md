@@ -1,3 +1,27 @@
+## 2026-11-06 — livraison #997 : déployer Hermes / atelier / apprentissage sur un nœud IA depuis le hub
+
+- **Hub › Hermes › 🚀 Déployer…** (administrateurs) : 1) dépôt de l'archive de hermes-web (commande `git archive` du
+  Mac copiable) ; 2) choix de l'agent du nœud, nom, accès direct (LAN du hub) ou par le bastion (site distant, shim),
+  adresse, port → « Déployer / mettre à jour ». Suivi par nœud (version demandée, état, ↻ état). Refus avec lien :
+  agent trop ancien (Agents › Mises à jour), Commandes à distance pas en « intervention » (fiche de l'agent).
+- **Agent 0.6.43** : commande `noeud_ia` (Linux) — `etat` (lecture) ; `deployer` (INTERVENTION, fil détaché) :
+  archive téléchargée par requête signée, empreinte vérifiée, jeton reçu par requête signée, extraction sûre sous
+  /opt/hermes-ia (version précédente gardée), dossiers à l'uid de l'image Hermes, `docker compose up -d --build` du
+  kit `deploy/noeud` de hermes-web (0.29), santé vérifiée avec le jeton ; événement de fin (réussite / échec et étape).
+- **si-agent-api** : `GET /noeud-ia`, `POST /noeud-ia/kit` (archive analysée : hermes-web ≥ 0.29), `POST
+  /agents/<id>/noeud-ia` (403 sans « intervention »), routes signées `…/noeud-ia/kit` et `…/noeud-ia/jeton`. Jeton d'un
+  nœud = HMAC(`IA_NOEUDS_SECRET`, nom) : jamais stocké, ni dans une commande, un résultat ou une trace.
+- **Tour** : `POST /ia/declarer` → registre `deploy/ia-noeuds.json` (hors dépôt) puis job : publication par le bastion si
+  besoin (`scripts/ia_registre.py publier` : SI_PROXY_PUBLISH du .env, copie `.env.bak-<date>`, ports 6491-6499),
+  si-proxy, rendu et rechargement de la passerelle (même jeton recalculé au rendu). hub-maison : hermes-web retiré de
+  son compose de nœud (un seul chemin d'installation).
+
+Vérifié : tests agent (déploiement complet sur archive réelle, empreinte, archive dangereuse ou trop ancienne, échec
+compose, garde intervention), API (dépôt, jeton et archive signés, jeton jamais dans la commande), tour (registre,
+publications, routes), passerelle (registre, même jeton que l'API), hub (formulaire, états, version d'agent) ; syntaxe.
+Non vérifié : sur prodia / preprodia (construction réelle de l'image Hermes, Docker de l'hôte Proxmox), rendu
+navigateur, `nginx -t`.
+
 ## 2026-11-06 — livraison #996 : NAS, rappel sur une ligne pour aligner les deux NAS
 
 - **Hub › NAS › Vue d'ensemble** : les alertes du relevé (jusqu'à 9 lignes sur nas-grpi-1) repoussaient ses volumes
