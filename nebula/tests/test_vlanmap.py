@@ -133,5 +133,19 @@ class Map(unittest.TestCase):
         self.assertEqual(m, {"vlans": [], "links": [], "switches": [], "anomalies": [], "anomalies_detail": []})
 
 
+class VlanParAll(unittest.TestCase):   # #981 : VLAN d'un SSID déclaré nulle part mais transporté par les ports « All »
+    def test_all_danger_potentiel(self):
+        dev = [{"devId": "s1", "name": "XS", "type": "SW"}]
+        ports = {"s1": [{"portNum": 14, "enabled": True, "trunk": True, "portVid": 99, "allowedVLAN": ["all"]}]}
+        wl = [{"name": "Install", "vlan": 21}, {"name": "Cam", "vlan": 22}]
+        m = vlanmap.build_vlan_map(dev, ports, wlans=wl, mac_tables_by_sw={"s1": [{"vlan": 21, "mac": "x"}]})
+        k = {a["details"].get("vlan"): a["kind"] for a in m["anomalies_detail"] if a["kind"].startswith("ssid_vlan")}
+        self.assertEqual(k, {21: "ssid_vlan_via_all_seen", 22: "ssid_vlan_via_all"})
+        a21 = next(a for a in m["anomalies_detail"] if a["details"].get("vlan") == 21)
+        self.assertIn("XS port 14", a21["message"]); self.assertIn("1 adresse", a21["message"])
+        m2 = vlanmap.build_vlan_map(dev, {"s1": [{"portNum": 14, "enabled": True, "trunk": True, "portVid": 99, "allowedVLAN": ["99"]}]}, wlans=wl)
+        self.assertIn("ssid_vlan_no_port", [a["kind"] for a in m2["anomalies_detail"]])   # sans « All » : vraie coupure, gravité haute
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ Types émis par `nebula/api/vlanmap.py` et champs disponibles pour `Action` :
 - `link_missing_vlan` : `vlans`, `missing_on`, `missing_port`, `carried_by`, `carried_port`, `a`, `b`, `a_port`, `b_port`
 - `ssid_vlan_not_on_link` : `vlan`, `ssids`, `a`, `b`, `a_port`, `b_port`
 - `ssid_vlan_no_port` : `vlan`, `ssids`
+- `ssid_vlan_via_all`, `ssid_vlan_via_all_seen` : `vlan`, `ssids`, `ports`, `count`, `vus` (#981)
 - `vlan_no_gateway` : `vlan`, `switches`
 - `link_bare` : `a`, `b`, `a_port`, `b_port`
 - `ap_port_missing_ssid_vlan` : `vlans`, `ssids`, `ports`, `count` (#701)
@@ -35,6 +36,22 @@ Types émis par `nebula/api/vlanmap.py` et champs disponibles pour `Action` :
 - Applicable : non
 - Pourquoi : Le SSID envoie ses clients dans un VLAN que le réseau filaire ne connaît pas : ils sont isolés dès la borne.
 - Vérifier : Le VLAN apparaît dans la carte avec des ports étiquetés sur chaque commutateur du chemin.
+
+## R-NET-03b · VLAN d'un SSID transporté seulement par les ports en « All », trafic constaté
+- Quand : ssid_vlan_via_all_seen
+- Gravité : basse
+- Action : Rien d'urgent : le VLAN {vlan} (SSID {ssids}) passe par les {count} ports en « All » et du trafic y est vu. Pour le rendre robuste, le déclarer nommément (étiqueté) sur les ports des bornes et des liaisons montantes.
+- Applicable : non
+- Pourquoi : Danger potentiel, pas une coupure : « All » transporte tous les VLAN, présents et futurs. Le jour où un profil de port passe en liste explicite, ce VLAN est coupé sans que rien ne le signale.
+- Vérifier : Le VLAN apparaît dans la carte avec des ports étiquetés sur chaque commutateur du chemin.
+
+## R-NET-03c · VLAN d'un SSID transporté seulement par les ports en « All », sans trafic vu
+- Quand : ssid_vlan_via_all
+- Gravité : moyenne
+- Action : Vérifier que le chemin borne → passerelle est entièrement en « All » (sinon le VLAN {vlan} est coupé quelque part), puis déclarer le VLAN nommément sur les ports des bornes et des liaisons montantes.
+- Applicable : non
+- Pourquoi : Le VLAN n'est déclaré sur aucun port, il ne passe que par « All » ({count} ports) et aucun trafic n'y est encore vu : soit le SSID est peu utilisé, soit un maillon du chemin n'est pas en « All ».
+- Vérifier : Des adresses MAC du VLAN apparaissent dans les tables des commutateurs (carte des VLAN).
 
 ## R-NET-04 · VLAN présent sur les commutateurs sans interface de passerelle
 - Quand : vlan_no_gateway

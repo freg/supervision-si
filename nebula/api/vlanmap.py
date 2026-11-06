@@ -323,10 +323,22 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
             add("link_missing_vlan", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
                 "Liaison %s port %s ↔ %s port %s : VLAN %s portés côté %s mais absents côté %s." % (a, l["a_port"], b, l["b_port"], ", ".join(map(str, l["missing_on_b"])), a, b),
                 vlans=l["missing_on_b"], missing_on=b, missing_dev=l["b"], missing_port=l["b_port"], carried_by=a, carried_port=l["a_port"], a=a, b=b, a_port=l["a_port"], b_port=l["b_port"])
+    # #981 : ports en « All » (tous les VLAN, présents et futurs) -- un VLAN qui n'est déclaré nommément nulle part passe
+    # quand même par eux : ce n'est pas une coupure mais un danger potentiel (un changement de profil le coupe sans alerte).
+    ports_all = ["%s port %s" % (switches.get(dev, {}).get("name", dev), port)
+                 for dev, bp in sorted(ports_by_sw.items()) for port, info in sorted(bp.items(), key=lambda kv: str(kv[0]))
+                 if info.get("all") and info.get("enabled", True) is not False]
     for vid, v in sorted(vlans.items()):
         ssids = ", ".join(s["name"] or "?" for s in v["ssids"])
         if v["ssids"] and not v["switches"]:
-            add("ssid_vlan_no_port", "VLAN %d" % vid, "VLAN %d : utilisé par le SSID %s mais présent sur aucun port de commutateur." % (vid, ssids), vlan=vid, ssids=ssids)
+            if ports_all:
+                vus = v.get("mac_count", 0) + v.get("clients", 0)
+                preuve = ("vu sur les commutateurs : %d adresse(s) MAC / client(s) dans ce VLAN" % vus) if vus else "aucun trafic de ce VLAN vu sur les commutateurs pour l'instant"
+                add("ssid_vlan_via_all_seen" if vus else "ssid_vlan_via_all", "VLAN %d" % vid,
+                    "VLAN %d (SSID %s) : déclaré sur aucun port nommément, transporté par les %d port(s) en « All » (%s) ; %s." % (vid, ssids, len(ports_all), _short(ports_all), preuve),
+                    vlan=vid, ssids=ssids, ports=ports_all, count=len(ports_all), vus=vus)
+            else:
+                add("ssid_vlan_no_port", "VLAN %d" % vid, "VLAN %d : utilisé par le SSID %s mais présent sur aucun port de commutateur." % (vid, ssids), vlan=vid, ssids=ssids)
         if v["switches"] and v["gateway_interface"] is None and vid != 1:
             add("vlan_no_gateway", "VLAN %d" % vid, "VLAN %d : présent sur les commutateurs sans interface de passerelle connue (routage ailleurs, ou VLAN de couche 2 seule)." % vid, vlan=vid, switches=", ".join(sorted(v["switches"])))
     for l in links:

@@ -1,5 +1,11 @@
 [
  {
+  "n": 981,
+  "from": 981,
+  "date": "2026-11-06",
+  "title": "Carte des VLAN : un VLAN de SSID qui n'est déclaré sur aucun port mais passe par les ports en « All » n'est plus une erreur haute — danger potentiel (basse si du trafic est vu, moyenne sinon), avec la liste des ports « All » et la preuve de trafic"
+ },
+ {
   "n": 980,
   "from": 980,
   "date": "2026-11-06",
