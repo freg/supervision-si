@@ -29,3 +29,7 @@ correction du format de hubUpdates.json → fusion `-s ours` d'origin/dev, versi
 **Freg** : liste des réseaux en menu déroulant pour les parcours qui en demandent ; où trouve-t-on les réseaux dans le
 hub ? **Claude** (#993) : les variables `terminal` / `nom_reseau` désignent une tablette ; menu des terminaux du registre
 Équipements du site (nom réseau = nom annoncé vu par Nebula). Réseaux au sens SSID / VLAN : Nebula (onglets).
+
+**Freg** : NAS — volumes / évolution / disques en tête, les deux NAS côte à côte, simple rappel avec lien vers
+« Propositions et conseils (SNMP) » en onglet plutôt qu'en défilement. **Claude** (#994) : onglets Vue d'ensemble /
+Conseils / Détails, NAS en grille côte à côte, rappel d'une ligne avec lien vers l'onglet Conseils.

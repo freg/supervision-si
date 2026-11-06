@@ -1,3 +1,13 @@
+## 2026-11-06 — livraison #994 : NAS, vue d'ensemble des deux NAS côte à côte
+
+- **Hub › NAS** : trois onglets. **Vue d'ensemble** (par défaut) : volumes, potentiel d'évolution et disques en tête,
+  les NAS côte à côte pour les comparer d'un coup d'œil (en colonne sur écran étroit, sans défilement horizontal),
+  avec un rappel d'une ligne « Propositions et conseils (SNMP) : N à surveiller · N info — voir l'onglet Conseils → ».
+  **Conseils** : les listes complètes par NAS, côte à côte (compteur dans l'onglet). **Détails** : RAID, ventilateurs,
+  réserve, applications. Onglet initial par `?tab=conseils|details`.
+
+Vérifié : syntaxe, setters, contrôle thème, tests conseilsNas / nasEvolution. Non vérifié : build, rendu navigateur.
+
 ## 2026-11-06 — livraison #993 : Démonstrations, terminal choisi dans une liste
 
 - **Hub › Démonstrations** : pour les parcours à variables `terminal` / `nom_reseau` (ex. « Mise à jour à distance :
