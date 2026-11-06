@@ -668,7 +668,8 @@ PLAN_MAX_BYTES = 8 * 1024 * 1024
 def _statuses(site_id):
     conn = get_connection()
     try:
-        return {r["name"]: r["status"] for r in conn.execute("SELECT name, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+        # #980 : la table n'a pas de colonne `name` (clé = dev_id) -- la requête échouait, tout le synoptique restait « inconnu »
+        return {r["dev_id"]: r["status"] for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
     except sqlite3.Error:
         return {}
     finally:

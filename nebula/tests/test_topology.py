@@ -80,5 +80,13 @@ class Topo(unittest.TestCase):
         assert by["core"]["parent"] is None and by["edge"]["parent"] == "core"
 
 
+class StatutsParDevId(unittest.TestCase):   # #980 : état courant indexé par devId (nebula_status_current)
+    def test_statut_par_devid(self):
+        t = topology.build_tree([{"devId": "d1", "name": "USG", "type": "GATEWAY"}, {"devId": "d2", "name": "AP", "type": "AP"}], [], [],
+                                {"d1": "online", "AP": "offline"})
+        st = {n["id"]: n["status"] for n in t["nodes"]}
+        self.assertEqual(st, {"d1": "online", "d2": "offline"})
+
+
 if __name__ == "__main__":
     unittest.main()

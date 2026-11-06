@@ -108,7 +108,7 @@ def attach_clients(clients, devices):
 
 def build_tree(devices, links, clients=None, statuses=None):
     """devices : inventaire ; links : `links` de la carte des VLAN ; clients :
-    liste brute OpenAPI ; statuses : {name: "online"|"offline"|...}.
+    liste brute OpenAPI ; statuses : {devId (ou nom): "online"|"offline"|...} (#980 : clé devId, celle de nebula_status_current).
     Retourne {"nodes": [...], "unmatched": [voisins LLDP inconnus], "loose_clients": [...],
     "client_fields": [...]}. Chaque nœud : id, name, model, kind, status, parent,
     uplink_port (côté enfant), parent_port (côté parent), depth, clients."""
@@ -118,7 +118,7 @@ def build_tree(devices, links, clients=None, statuses=None):
         if not isinstance(d, dict) or not d.get("devId"):
             continue
         nodes[d["devId"]] = {"id": d["devId"], "name": d.get("name") or d["devId"], "model": d.get("model") or "", "mac": d.get("mac"),
-                             "kind": kind_of(d.get("type")), "status": statuses.get(d.get("name")) or "inconnu",
+                             "kind": kind_of(d.get("type")), "status": statuses.get(d["devId"]) or statuses.get(d.get("name")) or "inconnu",
                              "parent": None, "uplink_port": None, "parent_port": None, "depth": 0, "clients": [], "link": None}
     adj = {k: [] for k in nodes}
     unmatched = []

@@ -1,3 +1,9 @@
+## 2026-11-06 — livraison #980 : état des appareils dans le synoptique
+
+- Toutes les pastilles d'appareil du synoptique restaient grises (« inconnu ») : la lecture de l'état courant (`_statuses`) demandait une colonne `name` qui n'existe pas dans `nebula_status_current` (clé `dev_id`) ; l'erreur SQL était avalée et rendait un état vide. Lecture par `dev_id`, et l'arbre cherche l'état par identifiant d'appareil (puis par nom, compatibilité).
+
+Vérifié : tests nebula test_topology (dont état par devId). Non vérifié : affichage réel (l'état vient du relevé à la minute de Santé du réseau).
+
 ## 2026-11-06 — livraison #979 : synoptique compact, masquage par couleur, export
 
 - **Étiquettes compactes** (Nebula › Carte des VLAN, synoptique) : une ligne, sans marge haute ni basse, sans bordure — fond contrasté ; pastille d'état et compteurs (● rouge, ● orange s'ils existent, ● vert) DANS le cadre ; modèle et détail des comptes au survol. Clients et pastilles « n clients » au même format. Sélection = contour couleur d'accent.
