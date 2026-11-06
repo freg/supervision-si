@@ -1,3 +1,12 @@
+## Défauts majeurs : étendre à toutes les tâches de fond, alléger les écrans (2026-11-06) — DEMANDÉ, EN COURS (#975 = socle)
+- Demande : « les interfaces visuelles sont polluées par plein d'infos non urgentes » ; une erreur comme la relève jamais
+  enregistrée « est une erreur prioritaire absolue […] notifiée partout avec une case à cocher ignorer et un lien résoudre ».
+  Puis : alertes en étiquettes dans un seul rectangle rouge, chacune menant à l'écran détaillé ou au journal.
+- Fait (#975) : notify-api `defauts`, bandeau d'étiquettes sur toutes les vues, producteur « historique des clients ».
+- Reste : brancher les autres tâches périodiques (relèves Nebula santé / inventaire, veille cyber, sauvegardes du hub,
+  agents relais, tour de contrôle, priorités IA « modèle indisponible »…) ; épurer les blocs verbeux (Priorités : erreurs
+  d'appel au modèle sur l'accueil) en les ramenant à une étiquette.
+
 ## Hub « politique » (vue décideurs) avec présentation générée et réglette temporelle (2026-11-05) — DEMANDÉ, À CADRER
 - Demande : « hub politique, intégrant une génération automatique de pptx ou équivalent en ligne avec réglette temporelle
   permettant de voir l'évolution ».

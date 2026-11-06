@@ -97,7 +97,9 @@ class ClientHistory(unittest.TestCase):
             def sw_clients(self, sid, period):
                 return []
         deps = {"client": Client, "sites": lambda: [{"siteId": "s1"}], "conn": conn, "device_names": lambda sid: {"AP1": "borne-hall"},
-                "noms_registre": lambda sid: ["VR 001", None]}
+                "noms_registre": lambda sid: ["VR 001", None],
+                "defaut": lambda code, titre, message="", **k: signaux.append((code, k)), "defaut_leve": lambda code: leves.append(code)}
+        signaux, leves = [], []
         r = R.relever(deps, "test", now=T0)
         self.assertIsNone(r["sites"][0]["error"])
         self.assertEqual(etat["periodes"], ["1d"])                               # première relève : rattrapage des 24 h de Nebula
@@ -110,12 +112,33 @@ class ClientHistory(unittest.TestCase):
         R.relever(deps, "test", now=T0 + 2 * H)                                  # nouvelle IP
         deps["device_names"] = lambda sid: (_ for _ in ()).throw(RuntimeError("inventaire"))
         R.relever(deps, "test", now=T0 + 3 * H)                                  # échec d'enregistrement : relève en erreur, enregistrée
-        cal = ch.calendrier(conn(), "s1")
+        self.assertEqual(signaux[-1][0], "historique-clients.enregistrement")   # #975 : défaut majeur signalé, avec la trace
+        self.assertTrue(any("inventaire" in x for x in signaux[-1][1]["journal"]))
+        self.assertIn("historique-clients.enregistrement", leves)                  # levé tant que les relèves s'enregistraient
+        deps["device_names"] = lambda sid: {"AP1": "borne-hall"}
+        etat["panne"] = True
+        R.relever(deps, "test", now=T0 + 4 * H)
+        R.relever(deps, "test", now=T0 + 5 * H)
+        self.assertNotIn("historique-clients.nebula", [x[0] for x in signaux])  # 2 relèves sans « clients » : pas encore (et bornes répondent)
+        cal = ch.calendrier(conn(), "s1")[:4]
         self.assertEqual([x["etat"] for x in cal], ["vert", "bleu", "vert", "rouge"])
         self.assertEqual(cal[2]["n"], {"ips": 1})
         self.assertIn("inventaire", cal[3]["error"])
         self.assertEqual(conn().execute("SELECT ssid FROM nebula_client_seen").fetchone()[0], "Numeria")
         self.assertEqual(ch.etat_releve(None, None, {}), "rouge")
+
+    def test_defaut_nebula_muet(self):   # #975 : seuil de relèves consécutives sans aucune source
+        import client_history_routes as R
+        sig, lev = [], []
+        deps = {"defaut": lambda code, *a, **k: sig.append(code), "defaut_leve": lev.append}
+        for _ in range(R.SEUIL_INJOIGNABLE - 1):
+            R._signaler(deps, "sX", "t", {}, ["clients : délai"], 0, None)
+        self.assertEqual(sig, [])
+        R._signaler(deps, "sX", "t", {}, ["clients : délai"], 0, None)
+        self.assertEqual(sig, ["historique-clients.nebula"])
+        R._signaler(deps, "sX", "t", {"clients": []}, [], 0, None)
+        self.assertIn("historique-clients.nebula", lev)
+        self.assertEqual(R._etat["echecs"]["sX"], 0)
 
     def test_purge(self):
         releve(self.c, T0)

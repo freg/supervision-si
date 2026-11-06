@@ -1,3 +1,13 @@
+## 2026-11-06 — livraison #975 : alertes en étiquettes, défauts majeurs notifiés partout
+
+- **Constat** : la relève de l'historique des clients a échoué pendant des jours sans qu'aucun écran ne le dise (une ligne de journal par heure dans le conteneur). Un mécanisme qui ne fait plus son travail est un **défaut majeur**, pas une erreur passagère.
+- **Défauts majeurs** (notify-api, table `defauts`) : un service les signale (`notify_client.defaut(code, titre, message, lien, contexte, journal)`) et les lève quand ça remarche (`defaut_leve`). Même défaut répété = occurrences comptées, pas empilées ; réapparu après correction = de nouveau visible même s'il avait été ignoré. Le contexte reçoit la version servie (livraison, commit). API : producteurs `POST /defauts/signaler|lever` (jeton interne) ; hub `GET /defauts`, `POST /defauts/<id>/ignorer`, `GET /defauts/<id>/rapport`.
+- **Premiers producteurs** (historique des clients Nebula) : relève non enregistrée (immédiat, avec la trace Python), Nebula muet 3 relèves de suite, boucle horaire qui plante ; levés dès la relève suivante réussie.
+- **Bandeau d'alertes** sous l'en-tête, sur toutes les vues, rien quand tout va bien : un rectangle rouge et des étiquettes courtes. « ⛔ Agents » (critiques ou blocage des agents hôtes sur 24 h) remplace le bandeau verbeux de l'accueil et ouvre Agents hôtes ; chaque défaut majeur ouvre son rapport (message, contexte, journal) avec la case « ignorer », « 📋 Copier le rapport » (à coller dans la conversation avec Claude), « ⬇ .txt » et « ouvrir la vue ». Défauts ignorés rappelés en petit à droite du rectangle. notify-api injoignable ou `NOTIFY_INTERNAL_TOKEN` vide : étiquette dédiée (les défauts seraient invisibles).
+
+Vérifié : tests notify-api (dont scénario signaler / compter / ignorer / rapport / lever / réapparaître), tests nebula (seuil « Nebula muet », trace transmise ; mêmes 7 échecs de bac à sable que la veille), tests hub defautsLib ; syntaxe des .jsx (esbuild).
+Non vérifié : rendu dans un navigateur, transmission réelle nebula-api → notify-api (dépend de NOTIFY_INTERNAL_TOKEN dans le .env).
+
 ## 2026-11-06 — livraison #974 : calendrier des relèves (diodes), relève de l'historique des clients réparée
 
 - **Constat** : depuis sa mise en place, la relève horaire de l'historique des clients (#872) échouait à chaque passage (« Error binding parameter 12: type 'dict' ») : Nebula publie le SSID en objet `{name, security}`. L'échec n'était visible que dans le journal du conteneur, et la relève à la demande répondait 500. Aucune donnée n'a été enregistrée. Le correctif du SSID est dans #973 ; les objets `osHostname {hostname}` sont aussi lus (nom annoncé).

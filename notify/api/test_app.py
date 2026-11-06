@@ -60,6 +60,29 @@ class Base(unittest.TestCase):
 
 
 class Producers(Base):
+    def test_defauts_majeurs(self):   # #975
+        r = self.c.post("/defauts/signaler", headers=self.prod, json={"code": "releve", "titre": "Relève non enregistrée", "message": "dict",
+                                                                       "lien": {"view": "nebula", "tab": "historique"}, "contexte": {"site": "s1"}, "journal": ["l1"]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.c.post("/defauts/signaler", json={"code": "x", "titre": "t"}).status_code, 401)        # producteur sans jeton
+        self.assertEqual(self.c.post("/defauts/signaler", headers=self.prod, json={"titre": "t"}).status_code, 400)
+        r2 = self.c.post("/defauts/signaler", headers=self.prod, json={"code": "releve", "titre": "Relève non enregistrée", "journal": ["l2"]}).get_json()
+        self.assertEqual((r2["id"], r2["occurrences"]), (r.get_json()["id"], 2))                                 # même défaut : compté, pas empilé
+        ds = self.c.get("/defauts", headers=self.adm).get_json()["defauts"]
+        d = next(x for x in ds if x["code"] == "releve")
+        self.assertEqual((d["statut"], d["journal"], d["lien"]["tab"], d["ignore"]), ("ouvert", ["l1", "l2"], "historique", False))
+        self.assertEqual(self.c.post("/defauts/%d/ignorer" % d["id"], headers=self.adm, json={"ignorer": True}).status_code, 200)
+        d = next(x for x in self.c.get("/defauts", headers=self.adm).get_json()["defauts"] if x["code"] == "releve")
+        self.assertTrue(d["ignore"])
+        t = self.c.get("/defauts/%d/rapport" % d["id"], headers=self.adm).get_json()["texte"]
+        self.assertIn("DÉFAUT MAJEUR", t); self.assertIn("Occurrences : 2", t); self.assertIn("  l2", t); self.assertIn("ignoré par", t)
+        self.assertTrue(self.c.post("/defauts/lever", headers=self.prod, json={"code": "releve"}).get_json()["leve"])
+        self.assertFalse(self.c.post("/defauts/lever", headers=self.prod, json={"code": "releve"}).get_json()["leve"])
+        r3 = self.c.post("/defauts/signaler", headers=self.prod, json={"code": "releve", "titre": "Relève non enregistrée"}).get_json()
+        d = next(x for x in self.c.get("/defauts", headers=self.adm).get_json()["defauts"] if x["code"] == "releve")
+        self.assertEqual((r3["occurrences"], d["statut"], d["ignore"]), (1, "ouvert", False))                     # réapparu : visible de nouveau
+        self.assertEqual(self.c.get("/defauts/99999/rapport", headers=self.adm).status_code, 404)
+
     def test_auth_and_catalog(self):
         self.assertEqual(self.c.post("/notify", json={"action": "a.b"}).status_code, 401)
         self.assertEqual(self.c.get("/actions").status_code, 401)

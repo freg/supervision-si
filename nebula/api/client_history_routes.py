@@ -16,6 +16,7 @@ import json
 import os
 import threading
 import time
+import traceback
 
 from flask import Response, jsonify, request
 
@@ -23,7 +24,9 @@ import client_history as ch
 
 INTERVAL_S = int(os.environ.get("NEBULA_CLIENT_HISTORY_SECONDS", "3600"))
 MIN_GAP_S = 60
-_etat = {"running": False, "last": 0, "next": 0}
+_etat = {"running": False, "last": 0, "next": 0, "echecs": {}}
+LIEN = {"view": "nebula", "tab": "historique"}
+SEUIL_INJOIGNABLE = 3     # relèves consécutives sans aucune source Nebula avant de signaler un défaut majeur
 _verrou = threading.Lock()
 
 
@@ -55,7 +58,7 @@ def relever(deps, trigger="horaire", now=None):
                     res[nom] = r if isinstance(r, list) else (r or {}).get("data", []) if isinstance(r, dict) else []
                 except Exception as e:  # noqa: BLE001 -- une source en échec n'empêche pas les autres
                     errs.append("%s : %s" % (nom, str(e)[:150]))
-            stats, n = ch.nouveautes_vides(), None
+            stats, n, trace = ch.nouveautes_vides(), None, None
             conn = deps["conn"]()
             try:
                 try:
@@ -68,6 +71,7 @@ def relever(deps, trigger="horaire", now=None):
                 except Exception as e:  # noqa: BLE001 -- #974 : un échec d'écriture est une relève en erreur, enregistrée (diode rouge)
                     conn.rollback()
                     errs.append("enregistrement : %s" % str(e)[:200])
+                    trace = traceback.format_exc().splitlines()[-15:]
                 if periode == "1d" and n is not None:
                     stats["rattrapage_24h"] = True
                 conn.execute("INSERT INTO nebula_client_polls (at, site_id, clients, sources, error, duration_ms, trigger, nouveautes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -76,12 +80,35 @@ def relever(deps, trigger="horaire", now=None):
                 conn.commit()
             finally:
                 conn.close()
+            _signaler(deps, sid, trigger, res, errs, n, trace)
             out.append({"site": sid, "clients": n, "sources": sorted(res), "error": "; ".join(errs) or None, "nouveautes": stats.get("n") or {}})
         _etat["last"] = int(time.time())
         return {"sites": out}
     finally:
         _etat["running"] = False
         _verrou.release()
+
+
+def _signaler(deps, sid, trigger, res, errs, n, trace):
+    """#975 : défauts majeurs -- relève non enregistrée (immédiat), Nebula muet SEUIL_INJOIGNABLE fois de suite ; levés dès que ça remarche."""
+    defaut = deps.get("defaut") or (lambda *a, **k: None)
+    leve = deps.get("defaut_leve") or (lambda *a, **k: None)
+    ctx = {"site": sid, "declencheur": trigger, "sources_ok": ",".join(sorted(res)) or "aucune"}
+    if n is None:
+        defaut("historique-clients.enregistrement", "Historique des clients Nebula : les relèves ne sont pas enregistrées",
+               "La relève a interrogé Nebula mais n'a rien pu écrire dans la base : aucune donnée de clients n'est conservée "
+               "tant que ce défaut dure (Nebula n'en garde que 24 h).", lien=LIEN, contexte=ctx, journal=list(errs) + list(trace or []))
+    else:
+        leve("historique-clients.enregistrement")
+    if not res:
+        _etat["echecs"][sid] = _etat["echecs"].get(sid, 0) + 1
+        if _etat["echecs"][sid] >= SEUIL_INJOIGNABLE:
+            defaut("historique-clients.nebula", "Historique des clients : Nebula ne répond plus",
+                   "%d relèves consécutives sans aucune réponse de Nebula (clients, bornes, commutateurs)." % _etat["echecs"][sid],
+                   lien=LIEN, contexte=dict(ctx, relèves_en_échec=_etat["echecs"][sid]), journal=list(errs))
+    else:
+        _etat["echecs"][sid] = 0
+        leve("historique-clients.nebula")
 
 
 def _boucle(deps, log):
@@ -107,6 +134,10 @@ def _boucle(deps, log):
                     conn.close()
         except Exception as e:  # noqa: BLE001 -- la relève ne meurt jamais
             log("historique des clients : %s" % e)
+            (deps.get("defaut") or (lambda *a, **k: None))(
+                "historique-clients.boucle", "Historique des clients Nebula : la relève horaire plante",
+                "La relève horaire s'est arrêtée sur une erreur ; elle sera retentée à l'heure suivante.", lien=LIEN,
+                journal=traceback.format_exc().splitlines()[-20:])
         time.sleep(max(300, INTERVAL_S))
 
 

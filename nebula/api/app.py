@@ -1678,6 +1678,22 @@ reperage_routes.register(app, {"conn": get_connection, "client": _connect, "db_p
                                "devices": lambda sid: _inventory["devices"].get(sid) or [],
                                "sites": lambda: (_refresh_inventory(_connect()), _inventory["sites"])[1]})
 
+def _defaut(*a, **k):
+    try:
+        import notify_client
+        notify_client.defaut(*a, **k)
+    except Exception:  # noqa: BLE001 -- jamais bloquant
+        app.logger.error("DÉFAUT MAJEUR (non transmis) : %s", a[:2])
+
+
+def _defaut_leve(code):
+    try:
+        import notify_client
+        notify_client.defaut_leve(code)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _noms_registre(site_id):
     """#974 : noms des fiches du registre du site (correspondances repérées à chaque relève)."""
     conn = get_connection()
@@ -1694,6 +1710,7 @@ import client_history_routes  # noqa: E402
 client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
                                      "configured": lambda: bool(NEBULA_API_KEY),
                                      "noms_registre": lambda sid: _noms_registre(sid),   # #974 : correspondances nom réseau <-> registre
+                                     "defaut": _defaut, "defaut_leve": _defaut_leve,   # #975 : défauts majeurs (bandeau du hub)
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
 
 # #958 : audit de sécurité réseau (Nebula + historiques + relevés shell Proxmox / hôtes) -- audit_routes.py

@@ -222,7 +222,7 @@ def consumer_from_request():
     return None
 
 
-PRODUCER = ("/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu", "/pauses/actives")   # #853 : pauses lues par les producteurs
+PRODUCER = ("/defauts/signaler", "/defauts/lever", "/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu", "/pauses/actives")   # #853 : pauses lues par les producteurs
 PUBLIC = ("/health", "/version", "/push/key")   # #796 : la clé publique VAPID n'est pas un secret
 
 
@@ -240,6 +240,51 @@ def _guard():
     except AuthError as exc:
         return jsonify({"error": str(exc)}), exc.status
     return None
+
+
+# -- #975 : défauts majeurs (bandeau du hub sur toutes les vues) ---------------------------------------------------------
+import defauts as defauts_lib  # noqa: E402
+
+
+@app.route("/defauts/signaler", methods=["POST"])
+def defauts_signaler():
+    d, err = defauts_lib.signaler(db(), g.consumer["name"], request.get_json(silent=True))
+    if err:
+        return jsonify({"error": err}), 400
+    if d["occurrences"] == 1:
+        event("defaut", "%s : %s" % (d["cle"], d["titre"]))
+    return jsonify({"id": d["id"], "occurrences": d["occurrences"], "statut": d["statut"]}), 200
+
+
+@app.route("/defauts/lever", methods=["POST"])
+def defauts_lever():
+    code = (request.get_json(silent=True) or {}).get("code")
+    ok = defauts_lib.lever(db(), g.consumer["name"], code)
+    if ok:
+        event("defaut-leve", "%s:%s" % (g.consumer["name"], code))
+    return jsonify({"leve": ok}), 200
+
+
+@app.route("/defauts", methods=["GET"])
+def defauts_liste():
+    return jsonify({"defauts": defauts_lib.lister(db()), "jeton_interne": bool(INTERNAL_TOKEN)}), 200
+
+
+@app.route("/defauts/<int:did>/ignorer", methods=["POST"])
+def defauts_ignorer(did):
+    oui = bool((request.get_json(silent=True) or {}).get("ignorer", True))
+    par = (getattr(g, "user", None) or {}).get("username")
+    if not defauts_lib.ignorer(db(), did, oui, par):
+        return jsonify({"error": "défaut inconnu : %s" % did}), 404
+    return jsonify({"ignore": oui}), 200
+
+
+@app.route("/defauts/<int:did>/rapport", methods=["GET"])
+def defauts_rapport(did):
+    r = db().execute("SELECT * FROM defauts WHERE id = ?", (did,)).fetchone()
+    if not r:
+        return jsonify({"error": "défaut inconnu : %s" % did}), 404
+    return jsonify({"texte": defauts_lib.rapport(defauts_lib.ligne(r))}), 200
 
 
 @app.route("/health", methods=["GET"])

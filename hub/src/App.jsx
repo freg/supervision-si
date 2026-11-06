@@ -122,7 +122,6 @@ import HomeTree from "./HomeTree.jsx";  // #603 : accueil en arbre dépliable
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
-import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 const SupervisionSiView = lazyView(() => import("./SupervisionSiView.jsx"));
 const ExternalBasesView = lazyView(() => import("./ExternalBasesView.jsx"));
 const GeoCatalogView = lazyView(() => import("./GeoCatalogView.jsx"));
@@ -135,6 +134,7 @@ const NebulaView = lazyView(() => import("./NebulaView.jsx"));
 const ImapView = lazyView(() => import("./ImapView.jsx"));
 const ImapConnectorsView = lazyView(() => import("./ImapConnectorsView.jsx"));
 import NotifBell from "./NotifBell.jsx";
+import BandeauAlertes from "./BandeauAlertes.jsx";   // #975 : alertes en étiquettes (agents, défauts majeurs)
 const GlpiInventoryView = lazyView(() => import("./GlpiInventoryView.jsx"));
 const NetworkAgentView = lazyView(() => import("./NetworkAgentView.jsx"));
 const NetworkCycleView = lazyView(() => import("./NetworkCycleView.jsx"));
@@ -2113,9 +2113,6 @@ vm === "agent-page" ? (
             {GROUPWARE_API_BASE_URL && profile.preferred_username && (
               <GroupwareReminders base={GROUPWARE_API_BASE_URL} login={profile.preferred_username} groups={groups.map((g) => String(g).replace(/^\//, ""))} onOpen={() => setViewMode("groupware")} />
             )}
-            {SI_AGENT_API_BASE_URL && (
-              <SiAgentEventsBanner siAgentApiBase={SI_AGENT_API_BASE_URL} onOpen={() => setViewMode("si-agent")} />
-            )}
             {fronts.length === 0 && (
               <p className="muted">
                 Aucune application configurée — vérifiez VITE_SUPERVISION_FRONTEND_URL /
@@ -2383,6 +2380,9 @@ vm === "agent-page" ? (
           <button onClick={() => auth.signoutRedirect()}>Se déconnecter</button>
         </div>
       </header>
+
+      {/* #975 : alertes en étiquettes (agents, défauts majeurs) -- sur toutes les vues, rien quand tout va bien */}
+      <BandeauAlertes notifyApiBase={NOTIFY_API_BASE_URL} token={auth.user?.access_token} siAgentApiBase={SI_AGENT_API_BASE_URL} onOuvrirAgents={() => setViewMode("si-agent")} />
 
       {/* #562 : gabarit de page -- en-tête et pied fixes, seule la zone
           centrale (ou les cadres/tbody qu'elle contient) défile. */}

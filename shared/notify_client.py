@@ -56,3 +56,46 @@ def notify(action, subject, body="", context=None, severity=None, wait=False, to
 def register_actions(actions):
     """actions : [{"id": "module.action", "label": "...", "severity": "info|warning|critical"}]."""
     threading.Thread(target=_post, args=("/actions/register", {"actions": actions}, 5.0), daemon=True).start()
+
+
+# -- #975 : défauts majeurs (bandeau du hub sur toutes les vues) ----------------------------------------------------------
+_defauts_ouverts = set()
+_version = None
+
+
+def _version_servie():
+    global _version
+    if _version is None:
+        _version = {}
+        for p in ("VERSION.json", "/app/VERSION.json"):
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    v = json.load(fh)
+                _version = {k: v.get(k) for k in ("delivery_number", "git_hash") if v.get(k)}
+                break
+            except (OSError, ValueError):
+                continue
+    return _version
+
+
+def defaut(code, titre, message="", lien=None, contexte=None, journal=None):
+    """Signale un défaut MAJEUR : un mécanisme qui ne fait plus son travail (pas une alerte passagère). Le hub l'affiche sur
+    toutes les vues jusqu'à `defaut_leve(code)`. lien : {"view": …, autres paramètres de la vue} ; journal : lignes utiles
+    (erreur, trace) -- JAMAIS de secret. Ne lève jamais d'exception."""
+    _log.error("DÉFAUT MAJEUR %s : %s — %s", code, titre, str(message)[:300])
+    _defauts_ouverts.add(code)
+    _defauts_ouverts.discard("?" + code)
+    ctx = dict(_version_servie())
+    ctx.update(contexte or {})
+    payload = {"code": code, "titre": titre, "message": str(message or "")[:4000], "lien": lien, "contexte": ctx,
+               "journal": [str(x)[:500] for x in (journal or [])][-60:]}
+    threading.Thread(target=_post, args=("/defauts/signaler", payload, 3.0), daemon=True).start()
+
+
+def defaut_leve(code):
+    """Le mécanisme remarche. Une fois par processus et par code (au démarrage, on ne sait pas s'il était ouvert)."""
+    if code in _defauts_ouverts or ("?" + code) not in _defauts_ouverts:
+        _defauts_ouverts.discard(code)
+        _defauts_ouverts.add("?" + code)
+        threading.Thread(target=_post, args=("/defauts/lever", {"code": code}, 3.0), daemon=True).start()
+
