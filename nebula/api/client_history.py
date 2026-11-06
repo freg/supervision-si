@@ -84,6 +84,8 @@ def merge(clients=None, ap_clients=None, sw_clients=None, device_names=None, now
         seen = ts(c.get("last_seen") or c.get("lastSeen"))
         if seen and seen <= now + 300 and (f["last_seen"] is None or seen > f["last_seen"]):
             f["last_seen"] = seen
+        if not f.get("os") and isinstance(c.get("osHostname"), dict) and c["osHostname"].get("os"):   # #976
+            f["os"] = str(c["osHostname"]["os"])[:120]
         for k, keys in (("ip", ("ipv4", "ipv4Address", "ipv4_address", "ip")),
                         ("name", ("os_hostname", "osHostname", "description", "name", "hostname")),
                         ("manufacturer", ("manufacturer", "vendor")), ("os", ("os", "osType", "os_type"))):
@@ -97,15 +99,17 @@ def merge(clients=None, ap_clients=None, sw_clients=None, device_names=None, now
     for c in ap_clients or []:
         f = fiche(c, "bornes")
         if f:
-            dev = _first(c, "connected_device_id", "devId", "apId")
-            f.update({k: v for k, v in (("device_id", dev), ("ssid", _first(c, "ssid", "ssidName")), ("vlan", _first(c, "vlan", "vlanId"))) if v})
+            # #976 : ap-clients v2 = connectedTo (devId de la borne), wifiStation.vlan
+            dev = _first(c, "connected_device_id", "connectedTo", "connectedDeviceId", "devId", "apId")
+            vlan = _first(c, "vlan", "vlanId") or _first(c.get("wifiStation") or {}, "vlan")
+            f.update({k: v for k, v in (("device_id", dev), ("ssid", _first(c, "ssid", "ssidName")), ("vlan", vlan)) if v})
             if dev:
                 f["device"] = names.get(dev) or _first(c, "connected_device_name", "apName") or dev
     for c in sw_clients or []:
         f = fiche(c, "commutateurs")
         if f:
-            dev = _first(c, "connected_device_id", "devId", "switchId")
-            port = _first(c, "connected_port", "port", "portNum")
+            dev = _first(c, "connected_device_id", "connectedTo", "connectedDeviceId", "devId", "switchId")
+            port = _first(c, "connected_port", "connectedPort", "port", "portNum")
             if dev and port:   # port de commutateur : raccordement le plus précis (remplace la borne d'un client Wi-Fi vu des deux côtés seulement s'il n'a pas de SSID)
                 if not f.get("ssid"):
                     f.update({"device_id": dev, "device": names.get(dev) or _first(c, "connected_device_name", "switchName") or dev, "port": str(port)})

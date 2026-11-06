@@ -140,6 +140,16 @@ class ClientHistory(unittest.TestCase):
         self.assertIn("historique-clients.nebula", lev)
         self.assertEqual(R._etat["echecs"]["sX"], 0)
 
+    def test_format_ap_clients_v2(self):   # #976 : forme réelle relevée sur le campus (connectedTo, wifiStation, objets)
+        ap = [{"macAddress": "02:00:00:aa:bb:07", "ipv4Address": "192.0.2.7", "lastSeen": T0 * 1000, "connectedTo": "3f96-uuid",
+               "osHostname": {"os": "Android", "hostname": None}, "description": "02:00:00:AA:BB:07", "manufacturer": None,
+               "ssid": {"name": "Numeria", "security": "WPA2_PSK"}, "wifiStation": {"status": "ONLINE", "vlan": 30, "signal": -47}}]
+        sw = [{"macAddress": "02:00:00:aa:bb:08", "connectedTo": "sw-uuid", "connectedPort": 4, "vlan": 10}]
+        f = ch.merge(None, ap, sw, {"3f96-uuid": "WBE660S-EU0101F-4", "sw-uuid": "XS1930"}, now=T0)
+        a, s = f["02:00:00:aa:bb:07"], f["02:00:00:aa:bb:08"]
+        self.assertEqual((a["device"], a["device_id"], a["ssid"], a["vlan"], a["os"]), ("WBE660S-EU0101F-4", "3f96-uuid", "Numeria", "30", "Android"))
+        self.assertEqual((s["device"], s["port"]), ("XS1930", "4"))
+
     def test_purge(self):
         releve(self.c, T0)
         self.assertGreater(ch.purge(self.c, now=T0 + 500 * 86400), 0)

@@ -28,8 +28,11 @@ def _num(v):
 
 def _g(c, *cles):
     for k in cles:
-        if c.get(k) not in (None, ""):
-            return c[k]
+        v = c.get(k)
+        if isinstance(v, dict):   # #976 : Nebula publie le SSID en objet {name, security}
+            v = v.get("name") or v.get("hostname")
+        if v not in (None, ""):
+            return v
     return None
 
 
@@ -48,7 +51,7 @@ def agreger(periode, devices, ap_clients=None, clients=None, sw_clients=None, sw
     par_ap, par_ssid = {}, {}
     for c in ap_clients or []:
         mac = _mac(_g(c, "mac_address", "macAddress", "mac"))
-        ap = _g(c, "connected_device_id", "connectedDeviceId", "devId") or "?"
+        ap = _g(c, "connected_device_id", "connectedDeviceId", "connectedTo", "devId") or "?"
         ssid = _g(c, "ssid", "ssid_name", "ssidName") or "?"
         up, down = _num(_g(c, "upload", "tx", "uplink")), _num(_g(c, "download", "rx", "downlink"))
         for table, cle in ((par_ap, ap), (par_ssid, ssid)):

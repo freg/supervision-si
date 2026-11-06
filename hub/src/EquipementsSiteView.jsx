@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Plan from "./PlanSite.jsx";
 import BoutonDetail from "./FenetreTexte.jsx";
 import ParcSite from "./ParcSite.jsx";   // #971
+import CalendrierActivite from "./CalendrierActivite.jsx";   // #976
 import { useTableColumns, ColumnsMenu, TableColumnsHead } from "./TableColumns.jsx";
 import { hubLink } from "./hubLinks.js";
 import { KIND_LABEL } from "./nebulaTree.js";
@@ -71,6 +72,7 @@ export default function EquipementsSiteView({ onBack, nebulaApiBase, actor }) {
   const [texte, setTexte] = useState("");
   const [trace, setTrace] = useState([]);
   const [amont, setAmont] = useState(null);         // {id, chaine, erreur}
+  const [activite, setActivite] = useState(false);   // #976 : calendrier d'activité de la fiche ouverte
   const t = useTableColumns("equipements-site", COLONNES);
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}`;
 
@@ -348,7 +350,9 @@ export default function EquipementsSiteView({ onBack, nebulaApiBase, actor }) {
               <p style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0" }}>
                 <button type="button" className="secondary" onClick={remonter} disabled={!!busy}>{busy === "amont" ? "⏳ remontée…" : "⬆ Remonter vers l'amont"}</button>
                 {courant.mac && <a className="button secondary" href={hubLink("nebula", { tab: "vlan", mac: courant.mac })}>🗺 dans le synoptique</a>}
+                <button type="button" className={activite ? "" : "secondary"} onClick={() => setActivite(!activite)}>📅 Activité</button>
               </p>
+              {activite && <CalendrierActivite key={courant.id} base={base} eid={courant.id} />}
               {amont?.id === courant.id && amont.erreur && <p className="muted">{amont.erreur}</p>}
               {amont?.id === courant.id && amont.chaine.length > 0 && (
                 <ol style={{ margin: "4px 0", paddingLeft: 20 }}>

@@ -10,6 +10,7 @@ async function getJson(url, init) {
   if (!r.ok) throw new Error(j.error || `${r.status}`);
   return j;
 }
+import CalendrierActivite from "./CalendrierActivite.jsx";   // #976
 const ONGLETS = [["synthese", "Synthèse"], ["associer", "Associations"], ["ecarts", "Écarts de nom"], ["baux", "Baux DHCP"], ["lieux", "Déplacements"], ["inconnus", "MAC inconnues"]];
 
 export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire, onChange }) {
@@ -51,9 +52,10 @@ export default function ParcSite({ base, actor, selection, onOuvrir, onInscrire,
       {selection && lieux && (
         <div className="panel" style={{ margin: "8px 0" }}>
           <strong>📍 {lieux.nom} : où a-t-il été ?</strong>{lieux.message && <span className="muted"> {lieux.message}</span>}
-          {lieux.lieux?.length > 0 && <table className="table"><thead><tr><th>Du</th><th>Au</th><th>Lieu (pièce · SSID · borne)</th><th>IP</th></tr></thead><tbody>
+          {lieux.lieux?.length > 0 && <CalendrierActivite lieux={lieux.lieux} jours={Math.min(jours, 31)} />}
+          {lieux.lieux?.length > 0 && <details><summary className="muted">sessions ({lieux.lieux.length})</summary><table className="table"><thead><tr><th>Du</th><th>Au</th><th>Lieu (pièce · SSID · borne)</th><th>IP</th></tr></thead><tbody>
             {[...lieux.lieux].reverse().slice(0, 50).map((l, i) => <tr key={i}><td>{horodatage(l.de)}</td><td>{horodatage(l.a)}</td><td>{lieuTexte(l)}</td><td>{l.ip || ""}</td></tr>)}
-          </tbody></table>}
+          </tbody></table></details>}
         </div>
       )}
 

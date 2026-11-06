@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #976 : calendrier d'activité localisé par terminal, borne des clients Wi-Fi
+
+- **Format réel relevé sur le campus** (ap-clients v2) : la borne est dans `connectedTo` (et non `connected_device_id`), le VLAN dans `wifiStation.vlan`, le système dans `osHostname.os`, le SSID en objet. L'historique des clients n'enregistrait donc pas la borne des clients Wi-Fi (« Raccordé à : — · Numeria ») : impossible de les situer. Lu désormais, ainsi que `connectedPort` des clients de commutateur.
+- **Onglet Charge** : même cause (SSID en objet, borne dans `connectedTo`) — regroupement par SSID et par borne corrigé.
+- **📅 Activité** (fiche d'un équipement, et Parc › « où a-t-il été ? ») : une case par heure sur 7 à 62 jours, colorée par le lieu où le terminal a passé le plus de temps dans l'heure (pièce du plan, sinon borne, sinon SSID), légende en heures par lieu ; case vide = pas vu ; clic = sessions de l'heure (heures, borne, SSID, VLAN, IP). Le tableau des sessions reste dépliable.
+
+Vérifié : tests nebula (format ap-clients v2 réel anonymisé, charge), tests hub relevesLib ; syntaxe des .jsx (esbuild).
+Non vérifié : rendu dans un navigateur. Les bornes ne seront connues qu'à partir des relèves faites après le déploiement.
+
 ## 2026-11-06 — livraison #975 : alertes en étiquettes, défauts majeurs notifiés partout
 
 - **Constat** : la relève de l'historique des clients a échoué pendant des jours sans qu'aucun écran ne le dise (une ligne de journal par heure dans le conteneur). Un mécanisme qui ne fait plus son travail est un **défaut majeur**, pas une erreur passagère.

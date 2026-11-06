@@ -30,3 +30,20 @@ test("textes et sommes", () => {
   assert.equal(cleJour(new Date(2026, 0, 5)), "2026-01-05");
   assert.deepEqual(grilleReleves(null, { jours: 1, maintenant: NOW })[0].cases.filter((c) => !c.futur).length, 10);
 });
+
+test("#976 : calendrier d'activité -- lieu dominant par heure, légende par temps passé", async () => {
+  const { grilleActivite, nomLieu } = await import("../src/relevesLib.js");
+  const lieux = [
+    { de: at(6, 8, 10), a: at(6, 9, 10), piece: "Studio", borne: "AP-1", ssid: "Numeria" },
+    { de: at(6, 9, 40), a: at(6, 9, 40), borne: "AP-2", ssid: "Numeria" },          // vue ponctuelle
+    { de: at(5, 14, 0), a: at(5, 14, 0), ssid: "CN_IoT" },
+  ];
+  const g = grilleActivite(lieux, { jours: 2, maintenant: NOW });
+  assert.deepEqual([g.lignes[0].cases[8].lieu, g.lignes[0].cases[9].lieu, g.lignes[0].cases[7].lieu], ["Studio", "Studio", null]);
+  assert.equal(g.lignes[0].cases[9].sessions.length, 2);
+  assert.equal(g.lignes[1].cases[14].lieu, "CN_IoT");
+  assert.deepEqual(g.legende.map((l) => [l.lieu, l.heures]), [["Studio", 2], ["CN_IoT", 1]]);
+  assert.equal(g.couleur.Studio, "var(--accent)");
+  assert.equal(nomLieu({ port: "4" }), "port 4");
+  assert.equal(nomLieu({}), "lieu inconnu");
+});
