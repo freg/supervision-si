@@ -1,3 +1,11 @@
+## 2026-11-06 — livraison #987 : profil « campus » du hub (tranche 1 de docs/hub-campus.md)
+
+- **Hub du campus** (`VITE_HUB_PROFIL=campus` dans le .env de la VM du campus) : titre « Hub Campus », seules les tuiles du campus — Nebula, équipements du site, flux éditeurs, repérage, audit de sécurité réseau, Data RF, démonstrations — plus agents, parc IA et espaces disques (qui n'y montrent que les machines du campus) ; pas d'applications externes.
+- **Hub principal** : un compte du groupe Keycloak `numeria` sans droit d'administration ou de technicien voit le même périmètre, SANS agents, parc IA ni espaces disques (machines du bureau). Logique : `hubProfil.js` (pur, testé).
+- Limite connue : la tuile Nebula montre encore tous les sites de l'organisation Nebula (filtre par site prévu en tranche 2, `NEBULA_SITES`).
+
+Vérifié : tests hub hubProfil (profils, administrateurs non restreints, restriction des vues) ; syntaxe. Non vérifié : rendu avec un compte du groupe numeria.
+
 ## 2026-11-06 — livraison #986 : espaces disques / données
 
 - **Hub › Sauvegardes › 💽 Espaces disques / données** : toutes les machines suivies (agents hôtes et NAS relevés en SNMP / SSH), regroupées par **rôle**, **LAN / site** ou **hébergeur** (classement deviné — nom, système, sondes actives, site — et corrigeable sur la ligne, mémorisé). Par machine : matériel (modèle, RAM, disques physiques, baies d'un NAS), volumes (taille, occupé, libre, %), **tendance** sur 30 jours (un relevé par jour, moindres carrés) et **date de saturation estimée**, RAID, **possibilités d'extension** (baies libres d'un NAS, disque sans partition ni montage, espace libre d'un groupe LVM ou d'un pool ZFS, RAID 5 sur peu de disques → RAID 6), **alertes** à seuils réglables (attention 85 %, critique 95 %, ou plein dans 30 / 7 jours). Liens vers la fiche de l'agent (Disques et stockage) ou le NAS dans Sauvegardes. Lecture seule.

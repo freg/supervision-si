@@ -12,6 +12,8 @@ import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
 import Accueil from "./Accueil.jsx";   // #899 : accueil sans authentification
 import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
+import { profilActif, restreindre, titreHub } from "./hubProfil.js";   // #987 : profil « campus » (docs/hub-campus.md)
+const HUB_PROFIL = import.meta.env.VITE_HUB_PROFIL || "";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
 import HubIcon from "./HubIcon.jsx";
@@ -1415,7 +1417,8 @@ export default function App() {
     groups,
     externalLinks,
   });
-  const fronts = visibleTiles ? frontsRaw.filter((f) => visibleTiles.has(f.id)) : frontsRaw;  // #559
+  const profil = profilActif(HUB_PROFIL, groups, isAdmin(groups));   // #987 : hub du campus / compte du groupe numeria
+  const fronts = profil ? [] : visibleTiles ? frontsRaw.filter((f) => visibleTiles.has(f.id)) : frontsRaw;  // #559 ; #987 : pas d'applications externes
   // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) : la
   // tuile « maquette initiale » (front externe, lib.js) devient une VUE
   // INTERNE du hub -- même identifiant et même rôle (`supervision`) pour
@@ -1602,7 +1605,7 @@ export default function App() {
     LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
     MIKROTIK_API_BASE && "nat-map",  // #606
   ].filter(Boolean));
-  const availableViews = visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw;  // #559
+  const availableViews = restreindre(visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw, profil);  // #559 ; #987
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
   // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
   // disposition (hubTree.js) résolu contre le catalogue des feuilles
@@ -2243,7 +2246,7 @@ vm === "agent-page" ? (
         ticketsPortalUrl={PORTAL_URL}
       />
       <header className="hub-header">
-        <h1>Hub SI</h1>
+        <h1>{titreHub(profil)}</h1>
         <nav className="hub-nav">
           {/* #516 : en-tête construit depuis l'arbre de disposition : une
               feuille sous la racine = un bouton, un groupe = un menu
