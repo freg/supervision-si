@@ -34,7 +34,7 @@ class PackageTests(unittest.TestCase):
         info = package.package_info(self.p)
         cmd = package.download_command("https://198.51.100.10:6443/api/si-agent/", info)
         self.assertIn("curl -fsSk -o si-agent-agent-0.4.3.tar.gz https://198.51.100.10:6443/api/si-agent/package", cmd)
-        self.assertIn("| sha256sum -c && tar xzf si-agent-agent-0.4.3.tar.gz && cd si-agent-agent-0.4.3", cmd)
+        self.assertIn("| (sha256sum -c 2>/dev/null || shasum -a 256 -c) && tar xzf si-agent-agent-0.4.3.tar.gz && cd si-agent-agent-0.4.3", cmd)
         self.assertIn(info["sha256"], cmd)
         self.assertIsNone(package.download_command("https://x", None))
 

@@ -35,7 +35,7 @@ export function installLines({ base, agentId, site, pkg, caFp }) {
   const out = { base: b, internal, download: "", install: "" };
   if (pkg && pkg.name) {
     const folder = pkg.name.replace(/\.tar\.gz$/, "");
-    out.download = `curl -fsS${internal ? "k" : "L"} -o ${pkg.name} ${b}/package && echo '${pkg.sha256}  ${pkg.name}' | sha256sum -c && tar xzf ${pkg.name} && cd ${folder}`;
+    out.download = `curl -fsS${internal ? "k" : "L"} -o ${pkg.name} ${b}/package && echo '${pkg.sha256}  ${pkg.name}' | (sha256sum -c 2>/dev/null || shasum -a 256 -c) && tar xzf ${pkg.name} && cd ${folder}`;
   }
   if (pkg && pkg.name) {
     // #897 : même étape sous Windows 10 / 11 (PowerShell) : curl.exe et tar sont livrés avec Windows ; -k pour une

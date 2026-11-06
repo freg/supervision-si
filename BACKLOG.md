@@ -27,7 +27,7 @@
   - proximité temporelle : ce qui s'est passé juste avant / après (événements, déplacements, baux, alertes) dans une fenêtre réglable.
 - À terme : un panneau « Liens » commun réutilisable par toutes les vues, plutôt que des liens ajoutés vue par vue.
 
-## Onglet « Espaces disques / données » : configuration matérielle, volumes, extension, alertes (2026-11-05) — DEMANDÉ, À FAIRE (prochaine session)
+## Onglet « Espaces disques / données » : configuration matérielle, volumes, extension, alertes (2026-11-05) — LIVRÉ #986 (reste : contrôle que la copie NAS 1 → NAS 2 est à jour, emplacements mémoire libres)
 - Demande : « un onglet espaces disques/data — identifier par catégories (rôle, LAN, hébergeur) la configuration matérielle,
   les volumes, les possibilités d'extension, les niveaux d'alerte ».
 - Par machine : disques physiques (modèle, taille, état SMART), RAID / ZFS / LVM, volumes et montages (taille, occupé, libre,

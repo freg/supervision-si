@@ -69,6 +69,7 @@ import etat_excel  # noqa: E402  -- #857 : version Excel pour les décideurs
 import etat_rapport  # noqa: E402  -- #860 : audit d'obsolescence et de support (page imprimable)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
+import espaces as espaces_lib  # noqa: E402  -- #986 : espaces disques / données (matériel, volumes, extension, alertes)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
@@ -2843,6 +2844,82 @@ def ia_assistant_route(sub):
             return app.response_class(r.read(), status=r.status, mimetype="application/json")
     except Exception as exc:  # noqa: BLE001 -- assistant arrêté ou absent (profil compose « assistant »)
         return jsonify({"error": "assistant injoignable (%s) : %s" % (ASSISTANT_API_URL, str(exc)[:200])}), 502
+
+
+_espaces_cache = {"at": 0, "jours": None, "hist": {}}
+
+
+def _espaces_historique(conn, jours=30):
+    """#986 : un relevé `host` par jour et par agent sur `jours` jours -> {agent: {montage: [(jour, octets occupés)]}} (cache 1 h)."""
+    now = time.time()
+    if _espaces_cache["jours"] == jours and now - _espaces_cache["at"] < 3600:
+        return _espaces_cache["hist"]
+    depuis = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - jours * 86400))
+    lignes = conn.execute("SELECT m.agent_id, m.at, m.data FROM measurements m JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'host' "
+                          "AND at >= ? GROUP BY agent_id, substr(at, 1, 10)) j ON j.agent_id = m.agent_id AND j.at = m.at AND m.task = 'host'", (depuis,)).fetchall()
+    hist = {}
+    for r in lignes:
+        try:
+            d = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+            jour = int(time.mktime(time.strptime(r["at"][:10], "%Y-%m-%d")) // 86400)
+        except (TypeError, ValueError):
+            continue
+        for x in d.get("disks") or []:
+            if isinstance(x, dict) and x.get("mountpoint") and isinstance(x.get("used_bytes"), (int, float)):
+                hist.setdefault(r["agent_id"], {}).setdefault(x["mountpoint"], []).append((jour, x["used_bytes"]))
+    _espaces_cache.update(at=now, jours=jours, hist=hist)
+    return hist
+
+
+@app.route("/espaces", methods=["GET"])
+def espaces_route():
+    """#986 : espaces disques / données -- matériel, volumes, tendance et saturation, extension, alertes, par rôle / LAN / hébergeur."""
+    conn = store._connect(DB_PATH)
+    try:
+        hotes = {aid: dict(d, _at=at) for aid, _h, at, d in infra.latest(conn, "host")}
+        inv = {aid: d for aid, _h, _at, d in infra.latest(conn, "inventory")}
+        nas_snmp, nas_ssh = infra.latest(conn, "plugin:nas-snmp"), infra.latest(conn, "plugin:nas-qnap")
+        hist = _espaces_historique(conn, 30)
+    finally:
+        conn.close()
+    plugins = {aid: [p.get("id") for p in (d.get("plugins") or []) if isinstance(p, dict) and p.get("effective_enabled")] for aid, d in inv.items()}
+    r = espaces_lib.assembler(store.list_agents(DB_PATH), hotes, inv, nas_snmp, nas_ssh, hist,
+                              store.get_setting(DB_PATH, "espaces_classement", {}) or {}, store.get_setting(DB_PATH, "espaces_seuils", {}) or {}, plugins)
+    return jsonify(r), 200
+
+
+@app.route("/espaces/classement", methods=["PUT"])
+def espaces_classement_route():
+    """#986 : {id, role?, lan?, hebergeur?} -- corrige le classement deviné d'une machine (vide = revenir au deviné)."""
+    b = request.get_json(silent=True) or {}
+    mid = str(b.get("id") or "")
+    if not re.match(r"^(nas:)?[A-Za-z0-9._ -]{1,80}$", mid):
+        return jsonify({"error": "machine inconnue"}), 400
+    c = store.get_setting(DB_PATH, "espaces_classement", {}) or {}
+    e = dict(c.get(mid) or {})
+    for k in ("role", "lan", "hebergeur"):
+        if k in b:
+            v = str(b.get(k) or "").strip()[:40]
+            if v:
+                e[k] = v
+            else:
+                e.pop(k, None)
+    c[mid] = e
+    store.set_setting(DB_PATH, "espaces_classement", c)
+    return jsonify({"id": mid, "classement": e}), 200
+
+
+@app.route("/espaces/seuils", methods=["PUT"])
+def espaces_seuils_route():
+    b = request.get_json(silent=True) or {}
+    s = dict(espaces_lib.SEUILS)
+    for k in s:
+        if isinstance(b.get(k), (int, float)) and 0 < b[k] <= (100 if k in ("attention", "critique") else 3650):
+            s[k] = int(b[k])
+    if s["attention"] >= s["critique"]:
+        return jsonify({"error": "le seuil d'attention doit être inférieur au seuil critique"}), 400
+    store.set_setting(DB_PATH, "espaces_seuils", s)
+    return jsonify({"seuils": s}), 200
 
 
 @app.route("/infra/overview", methods=["GET"])

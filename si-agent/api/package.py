@@ -48,5 +48,5 @@ def download_command(public_url, info):
     url = (public_url or "https://<VM>:6443/api/si-agent").rstrip("/") + "/package"
     name = info["name"]
     folder = name[: -len(".tar.gz")]
-    return "curl -fsSk -o %s %s && echo '%s  %s' | sha256sum -c && tar xzf %s && cd %s" % (
+    return "curl -fsSk -o %s %s && echo '%s  %s' | (sha256sum -c 2>/dev/null || shasum -a 256 -c) && tar xzf %s && cd %s" % (
         shlex.quote(name), shlex.quote(url), info["sha256"], name, shlex.quote(name), shlex.quote(folder))

@@ -16,7 +16,7 @@ test("lignes d'installation selon l'adresse", () => {
   const fp = caFingerprintOf("sudo ./install.sh --agent a --secret s --central x --site y --ca-fingerprint deadbeef");
   assert.equal(fp, "deadbeef");
   const lan = installLines({ base: "https://192.0.2.5:6443", agentId: "pve-3", site: "ovh", pkg, caFp: fp });
-  assert.match(lan.download, /^curl -fsSk -o si-agent-agent-0\.5\.32\.tar\.gz https:\/\/192\.0\.2\.5:6443\/api\/si-agent\/package && echo 'ab12  si-agent-agent-0\.5\.32\.tar\.gz' \| sha256sum -c && tar xzf .* && cd si-agent-agent-0\.5\.32$/);
+  assert.match(lan.download, /^curl -fsSk -o si-agent-agent-0\.5\.32\.tar\.gz https:\/\/192\.0\.2\.5:6443\/api\/si-agent\/package && echo 'ab12  si-agent-agent-0\.5\.32\.tar\.gz' \| \(sha256sum -c 2>\/dev\/null \|\| shasum -a 256 -c\) && tar xzf .* && cd si-agent-agent-0\.5\.32$/);
   assert.equal(lan.install, './install.sh --agent pve-3 --secret "$TOKEN" --central https://192.0.2.5:6443/api/si-agent --site ovh --ca-fingerprint deadbeef');
   const pub = installLines({ base: "hub.exemple.fr", agentId: "pve-3", site: "ovh", pkg, caFp: fp });
   assert.match(pub.download, /^curl -fsSL -o /); assert.ok(!pub.install.includes("--ca-fingerprint")); assert.ok(!pub.internal);

@@ -1,3 +1,12 @@
+## 2026-11-06 — livraison #986 : espaces disques / données
+
+- **Hub › Sauvegardes › 💽 Espaces disques / données** : toutes les machines suivies (agents hôtes et NAS relevés en SNMP / SSH), regroupées par **rôle**, **LAN / site** ou **hébergeur** (classement deviné — nom, système, sondes actives, site — et corrigeable sur la ligne, mémorisé). Par machine : matériel (modèle, RAM, disques physiques, baies d'un NAS), volumes (taille, occupé, libre, %), **tendance** sur 30 jours (un relevé par jour, moindres carrés) et **date de saturation estimée**, RAID, **possibilités d'extension** (baies libres d'un NAS, disque sans partition ni montage, espace libre d'un groupe LVM ou d'un pool ZFS, RAID 5 sur peu de disques → RAID 6), **alertes** à seuils réglables (attention 85 %, critique 95 %, ou plein dans 30 / 7 jours). Liens vers la fiche de l'agent (Disques et stockage) ou le NAS dans Sauvegardes. Lecture seule.
+- **si-agent-api** (`espaces.py`, pur) : `GET /espaces`, `PUT /espaces/classement`, `PUT /espaces/seuils`.
+- **Installation de l'agent sur Mac** : la ligne de téléchargement vérifie l'empreinte avec `sha256sum` ou, à défaut, `shasum -a 256` (macOS).
+- Libellés : « Constat de sonde », « Constat de sonde levé », « Alerte de sauvegarde »… au lieu des noms techniques.
+
+Vérifié : tests si-agent test_espaces (volumes, pseudo-systèmes écartés, tendance et saturation, extension, NAS et baies, classement, groupes), test_package, test_dockerfile_modules ; tests hub espacesLib, agentInstallLib ; syntaxe. Non vérifié : données réelles, rendu dans un navigateur.
+
 ## 2026-11-06 — livraison #985 : la visite de démonstration se connecte vraiment
 
 - Premier passage réel : aucune connexion, toutes les captures montraient l'accueil public et aucun onglet n'était trouvé. Le hub affiche d'abord « Connexion en cours… » (`.hub-shell`, pris pour une session ouverte), puis un accueil avec un bouton de connexion. La visite attend désormais l'un des états (connecté = bouton « Se déconnecter », formulaire Keycloak, accueil), clique la connexion, remplit le formulaire, vérifie la session ; échec explicite au bout de 90 s au lieu de captures inutiles.

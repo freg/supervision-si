@@ -260,6 +260,11 @@ export const EVENT_KIND_LABELS_FR = {
   "agent-deleted": "Agent supprimé",
   "agent-activated": "Agent réactivé",
   "agent-deactivated": "Agent désactivé",
+  "probe-alert": "Constat de sonde",   // #986
+  "probe-recovered": "Constat de sonde levé",   // #986
+  "backup-alert": "Alerte de sauvegarde",   // #986
+  "backup-recovered": "Sauvegarde rétablie",   // #986
+  "backup-done": "Sauvegarde réussie",   // #986
   "agent-offline": "Agent hors ligne",
   "agent-online": "Agent de nouveau en ligne",
   "secret-rotated": "Secret renouvelé",
