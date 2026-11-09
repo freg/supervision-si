@@ -42,7 +42,8 @@ class Synthese(unittest.TestCase):
         self.assertEqual(e["corbeilles"]["etat"], "accepte"); self.assertEqual(e["corbeilles"]["note"], "90 jours")
         self.assertEqual(e["comptes_inactifs"]["etat"], "a_decider"); self.assertEqual(e["sauvegarde"]["etat"], "a_faire")
         self.assertIn("sans mises à jour", e["systeme"]["detail"])
-        self.assertIn("340.0 Go", e["cible"]["detail"])
+        self.assertIn("340 Go", e["cible"]["detail"])
+        self.assertEqual((O.fr(1296.4), O.fr(381.1), O.fr(80.0), O.fr(12)), ("1 296,4", "381,1", "80", "12"))
 
     def test_sans_doublon_ni_local(self):
         m = dict(MESURE, comptes=MESURE["comptes"][:2] + [MESURE["comptes"][3]])

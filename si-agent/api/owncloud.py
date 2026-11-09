@@ -24,6 +24,14 @@ def _cle_nom(nom):
     return re.sub(r"\s+", " ", n).strip().lower()
 
 
+def fr(v):
+    """1296.4 -> « 1 296,4 » (virgule décimale, espace des milliers)."""
+    try:
+        return ("{:,.1f}".format(float(v))).replace(",", " ").replace(".", ",").replace(",0", "") if float(v) != int(float(v)) else "{:,}".format(int(float(v))).replace(",", " ")
+    except (TypeError, ValueError):
+        return str(v)
+
+
 def statut(c, maintenant, actif_jours=30, dormant_jours=365):
     d = c.get("derniere_connexion")
     if not d:
@@ -60,13 +68,13 @@ def synthese(data, decisions=None, maintenant=0):
         "actions_30j": sum(a.get("actions") or 0 for a in (data.get("activite") or [])[-30:]),
     }
     detail = {
-        "corbeilles": "%s Go en corbeilles (%s)" % (corbeilles, (data.get("instance") or {}).get("conservation_corbeille") or "conservation par défaut : purge seulement quand la place manque"),
-        "comptes_inactifs": "%d compte(s), %s Go de fichiers" % (len(inactifs), go_inactifs),
+        "corbeilles": "%s Go en corbeilles (%s)" % (fr(corbeilles), (data.get("instance") or {}).get("conservation_corbeille") or "conservation par défaut : purge seulement quand la place manque"),
+        "comptes_inactifs": "%d compte(s), %s Go de fichiers" % (len(inactifs), fr(go_inactifs)),
         "doublons": ", ".join(doublons) or "aucun",
         "comptes_locaux": ", ".join(chiffres["locaux"]) or "aucun",
         "sauvegarde": "à vérifier",
         "systeme": "%s%s" % (systeme.get("nom") or "?", (" -- sans mises à jour de sécurité depuis le %s" % systeme["fin"]) if systeme.get("depasse") else ""),
-        "cible": "%s Go de données vivantes après décisions (%s Go aujourd'hui)" % (chiffres["go_vivantes"], chiffres["go_total"]),
+        "cible": "%s Go de données vivantes après décisions (%s Go aujourd'hui)" % (fr(chiffres["go_vivantes"]), fr(chiffres["go_total"])),
         "owncloud": (data.get("instance") or {}).get("version") or "?",
     }
     dec = decisions or {}

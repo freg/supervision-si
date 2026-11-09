@@ -1,3 +1,11 @@
+## 2026-11-09 — livraison #1000 : onglet ownCloud lisible
+
+- Listes d'état et champs de note lisibles en thème sombre (un état « refusé » apparaissait blanc sur blanc).
+- Nombres à la française dans les constats des étapes et les alertes de la sonde (« 381,1 Go », « 1 296,4 Go ») ;
+  sonde owncloud version 2.
+
+Vérifié : tests API et sonde, syntaxe. Non vérifié : rendu navigateur.
+
 ## 2026-11-09 — livraison #999 : ownCloud dans la gestion de la migration
 
 - **Sonde `owncloud`** (agent 0.6.44, privilégiée, toutes les heures, lecture seule) sur le serveur ownCloud :

@@ -91,12 +91,17 @@ def assembler(comptes, espaces, corbeilles, activite):
     return sorted(out, key=lambda x: -(x["derniere_connexion"] or 0)), tot, act
 
 
+def fr(v):
+    """381.1 -> « 381,1 »."""
+    return str(v).replace(".", ",")
+
+
 def constats(instance, comptes, totaux, maintenant, dormant_jours=365, disque_warn=80, disque_crit=90, corbeille_pct=20):
     alerts = []
     d = instance.get("disque") or {}
     if d.get("pct") is not None and d["pct"] >= disque_warn:
         alerts.append({"code": "owncloud-disque", "severity": "critical" if d["pct"] >= disque_crit else "warning",
-                       "message": "ownCloud : disque des données rempli à %s %% (%s Go libres)" % (d["pct"], d.get("libre_go"))})
+                       "message": "ownCloud : disque des données rempli à %s %% (%s Go libres)" % (d["pct"], fr(d.get("libre_go")))})
     s = instance.get("systeme") or {}
     if s.get("depasse"):
         alerts.append({"code": "owncloud-systeme", "severity": "warning",
@@ -105,7 +110,7 @@ def constats(instance, comptes, totaux, maintenant, dormant_jours=365, disque_wa
     if donnees and totaux.get("corbeilles", 0) * 100.0 / donnees >= corbeille_pct:
         alerts.append({"code": "owncloud-corbeilles", "severity": "warning",
                        "message": "ownCloud : corbeilles %s Go (%d %% des données) -- conservation : %s" % (
-                           totaux["corbeilles"], round(totaux["corbeilles"] * 100.0 / donnees), instance.get("conservation_corbeille") or "auto (par défaut)")})
+                           fr(totaux["corbeilles"]), round(totaux["corbeilles"] * 100.0 / donnees), instance.get("conservation_corbeille") or "auto (par défaut)")})
     vieux = [c for c in comptes if c["origine"] == "locale" and c["id"] != "admin" and (c["derniere_connexion"] or 0) < maintenant - dormant_jours * 86400]
     if vieux:
         alerts.append({"code": "owncloud-comptes-locaux", "severity": "warning",

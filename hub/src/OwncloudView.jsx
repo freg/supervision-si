@@ -7,6 +7,7 @@ import { STATUTS, ETATS, TON_ETAT, FILTRES, go, date, depuis, filtrerComptes, tr
 
 const TON = { ok: "var(--ok)", warn: "var(--warning)", bad: "var(--danger)" };
 const FOND = { ok: "var(--ok)", warn: "var(--warning)", "": "var(--muted)" };
+const CHAMP = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px" };   // #1000 : lisible en thème sombre
 
 function Etape({ e, agentId, base, username, onSaved }) {
   const [etat, setEtat] = useState(e.etat);
@@ -25,9 +26,9 @@ function Etape({ e, agentId, base, username, onSaved }) {
     <tr>
       <td><strong>{e.titre}</strong> <span className="infra-muted">({e.genre})</span><div className="infra-muted" style={{ fontSize: 12 }}>{e.aide}</div></td>
       <td>{e.detail}</td>
-      <td><select value={etat} onChange={(x) => setEtat(x.target.value)} style={{ color: TON[TON_ETAT[etat]] || "inherit" }}>
-        {Object.entries(ETATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-      <td><input value={note} onChange={(x) => setNote(x.target.value)} placeholder="décision, date, qui…" style={{ width: "100%", minWidth: 160 }} /></td>
+      <td><select value={etat} onChange={(x) => setEtat(x.target.value)} style={{ ...CHAMP, color: TON[TON_ETAT[etat]] || "var(--text)" }}>
+        {Object.entries(ETATS).map(([k, v]) => <option key={k} value={k} style={{ background: "var(--bg)", color: "var(--text)" }}>{v}</option>)}</select></td>
+      <td><input value={note} onChange={(x) => setNote(x.target.value)} placeholder="décision, date, qui…" style={{ ...CHAMP, width: "100%", minWidth: 160 }} /></td>
       <td style={{ whiteSpace: "nowrap" }}>
         <button type="button" disabled={!change || !!envoi?.startsWith("⏳")} onClick={enregistrer}>{envoi?.startsWith("⏳") ? envoi : "Enregistrer"}</button>
         {envoi && !envoi.startsWith("⏳") && <span className="infra-error"> {envoi}</span>}
@@ -95,7 +96,7 @@ function Instance({ i, base, username, onSaved }) {
       <h4 style={{ margin: "10px 0 4px" }}>Comptes <span className="infra-muted">{comptes.length} / {(i.comptes || []).length}</span></h4>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 4 }}>
         {FILTRES.map(([k, l]) => <button key={k} type="button" className={filtre === k ? "" : "secondary"} onClick={() => setFiltre(k)}>{l}</button>)}
-        <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="filtrer (début de mot)" style={{ width: 180 }} />
+        <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="filtrer (début de mot)" style={{ ...CHAMP, width: 180 }} />
       </div>
       <div className="infra-table-wrap" style={{ maxHeight: 420 }}>
         <table className="infra-table"><thead><tr>

@@ -1,6 +1,6 @@
 {
   "id": "owncloud",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "owncloud.py",
   "interval_seconds": 3600,
