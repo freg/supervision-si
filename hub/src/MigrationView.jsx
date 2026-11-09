@@ -4,6 +4,7 @@
 // débit, fin estimée, fin du journal), chaque erreur détaillée avec sa cause et un bouton « Solution » (relance avec
 // reprise, ou commande exacte à lancer et où). Données : si-agent-api /migration (sonde « migration » des agents).
 // Logique pure : migrationLib.js.
+import OwncloudView from "./OwncloudView.jsx";   // #999 : onglet ownCloud (instances, comptes, corbeilles, étapes)
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MigrationPrepView from "./MigrationPrepView.jsx";
 import MigrationCopiesView from "./MigrationCopiesView.jsx";   // #856
@@ -158,7 +159,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
   const [tab, setTab] = useState(() => viewParams().onglet || "");   // #784 : onglet (Migration, MX…) ; #790 : ?onglet=MX
-  const [page, setPage] = useState(() => { const p = viewParams().page || etatMemorise("MigrationView", "page"); return ["prep", "copies", "risques", "etat"].includes(p) ? p : "plan"; });
+  const [page, setPage] = useState(() => { const p = viewParams().page || etatMemorise("MigrationView", "page"); return ["prep", "copies", "risques", "etat", "owncloud"].includes(p) ? p : "plan"; });
   useEffect(() => { memoriserEtat("MigrationView", "page", page); }, [page]);   // #874   // #815 : plan | préparation d'une réinstallation ; #856 : copies | risques
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
@@ -206,8 +207,9 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
         <button role="tab" aria-selected={page === "copies"} className={page === "copies" ? "" : "secondary"} onClick={() => setPage("copies")}>Copies et sauvegardes</button>
         <button role="tab" aria-selected={page === "risques"} className={page === "risques" ? "" : "secondary"} onClick={() => setPage("risques")}>Risques</button>
         <button role="tab" aria-selected={page === "etat"} className={page === "etat" ? "" : "secondary"} onClick={() => setPage("etat")}>État des lieux</button>
+        <button role="tab" aria-selected={page === "owncloud"} className={page === "owncloud" ? "" : "secondary"} onClick={() => setPage("owncloud")}>ownCloud</button>
       </div>
-      {page === "etat" ? <EtatDesLieuxView siAgentApiBase={siAgentApiBase} /> : page === "copies" ? <MigrationCopiesView siAgentApiBase={siAgentApiBase} /> : page === "risques" ? <MigrationRisquesView siAgentApiBase={siAgentApiBase} /> : page === "prep" ? <MigrationPrepView siAgentApiBase={siAgentApiBase} /> : <>
+      {page === "owncloud" ? <OwncloudView siAgentApiBase={siAgentApiBase} username={username} /> : page === "etat" ? <EtatDesLieuxView siAgentApiBase={siAgentApiBase} /> : page === "copies" ? <MigrationCopiesView siAgentApiBase={siAgentApiBase} /> : page === "risques" ? <MigrationRisquesView siAgentApiBase={siAgentApiBase} /> : page === "prep" ? <MigrationPrepView siAgentApiBase={siAgentApiBase} /> : <>
       {err && <p className="infra-error">{err}</p>}
       {data && !data.plan && <p className="infra-card">Aucun plan : importer le fichier <code>migration-2026.local.json</code> ci-dessous (modèle : <code>deploy/migration/plan-exemple.json</code>).</p>}
       {data?.plan && tabs.length > 1 && (

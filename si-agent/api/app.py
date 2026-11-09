@@ -4605,5 +4605,43 @@ def noeud_ia_jeton_agent_route(agent_id):
     return jsonify({"jeton": j}), 200
 
 
+
+# -- #999 : instances ownCloud (sonde owncloud) -- usage réel, corbeilles, comptes, étapes de migration ---------------------
+import owncloud as _owncloud  # noqa: E402
+
+
+@app.route("/owncloud", methods=["GET"])
+def owncloud_route():
+    """Dernière mesure de la sonde owncloud de chaque agent + synthèse et état des décisions / étapes de migration."""
+    conn = store._connect(DB_PATH)
+    try:
+        rows = infra.latest(conn, "plugin:owncloud")
+    finally:
+        conn.close()
+    decisions = store.get_setting(DB_PATH, "owncloud_decisions", {}) or {}
+    out = []
+    for aid, host, at, d in rows:
+        s = _owncloud.synthese(d, decisions.get(aid), time.time())
+        out.append({"agent_id": aid, "hostname": host, "at": at, "instance": d.get("instance") or {}, "totaux": d.get("totaux") or {},
+                    "activite": d.get("activite") or [], "alerts": d.get("alerts") or [], "error": d.get("error"), **s})
+    return jsonify({"instances": out}), 200
+
+
+@app.route("/owncloud/decisions", methods=["PUT"])
+def owncloud_decision_route():
+    """{agent_id, etape, etat: a_decider|accepte|refuse|a_faire|fait, note, actor} -- décision ou avancement d'une étape."""
+    b = request.get_json(silent=True) or {}
+    err = _owncloud.valider_decision(b)
+    if err:
+        return jsonify({"error": err}), 400
+    dec = store.get_setting(DB_PATH, "owncloud_decisions", {}) or {}
+    dec.setdefault(b["agent_id"], {})[b["etape"]] = {"etat": b["etat"], "note": str(b.get("note") or "")[:1000],
+                                                     "par": str(b.get("actor") or "?")[:64], "le": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    store.set_setting(DB_PATH, "owncloud_decisions", dec)
+    _event("owncloud-decision", "info", "ownCloud %s : %s -> %s (%s)" % (b["agent_id"], b["etape"], b["etat"], b.get("actor") or "?"),
+           agent_id=b["agent_id"], details={"etape": b["etape"], "etat": b["etat"]})
+    return jsonify({"ok": True}), 200
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

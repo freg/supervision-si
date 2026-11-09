@@ -1,0 +1,13 @@
+{
+  "id": "owncloud",
+  "version": "1",
+  "runner": "python",
+  "entry": "owncloud.py",
+  "interval_seconds": 3600,
+  "timeout_seconds": 180,
+  "args": ["--actif-jours", "30", "--dormant-jours", "365", "--disque-warn", "80", "--disque-crit", "90", "--corbeille-warn-pct", "20"],
+  "enabled": false,
+  "description": "Instance ownCloud (#999), sur le serveur ownCloud : version, système (fin de support Debian), disque des données ; comptes (nom affiché, dernière connexion, origine LDAP / locale), volume par compte (fichiers, corbeille, versions, plus ancien élément en corbeille), activité des 90 derniers jours (actions et utilisateurs par jour), conservation des corbeilles et versions. Constats : disque plein (80 / 90 %), système sans mises à jour de sécurité, corbeilles au-delà de 20 % des données, comptes locaux inactifs. Lecture seule : config/config.php (sans les mots de passe) et requêtes SELECT par le client mysql en root (socket). Privilégiée (root : config.php et base).",
+  "source": "bundled",
+  "privileged": true
+}

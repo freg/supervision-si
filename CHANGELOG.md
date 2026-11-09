@@ -1,3 +1,23 @@
+## 2026-11-09 — livraison #999 : ownCloud dans la gestion de la migration
+
+- **Sonde `owncloud`** (agent 0.6.44, privilégiée, toutes les heures, lecture seule) sur le serveur ownCloud :
+  config.php sans secret (version, base, préfixe, données, conservation corbeilles / versions, domaines), système et fin du
+  support de sécurité Debian, disque des données, comptes (nom affiché, dernière connexion, annuaire / local), volumes
+  par compte (fichiers, corbeille, versions, plus ancien élément en corbeille), activité 90 jours — requêtes SELECT par
+  le client mysql en root. Constats : disque 80 / 90 %, système sans mises à jour, corbeilles ≥ 20 % des données,
+  comptes locaux inactifs.
+- **si-agent-api** : `GET /owncloud` (synthèse : statut de chaque compte, doublons, comptes locaux, gains possibles,
+  données vivantes après décisions, étapes) et `PUT /owncloud/decisions` (à décider / accepté / refusé / à faire / fait,
+  note, auteur, date — journalisé).
+- **Hub › Migration › ownCloud** (et vue « ownCloud » du thème Supervision) : système, disque, répartition fichiers /
+  corbeilles / versions, activité, chiffres clés, décisions et étapes de migration éditables (corbeilles, comptes
+  inactifs, doublons, comptes locaux, sauvegarde vérifiée, système, hébergement cible, ownCloud à jour), table des comptes
+  filtrable et triable (en-tête fixe).
+- Aucune donnée réelle dans le dépôt : tout vient de la sonde à l'exécution.
+
+Vérifié : tests sonde (config sans secret, assemblage, fin de support, constats), API (synthèse, décisions, routes), hub
+(filtres, tris, répartition, activité, avancement), syntaxe. Non vérifié : sur cloud-1 (MariaDB réelle), rendu navigateur.
+
 ## 2026-11-06 — livraison #998 : tuile Hermes, plus de hub affiché dans lui-même
 
 - Quand la passerelle ne sert pas encore `/ia/<nœud>/` (nœud non déclaré, job de la passerelle en échec), la page du

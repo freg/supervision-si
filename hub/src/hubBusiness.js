@@ -118,6 +118,7 @@ export const PATHS = {
   "view:edge": ["equipements/reseau", "services/internet"],   // #776 : proxys d'entrée interchangeables
   "view:latency": ["equipements/reseau", "etats/feux"],   // #775 : latence des IP publiques
   "view:migration": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #774 : Migration 2026-2027 (suivi pas à pas)
+  "view:owncloud": ["etats/maintenant", "services/metier"],   // #999 : instances ownCloud (usage, corbeilles, étapes de migration)
   "view:journal": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #795 : journal des chantiers
   "view:urgence": ["etats/maintenant", "etats/feux"],   // #796 : écran Urgence
   "view:navigateur": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #798 : navigateur des hôtes
