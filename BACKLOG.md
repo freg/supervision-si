@@ -1,3 +1,23 @@
+## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — DEMANDÉ, PRINCIPE PERMANENT + CHANTIER À CADRER
+- Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
+  activité pour ce qu'elle a de singulier par rapport aux autres. L'activité doit être utilisée pour catégoriser comme on
+  le fait à vue » (exemple du jour : reconnaître un Android ou un Windows à ses navigations / connexions).
+- Principe : aucune recherche ni correspondance ne repose sur un seul identifiant. La MAC change (MAC aléatoires Android /
+  iOS / Windows, adaptateur USB), l'IP change (bail, VLAN) : on croise nom d'hôte, fabricant (OUI, MAC « locale »),
+  système annoncé, SSID / VLAN / port / borne, dates de présence, et l'ACTIVITÉ.
+- Activité = signature : catégories d'applications Nebula (Google Play, Windows Update, Apple…), domaines contactés,
+  volumes et rythme (cron régulier vs usage humain), horaires, ports. Ce qui est SINGULIER pour la cible par rapport à la
+  population du site pèse plus que ce qui est commun à tous.
+- Résultat : une catégorie proposée (tablette Android, poste Windows, Linux sans écran, borne, imprimante…) avec sa
+  confiance et ses PREUVES (comme les hypothèses de Cortex), jamais affirmée sans dire pourquoi.
+- Sources : API Nebula (historique des clients #974, usage des applications), agents et sondes (MAC / IP / nom relevés),
+  imports (GLPI, listes déposées). Les listes déposées (ex. tablettes d'un client avec n° de série et MAC) vivent dans les
+  données du hub, JAMAIS dans le dépôt ; elles servent de liste de surveillance (alerte quand un élément apparaît, même
+  sous MAC aléatoire, par concordance des autres attributs).
+- Existant à réutiliser : `nebula/api/recherche.py` (#852, recherche du site), `client_history` (#974), Cortex
+  (`correlate.py` principes identity-*). À cadrer : tranches, poids des indices, relevé de l'usage des applications par
+  client (pas encore collecté automatiquement).
+
 ## Défauts majeurs : étendre à toutes les tâches de fond, alléger les écrans (2026-11-06) — DEMANDÉ, EN COURS (#975 = socle)
 - Demande : « les interfaces visuelles sont polluées par plein d'infos non urgentes » ; une erreur comme la relève jamais
   enregistrée « est une erreur prioritaire absolue […] notifiée partout avec une case à cocher ignorer et un lien résoudre ».
