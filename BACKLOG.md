@@ -2,9 +2,13 @@
 - Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
   activité pour ce qu'elle a de singulier par rapport aux autres. L'activité doit être utilisée pour catégoriser comme on
   le fait à vue » (exemple du jour : reconnaître un Android ou un Windows à ses navigations / connexions).
-- Principe : aucune recherche ni correspondance ne repose sur un seul identifiant. La MAC change (MAC aléatoires Android /
-  iOS / Windows, adaptateur USB), l'IP change (bail, VLAN) : on croise nom d'hôte, fabricant (OUI, MAC « locale »),
-  système annoncé, SSID / VLAN / port / borne, dates de présence, et l'ACTIVITÉ.
+- Principe : une cible s'identifie sur CHACUN des éléments qui la caractérisent ou la singularisent — nom d'hôte,
+  fabricant (OUI, MAC « locale »), MAC, IP, système annoncé, SSID / VLAN / port / borne, dates de présence, ACTIVITÉ —
+  chacun apportant sa part d'indice (la MAC change : MAC aléatoires, adaptateur USB ; l'IP change : bail, VLAN).
+- Discordances : quand des éléments se contredisent (même MAC mais autre nom, autre fabricant, activité inhabituelle,
+  autre lieu), la discordance est une information à exploiter, pas à écarter : (1) APPRENDRE à corriger (MAC qui a
+  changé, nouvel adaptateur, renommage, changement de VLAN → mise à jour de la fiche, validée ou non) ; (2) RECONNAÎTRE
+  une usurpation potentielle (MAC clonée, nom repris, appareil inconnu derrière une identité connue) → alerte avec preuves.
 - Activité = signature : catégories d'applications Nebula (Google Play, Windows Update, Apple…), domaines contactés,
   volumes et rythme (cron régulier vs usage humain), horaires, ports. Ce qui est SINGULIER pour la cible par rapport à la
   population du site pèse plus que ce qui est commun à tous.
