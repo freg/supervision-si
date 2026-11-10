@@ -40,6 +40,18 @@ def resume_alerte(evts):
     return sujet, "\n".join(lignes[:50]) + "\n\nÀ valider dans le hub : Nebula › Surveillance.", ("warning" if disc else "info")
 
 
+def _categorie_de(conn, site_id, now):
+    """#1003 : catégorie par le comportement d'un client candidat (calculée seulement pour les clients déjà rapprochés)."""
+    import identification
+
+    def f(cl):
+        try:
+            return identification.categorie_client(conn, site_id, cl, now)
+        except Exception:  # noqa: BLE001 -- sans profil, la concordance reste celle des éléments
+            return None
+    return f
+
+
 def register(app, deps):
     """deps : conn(), manage(body) -> (ok, erreur), notify(sujet, corps, gravite), sites() -> [{siteId}]"""
 
@@ -52,7 +64,7 @@ def register(app, deps):
         now = int(now or time.time())
         conn = deps["conn"]()
         try:
-            evts = sv.rapprocher(conn, site_id, now - FENETRE_RELEVE_S, now=now)
+            evts = sv.rapprocher(conn, site_id, now - FENETRE_RELEVE_S, now=now, categorie_de=_categorie_de(conn, site_id, now))
         finally:
             conn.close()
         a = resume_alerte(evts)
@@ -140,7 +152,7 @@ def register(app, deps):
         conn = deps["conn"]()
         try:
             for sid in _sites(body.get("site")):
-                out += sv.rapprocher(conn, sid, now - jours * 86400, now=now)
+                out += sv.rapprocher(conn, sid, now - jours * 86400, now=now, categorie_de=_categorie_de(conn, sid, now))
         finally:
             conn.close()
         return jsonify({"evenements": out, "jours": jours}), 200

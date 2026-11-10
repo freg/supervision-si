@@ -25,3 +25,7 @@ recherche unifiée (historique, listes, identités réseau des agents via `GET /
 **Claude** (#1002) : l'API publique Nebula ne donne pas les applications par client ; l'activité retenue est ce qu'elle
 publie (volumes Wi-Fi par relève) et la présence (heures, jours, nuits, week-ends, mobilité) ; profil visible dans
 l'historique des clients.
+
+**Claude** (#1003) : catégorie proposée par client (système, nom, fabricant — un adaptateur n'est pas la machine —, MAC
+aléatoire, comportement, mobilité, volumes), chaque indice pondéré par sa rareté sur le site, singularités listées ;
+la liste de surveillance s'en sert (discordance si une « tablette » se comporte en machine).

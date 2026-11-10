@@ -1,4 +1,4 @@
-## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — PRINCIPE PERMANENT, EN COURS (tranches 1-2 LIVRÉES #1001-#1002)
+## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — PRINCIPE PERMANENT (tranches 1-3 LIVRÉES #1001-#1003)
 - Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
   activité pour ce qu'elle a de singulier par rapport aux autres. L'activité doit être utilisée pour catégoriser comme on
   le fait à vue » (exemple du jour : reconnaître un Android ou un Windows à ses navigations / connexions).
@@ -20,7 +20,9 @@
   sous MAC aléatoire, par concordance des autres attributs).
 - Tranches validées le 10/11 : (1) liste de surveillance + recherche unifiée — LIVRÉ #1001 ; (2) relevé de l'activité par
   client (volumes, rythme ; l'API Nebula ne publie pas les applications par client) — LIVRÉ #1002 ; (3) catégorisation par l'activité,
-  indices singuliers pondérés par rapport à la population du site, preuves sur la fiche client.
+  indices singuliers pondérés par rapport à la population du site, preuves sur la fiche client — LIVRÉ #1003.
+- Suites possibles : calibrer les poids sur la population réelle ; domaines contactés par client (sonde sur place ou
+  journaux de la passerelle, l'API Nebula ne les publie pas) ; même concordance pour les agents et l'inventaire GLPI.
 - Existant à réutiliser : `nebula/api/recherche.py` (#852, recherche du site), `client_history` (#974), Cortex
   (`correlate.py` principes identity-*). À cadrer : tranches, poids des indices, relevé de l'usage des applications par
   client (pas encore collecté automatiquement).

@@ -1,3 +1,24 @@
+## 2026-11-10 — livraison #1003 : catégorisation par les éléments et le comportement (identification des cibles, tranche 3)
+
+- **Catégorie proposée** pour chaque client (`GET /client-history/categorie?site=&mac=`) parmi : mobile Android, mobile
+  Apple, poste Windows, poste Mac, machine Linux / sans écran, équipement réseau, imprimante, caméra / objet connecté,
+  casque VR — avec confiance, hypothèses classées et preuves pondérées.
+- **Indices** : système et nom annoncés, fabricant (un fabricant d'adaptateur réseau, USB souvent, est signalé comme tel
+  et ne fait pas la marque de la machine), MAC aléatoire, comportement (présence continue / aux heures de jour, nuit,
+  week-end), mobilité entre bornes, filaire, régularité et sens des volumes.
+- **Singularité** : chaque indice est pondéré par sa rareté sur le site (×0,5 pour une valeur que tout le site partage,
+  jusqu'à ×1,5 pour une valeur unique ; neutre sous 20 clients) ; les singularités du client sont listées (« seul
+  client du site dans ce cas », « 2 % des clients »).
+- **Liste de surveillance** : la catégorie (confiance ≥ 40 %) devient un élément de concordance — cohérente avec le type
+  de l'élément : indice ; contraire : contre-indice, ou discordance forte si la MAC concorde (une « tablette » qui se
+  comporte en machine permanente).
+- **Hub › Historique des clients** : catégorie proposée, détail des hypothèses et preuves (fenêtre copiable),
+  singularités, au-dessus de l'activité.
+
+Vérifié : tests catégorisation (tablette Android en MAC aléatoire, mini-PC derrière adaptateur USB, poste Windows,
+singularité, population trop petite), concordance par le comportement, route, module hub, syntaxe. Non vérifié : rendu
+navigateur, calibrage des poids sur la population réelle du site.
+
 ## 2026-11-10 — livraison #1002 : activité par client (identification des cibles, tranche 2)
 
 - Constat : l'OpenAPI Nebula ne publie pas l'usage des applications par client (aucune route « applications » dans la

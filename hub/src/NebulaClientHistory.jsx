@@ -5,7 +5,8 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import IpPing from "./IpPing.jsx";
 import NebulaRelevesCalendrier from "./NebulaRelevesCalendrier.jsx";   // #974 : diodes des relèves
 import { texteNouveautes } from "./relevesLib.js";
-import { resumeActivite, barres } from "./activiteLib.js";   // #1002 : activité du client (présence, rythme, volumes)
+import { resumeActivite, barres, resumeCategorie, texteCategorie } from "./activiteLib.js";
+import BoutonDetail from "./FenetreTexte.jsx";   // #1002 : activité du client (présence, rythme, volumes)
 
 const COLS = [
   ["mac", "MAC"], ["ip", "IP"], ["name", "Nom"], ["manufacturer", "Fabricant"], ["device", "Raccordé à"],
@@ -27,6 +28,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   const [sel, setSel] = useState(null);
   const [sess, setSess] = useState(null);
   const [act, setAct] = useState(null);
+  const [cat, setCat] = useState(null);
   const [page, setPage] = useState(0);
   const [versionCal, setVersionCal] = useState(0);
   const PAGE = 200;
@@ -69,7 +71,9 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   };
   const ouvrir = async (row) => {
     if (sel?.mac === row.mac) { setSel(null); return; }
-    setSel(row); setSess(null); setAct(null);
+    setSel(row); setSess(null); setAct(null); setCat(null);
+    fetch(`${nebulaApiBase}/client-history/categorie?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}`, { credentials: "include" })
+      .then((r) => r.json()).then((j) => setCat(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setCat({ erreur: e.message }));
     fetch(`${nebulaApiBase}/client-history/activite?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}&jours=14`, { credentials: "include" })
       .then((r) => r.json()).then((j) => setAct(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setAct({ erreur: e.message }));
     try {
@@ -129,6 +133,14 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
                 </tr>
                 {sel?.mac === r.mac && (
                   <tr><td colSpan={COLS.length}>
+                    <div style={{ marginBottom: 8 }}>
+                      {cat === null ? <span className="muted">catégorie : lecture…</span> : cat.erreur ? <span style={{ color: "var(--danger)" }}>catégorie : {cat.erreur}</span> : (
+                        <>
+                          <b>{resumeCategorie(cat)}</b>{" "}
+                          <BoutonDetail titre="Catégorie : hypothèses et preuves" urgence={cat.incertain ? "alerte" : "info"} texte={texteCategorie(cat)} />
+                          {(cat.singularites || []).length > 0 && <span className="muted"> — singulier : {cat.singularites.map((s) => s.texte).join(" ; ")}</span>}
+                        </>)}
+                    </div>
                     <div style={{ marginBottom: 8 }}>
                       <b>Activité sur 14 jours</b>
                       {act === null ? <span className="muted"> — lecture…</span> : act.erreur ? <span style={{ color: "var(--danger)" }}> — {act.erreur}</span> : (

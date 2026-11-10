@@ -22,3 +22,17 @@ test("barres", () => {
   assert.deepEqual(barres([0, 2, 4]), [0, 0.5, 1]);
   assert.deepEqual(barres([0, 0]), [0, 0]);
 });
+
+import { resumeCategorie, texteCategorie } from "../src/activiteLib.js";
+
+test("catégorie : résumé et détail", () => {
+  const c = { categorie: "mobile Android", confiance: 72, incertain: false, population: 120,
+    hypotheses: [{ categorie: "mobile Android", score: 80, preuves: [{ poids: 40, texte: "système annoncé « Android »" }, { poids: -15, texte: "x" }] }],
+    singularites: [{ texte: "fabricant « Edimax » : seul client du site dans ce cas" }] };
+  assert.equal(resumeCategorie(c), "Catégorie proposée : mobile Android — confiance 72 %");
+  const t = texteCategorie(c);
+  assert.match(t, /\+40 {2}système annoncé/);
+  assert.match(t, /-15 {2}x/);
+  assert.match(t, /aux 120 clients du site/);
+  assert.match(resumeCategorie({ categorie: null }), /pas assez/);
+});

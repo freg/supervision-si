@@ -36,3 +36,24 @@ export function barres(histo = []) {
   const m = histo.reduce((a, b) => Math.max(a, b), 0);
   return histo.map((x) => (m ? x / m : 0));
 }
+
+// #1003 : catégorie proposée par les éléments et le comportement (API /client-history/categorie)
+export function resumeCategorie(c) {
+  if (!c || !c.categorie) return "Catégorie : pas assez d'éléments pour en proposer une.";
+  return `Catégorie proposée : ${c.categorie} — confiance ${c.confiance} %${c.incertain ? " (incertaine)" : ""}`;
+}
+
+export function texteCategorie(c) {
+  if (!c) return "";
+  const l = [resumeCategorie(c), ""];
+  for (const h of c.hypotheses || []) {
+    l.push(`${h.categorie} : ${h.score}/100`);
+    for (const p of h.preuves || []) l.push(`  ${p.poids > 0 ? "+" : ""}${p.poids}  ${p.texte}`);
+    l.push("");
+  }
+  if ((c.singularites || []).length) {
+    l.push(`Singularités (par rapport aux ${c.population ?? "?"} clients du site sur 14 jours) :`);
+    for (const s of c.singularites) l.push(`  ${s.texte}`);
+  }
+  return l.join("\n").trim();
+}

@@ -287,10 +287,39 @@ def concorder(el, cl, ctx=None):
             D.append({"force": "forte", "texte": "système « %s » inattendu pour : %s" % (cl.get("os"), typ)})
         else:
             P.append(_preuve("système", -10, "système « %s » inattendu pour : %s" % (cl.get("os"), typ)))
-    score = max(0, min(100, sum(p["poids"] for p in P)))
-    fortes = [d for d in D if d["force"] == "forte"]
-    statut = ("discordant" if par_mac and fortes else "reconnu" if score >= 60 else "probable" if score >= 35 else None)
-    return {"score": score, "statut": statut, "par_mac": par_mac, "preuves": P, "discordances": D}
+    return _conclure({"par_mac": par_mac, "preuves": P, "discordances": D})
+
+
+def _conclure(r):
+    r["score"] = max(0, min(100, sum(p["poids"] for p in r["preuves"])))
+    fortes = [d for d in r["discordances"] if d["force"] == "forte"]
+    r["statut"] = ("discordant" if r["par_mac"] and fortes else "reconnu" if r["score"] >= 60 else "probable" if r["score"] >= 35 else None)
+    return r
+
+
+def ajuster_par_comportement(r, type_element, cat, lot=False):
+    """#1003 : la catégorie proposée par le comportement (categorie.py) devient un élément de concordance : cohérente avec
+    le type de l'élément -> indice ; contraire -> contre-indice, ou DISCORDANCE forte si la MAC concorde (une « tablette »
+    qui se comporte en machine permanente). Sans confiance suffisante (< 40 %), rien."""
+    import categorie
+    if not cat or not cat.get("categorie") or (cat.get("confiance") or 0) < 40:
+        return r
+    ok = categorie.compatible(type_element, cat["categorie"])
+    if ok is None:
+        return r
+    r = dict(r, preuves=list(r["preuves"]), discordances=list(r["discordances"]))
+    txt = "comportement de « %s » (confiance %d %%)" % (cat["categorie"], cat["confiance"])
+    if ok:
+        r["preuves"].append(_preuve("comportement", 10, txt + " cohérent avec : %s" % type_element))
+    elif r["par_mac"]:
+        r["discordances"].append({"force": "forte", "texte": txt + " inattendu pour : %s" % type_element})
+    else:
+        r["preuves"].append(_preuve("comportement", -15, txt + " inattendu pour : %s" % type_element))
+    statut_lot = r.get("statut") == "lot"
+    r = _conclure(r)
+    if lot or statut_lot:
+        r["statut"] = "lot" if r["score"] >= 25 else None
+    return r
 
 
 def traits_lot(els):
@@ -334,7 +363,7 @@ def _noter(conn, liste, eid, site_id, cl, r, now):
     return "discordance" if r["statut"] == "discordant" and row[1] != "discordant" and row[2] != "rejete" else None
 
 
-def rapprocher(conn, site_id, depuis, now=None):
+def rapprocher(conn, site_id, depuis, now=None, categorie_de=None):
     """Clients du site vus depuis `depuis` x éléments des listes -> [{type: nouveau|discordance, liste, element, mac, statut, score}].
     Par liste, le meilleur élément gagne ; une égalité sans MAC concordante (lot homogène) devient un repère « du lot »."""
     ouvrir(conn)
@@ -376,6 +405,10 @@ def rapprocher(conn, site_id, depuis, now=None):
                 r = concorder_lot(lots[li], cl, ctx)
                 if r["statut"]:
                     choix = (LOT, None, r)
+            if choix and categorie_de:   # #1003 : le comportement complète la concordance
+                typ = (next((e for e in es if e["id"] == choix[0]), None) or lots.get(li) or {}).get("type")
+                r2 = ajuster_par_comportement(choix[2], typ, categorie_de(cl), lot=choix[0] == LOT)
+                choix = (choix[0], choix[1], r2) if r2["statut"] else None
             if choix:
                 quoi = _noter(conn, li, choix[0], site_id, cl, choix[2], now)
                 if quoi:

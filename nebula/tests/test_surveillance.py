@@ -97,6 +97,17 @@ class Concordance(unittest.TestCase):
         sv.decider(self.c, r["id"], "rejete")
         self.assertEqual(sv.rapprocher(self.c, "site-alpha", T0, now=T0 + 3600), [])
 
+    def test_comportement(self):
+        machine = lambda cl: {"categorie": "machine Linux / sans écran", "confiance": 70}
+        mobile = lambda cl: {"categorie": "mobile Android", "confiance": 80}
+        vus(self.c, [{"mac": "a4:9f:00:00:00:01", "name": "Galaxy-Tab-A11", "manufacturer": "Samsung Electronics", "lastSeen": T0}])
+        ev = sv.rapprocher(self.c, "site-alpha", T0 - 3600, now=T0, categorie_de=machine)
+        self.assertEqual(ev[0]["statut"], "discordant")
+        self.assertIn("comportement de « machine Linux / sans écran »", ev[0]["discordances"][0])
+        r = sv.ajuster_par_comportement(sv.concorder(self.els["T02 Atelier"], {"mac": "6e:00:00:00:00:09", "name": "R5XXA02BBBB"}), "tablette", mobile({}))
+        self.assertEqual((r["statut"], r["score"]), ("probable", 50))
+        self.assertIs(sv.ajuster_par_comportement(r, "tablette", {"categorie": "mobile Android", "confiance": 20}), r)
+
     def test_prefixe_deduit_du_site(self):
         vus(self.c, [{"mac": "a4:9f:00:00:00:77", "manufacturer": "Samsung Electronics", "lastSeen": T0}])
         el = {"mac": "a4:9f:00:00:00:01"}

@@ -199,6 +199,22 @@ def register(app, deps):
         finally:
             conn.close()
 
+    @app.route("/client-history/categorie", methods=["GET"])
+    def client_history_categorie():
+        """#1003 : catégorie proposée d'un client (?site= &mac=) -- hypothèses, preuves pondérées, singularités, profil."""
+        import identification
+        mac = ch.mac_norm(request.args.get("mac"))
+        if not mac:
+            return jsonify({"error": "MAC manquante ou invalide"}), 400
+        conn = deps["conn"]()
+        try:
+            f = identification.fiche(conn, request.args.get("site", ""), mac)
+            if not f:
+                return jsonify({"error": "client jamais vu sur ce site"}), 404
+            return jsonify(identification.categorie_client(conn, request.args.get("site", ""), f, avec_profil=True)), 200
+        finally:
+            conn.close()
+
     @app.route("/client-history/manufacturers", methods=["GET"])
     def client_history_manufacturers():
         conn = deps["conn"]()
