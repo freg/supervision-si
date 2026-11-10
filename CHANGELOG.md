@@ -1,3 +1,32 @@
+## 2026-11-10 — livraison #1001 : liste de surveillance et recherche unifiée (identification des cibles, tranche 1)
+
+- **Principe** (BACKLOG 10/11) : une cible s'identifie sur chacun des éléments qui la caractérisent ; les discordances
+  servent à apprendre autant qu'à signaler une usurpation possible.
+- **Nebula › Surveillance** (nouvel onglet) : dépôt d'une liste par copier-coller d'un tableur (libellé, type, modèle,
+  référence, n° de série, MAC — reconnus à leur forme, dans n'importe quel ordre, en-tête écarté), aperçu avant
+  enregistrement. Les listes vivent dans la base du hub, jamais dans le dépôt.
+- **Concordance élément par élément**, avec poids et preuves : MAC déclarée ou apprise (60), n° de série dans le nom
+  annoncé (40), libellé (30), référence (20), modèle (15), fabricant (15, déduit de la référence ou du préfixe constructeur
+  vu sur le site), système cohérent avec le type (10) ; contre-indices négatifs. Une MAC aléatoire (Android / iOS /
+  Windows) n'empêche pas la reconnaissance par les autres éléments.
+- **Discordances** : MAC identique mais fabricant ou système contradictoires → statut « discordance » (MAC clonée, ou
+  carte remplacée) ; nom sans lien → discordance faible.
+- **Repères « du lot »** : quand plusieurs éléments identiques (lot de tablettes) concordent autant, le client est
+  rattaché à la liste et reste à attribuer.
+- **Apprentissage** : « Confirmer » (ou attribuer un repère du lot) apprend la MAC à l'élément — une MAC aléatoire reste
+  stable pour un même Wi-Fi, l'appareil est ensuite reconnu directement ; « Rejeter » ne propose plus ce rapprochement ;
+  annuler une confirmation oublie la MAC apprise.
+- **Rapprochement automatique** après chaque relève horaire de l'historique des clients, alerte notify-api (info pour un
+  repère, avertissement pour une discordance) ; bouton « Rapprocher maintenant (7 jours) ».
+- **Recherche unifiée** (barre de recherche Nebula) : en plus de Nebula en direct, l'historique des clients (400 jours),
+  les listes de surveillance et les identités réseau des agents (interfaces : nom, MAC, IP ; voisins ARP) — nouvelle
+  route si-agent-api `GET /identites` (mesure netview) ; un résultat « agent » ouvre sa fiche.
+- Droit `manage` sur nebula-api pour déposer, supprimer, décider ; le refus porte le lien vers le réglage des droits.
+
+Vérifié : tests concordance / dépôt / lot / apprentissage / discordances / routes (nebula), identités (si-agent-api),
+module hub (node --test), syntaxe des vues, import de l'application. Non vérifié : rendu navigateur, relève réelle
+Nebula (noms annoncés et systèmes réellement publiés par l'API pour des tablettes en MAC aléatoire).
+
 ## 2026-11-09 — livraison #1000 : onglet ownCloud lisible
 
 - Listes d'état et champs de note lisibles en thème sombre (un état « refusé » apparaissait blanc sur blanc).

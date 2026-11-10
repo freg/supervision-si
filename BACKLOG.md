@@ -1,4 +1,4 @@
-## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — DEMANDÉ, PRINCIPE PERMANENT + CHANTIER À CADRER
+## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — PRINCIPE PERMANENT, EN COURS (tranche 1 LIVRÉE #1001)
 - Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
   activité pour ce qu'elle a de singulier par rapport aux autres. L'activité doit être utilisée pour catégoriser comme on
   le fait à vue » (exemple du jour : reconnaître un Android ou un Windows à ses navigations / connexions).
@@ -18,6 +18,9 @@
   imports (GLPI, listes déposées). Les listes déposées (ex. tablettes d'un client avec n° de série et MAC) vivent dans les
   données du hub, JAMAIS dans le dépôt ; elles servent de liste de surveillance (alerte quand un élément apparaît, même
   sous MAC aléatoire, par concordance des autres attributs).
+- Tranches validées le 10/11 : (1) liste de surveillance + recherche unifiée — LIVRÉ #1001 ; (2) relevé de l'activité par
+  client (catégories d'applications, volumes, rythme) avec l'historique horaire ; (3) catégorisation par l'activité,
+  indices singuliers pondérés par rapport à la population du site, preuves sur la fiche client.
 - Existant à réutiliser : `nebula/api/recherche.py` (#852, recherche du site), `client_history` (#974), Cortex
   (`correlate.py` principes identity-*). À cadrer : tranches, poids des indices, relevé de l'usage des applications par
   client (pas encore collecté automatiquement).

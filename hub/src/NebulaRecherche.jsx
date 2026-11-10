@@ -3,7 +3,8 @@
 // l'onglet concerné et met l'élément au point dans le synoptique.
 import { useEffect, useState } from "react";
 
-const TYPE = { appareil: "Appareil", client: "Client", vlan: "VLAN", anomalie: "Anomalie", fiche: "Fiche du campus" };
+const TYPE = { appareil: "Appareil", client: "Client", vlan: "VLAN", anomalie: "Anomalie", fiche: "Fiche du campus",
+  historique: "Client (historique)", surveillance: "Liste de surveillance", agent: "Agent (interfaces, voisins)" };   // #1001 : recherche unifiée
 
 export default function NebulaRecherche({ nebulaApiBase, siteId, onOuvrir }) {
   const [q, setQ] = useState("");
@@ -26,7 +27,7 @@ export default function NebulaRecherche({ nebulaApiBase, siteId, onOuvrir }) {
   }, [q, siteId, nebulaApiBase]);
   return (
     <div className="hub-card" style={{ padding: "8px 12px" }}>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher partout : nom, IP, MAC, fabricant, SSID, VLAN, signal (-70 dBm), date (23/10)…" style={{ width: "100%" }} aria-label="Rechercher dans le réseau du site" />
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher partout (Nebula, historique, listes de surveillance, agents) : nom, IP, MAC, n° de série, fabricant, SSID, VLAN, date…" style={{ width: "100%" }} aria-label="Rechercher dans le réseau du site" />
       {busy && <p className="muted" style={{ margin: "6px 0 0" }}>Recherche…</p>}
       {d && !busy && (
         <div style={{ maxHeight: 320, overflow: "auto", marginTop: 6 }}>

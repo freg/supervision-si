@@ -1535,7 +1535,42 @@ def recherche_route(site_id):
         sources.append(("fiche", lambda o: o.get("name") or "?", lambda o: {"pane": "campus", "name": o.get("name")}, _veille_assets()))
     except Exception as e:  # noqa: BLE001
         errs.append("fiches du campus : %s" % str(e)[:120])
+    # #1001 : recherche unifiée -- historique des clients (400 jours), listes de surveillance, identités réseau des agents
+    vus_live = {(c.get("mac") or "").lower() for c in clients}
+    conn = get_connection()
+    try:
+        import surveillance as sv
+        hist = [dict(r) for r in conn.execute("SELECT mac, ip, name, manufacturer, os, device, port, ssid, vlan, first_seen, last_seen "
+                                              "FROM nebula_client_seen WHERE site_id = ? ORDER BY last_seen DESC LIMIT 20000", (site_id,))]
+        sources.append(("historique", lambda o: o.get("name") or o.get("mac") or "?", lambda o: {"tab": "historique", "mac": o.get("mac")},
+                        [h for h in hist if h["mac"] not in vus_live]))
+        sources.append(("surveillance", lambda o: "%s — %s" % (o.get("liste"), o.get("libelle") or o.get("serie") or o.get("mac")),
+                        lambda o: {"tab": "surveillance", "element": o.get("id")},
+                        [{k: v for k, v in e.items() if k not in ("cree_at", "cree_par")} for e in sv.elements(conn)]))
+    except Exception as e:  # noqa: BLE001 -- table absente avant la première relève
+        errs.append("historique / surveillance : %s" % str(e)[:120])
+    finally:
+        conn.close()
+    try:
+        sources.append(("agent", lambda o: o.get("hostname") or o.get("agent_id"), lambda o: {"agent": o.get("agent_id")}, _identites_agents()))
+    except Exception as e:  # noqa: BLE001
+        errs.append("agents : %s" % str(e)[:120])
     return jsonify({"q": q, "resultats": rech.chercher(q, sources, limite=int(request.args.get("limite", 100))), "erreurs": errs}), 200
+
+
+_ident_cache = {"at": 0, "agents": []}
+
+
+def _identites_agents(ttl=300):
+    """#1001 : interfaces (nom, MAC, IP) et voisins (IP, MAC) relevés par chaque agent (si-agent-api /identites), 5 min en cache."""
+    if time.time() - _ident_cache["at"] < ttl:
+        return _ident_cache["agents"]
+    import urllib.request
+    url = os.environ.get("SI_AGENT_API_URL", "http://si-agent-api:5000").rstrip("/") + "/identites"
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"Accept": "application/json"}), timeout=8) as r:
+        data = json.loads(r.read(20_000_000).decode("utf-8", "replace"))
+    _ident_cache.update(at=time.time(), agents=data.get("agents") or [])
+    return _ident_cache["agents"]
 
 
 def _ssid_vlan(site_id):
@@ -1706,11 +1741,19 @@ def _noms_registre(site_id):
         conn.close()
 
 
+# #1001 : liste de surveillance (listes déposées, concordance élément par élément, discordances, apprentissage)
+import surveillance_routes  # noqa: E402
+_surveillance_apres_releve = surveillance_routes.register(app, {
+    "conn": get_connection, "sites": _report_sites,
+    "manage": _check_manage_right,
+    "notify": lambda sujet, corps, gravite: report_routes._notify("nebula-surveillance", sujet, corps, report_routes.settings(), severity=gravite)})
+
 # #872 : historique des clients (Nebula ne garde que 24 h) -- relève horaire + à la demande, requête filtrée et triée
 import client_history_routes  # noqa: E402
 client_history_routes.register(app, {"conn": get_connection, "client": _connect, "sites": _report_sites, "db_path": DB_PATH,
                                      "configured": lambda: bool(NEBULA_API_KEY),
                                      "noms_registre": lambda sid: _noms_registre(sid),   # #974 : correspondances nom réseau <-> registre
+                                     "apres_releve": _surveillance_apres_releve,          # #1001 : liste de surveillance
                                      "defaut": _defaut, "defaut_leve": _defaut_leve,   # #975 : défauts majeurs (bandeau du hub)
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
 

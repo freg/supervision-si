@@ -81,6 +81,11 @@ def relever(deps, trigger="horaire", now=None):
             finally:
                 conn.close()
             _signaler(deps, sid, trigger, res, errs, n, trace)
+            if n is not None and deps.get("apres_releve"):   # #1001 : liste de surveillance rapprochée de la relève
+                try:
+                    deps["apres_releve"](sid, int(now or time.time()))
+                except Exception:  # noqa: BLE001 -- la surveillance ne casse jamais la relève
+                    traceback.print_exc()
             out.append({"site": sid, "clients": n, "sources": sorted(res), "error": "; ".join(errs) or None, "nouveautes": stats.get("n") or {}})
         _etat["last"] = int(time.time())
         return {"sites": out}

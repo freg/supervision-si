@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  1001: [{ view: "nebula", params: { tab: "surveillance" }, hint: "Nebula › Surveillance : déposer une liste, valider les repères et discordances" }],
   999: [{ view: "migration", params: { page: "owncloud" }, hint: "Migration › ownCloud : comptes, corbeilles, décisions et étapes ; activer la sonde owncloud sur l'agent du serveur" }],
   997: [{ view: "hermes", params: {}, hint: "Hermes › 🚀 Déployer… : déposer l'archive, choisir l'agent du nœud, Déployer" }],
   995: [{ view: "services", params: { tab: "deliveries" }, hint: "Tour › Livraisons & jobs : ouvrir un job pour voir la mesure par étape" }],

@@ -788,6 +788,14 @@ def list_agents_route():
     return jsonify({"agents": store.list_agents(DB_PATH, site=request.args.get("site"))}), 200
 
 
+@app.route("/identites", methods=["GET"])
+def identites_route():
+    """#1001 : identités réseau de chaque agent (interfaces, voisins) -- lu par nebula-api (recherche unifiée, concordance)."""
+    import identites
+    return jsonify({"agents": [identites.extraire(a, store.latest_per_task(DB_PATH, a["agent_id"]))
+                               for a in store.list_agents(DB_PATH, site=request.args.get("site"))]}), 200
+
+
 @app.route("/agents", methods=["POST"])
 def create_agent_route():
     body = request.get_json(silent=True) or {}
