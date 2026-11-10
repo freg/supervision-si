@@ -1,3 +1,11 @@
+## 2026-11-10 — livraison #1005 : dépôt d'une liste de surveillance en un clic
+
+- Le bouton d'enregistrement n'apparaissait qu'après un clic sur « Aperçu » (vu à l'essai : « pas de bouton valider »).
+  Désormais l'aperçu se fait tout seul dès que le texte est collé, et « ✔ Enregistrer la liste » est toujours visible
+  (grisé tant que le nom ou le texte manque), avec le nombre d'éléments reconnus et de lignes écartées à côté.
+
+Vérifié : syntaxe. Non vérifié : rendu navigateur.
+
 ## 2026-11-10 — livraison #1004 : filtres par catégorie et certitude, confirmation humaine qui apprend, pages profondes dans la recherche
 
 - **Historique des clients** : menus « catégorie » (catégories présentes, avec effectifs, « sans catégorie » compris) et

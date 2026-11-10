@@ -37,3 +37,6 @@ certitude ; avec une possibilité de confirmation humaine et derrière un appren
 **Claude** (#1004) : pages profondes dans la recherche générale ; menus catégorie / certitude et colonne Catégorie ;
 confirmer / corriger / annuler, chaque décision enseignant ses traits aux clients semblables ; corrections vues à
 l'essai (mini-PC classé mobile : seuil de présence continue, mobilité entre deux bornes, cartes Wi-Fi intégrées).
+
+**Freg** : la fenêtre d'import par copier-coller n'a pas de bouton valider / enregistrer. **Claude** (#1005) : le bouton
+n'apparaissait qu'après « Aperçu » ; aperçu automatique au collage, « ✔ Enregistrer la liste » toujours visible.

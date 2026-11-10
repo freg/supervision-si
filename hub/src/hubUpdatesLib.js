@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  1005: [{ view: "nebula", params: { tab: "surveillance" }, hint: "Nebula › Surveillance : + Déposer une liste, coller, Enregistrer" }],
   1004: [{ view: "nebula", params: { tab: "historique" }, hint: "Historique des clients : menus catégorie et certitude, confirmer / corriger dans le détail d'un client" }],
   1003: [{ view: "nebula", params: { tab: "historique" }, hint: "Historique des clients : cliquer un client pour voir sa catégorie proposée et ses preuves" }],
   1002: [{ view: "nebula", params: { tab: "historique" }, hint: "Historique des clients : cliquer un client pour voir son activité" }],

@@ -3,7 +3,7 @@
 // l'historique des clients, concordance élément par élément avec ses preuves, discordances (usurpation possible ou
 // changement à apprendre), décisions qui APPRENNENT (la MAC confirmée, même aléatoire, devient connue de l'élément).
 // Les listes vivent dans la base du hub, jamais dans le dépôt.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import BoutonDetail from "./FenetreTexte.jsx";
 import { hubLink } from "./hubLinks.js";
 import { STATUTS, LOT, texteRepere, aTraiter, etatElement, parListe, libelleElement, dateFr, raccordement } from "./surveillanceLib.js";
@@ -27,6 +27,20 @@ export default function NebulaSurveillance({ nebulaApiBase, siteId, groups = [],
     if (!r.ok) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { reglage: j.reglage });
     return j;
   }, [groups, login]);
+
+  // #1005 : aperçu automatique dès qu'un texte est collé (le bouton « Enregistrer » n'apparaissait qu'après un clic sur Aperçu)
+  const dernierTexte = useRef("");
+  useEffect(() => {
+    if (!depot || !texte.trim()) return undefined;
+    const t = setTimeout(async () => {
+      dernierTexte.current = texte;
+      try {
+        const r = await call(`${base}/importer`, "POST", { texte, apercu: true });
+        if (dernierTexte.current === texte) setApercu(r);
+      } catch (e) { setMsg({ erreur: true, texte: `Aperçu impossible : ${e.message}` }); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [texte, depot, base, call]);
 
   const charger = useCallback(async () => {
     try { setD(await call(`${base}?jours=60${siteId ? `&site=${encodeURIComponent(siteId)}` : ""}`)); }
@@ -74,13 +88,12 @@ export default function NebulaSurveillance({ nebulaApiBase, siteId, groups = [],
           <label>Nom de la liste <input value={liste} onChange={(e) => setListe(e.target.value)} placeholder="ex. tablettes atelier" style={{ minWidth: 260 }} /></label>
           <p className="muted" style={{ margin: "6px 0" }}>Colle les lignes du tableur (tabulations, « ; » ou « , ») : libellé, type, modèle, référence, n° de série, MAC — dans n'importe quel ordre, l'en-tête est ignoré.</p>
           <textarea value={texte} onChange={(e) => { setTexte(e.target.value); setApercu(null); }} rows={8} style={{ width: "100%", fontFamily: "monospace" }} />
-          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-            {bouton("apercu", "Aperçu", async () => { const r = await call(`${base}/importer`, "POST", { texte, apercu: true }); setApercu(r); return r; },
-              (r) => `${r.elements.length} élément(s) reconnu(s), ${r.ignorees.length} ligne(s) écartée(s).`)}
-            {apercu && apercu.elements.length > 0 && bouton("enregistrer", `Enregistrer ${apercu.elements.length} élément(s)`,
+          <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+            {bouton("enregistrer", apercu && apercu.elements.length ? `✔ Enregistrer ${apercu.elements.length} élément(s)` : "✔ Enregistrer la liste",
               () => call(`${base}/importer`, "POST", { liste, texte }),
               (r) => { setApercu(null); setTexte(""); setDepot(false); return `Liste « ${liste} » : ${r.ajoutes} ajouté(s), ${r.maj} mis à jour, ${r.reperes} repère(s) immédiat(s).`; },
-              { disabled: enCours !== null || !liste.trim() })}
+              { disabled: enCours !== null || !liste.trim() || !texte.trim() || (apercu && !apercu.elements.length) })}
+            <span className="muted">{!liste.trim() ? "donne un nom à la liste" : !texte.trim() ? "colle les lignes" : apercu ? `aperçu : ${apercu.elements.length} élément(s) reconnu(s), ${apercu.ignorees.length} ligne(s) écartée(s)` : "aperçu…"}</span>
           </div>
           {apercu && (
             <div style={{ maxHeight: 280, overflow: "auto", marginTop: 6 }}>
