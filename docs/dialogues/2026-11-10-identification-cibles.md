@@ -21,3 +21,7 @@ l'activité par client, (3) catégorisation par l'activité. **Freg** : d'accord
 **Claude** (#1001) : onglet Nebula › Surveillance (dépôt par copier-coller, concordance pondérée avec preuves,
 discordances, repères « du lot », apprentissage par confirmation), rapprochement à chaque relève horaire avec alerte,
 recherche unifiée (historique, listes, identités réseau des agents via `GET /identites`).
+
+**Claude** (#1002) : l'API publique Nebula ne donne pas les applications par client ; l'activité retenue est ce qu'elle
+publie (volumes Wi-Fi par relève) et la présence (heures, jours, nuits, week-ends, mobilité) ; profil visible dans
+l'historique des clients.

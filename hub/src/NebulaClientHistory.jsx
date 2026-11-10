@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import IpPing from "./IpPing.jsx";
 import NebulaRelevesCalendrier from "./NebulaRelevesCalendrier.jsx";   // #974 : diodes des relèves
 import { texteNouveautes } from "./relevesLib.js";
+import { resumeActivite, barres } from "./activiteLib.js";   // #1002 : activité du client (présence, rythme, volumes)
 
 const COLS = [
   ["mac", "MAC"], ["ip", "IP"], ["name", "Nom"], ["manufacturer", "Fabricant"], ["device", "Raccordé à"],
@@ -25,6 +26,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   const [msg, setMsg] = useState(null);
   const [sel, setSel] = useState(null);
   const [sess, setSess] = useState(null);
+  const [act, setAct] = useState(null);
   const [page, setPage] = useState(0);
   const [versionCal, setVersionCal] = useState(0);
   const PAGE = 200;
@@ -67,7 +69,9 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   };
   const ouvrir = async (row) => {
     if (sel?.mac === row.mac) { setSel(null); return; }
-    setSel(row); setSess(null);
+    setSel(row); setSess(null); setAct(null);
+    fetch(`${nebulaApiBase}/client-history/activite?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}&jours=14`, { credentials: "include" })
+      .then((r) => r.json()).then((j) => setAct(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setAct({ erreur: e.message }));
     try {
       const r = await fetch(`${nebulaApiBase}/client-history/sessions?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}`, { credentials: "include" });
       setSess((await r.json()).sessions || []);
@@ -125,6 +129,17 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
                 </tr>
                 {sel?.mac === r.mac && (
                   <tr><td colSpan={COLS.length}>
+                    <div style={{ marginBottom: 8 }}>
+                      <b>Activité sur 14 jours</b>
+                      {act === null ? <span className="muted"> — lecture…</span> : act.erreur ? <span style={{ color: "var(--danger)" }}> — {act.erreur}</span> : (
+                        <>
+                          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 40, margin: "6px 0 2px" }} title="Présence par heure de la journée (nombre de jours)">
+                            {barres(act.histogramme).map((h, i) => <div key={i} title={`${i} h : ${act.histogramme[i]} jour(s)`} style={{ width: 10, height: `${Math.max(2, h * 40)}px`, background: h ? "var(--accent)" : "var(--border)" }} />)}
+                          </div>
+                          <div className="muted" style={{ display: "flex", gap: 2, fontSize: "0.75em" }}>{act.histogramme.map((_x, i) => <span key={i} style={{ width: 10, textAlign: "center" }}>{i % 6 === 0 ? i : ""}</span>)}</div>
+                          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{resumeActivite(act).map((l, i) => <li key={i}>{l}</li>)}</ul>
+                        </>)}
+                    </div>
                     {sess === null ? "lecture des périodes…" : sess.length === 0 ? "aucune période enregistrée" : (
                       <table className="services infra-table" style={{ width: "100%" }}>
                         <thead><tr><th>Du</th><th>Au</th><th>IP</th><th>Raccordé à</th><th>Port</th><th>SSID</th><th>VLAN</th></tr></thead>

@@ -1,3 +1,20 @@
+## 2026-11-10 — livraison #1002 : activité par client (identification des cibles, tranche 2)
+
+- Constat : l'OpenAPI Nebula ne publie pas l'usage des applications par client (aucune route « applications » dans la
+  documentation publique) ; ce que l'écran Nebula montre (HTTPS, Google Play…) n'est pas accessible par l'API.
+- **Relevé** : à chaque relève horaire de l'historique des clients, les volumes montants / descendants de chaque client
+  Wi-Fi (v2 ap-clients, déjà appelée) sont gardés par heure, 60 jours.
+- **Profil d'activité** (`GET /client-history/activite?site=&mac=&jours=14`) : jours de présence, heures par jour,
+  histogramme des 24 heures, parts de la nuit et du week-end, présence continue, filaire / Wi-Fi, bornes (mobilité),
+  SSID, VLAN, volumes moyens et de pointe par heure, régularité (écart relatif : très régulier = machine, rafales =
+  usage humain), part reçue.
+- **Hub › Nebula › Historique des clients** : un clic sur un client montre aussi son activité sur 14 jours (barres de
+  présence par heure, résumé en français).
+
+Vérifié : tests du relevé et du profil (machine toujours présente, tablette aux heures d'atelier, purge), route,
+module hub, syntaxe. Non vérifié : rendu navigateur, volumes réels publiés par Nebula (unités supposées en octets comme
+pour la charge #851).
+
 ## 2026-11-10 — livraison #1001 : liste de surveillance et recherche unifiée (identification des cibles, tranche 1)
 
 - **Principe** (BACKLOG 10/11) : une cible s'identifie sur chacun des éléments qui la caractérisent ; les discordances

@@ -20,6 +20,7 @@ import traceback
 
 from flask import Response, jsonify, request
 
+import activite
 import client_history as ch
 
 INTERVAL_S = int(os.environ.get("NEBULA_CLIENT_HISTORY_SECONDS", "3600"))
@@ -81,6 +82,15 @@ def relever(deps, trigger="horaire", now=None):
             finally:
                 conn.close()
             _signaler(deps, sid, trigger, res, errs, n, trace)
+            if res.get("bornes"):   # #1002 : volumes Wi-Fi par client (activité, identification des cibles tranche 2)
+                try:
+                    conn = deps["conn"]()
+                    try:
+                        activite.ingest(conn, sid, res["bornes"], 86400 if periode == "1d" else 7200, now=int(now or time.time()))
+                    finally:
+                        conn.close()
+                except Exception:  # noqa: BLE001 -- l'activité ne casse jamais la relève
+                    traceback.print_exc()
             if n is not None and deps.get("apres_releve"):   # #1001 : liste de surveillance rapprochée de la relève
                 try:
                     deps["apres_releve"](sid, int(now or time.time()))
@@ -173,6 +183,19 @@ def register(app, deps):
         conn = deps["conn"]()
         try:
             return jsonify({"sessions": ch.sessions(conn, request.args.get("site", ""), request.args.get("mac", ""))}), 200
+        finally:
+            conn.close()
+
+    @app.route("/client-history/activite", methods=["GET"])
+    def client_history_activite():
+        """#1002 : profil d'activité d'un client (?site= &mac= &jours=14) -- présence, rythme, volumes Wi-Fi."""
+        mac = ch.mac_norm(request.args.get("mac"))
+        if not mac:
+            return jsonify({"error": "MAC manquante ou invalide"}), 400
+        jours = max(1, min(60, int(request.args.get("jours", 14) or 14)))
+        conn = deps["conn"]()
+        try:
+            return jsonify(activite.profil(conn, request.args.get("site", ""), mac, jours)), 200
         finally:
             conn.close()
 
