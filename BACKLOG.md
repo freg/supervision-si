@@ -1,7 +1,20 @@
-## Partager la tuile Nebula avec les gens du campus (2026-11-10) — DEMANDÉ, APRÈS le chantier pve / pbs
-- Demande : « j'ai besoin de partager la tuile nebula avec les gens du campus ».
-- À cadrer : qui (comptes / groupe Keycloak du campus), quels onglets (veille, historique, surveillance… lecture seule
-  ou décisions), périmètre du site (verrou de site #620), accès depuis l'extérieur (passerelle, profil de hub campus #987).
+## Partager la tuile Nebula avec les gens du campus (2026-11-10) — CADRÉ, À FAIRE APRÈS le chantier pve / pbs
+- Demande : « j'ai besoin de partager la tuile nebula avec les gens du campus ». Cadrage décidé le 10/11 :
+- Groupes (Keycloak / LDAP) :
+  - `numeria` : lecture seule (tuile Nebula et onglets, aucune décision ni action) ;
+  - `nebula` : droits d'administration sur les objets réseau du campus (décisions de surveillance, confirmations de
+    catégories, actions Nebula soumises aux gardes existantes) ;
+  - `campus-ia-lecture`, `campus-ia-admin`, `campus-ia-usage` : accès aux nœuds IA du hub campus (lecture / administration /
+    usage), dans la lignée du filtrage par groupe des nœuds IA (#988).
+- Pas d'accès externe au réseau du campus ; une version publique sera développée à part.
+- Interface dédiée au paramétrage des droits (groupes × tuiles / onglets / actions, par site), avec une option
+  d'USURPATION réservée à Freg : voir le hub « comme » un utilisateur ou un groupe pour vérifier ses droits (journalisée,
+  bandeau visible, sans action d'écriture pendant l'usurpation).
+- Verrouillage sur leur site : oui pour les DONNÉES -> synchronisation filtrée / réplication vers le hub Numeria / campus
+  pour qu'il soit autonome (n'embarque que les données du site campus : Nebula, historique des clients, listes de
+  surveillance, agents du site ; sens, fréquence et reprise après coupure à définir).
+- Existant à réutiliser : rights-api (`RightsView`, droit `manage` de nebula-api), périmètre de site par groupe (#620),
+  profil de hub campus (#987), groupes IA (#988).
 
 ## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — PRINCIPE PERMANENT (tranches 1-3 LIVRÉES #1001-#1003)
 - Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
