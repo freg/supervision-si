@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BoutonDetail from "./FenetreTexte.jsx";
 import { hubLink } from "./hubLinks.js";
-import { STATUTS, LOT, texteRepere, aTraiter, etatElement, parListe, libelleElement, dateFr, raccordement } from "./surveillanceLib.js";
+import { STATUTS, LOT, texteRepere, aTraiter, etatElement, parListe, libelleElement, dateFr, raccordement, statutAffiche } from "./surveillanceLib.js";
 
 export default function NebulaSurveillance({ nebulaApiBase, siteId, groups = [], login = "", focus = null }) {
   const base = `${nebulaApiBase}/surveillance`;
@@ -113,7 +113,7 @@ export default function NebulaSurveillance({ nebulaApiBase, siteId, groups = [],
           <table className="services infra-table" style={{ width: "100%" }}>
             <thead><tr><th>Statut</th><th>Élément</th><th>Client vu</th><th>Raccordement</th><th>Vu le</th><th>Décision</th></tr></thead>
             <tbody>{traiter.map((r) => {
-              const s = STATUTS[r.statut] || {};
+              const s = STATUTS[statutAffiche(r)] || {};
               const c = r.client || {};
               return (
                 <tr key={r.id}>
@@ -155,7 +155,7 @@ export default function NebulaSurveillance({ nebulaApiBase, siteId, groups = [],
                     <td>{[e.modele, e.reference].filter(Boolean).join(" / ") || "—"}</td>
                     <td><code>{e.serie || "—"}</code></td>
                     <td><code>{e.mac || "—"}</code>{(e.macs_apprises || []).length ? <span className="muted"> + {e.macs_apprises.length} apprise(s)</span> : null}</td>
-                    <td style={{ color: st.couleur }}>{st.texte}{r ? <> <BoutonDetail titre="Concordance" urgence={(STATUTS[r.statut] || {}).urgence || "info"} texte={texteRepere(r)} /></> : null}</td>
+                    <td style={{ color: st.couleur }}>{st.texte}{r ? <> <BoutonDetail titre="Concordance" urgence={(STATUTS[statutAffiche(r)] || {}).urgence || "info"} texte={texteRepere(r)} /></> : null}</td>
                     <td className="muted">{r ? `${(r.client || {}).name || "sans nom"} — ${raccordement(r.client || {}) || "—"}` : "—"}</td>
                     <td>{bouton(`e${e.id}`, "🗑", () => call(`${base}/elements/${e.id}`, "DELETE", {}), () => `${libelleElement(e)} supprimé.`, { title: "Supprimer cet élément" })}</td>
                   </tr>);

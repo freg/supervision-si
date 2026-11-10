@@ -27,3 +27,13 @@ test("état d'un élément et regroupement", () => {
   assert.deepEqual(Object.keys(parListe([{ liste: "a" }, { liste: "b" }, { liste: "a" }])), ["a", "b"]);
   assert.equal(raccordement({}), "");
 });
+
+import { statutAffiche } from "../src/surveillanceLib.js";
+
+test("#1006 : reconnu avec un nom annoncé différent = à vérifier, et à traiter", () => {
+  const r = { id: 9, statut: "reconnu", dernier: 1791000000, discordances: [{ force: "faible", texte: "nom annoncé « E17-LabCo » sans lien avec l'élément (renommage, ou autre appareil ?)" }] };
+  assert.equal(statutAffiche(r), "verifier");
+  assert.equal(statutAffiche({ ...r, decision: "confirme" }), "reconnu");
+  assert.deepEqual(aTraiter([r, { id: 10, statut: "reconnu", discordances: [] }]).map((x) => x.id), [9]);
+  assert.match(etatElement({ dernier_repere: r }).texte, /^reconnu, à vérifier \(nom annoncé « E17-LabCo » sans lien avec l'élément\) — /);
+});

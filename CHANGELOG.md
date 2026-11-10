@@ -1,3 +1,12 @@
+## 2026-11-10 — livraison #1006 : surveillance — un appareil reconnu mais au nom différent est « à vérifier »
+
+- Vu au premier import réel : deux tablettes reconnues par leur MAC annoncent le nom d'une autre tablette d'un autre lot
+  (renommage, étiquette échangée, ou liste à corriger) ; la discordance n'était lisible que dans le détail.
+- Un repère « reconnu » qui porte une discordance devient « reconnu, à vérifier » (orange), avec la raison dans la colonne
+  État, et rejoint « À traiter » ; « ✔ Confirmer » l'accepte (plus signalé), « ✖ Rejeter » l'écarte.
+
+Vérifié : module hub, syntaxe. Non vérifié : rendu navigateur.
+
 ## 2026-11-10 — livraison #1005 : dépôt d'une liste de surveillance en un clic
 
 - Le bouton d'enregistrement n'apparaissait qu'après un clic sur « Aperçu » (vu à l'essai : « pas de bouton valider »).

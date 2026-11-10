@@ -9,7 +9,14 @@ export const STATUTS = {
   probable: { libelle: "probable", couleur: "var(--warning)", urgence: "alerte" },
   lot: { libelle: "du lot, à attribuer", couleur: "var(--accent)", urgence: "alerte" },
   discordant: { libelle: "discordance", couleur: "var(--danger)", urgence: "critique" },
+  verifier: { libelle: "reconnu, à vérifier", couleur: "var(--warning)", urgence: "alerte" },   // #1006 : reconnu malgré une discordance faible
 };
+
+/** #1006 : statut affiché -- un repère reconnu qui porte une discordance (ex. nom annoncé différent) est « à vérifier ». */
+export function statutAffiche(r) {
+  if (!r) return null;
+  return r.statut === "reconnu" && !r.decision && (r.discordances || []).length ? "verifier" : r.statut;
+}
 
 export function dateFr(ts) {
   if (!ts) return "—";
@@ -50,15 +57,16 @@ export function texteRepere(r) {
 /** Repères à traiter : discordances et repères du lot sans décision, puis repères probables sans décision. */
 export function aTraiter(reperes = []) {
   const ouverts = reperes.filter((r) => !r.decision);
-  const rang = { discordant: 0, lot: 1, probable: 2 };
-  return ouverts.filter((r) => r.statut in rang).sort((a, b) => rang[a.statut] - rang[b.statut] || (b.dernier || 0) - (a.dernier || 0));
+  const rang = { discordant: 0, lot: 1, verifier: 2, probable: 3 };
+  return ouverts.filter((r) => statutAffiche(r) in rang).sort((a, b) => rang[statutAffiche(a)] - rang[statutAffiche(b)] || (b.dernier || 0) - (a.dernier || 0));
 }
 
 export function etatElement(e) {
   const r = e && e.dernier_repere;
   if (!r) return { texte: "pas encore repéré", couleur: "var(--muted)" };
-  const s = STATUTS[r.statut] || { libelle: r.statut, couleur: "var(--muted)" };
-  return { texte: `${s.libelle}${r.decision === "confirme" ? " (confirmé)" : ""} — ${dateFr(r.dernier)}`, couleur: s.couleur };
+  const s = STATUTS[statutAffiche(r)] || { libelle: r.statut, couleur: "var(--muted)" };
+  const pourquoi = statutAffiche(r) === "verifier" ? ` (${r.discordances[0].texte.split(" (")[0]})` : "";
+  return { texte: `${s.libelle}${r.decision === "confirme" ? " (confirmé)" : ""}${pourquoi} — ${dateFr(r.dernier)}`, couleur: s.couleur };
 }
 
 export function parListe(elements = []) {

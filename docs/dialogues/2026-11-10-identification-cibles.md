@@ -40,3 +40,6 @@ l'essai (mini-PC classé mobile : seuil de présence continue, mobilité entre d
 
 **Freg** : la fenêtre d'import par copier-coller n'a pas de bouton valider / enregistrer. **Claude** (#1005) : le bouton
 n'apparaissait qu'après « Aperçu » ; aperçu automatique au collage, « ✔ Enregistrer la liste » toujours visible.
+
+**Freg** : import réussi (17 éléments, 6 repérés). **Claude** (#1006) : deux tablettes reconnues par leur MAC annoncent le nom
+d'une tablette d'un autre lot ; la discordance devient visible (« reconnu, à vérifier ») et passe dans « À traiter ».
