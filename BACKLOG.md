@@ -1,3 +1,8 @@
+## Partager la tuile Nebula avec les gens du campus (2026-11-10) — DEMANDÉ, APRÈS le chantier pve / pbs
+- Demande : « j'ai besoin de partager la tuile nebula avec les gens du campus ».
+- À cadrer : qui (comptes / groupe Keycloak du campus), quels onglets (veille, historique, surveillance… lecture seule
+  ou décisions), périmètre du site (verrou de site #620), accès depuis l'extérieur (passerelle, profil de hub campus #987).
+
 ## Identification des cibles : concordance sur TOUTES leurs données, activité comprise (2026-11-10) — PRINCIPE PERMANENT (tranches 1-3 LIVRÉES #1001-#1003)
 - Demande : « étendre les recherches de concordance et d'identification à toutes les données d'une cible, y compris son
   activité pour ce qu'elle a de singulier par rapport aux autres. L'activité doit être utilisée pour catégoriser comme on
