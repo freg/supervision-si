@@ -12,6 +12,7 @@ import math
 import time
 
 RETENTION_DAYS = 60
+CONTINU_H = 18      # #1004 : heures de présence par jour au-delà desquelles un client est « toujours là » (19,8 h vu pour un mini-PC)
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nebula_client_activite (
     site_id TEXT NOT NULL, mac TEXT NOT NULL, at INTEGER NOT NULL, up REAL, down REAL, fenetre_s INTEGER NOT NULL,
@@ -106,7 +107,7 @@ def profil(conn, site_id, mac, jours=14, now=None):
         "mac": mac, "jours": int(jours), "jours_vus": len(jours_vus), "heures_presence": nh,
         "heures_par_jour": round(nh / len(jours_vus), 1) if jours_vus else 0,
         "histogramme": histo, "part_nuit": round(nuit / nh, 2) if nh else None, "part_weekend": round(weekend / nh, 2) if nh else None,
-        "continu": bool(jours_vus) and nh / len(jours_vus) >= 20,
+        "continu": bool(jours_vus) and nh / len(jours_vus) >= CONTINU_H,
         "filaire": any(s.get("port") and not s.get("ssid") for s in sess), "wifi": any(s.get("ssid") for s in sess),
         "bornes": sorted({s["device"] for s in sess if s.get("device")}), "ssids": sorted({s["ssid"] for s in sess if s.get("ssid")}),
         "vlans": sorted({str(s["vlan"]) for s in sess if s.get("vlan")}),

@@ -5,7 +5,8 @@ nettoyerAdresse();
 import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
 import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
 import PrioritesPanel from "./PrioritesPanel.jsx";   // #818 : priorités de la page d'accueil
-import { setViewParams } from "./hubLinks.js";   // #790
+import { setViewParams, hubLink } from "./hubLinks.js";   // #790
+import { catalogueRecherche } from "./hubPages.js";   // #1004 : pages profondes (onglets internes) dans la recherche générale
 import { vueInitiale, memoriserVue, usePositionMemorisee, restaurerPosition } from "./navContext.js";   // #874
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
@@ -1652,14 +1653,16 @@ export default function App() {
     setOpenNavMenu(null);
     if (leaf.kind === "action") { runAction(leaf.action); return; }
     if (leaf.kind === "view") { if (themeId) openInTheme(themeId, leaf.id); else { setThemeEntry(null); setViewMode(leaf.view); } return; }
+    if (leaf.kind === "page") { window.location.href = hubLink(leaf.view, leaf.params); return; }   // #1004 : vue + onglet
     if (leaf.onClick) { leaf.onClick(); return; }
     window.open(leaf.url, "_blank", "noopener");
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
-  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
+  const rechercheCatalog = catalogueRecherche(hubCatalog, availableViews);
+  const universe = universeEntries(rechercheCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
   // #967 : recherche silencieuse -- peu de résultats statiques => assistant en arrière-plan (catalogue, puis modèle) ;
   // seul un indice discret « recherche… / inférence… », puis les suggestions s'ajoutent sous la réponse statique.
-  const universeTous = universeEntries(hubCatalog, { sort: "alpha", since: SINCE, query: "", themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
+  const universeTous = universeEntries(rechercheCatalog, { sort: "alpha", since: SINCE, query: "", themes: THEMES, aliases: universeAliases, labels: UNIVERSE_LABELS });
   universeRef.current = { statique: universe, tous: universeTous };   // #968 : lu par l'effet (déclaré AVANT les retours anticipés)
   const universeAjouts = universeIA && universeIA.phase === "fini" && universeIA.q === universeQuery.trim() ? ajoutsIA(universeIA.suggestions, universeTous, universe) : [];
   const choisirSuggestion = (s) => {
@@ -2351,7 +2354,7 @@ vm === "agent-page" ? (
                   {universe.map((leaf) => (
                     <button key={leaf.id} type="button" className={leafActive(leaf) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(leaf), null)}>
                       <span className="hub-universe-label">{leaf.label}{leaf.kind === "link" && !leaf.embeddable ? " ↗" : ""}</span>
-                      <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
+                      <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : leaf.kind === "page" ? "page d'une vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
                     </button>
                   ))}
                   {universeIA && universeIA.phase !== "fini" && (

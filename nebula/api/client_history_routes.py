@@ -167,14 +167,82 @@ def _filtres():
             "sort": a.get("sort") or "last_seen", "order": a.get("order") or "desc"}
 
 
+def _categories_pour(conn, site_id):
+    """{(site, mac): {categorie, confiance, niveau}} pour un site ou tous."""
+    import identification
+    sites = [site_id] if site_id else [r[0] for r in conn.execute("SELECT DISTINCT site_id FROM nebula_client_seen")]
+    out = {}
+    for s in sites:
+        for mac, v in identification.categories_site(conn, s).items():
+            out[(s, mac)] = v
+    return out
+
+
 def register(app, deps):
     log = deps.get("log") or (lambda m: app.logger.warning(m))
 
     @app.route("/client-history", methods=["GET"])
     def client_history_query():
+        """#1004 : &categorie= (une catégorie, ou « aucune ») &certitude= (confirmée | forte | moyenne | faible | aucune) ;
+        chaque ligne porte sa catégorie, sa confiance et son niveau de certitude."""
+        filt = _filtres()
+        cat, niv = request.args.get("categorie") or None, request.args.get("certitude") or None
         conn = deps["conn"]()
         try:
-            return jsonify(ch.query(conn, limit=request.args.get("limit", 200), offset=request.args.get("offset", 0), **_filtres())), 200
+            try:
+                cats = _categories_pour(conn, filt["site_id"])
+            except Exception:  # noqa: BLE001 -- la liste reste lisible sans catégories
+                traceback.print_exc()
+                cats = {}
+            if cat or niv:
+                filt["cles"] = ["%s|%s" % k for k, v in cats.items()
+                                if (not cat or (v["categorie"] or "aucune") == cat) and (not niv or v["niveau"] == niv)]
+            res = ch.query(conn, limit=request.args.get("limit", 200), offset=request.args.get("offset", 0), **filt)
+            for r in res["rows"]:
+                r.update(cats.get((r["site_id"], r["mac"])) or {})
+            return jsonify(res), 200
+        finally:
+            conn.close()
+
+    @app.route("/client-history/categories", methods=["GET"])
+    def client_history_categories():
+        """#1004 : catégories présentes et niveaux de certitude, avec leurs effectifs (menus de filtre)."""
+        import categorie
+        conn = deps["conn"]()
+        try:
+            cats = _categories_pour(conn, request.args.get("site") or None)
+        finally:
+            conn.close()
+        nc, nn = {}, {}
+        for v in cats.values():
+            k = v["categorie"] or "aucune"
+            nc[k] = nc.get(k, 0) + 1
+            nn[v["niveau"]] = nn.get(v["niveau"], 0) + 1
+        return jsonify({"categories": [{"categorie": k, "n": n} for k, n in sorted(nc.items(), key=lambda x: (-x[1], x[0]))],
+                        "niveaux": [{"niveau": k, "libelle": lib, "n": nn.get(k, 0)} for k, lib in categorie.NIVEAUX],
+                        "toutes": list(categorie.CATEGORIES)}), 200
+
+    @app.route("/client-history/categorie/decision", methods=["POST", "DELETE"])
+    def client_history_categorie_decision():
+        """#1004 : confirmation humaine {site, mac, categorie} (POST) ou annulation (DELETE) -- droit manage ; l'apprentissage
+        modifie ensuite les certitudes des clients qui partagent ses traits."""
+        import identification
+        body = request.get_json(silent=True) or {}
+        ok, err = (deps.get("manage") or (lambda b: (True, None)))(body)
+        if not ok:
+            return jsonify({"error": err, "reglage": {"view": "rights", "texte": "Droits › nebula-api › action « manage » : groupe admin_hub, ou un octroi explicite à ton groupe"}}), 403
+        mac = ch.mac_norm(body.get("mac"))
+        if not mac or not body.get("site"):
+            return jsonify({"error": "site et MAC requis"}), 400
+        conn = deps["conn"]()
+        try:
+            if request.method == "DELETE":
+                return jsonify({"annule": identification.annuler(conn, body["site"], mac)}), 200
+            return jsonify(identification.decider(conn, body["site"], mac, body.get("categorie"), par=str(body.get("user") or "")[:64] or None)), 200
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except LookupError as e:
+            return jsonify({"error": str(e)}), 404
         finally:
             conn.close()
 

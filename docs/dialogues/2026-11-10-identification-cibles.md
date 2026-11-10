@@ -29,3 +29,11 @@ l'historique des clients.
 **Claude** (#1003) : catégorie proposée par client (système, nom, fabricant — un adaptateur n'est pas la machine —, MAC
 aléatoire, comportement, mobilité, volumes), chaque indice pondéré par sa rareté sur le site, singularités listées ;
 la liste de surveillance s'en sert (discordance si une « tablette » se comporte en machine).
+
+**Freg** (essai de #1003) : la recherche générale du hub ne trouve pas l'historique des clients avec « historique » ; la
+page est top, mais il faut chercher sur les hypothèses : un menu des catégories présentes et un menu des niveaux de
+certitude ; avec une possibilité de confirmation humaine et derrière un apprentissage pour modifier les certitudes.
+
+**Claude** (#1004) : pages profondes dans la recherche générale ; menus catégorie / certitude et colonne Catégorie ;
+confirmer / corriger / annuler, chaque décision enseignant ses traits aux clients semblables ; corrections vues à
+l'essai (mini-PC classé mobile : seuil de présence continue, mobilité entre deux bornes, cartes Wi-Fi intégrées).

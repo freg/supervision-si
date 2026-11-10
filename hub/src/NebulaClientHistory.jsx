@@ -5,7 +5,8 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import IpPing from "./IpPing.jsx";
 import NebulaRelevesCalendrier from "./NebulaRelevesCalendrier.jsx";   // #974 : diodes des relèves
 import { texteNouveautes } from "./relevesLib.js";
-import { resumeActivite, barres, resumeCategorie, texteCategorie } from "./activiteLib.js";
+import { resumeActivite, barres, resumeCategorie, texteCategorie, celluleCategorie } from "./activiteLib.js";
+import { hubLink } from "./hubLinks.js";
 import BoutonDetail from "./FenetreTexte.jsx";   // #1002 : activité du client (présence, rythme, volumes)
 
 const COLS = [
@@ -16,8 +17,8 @@ const fmt = (s) => (s ? new Date(s * 1000).toLocaleString("fr-FR", { day: "2-dig
 const epoch = (d) => (d ? Math.floor(new Date(d).getTime() / 1000) : "");
 const depuis = (s) => { if (!s) return ""; const h = (Date.now() / 1000 - s) / 3600; return h < 1 ? "en ligne" : h < 48 ? `il y a ${Math.round(h)} h` : `il y a ${Math.round(h / 24)} j`; };
 
-export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
-  const [f, setF] = useState({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "" });
+export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = [], login = "" }) {
+  const [f, setF] = useState({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "" });
   const [tri, setTri] = useState({ sort: "last_seen", order: "desc" });
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -29,6 +30,9 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   const [sess, setSess] = useState(null);
   const [act, setAct] = useState(null);
   const [cat, setCat] = useState(null);
+  const [menus, setMenus] = useState(null);          // #1004 : catégories présentes et niveaux de certitude
+  const [choix, setChoix] = useState("");            // catégorie à confirmer / corriger
+  const [decision, setDecision] = useState(null);    // {enCours, erreur, reglage, texte}
   const [page, setPage] = useState(0);
   const [versionCal, setVersionCal] = useState(0);
   const PAGE = 200;
@@ -36,7 +40,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   const params = useCallback(() => {
     const p = new URLSearchParams({ sort: tri.sort, order: tri.order, limit: PAGE, offset: page * PAGE });
     if (siteId) p.set("site", siteId);
-    for (const k of ["q", "manufacturer", "device"]) if (f[k].trim()) p.set(k, f[k].trim());
+    for (const k of ["q", "manufacturer", "device", "categorie", "certitude"]) if (f[k].trim()) p.set(k, f[k].trim());
     for (const k of ["since", "until", "absent_since"]) if (f[k]) p.set(k, epoch(f[k]));
     return p;
   }, [f, tri, page, siteId]);
@@ -53,7 +57,25 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
     fetch(`${nebulaApiBase}/client-history/status`, { credentials: "include" }).then((r) => r.json()).then(setSt).catch(() => setSt(null));
     fetch(`${nebulaApiBase}/client-history/manufacturers${siteId ? `?site=${encodeURIComponent(siteId)}` : ""}`, { credentials: "include" })
       .then((r) => r.json()).then((j) => setFab(j.manufacturers || [])).catch(() => setFab([]));
+    fetch(`${nebulaApiBase}/client-history/categories${siteId ? `?site=${encodeURIComponent(siteId)}` : ""}`, { credentials: "include" })
+      .then((r) => r.json()).then(setMenus).catch(() => setMenus(null));
   }, [nebulaApiBase, siteId]);
+  const lireCategorie = (row) => fetch(`${nebulaApiBase}/client-history/categorie?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}`, { credentials: "include" })
+    .then((r) => r.json()).then((j) => { setCat(j && !j.error ? j : { erreur: (j && j.error) || "?" }); setChoix((j && j.categorie) || ""); })
+    .catch((e) => setCat({ erreur: e.message }));
+  const decider = async (row, methode) => {
+    setDecision({ enCours: true });
+    try {
+      const r = await fetch(`${nebulaApiBase}/client-history/categorie/decision`, { method: methode, credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: row.site_id, mac: row.mac, categorie: choix, groups, user: login }) });
+      const j = await r.json();
+      if (!r.ok) { setDecision({ erreur: j.error || `HTTP ${r.status}`, reglage: j.reglage }); return; }
+      setDecision({ texte: methode === "DELETE" ? "Confirmation annulée : la proposition du hub revient, l'apprentissage est retiré."
+        : j.correction ? `Corrigé en « ${j.categorie} » (le hub proposait « ${j.proposee || "rien"} ») : les clients aux traits semblables en tiennent compte.`
+          : `Confirmé « ${j.categorie} » : les clients aux traits semblables en tiennent compte.` });
+      await lireCategorie(row); load(); loadStatus();
+    } catch (e) { setDecision({ erreur: e.message }); }
+  };
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [load]);
   useEffect(() => { loadStatus(); const t = setInterval(loadStatus, 60000); return () => clearInterval(t); }, [loadStatus]);
@@ -71,9 +93,8 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
   };
   const ouvrir = async (row) => {
     if (sel?.mac === row.mac) { setSel(null); return; }
-    setSel(row); setSess(null); setAct(null); setCat(null);
-    fetch(`${nebulaApiBase}/client-history/categorie?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}`, { credentials: "include" })
-      .then((r) => r.json()).then((j) => setCat(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setCat({ erreur: e.message }));
+    setSel(row); setSess(null); setAct(null); setCat(null); setDecision(null);
+    lireCategorie(row);
     fetch(`${nebulaApiBase}/client-history/activite?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}&jours=14`, { credentials: "include" })
       .then((r) => r.json()).then((j) => setAct(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setAct({ erreur: e.message }));
     try {
@@ -104,10 +125,18 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
           {fab.map((m) => <option key={m.manufacturer} value={m.manufacturer}>{m.manufacturer} ({m.n})</option>)}
         </select>
         {champ("device", { placeholder: "raccordé à (borne, commutateur)" })}
+        <select value={f.categorie} onChange={(e) => setF((x) => ({ ...x, categorie: e.target.value }))} title="catégorie proposée ou confirmée (#1004)">
+          <option value="">toutes catégories</option>
+          {(menus?.categories || []).map((c) => <option key={c.categorie} value={c.categorie}>{c.categorie === "aucune" ? "sans catégorie" : c.categorie} ({c.n})</option>)}
+        </select>
+        <select value={f.certitude} onChange={(e) => setF((x) => ({ ...x, certitude: e.target.value }))} title="niveau de certitude de la catégorie">
+          <option value="">toutes certitudes</option>
+          {(menus?.niveaux || []).map((n) => <option key={n.niveau} value={n.niveau} disabled={!n.n}>{n.libelle} ({n.n})</option>)}
+        </select>
         <label>vu du {champ("since", { type: "date" })}</label>
         <label>au {champ("until", { type: "date" })}</label>
         <label title="clients disparus : dernière vue avant cette date">plus vu depuis {champ("absent_since", { type: "date" })}</label>
-        <button type="button" className="secondary" onClick={() => setF({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "" })}>Effacer</button>
+        <button type="button" className="secondary" onClick={() => setF({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "" })}>Effacer</button>
       </div>
       {err && <p style={{ color: "var(--danger)" }}>{err}</p>}
       <div className="infra-muted">{d ? `${d.total} client(s)` : "lecture…"}{d && d.total > PAGE && <> · page {page + 1}/{Math.ceil(d.total / PAGE)}{" "}
@@ -117,6 +146,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
         <table className="services infra-table" style={{ width: "100%" }}>
           <thead><tr>
             {COLS.map(([k, l]) => <th key={k} onClick={() => trier(k)} className={tri.sort === k ? "sorted" : ""}>{l}{tri.sort === k ? (tri.order === "asc" ? " ▲" : " ▼") : ""}</th>)}
+            <th title="catégorie proposée (confiance) ou confirmée ✔">Catégorie</th>
           </tr></thead>
           <tbody>
             {(d?.rows || []).map((r) => (
@@ -130,15 +160,28 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId }) {
                   <td>{fmt(r.first_seen)}</td>
                   <td>{fmt(r.last_seen)} <span className="infra-muted">{depuis(r.last_seen)}</span></td>
                   <td>{r.seen_count}</td>
+                  <td style={{ color: celluleCategorie(r).couleur, whiteSpace: "nowrap" }}>{celluleCategorie(r).texte}</td>
                 </tr>
                 {sel?.mac === r.mac && (
-                  <tr><td colSpan={COLS.length}>
+                  <tr><td colSpan={COLS.length + 1}>
                     <div style={{ marginBottom: 8 }}>
                       {cat === null ? <span className="muted">catégorie : lecture…</span> : cat.erreur ? <span style={{ color: "var(--danger)" }}>catégorie : {cat.erreur}</span> : (
                         <>
                           <b>{resumeCategorie(cat)}</b>{" "}
                           <BoutonDetail titre="Catégorie : hypothèses et preuves" urgence={cat.incertain ? "alerte" : "info"} texte={texteCategorie(cat)} />
                           {(cat.singularites || []).length > 0 && <span className="muted"> — singulier : {cat.singularites.map((s) => s.texte).join(" ; ")}</span>}
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                            <span className="muted">C'est bien :</span>
+                            <select value={choix} onChange={(e) => setChoix(e.target.value)}>
+                              <option value="">choisir…</option>
+                              {(menus?.toutes || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <button type="button" disabled={!choix || decision?.enCours} onClick={() => decider(r, "POST")}>
+                              {decision?.enCours ? "⏳ en cours…" : choix && cat.categorie && choix !== cat.categorie ? "✎ Corriger" : "✔ Confirmer"}</button>
+                            {cat.decision && <button type="button" className="secondary" disabled={decision?.enCours} onClick={() => decider(r, "DELETE")}>Annuler la confirmation</button>}
+                            {decision?.texte && <span style={{ color: "var(--ok)" }}>{decision.texte}</span>}
+                            {decision?.erreur && <span style={{ color: "var(--danger)" }}>{decision.erreur}{decision.reglage && <> — <a href={hubLink(decision.reglage.view)}>régler les droits</a> ({decision.reglage.texte})</>}</span>}
+                          </div>
                         </>)}
                     </div>
                     <div style={{ marginBottom: 8 }}>

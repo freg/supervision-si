@@ -245,7 +245,7 @@ def purge(conn, now=None, days=RETENTION_DAYS):
 
 
 def query(conn, site_id=None, q=None, manufacturer=None, since=None, until=None, absent_since=None, device=None,
-          sort="last_seen", order="desc", limit=200, offset=0):
+          sort="last_seen", order="desc", limit=200, offset=0, cles=None):
     """Recherche filtrée et triée. q : MAC (avec ou sans séparateurs), IP, nom, fabricant, équipement (début de mot
     d'abord : un résultat qui COMMENCE par q passe avant ceux qui le contiennent). since / until : vu dans l'intervalle
     (présence) ; absent_since : plus vu depuis cette date (les disparus, ex. passerelle muette depuis le 13/10)."""
@@ -263,6 +263,9 @@ def query(conn, site_id=None, q=None, manufacturer=None, since=None, until=None,
         args += [int(since or 0), int(until or 4102444800)]
     if absent_since:
         where.append("last_seen < ?"); args.append(int(absent_since))
+    if cles is not None:   # #1004 : filtre par catégorie / certitude -- clés « site|mac » retenues
+        import json as _json
+        where.append("(site_id || '|' || mac) IN (SELECT value FROM json_each(?))"); args.append(_json.dumps(list(cles)))
     rank = None
     if q:
         s = q.strip().lower()

@@ -25,12 +25,13 @@ SYSTEME = ((r"android", "mobile Android", 40), (r"ipad|iphone|ios", "mobile Appl
            (r"mac ?os|os ?x|macos", "poste Mac", 40), (r"linux|ubuntu|debian|raspbian|centos|fedora", "machine Linux / sans écran", 30))
 NOM = ((r"galaxy|android|^sm-|redmi|pixel|oppo|huawei|xiaomi|oneplus|motorola", "mobile Android", 25),
        (r"iphone|ipad", "mobile Apple", 30), (r"^(desktop|laptop|pc|portable)-", "poste Windows", 30),
-       (r"macbook|imac|mac-?mini|mbp", "poste Mac", 30), (r"raspberry|ubuntu|debian|\bnuc\b|mini-?pc|^pve|^srv|serveur|server", "machine Linux / sans écran", 20),
+       (r"macbook|imac|mac-?mini|mbp", "poste Mac", 30), (r"raspberry|^rpi|ubuntu|debian|\bnuc\b|mini-?pc|^pve|^srv|serveur|server", "machine Linux / sans écran", 20),
        (r"^npi|printer|imprim|^brw|epson|canon|kyocera|xerox", "imprimante", 30), (r"quest|oculus|pico", "casque VR", 35),
        (r"\bcam|^ipc|nvr|dvr", "caméra / objet connecté", 15), (r"zyxel|^usg|^nwa|^wax|^wbe|^gs\d|^xs\d|mikrotik|unifi", "équipement réseau", 30))
 FABRICANT = ((r"samsung|xiaomi|oppo|huawei|google|motorola|oneplus|realme|vivo", (("mobile Android", 15),)),
              (r"apple", (("mobile Apple", 12), ("poste Mac", 8))),
-             (r"intel|dell|lenovo|asustek|micro-star|liteon|azurewave|hon hai|gigabyte|microsoft", (("poste Windows", 10), ("machine Linux / sans écran", 5))),
+             (r"intel|dell|lenovo|asustek|micro-star|liteon|azurewave|hon hai|foxconn|cloud network technology|gigabyte|microsoft",
+              (("poste Windows", 10), ("machine Linux / sans écran", 8))),   # cartes Wi-Fi / réseau intégrées des PC et mini-PC
              (r"brother|epson|canon|kyocera|xerox|lexmark|ricoh|hewlett|hp inc", (("imprimante", 20), ("poste Windows", 5))),
              (r"zyxel|mikrotik|ubiquiti|cisco|tp-link|netgear|aruba|ruckus|fortinet", (("équipement réseau", 30),)),
              (r"hikvision|dahua|axis|espressif|tuya|shelly|sonoff|hanwha|reolink", (("caméra / objet connecté", 30),)),
@@ -75,7 +76,7 @@ def traits(fiche, p):
         "MAC aléatoire": "oui" if mac_aleatoire(fiche.get("mac")) else "non",
         "comportement": comportement(p),
         "raccordement": ("filaire" if p and p.get("filaire") and not p.get("wifi") else "Wi-Fi" if p and p.get("wifi") else None),
-        "mobilité": ("plusieurs bornes" if p and len(p.get("bornes") or []) > 1 else None),
+        "mobilité": ("3 bornes ou plus" if p and len(p.get("bornes") or []) >= 3 else "2 bornes" if p and len(p.get("bornes") or []) == 2 else None),
         "volumes": ("très réguliers" if v.get("regularite_cv") is not None and v.get("mesures", 0) >= 6 and v["regularite_cv"] < 0.3
                     else "par rafales" if v.get("regularite_cv") is not None and v["regularite_cv"] > 1 else None),
         "SSID": ",".join(p.get("ssids") or []) or None if p else None,
@@ -108,8 +109,40 @@ def _rarete(pop, attr, val):
     return 0.5 if part is None else 1.0 - part
 
 
-def categoriser(fiche, p=None, pop=None):
-    """fiche (client vu) + profil d'activité + population du site -> {categorie, confiance, hypotheses, singularites}."""
+NIVEAUX = (("confirmée", "confirmée par une personne"), ("forte", "certitude forte (≥ 70 %)"), ("moyenne", "certitude moyenne (40 à 69 %)"),
+           ("faible", "certitude faible (< 40 %)"), ("aucune", "aucune catégorie proposée"))
+APPRIS_MAX = 40          # contribution maximale de l'apprentissage à une catégorie (les autres indices gardent la parole)
+APPRIS_SUPPORT = 3       # confirmations pour qu'un trait appris pèse de tout son poids
+
+
+def niveau(r):
+    if r.get("decision"):
+        return "confirmée"
+    if not r.get("categorie"):
+        return "aucune"
+    c = r.get("confiance") or 0
+    return "forte" if c >= 70 else "moyenne" if c >= 40 else "faible"
+
+
+def apprentissage(decisions):
+    """#1004 : décisions humaines [{categorie, proposee, traits}] -> {(attribut, valeur): {"pos": {cat: n}, "neg": {cat: n}}}.
+    Une confirmation renforce, pour chacun des traits du client, la catégorie choisie ; une correction affaiblit aussi la
+    catégorie qui avait été proposée à tort. Les autres clients qui partagent ces traits en héritent (certitudes modifiées)."""
+    st = {}
+    for d in decisions or []:
+        for k, v in (d.get("traits") or {}).items():
+            if v is None or k in ("SSID",):
+                continue
+            e = st.setdefault((k, v), {"pos": {}, "neg": {}})
+            e["pos"][d["categorie"]] = e["pos"].get(d["categorie"], 0) + 1
+            if d.get("proposee") and d["proposee"] != d["categorie"]:
+                e["neg"][d["proposee"]] = e["neg"].get(d["proposee"], 0) + 1
+    return st
+
+
+def categoriser(fiche, p=None, pop=None, appris=None, decision=None):
+    """fiche (client vu) + profil d'activité + population du site (+ apprentissage, + décision humaine) ->
+    {categorie, confiance, niveau, hypotheses, singularites}. Une décision humaine fixe la catégorie (niveau « confirmée »)."""
     t = traits(fiche, p)
     scores = {c: [] for c in CATEGORIES}
 
@@ -147,11 +180,12 @@ def categoriser(fiche, p=None, pop=None):
         for c in MOBILES + POSTES:
             ajoute(c, 10, "présent aux heures de jour seulement (nuit %d %%)" % round(100 * (p.get("part_nuit") or 0)), "comportement")
         ajoute("machine Linux / sans écran", -10, "absent la nuit : rare pour une machine de service", "comportement")
-    if t["mobilité"]:
+    if t["mobilité"]:   # #1004 : deux bornes voisines suffisent à un poste fixe en Wi-Fi -- indice faible ; trois et plus : fort
+        fort = t["mobilité"] == "3 bornes ou plus"
         for c in MOBILES:
-            ajoute(c, 15, "passe d'une borne à l'autre (%d équipements)" % len(p.get("bornes") or []), "mobilité")
+            ajoute(c, 15 if fort else 5, "passe d'une borne à l'autre (%d équipements)" % len(p.get("bornes") or []), "mobilité")
         for c in MACHINES:
-            ajoute(c, -15, "mobile entre bornes : rare pour un équipement fixe", "mobilité")
+            ajoute(c, -15 if fort else -5, "change de borne : %s pour un équipement fixe" % ("rare" if fort else "possible (bornes voisines)"), "mobilité")
     if t["raccordement"] == "filaire":
         for c in MOBILES:
             ajoute(c, -25, "raccordé en filaire", "raccordement")
@@ -165,6 +199,27 @@ def categoriser(fiche, p=None, pop=None):
             ajoute(c, 8, "volumes par rafales (usage humain)", "volumes")
     if v.get("part_descendant") is not None and v.get("mesures", 0) >= 3 and v["part_descendant"] < 0.3:
         ajoute("caméra / objet connecté", 20, "envoie bien plus qu'il ne reçoit (%d %% reçu)" % round(100 * v["part_descendant"]))
+
+    if appris:   # #1004 : ce que les confirmations humaines ont appris sur des traits que ce client partage
+        gains = {}
+        for k, val in t.items():
+            e = appris.get((k, val)) if val is not None else None
+            if not e:
+                continue
+            npos = sum(e["pos"].values())
+            sup = min(1.0, npos / float(APPRIS_SUPPORT))
+            for cat, n in e["pos"].items():
+                if cat in scores:
+                    gains.setdefault(cat, []).append((round(25 * sup * n / npos), "appris : %d confirmation(s) avec %s « %s »" % (n, k, val)))
+            for cat, n in e["neg"].items():
+                if cat in scores:
+                    gains.setdefault(cat, []).append((-round(15 * min(1.0, n / float(APPRIS_SUPPORT))), "appris : %d correction(s) écartant cette catégorie pour %s « %s »" % (n, k, val)))
+        for cat, lst in gains.items():
+            tot = 0
+            for poids, txt in sorted(lst, key=lambda x: -abs(x[0])):
+                poids = max(-APPRIS_MAX - tot, min(APPRIS_MAX - tot, poids))
+                if poids:
+                    scores[cat].append({"poids": poids, "texte": txt}); tot += poids
 
     hyp = []
     for c, pr in scores.items():
@@ -189,7 +244,13 @@ def categoriser(fiche, p=None, pop=None):
             pc = ("%.1f" % (100 * part)).rstrip("0").rstrip(".").replace(".", ",")
             sing.append({"attribut": k, "valeur": val, "part": round(part, 3),
                          "texte": "%s « %s » : %s" % (k, montre, "seul client du site dans ce cas" if part <= 0.002 else "%s %% des clients du site" % pc)})
-    return {"categorie": cat, "confiance": conf, "incertain": bool(hyp) and conf < 40, "hypotheses": hyp[:4], "singularites": sing, "traits": t}
+    r = {"categorie": cat, "confiance": conf, "incertain": bool(hyp) and conf < 40, "hypotheses": hyp[:4], "singularites": sing, "traits": t,
+         "proposee": cat, "decision": None}
+    if decision and decision.get("categorie"):
+        r.update(categorie=decision["categorie"], confiance=100, incertain=False,
+                 decision={k: decision.get(k) for k in ("categorie", "par", "at", "proposee")})
+    r["niveau"] = niveau(r)
+    return r
 
 
 def compatible(type_element, cat):

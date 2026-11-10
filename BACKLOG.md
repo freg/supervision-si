@@ -21,6 +21,8 @@
 - Tranches validées le 10/11 : (1) liste de surveillance + recherche unifiée — LIVRÉ #1001 ; (2) relevé de l'activité par
   client (volumes, rythme ; l'API Nebula ne publie pas les applications par client) — LIVRÉ #1002 ; (3) catégorisation par l'activité,
   indices singuliers pondérés par rapport à la population du site, preuves sur la fiche client — LIVRÉ #1003.
+- LIVRÉ #1004 (demandes du 10/11 après essai) : filtres catégorie / certitude, confirmation humaine qui apprend et modifie
+  les certitudes des clients aux traits semblables ; pages profondes dans la recherche générale.
 - Suites possibles : calibrer les poids sur la population réelle ; domaines contactés par client (sonde sur place ou
   journaux de la passerelle, l'API Nebula ne les publie pas) ; même concordance pour les agents et l'inventaire GLPI.
 - Existant à réutiliser : `nebula/api/recherche.py` (#852, recherche du site), `client_history` (#974), Cortex

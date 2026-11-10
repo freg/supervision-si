@@ -36,3 +36,14 @@ test("catégorie : résumé et détail", () => {
   assert.match(t, /aux 120 clients du site/);
   assert.match(resumeCategorie({ categorie: null }), /pas assez/);
 });
+
+import { celluleCategorie } from "../src/activiteLib.js";
+
+test("#1004 : colonne catégorie, confirmation, pas de verdict de régularité sur une relève", () => {
+  assert.deepEqual(celluleCategorie({ categorie: "machine Linux / sans écran", confiance: 44, niveau: "moyenne" }), { texte: "machine Linux / sans écran · 44 %", couleur: "var(--warning)" });
+  assert.equal(celluleCategorie({ categorie: "imprimante", confiance: 100, niveau: "confirmée" }).texte, "✔ imprimante");
+  assert.equal(celluleCategorie({ categorie: null, niveau: "aucune" }).texte, "aucune");
+  assert.match(resumeCategorie({ categorie: "imprimante", decision: { par: "freg" }, proposee: "poste Windows" }), /confirmée : imprimante \(par freg\) — le hub proposait poste Windows/);
+  const l = resumeActivite({ jours: 14, jours_vus: 1, heures_par_jour: 2, volumes: { mesures: 1, moyenne_heure: 1, pointe_heure: 1, regularite_cv: 0, part_descendant: 0.5 } });
+  assert.doesNotMatch(l[3], /régulier/);
+});

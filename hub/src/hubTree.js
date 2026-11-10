@@ -124,7 +124,7 @@ export function universeEntries(catalog, { sort = "alpha", since = {}, query = "
     const n = since[key];
     const leafKey = leaf.kind === "view" ? "view:" + leaf.view : leaf.kind === "front" ? "front:" + leaf.front : null;
     const id = leafKey || leaf.id;
-    out.push({ ...leaf, label: labels[id] || leaf.label, since: Number.isFinite(n) ? n : null, themes: (leafKey && themeOf.get(leafKey)) || [], aliases: aliases[id] || [] });
+    out.push({ ...leaf, label: labels[id] || leaf.label, since: Number.isFinite(n) ? n : null, themes: (leafKey && themeOf.get(leafKey)) || [], aliases: [...(aliases[id] || []), ...(leaf.kind === "page" ? leaf.aliases || [] : [])] });   // #1004 : pages profondes
   }
   const byLabel = (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
   const cmp = sort === "added" ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b) : byLabel;

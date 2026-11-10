@@ -1,3 +1,26 @@
+## 2026-11-10 — livraison #1004 : filtres par catégorie et certitude, confirmation humaine qui apprend, pages profondes dans la recherche
+
+- **Historique des clients** : menus « catégorie » (catégories présentes, avec effectifs, « sans catégorie » compris) et
+  « certitude » (confirmée, forte ≥ 70 %, moyenne 40-69 %, faible < 40 %, aucune) ; colonne Catégorie (✔ si confirmée,
+  sinon catégorie et confiance, couleur selon la certitude). Catégories du site en cache 15 min.
+- **Confirmation humaine** dans le détail d'un client : « C'est bien : … » puis ✔ Confirmer ou ✎ Corriger ; « Annuler la
+  confirmation ». Droit `manage` sur nebula-api, refus avec lien vers le réglage des droits.
+- **Apprentissage** : chaque décision enseigne la catégorie choisie pour chacun des traits du client (fabricant, système,
+  famille de nom, MAC aléatoire, comportement, raccordement, VLAN…) ; une correction affaiblit aussi la catégorie proposée
+  à tort. Les clients qui partagent ces traits voient leurs certitudes monter ou descendre (« appris : 2 confirmation(s)
+  avec fabricant … » dans les preuves), dans la limite de 40 points par catégorie ; annuler retire la leçon.
+- **Corrections après le premier essai réel** : présence « continue » dès 18 h / jour (un mini-PC vu 19,8 h / jour était
+  classé mobile) ; deux bornes voisines ne font plus un mobile (indice faible, fort à partir de trois) ; cartes Wi-Fi
+  intégrées des PC (Cloud Network Technology / Foxconn…) reconnues ; nom « rpi… » = Raspberry ; pas de verdict de
+  régularité sur moins de 6 relèves.
+- **Recherche générale du hub** (Univers du hub) : les onglets internes sont trouvables comme des tuiles — « historique »
+  donne aussi l'historique des clients, « tablettes » la liste de surveillance, etc. (Nebula : historique, surveillance,
+  VLAN, charge, santé, pilotage, plan, rapports ; Migration › ownCloud) ; un clic ouvre la vue sur le bon onglet.
+
+Vérifié : tests filtres / menus / confirmation / apprentissage / annulation / droits (nebula), recherche des pages (hub),
+modules hub, syntaxe, import de l'application. Non vérifié : rendu navigateur, temps de calcul des catégories sur un
+grand site (155 clients ici).
+
 ## 2026-11-10 — livraison #1003 : catégorisation par les éléments et le comportement (identification des cibles, tranche 3)
 
 - **Catégorie proposée** pour chaque client (`GET /client-history/categorie?site=&mac=`) parmi : mobile Android, mobile

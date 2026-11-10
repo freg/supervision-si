@@ -1754,6 +1754,7 @@ client_history_routes.register(app, {"conn": get_connection, "client": _connect,
                                      "configured": lambda: bool(NEBULA_API_KEY),
                                      "noms_registre": lambda sid: _noms_registre(sid),   # #974 : correspondances nom réseau <-> registre
                                      "apres_releve": _surveillance_apres_releve,          # #1001 : liste de surveillance
+                                     "manage": _check_manage_right,                       # #1004 : confirmation humaine des catégories
                                      "defaut": _defaut, "defaut_leve": _defaut_leve,   # #975 : défauts majeurs (bandeau du hub)
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
 

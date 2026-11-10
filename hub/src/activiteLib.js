@@ -23,7 +23,7 @@ export function resumeActivite(p) {
   l.push(`Raccordement : ${r}${(p.bornes || []).length > 1 ? ` — ${p.bornes.length} équipements (mobile)` : ""}${(p.vlans || []).length ? ` — VLAN ${p.vlans.join(", ")}` : ""}.`);
   const v = p.volumes || {};
   if (v.mesures) {
-    const reg = v.regularite_cv == null ? "" : v.regularite_cv < 0.3 ? " — très régulier" : v.regularite_cv > 1 ? " — par rafales" : "";
+    const reg = v.regularite_cv == null || v.mesures < 6 ? "" : v.regularite_cv < 0.3 ? " — très régulier" : v.regularite_cv > 1 ? " — par rafales" : "";   // #1004 : pas de verdict sur 1 relève
     l.push(`Volumes Wi-Fi (${v.mesures} relèves) : ${octetsFr(v.moyenne_heure)} par heure en moyenne, pointe ${octetsFr(v.pointe_heure)} par heure${reg} ; ${pct(v.part_descendant)} reçu.`);
   } else {
     l.push("Volumes : non publiés par Nebula pour ce client (seuls les clients Wi-Fi ont des volumes).");
@@ -40,7 +40,17 @@ export function barres(histo = []) {
 // #1003 : catégorie proposée par les éléments et le comportement (API /client-history/categorie)
 export function resumeCategorie(c) {
   if (!c || !c.categorie) return "Catégorie : pas assez d'éléments pour en proposer une.";
+  if (c.decision) return `Catégorie confirmée : ${c.categorie}${c.decision.par ? ` (par ${c.decision.par})` : ""}${c.proposee && c.proposee !== c.categorie ? ` — le hub proposait ${c.proposee}` : ""}`;
   return `Catégorie proposée : ${c.categorie} — confiance ${c.confiance} %${c.incertain ? " (incertaine)" : ""}`;
+}
+
+// #1004 : niveaux de certitude (menus de filtre, pastille de la colonne Catégorie)
+export const NIVEAU_COULEUR = { "confirmée": "var(--ok)", forte: "var(--ok)", moyenne: "var(--warning)", faible: "var(--danger)", aucune: "var(--muted)" };
+
+export function celluleCategorie(r) {
+  if (!r || !r.niveau) return { texte: "—", couleur: "var(--muted)" };
+  if (!r.categorie) return { texte: "aucune", couleur: NIVEAU_COULEUR.aucune };
+  return { texte: r.niveau === "confirmée" ? `✔ ${r.categorie}` : `${r.categorie} · ${r.confiance} %`, couleur: NIVEAU_COULEUR[r.niveau] || "var(--muted)" };
 }
 
 export function texteCategorie(c) {
