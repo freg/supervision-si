@@ -50,5 +50,61 @@ class Categorie(unittest.TestCase):
         self.assertIsNone(cg.compatible(None, "mobile Android"))
 
 
+MOBILE_P = {"jours": 14, "jours_vus": 5, "heures_par_jour": 5.0, "continu": False, "part_nuit": 0.0, "wifi": True, "bornes": ["a", "b"],
+            "ssids": ["w"], "volumes": {"mesures": 25, "regularite_cv": 1.4, "part_descendant": 0.6}}
+FIXE_P = {"jours": 14, "jours_vus": 14, "heures_par_jour": 24.0, "continu": True, "part_nuit": 0.25, "filaire": True, "wifi": False,
+          "bornes": ["sw"], "volumes": {"mesures": 0}}
+
+
+class TypeAppareil(unittest.TestCase):
+    def t(self, fiche, p=None, **kw):
+        return cg.categoriser_type(fiche, p, **kw)
+
+    def test_tablette(self):
+        r = self.t({"mac": "6e:00:00:00:00:01", "name": "Galaxy-Tab-A11", "os": "Android"}, MOBILE_P)
+        self.assertEqual(r["categorie"], "tablette")
+
+    def test_mobile(self):
+        r = self.t({"mac": "6e:00:00:00:00:02", "name": "Galaxy-S23", "os": "Android"}, MOBILE_P)
+        self.assertEqual(r["categorie"], "mobile")
+
+    def test_casque_vr(self):
+        r = self.t({"mac": "6e:00:00:00:00:03", "name": "Quest 3", "manufacturer": "Meta Platforms Inc"})
+        self.assertEqual(r["categorie"], "casque VR")
+
+    def test_portable(self):
+        r = self.t({"mac": "aa:00:00:00:00:04", "name": "MacBook-Pro-Marie", "os": "macOS"}, MOBILE_P)
+        self.assertEqual(r["categorie"], "portable")
+
+    def test_ordinateur_fixe(self):
+        r = self.t({"mac": "aa:00:00:00:00:05", "name": "DESKTOP-OFFICE", "os": "Windows 10", "manufacturer": "Dell Inc"}, FIXE_P)
+        self.assertEqual(r["categorie"], "ordinateur fixe")
+
+    def test_equipement_reseau(self):
+        r = self.t({"mac": "70:49:a2:00:00:06", "name": "WBE660S-EU0101F-4", "manufacturer": "Zyxel Communications"})
+        self.assertEqual(r["categorie"], "équipement réseau")
+
+    def test_supervision_par_mac_de_flotte(self):
+        r = self.t({"mac": "84:9e:56:00:00:07", "manufacturer": "Cloud Network Technology", "os": "Debian"}, FIXE_P, supervision=True)
+        self.assertEqual(r["categorie"], "équipement supervision")
+        self.assertTrue(any("flotte des agents" in x["texte"] for x in r["hypotheses"][0]["preuves"]))
+
+    def test_supervision_par_nom_minipc(self):
+        r = self.t({"mac": "aa:00:00:00:00:08", "name": "optline1", "os": "Debian GNU/Linux 13", "manufacturer": "GMKtec"}, FIXE_P)
+        self.assertEqual(r["categorie"], "équipement supervision")
+
+    def test_hors_type_imprimante(self):
+        r = self.t({"mac": "aa:00:00:00:00:09", "name": "HP LJMFP M776", "manufacturer": "HP Inc"})
+        self.assertIsNone(r["categorie"])
+        self.assertEqual(r["niveau"], "aucune")
+
+    def test_confirmation_fixe_le_type(self):
+        r = self.t({"mac": "aa:00:00:00:00:0a", "name": "x"}, decision={"categorie": "mobile", "par": "freg"})
+        self.assertEqual((r["categorie"], r["confiance"], r["niveau"]), ("mobile", 100, "confirmée"))
+        # une décision d'un autre axe (catégorie) n'est pas appliquée au type
+        r2 = self.t({"mac": "aa:00:00:00:00:0b", "name": "x"}, decision={"categorie": "poste Windows", "par": "freg"})
+        self.assertIsNone(r2["decision"])
+
+
 if __name__ == "__main__":
     unittest.main()

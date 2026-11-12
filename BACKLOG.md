@@ -39,6 +39,9 @@
 - Tranches validées le 10/11 : (1) liste de surveillance + recherche unifiée — LIVRÉ #1001 ; (2) relevé de l'activité par
   client (volumes, rythme ; l'API Nebula ne publie pas les applications par client) — LIVRÉ #1002 ; (3) catégorisation par l'activité,
   indices singuliers pondérés par rapport à la population du site, preuves sur la fiche client — LIVRÉ #1003.
+- LIVRÉ #1007 (demande du 12/11) : second axe « type » (forme de l'appareil : tablette, mobile, casque VR, portable,
+  ordinateur fixe, équipement réseau, équipement supervision), parallèle à la catégorie ; équipements de supervision
+  reconnus par leur MAC de flotte. Reste possible : aligner la liste de surveillance (#1001) sur l'axe type.
 - LIVRÉ #1004 (demandes du 10/11 après essai) : filtres catégorie / certitude, confirmation humaine qui apprend et modifie
   les certitudes des clients aux traits semblables ; pages profondes dans la recherche générale.
 - Suites possibles : calibrer les poids sur la population réelle ; domaines contactés par client (sonde sur place ou

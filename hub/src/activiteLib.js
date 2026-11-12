@@ -38,24 +38,27 @@ export function barres(histo = []) {
 }
 
 // #1003 : catégorie proposée par les éléments et le comportement (API /client-history/categorie)
-export function resumeCategorie(c) {
-  if (!c || !c.categorie) return "Catégorie : pas assez d'éléments pour en proposer une.";
-  if (c.decision) return `Catégorie confirmée : ${c.categorie}${c.decision.par ? ` (par ${c.decision.par})` : ""}${c.proposee && c.proposee !== c.categorie ? ` — le hub proposait ${c.proposee}` : ""}`;
-  return `Catégorie proposée : ${c.categorie} — confiance ${c.confiance} %${c.incertain ? " (incertaine)" : ""}`;
+export function resumeCategorie(c, libelle = "Catégorie") {
+  const e = libelle === "Catégorie" ? "e" : "";   // #1007 : « catégorie » féminin, « type » masculin
+  if (!c || !c.categorie) return `${libelle} : pas assez d'éléments pour en proposer un${e}.`;
+  if (c.decision) return `${libelle} confirmé${e} : ${c.categorie}${c.decision.par ? ` (par ${c.decision.par})` : ""}${c.proposee && c.proposee !== c.categorie ? ` — le hub proposait ${c.proposee}` : ""}`;
+  return `${libelle} proposé${e} : ${c.categorie} — confiance ${c.confiance} %${c.incertain ? ` (incertain${e})` : ""}`;
 }
 
 // #1004 : niveaux de certitude (menus de filtre, pastille de la colonne Catégorie)
 export const NIVEAU_COULEUR = { "confirmée": "var(--ok)", forte: "var(--ok)", moyenne: "var(--warning)", faible: "var(--danger)", aucune: "var(--muted)" };
 
-export function celluleCategorie(r) {
-  if (!r || !r.niveau) return { texte: "—", couleur: "var(--muted)" };
-  if (!r.categorie) return { texte: "aucune", couleur: NIVEAU_COULEUR.aucune };
-  return { texte: r.niveau === "confirmée" ? `✔ ${r.categorie}` : `${r.categorie} · ${r.confiance} %`, couleur: NIVEAU_COULEUR[r.niveau] || "var(--muted)" };
+function _cellule(o, motAucun) {
+  if (!o || !o.niveau) return { texte: "—", couleur: "var(--muted)" };
+  if (!o.categorie) return { texte: motAucun, couleur: NIVEAU_COULEUR.aucune };
+  return { texte: o.niveau === "confirmée" ? `✔ ${o.categorie}` : `${o.categorie} · ${o.confiance} %`, couleur: NIVEAU_COULEUR[o.niveau] || "var(--muted)" };
 }
+export function celluleCategorie(r) { return _cellule(r && { categorie: r.categorie, confiance: r.confiance, niveau: r.niveau }, "aucune"); }
+export function celluleType(r) { return _cellule(r && { categorie: r.type, confiance: r.confiance_type, niveau: r.niveau_type }, "aucun"); }   // #1007 : axe type
 
-export function texteCategorie(c) {
+export function texteCategorie(c, libelle = "Catégorie") {
   if (!c) return "";
-  const l = [resumeCategorie(c), ""];
+  const l = [resumeCategorie(c, libelle), ""];
   for (const h of c.hypotheses || []) {
     l.push(`${h.categorie} : ${h.score}/100`);
     for (const p of h.preuves || []) l.push(`  ${p.poids > 0 ? "+" : ""}${p.poids}  ${p.texte}`);

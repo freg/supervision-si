@@ -1561,6 +1561,20 @@ def recherche_route(site_id):
 _ident_cache = {"at": 0, "agents": []}
 
 
+def _macs_supervision():
+    """#1007 : MAC des interfaces de tous les agents (équipements de supervision) -- jamais bloquant."""
+    out = set()
+    try:
+        for a in _identites_agents() or []:
+            for itf in a.get("interfaces") or []:
+                m = (itf.get("mac") or "").lower()
+                if m:
+                    out.add(m)
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 def _identites_agents(ttl=300):
     """#1001 : interfaces (nom, MAC, IP) et voisins (IP, MAC) relevés par chaque agent (si-agent-api /identites), 5 min en cache."""
     if time.time() - _ident_cache["at"] < ttl:
@@ -1755,6 +1769,7 @@ client_history_routes.register(app, {"conn": get_connection, "client": _connect,
                                      "noms_registre": lambda sid: _noms_registre(sid),   # #974 : correspondances nom réseau <-> registre
                                      "apres_releve": _surveillance_apres_releve,          # #1001 : liste de surveillance
                                      "manage": _check_manage_right,                       # #1004 : confirmation humaine des catégories
+                                     "macs_supervision": _macs_supervision,               # #1007 : équipements de supervision (axe type)
                                      "defaut": _defaut, "defaut_leve": _defaut_leve,   # #975 : défauts majeurs (bandeau du hub)
                                      "device_names": lambda sid: {d.get("devId"): d.get("name") for d in _inventory["devices"].get(sid) or []}})
 

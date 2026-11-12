@@ -47,3 +47,15 @@ test("#1004 : colonne catégorie, confirmation, pas de verdict de régularité s
   const l = resumeActivite({ jours: 14, jours_vus: 1, heures_par_jour: 2, volumes: { mesures: 1, moyenne_heure: 1, pointe_heure: 1, regularite_cv: 0, part_descendant: 0.5 } });
   assert.doesNotMatch(l[3], /régulier/);
 });
+
+import { celluleType } from "../src/activiteLib.js";
+
+test("#1007 : axe type — cellule, libellé « Type », sans type", () => {
+  assert.deepEqual(celluleType({ type: "tablette", confiance_type: 70, niveau_type: "forte" }), { texte: "tablette · 70 %", couleur: "var(--ok)" });
+  assert.equal(celluleType({ type: "équipement supervision", confiance_type: 100, niveau_type: "confirmée" }).texte, "✔ équipement supervision");
+  assert.equal(celluleType({ type: null, niveau_type: "aucune" }).texte, "aucun");
+  assert.equal(celluleType({}).texte, "—");
+  assert.match(resumeCategorie({ categorie: "mobile" }, "Type"), /^Type proposé : mobile/);
+  assert.match(resumeCategorie({ categorie: "portable", decision: { par: "freg" } }, "Type"), /^Type confirmé : portable \(par freg\)/);
+  assert.match(resumeCategorie({ categorie: null }, "Type"), /pas assez d'éléments pour en proposer un\./);
+});

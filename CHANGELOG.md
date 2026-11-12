@@ -1,3 +1,26 @@
+## 2026-11-12 — livraison #1007 : second axe de catégorisation « type » (forme de l'appareil)
+
+À côté de la « catégorie » (nature / système, #1003), un axe PARALLÈLE « type » reconnaît la FORME de l'appareil :
+tablette, mobile, casque VR, portable, ordinateur fixe, équipement réseau, équipement supervision. Les deux axes
+partagent le même moteur (indices nom / système / fabricant / MAC aléatoire / comportement / singularité), le même
+apprentissage par confirmation humaine, et coexistent : un Galaxy Tab est « mobile Android » (catégorie) ET « tablette »
+(type).
+
+- **Équipement supervision** : nos sondes et mini-PC sont reconnus en plus par leur **MAC présente dans la flotte des
+  agents** (si-agent-api `/identites`) -- signal décisif. Ex. pc-numeria (optline1) ressort « équipement supervision ».
+- **Hors des sept formes** (imprimante, caméra, objet connecté) : aucun type proposé (la catégorie, elle, les couvre) ;
+  filtrables en « sans type ».
+- **Historique des clients** : nouvelle colonne « Type », menus de filtre « type » et « certitude (type) », et dans le
+  détail d'un client un second bloc « C'est bien : … » pour confirmer / corriger le type (apprentissage propre à l'axe,
+  indépendant de la catégorie). Droit `manage`, refus avec lien vers le réglage.
+- Moteur factorisé (`categorie.py` : `_moteur` générique + une grille par axe), décisions stockées par axe
+  (`nebula_axe_decisions`, reprise automatique des confirmations de catégorie de #1004).
+
+Vérifié : tests du scoreur type (tablette, mobile, casque VR, portable, fixe, réseau, supervision par MAC de flotte et
+par nom de mini-PC, hors-type imprimante), deux axes de bout en bout (menus, filtres, confirmation indépendante,
+reconnaissance par la flotte), non-régression de l'axe catégorie, module hub, syntaxe. Non vérifié : rendu navigateur,
+calibrage des poids sur la population réelle.
+
 ## 2026-11-10 — livraison #1006 : surveillance — un appareil reconnu mais au nom différent est « à vérifier »
 
 - Vu au premier import réel : deux tablettes reconnues par leur MAC annoncent le nom d'une autre tablette d'un autre lot

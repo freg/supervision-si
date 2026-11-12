@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
 """Catégorisation des clients par leurs éléments et leur comportement (livraison #1003, identification des cibles
-tranche 3) -- logique PURE, testée (tests/test_categorie.py).
+tranche 3 ; #1007 : second axe « type ») -- logique PURE, testée (tests/test_categorie.py).
 
 On catégorise comme on le fait à vue : le système et le nom annoncés, le fabricant, une MAC aléatoire, puis le
 comportement (présence continue ou aux heures ouvrées, nuits, week-ends, mobilité entre bornes, régularité et sens des
 volumes). Chaque indice a un poids et une preuve ; ce qui est SINGULIER pour ce client par rapport à la population du
 site pèse plus (un fabricant que 90 % des clients partagent ne distingue presque rien). Résultat : hypothèses classées,
-catégorie proposée avec sa confiance, et les singularités du client -- jamais une affirmation sans preuve."""
+catégorie proposée avec sa confiance, et les singularités du client -- jamais une affirmation sans preuve.
+
+DEUX AXES parallèles, même moteur, mêmes traits, même apprentissage :
+- « catégorie » (#1003) : la nature logique / le système -- mobile Android, poste Windows, machine Linux, réseau…
+- « type » (#1007) : la FORME de l'appareil -- tablette, mobile, casque VR, portable, ordinateur fixe, équipement
+  réseau, équipement supervision (nos sondes et mini-PC, reconnus en plus par leur MAC présente dans la flotte des
+  agents). Un appareil hors de ces sept formes (imprimante, caméra…) reste « sans type »."""
 import re
 import unicodedata
 
+# ----------------------------------------------------------------- axe « catégorie » (#1003)
 CATEGORIES = ("mobile Android", "mobile Apple", "poste Windows", "poste Mac", "machine Linux / sans écran",
               "équipement réseau", "imprimante", "caméra / objet connecté", "casque VR")
 MOBILES = ("mobile Android", "mobile Apple", "casque VR")
@@ -39,6 +46,35 @@ FABRICANT = ((r"samsung|xiaomi|oppo|huawei|google|motorola|oneplus|realme|vivo",
              (r"raspberry", (("machine Linux / sans écran", 30),)))
 ADAPTATEURS = r"edimax|asix|realtek semiconductor|ugreen|tp-link.*usb|d-link"
 
+# ----------------------------------------------------------------- axe « type » (#1007 : forme de l'appareil)
+TYPES = ("tablette", "mobile", "casque VR", "portable", "ordinateur fixe", "équipement réseau", "équipement supervision")
+T_PORTES = ("tablette", "mobile", "casque VR")                             # tenus / portés, usage humain mobile
+T_FIXES = ("ordinateur fixe", "équipement réseau", "équipement supervision")  # posés, permanents
+# imprimantes / caméras / objets : hors des sept formes -> on ne propose aucun type (la catégorie, elle, les couvre)
+TYPE_HORS = r"printer|imprim|^npi|^brw|ljmfp|laserjet|officejet|designjet|\bmfp\b|^hp[0-9a-f]{4}|\bcam\b|^ipc|nvr|dvr|hikvision|dahua|\baxis\b|espressif|tuya|shelly|sonoff|reolink|wisenet|techwin|\bqnd\b|\bqno\b|\bqmc\b|smart.?tv|chromecast|^tv-"
+
+TYPE_NOM = ((r"ipad|galaxy.?tab|\btab\s?a|^sm-?[txp]\d|\btb-?[a-z]?\d|mediapad|matepad|surface pro", "tablette", 35),
+            (r"iphone|pixel|\bredmi|galaxy.?[sanz]\d|^sm-?[gas]\d|oneplus|realme|\bmoto\s?[ge]|xperia|smartphone", "mobile", 35),
+            (r"quest|oculus|pico\s?\d|\bvive\b|valve.?index", "casque VR", 40),
+            (r"macbook|\bmbp\b|thinkpad|latitude|elitebook|probook|zenbook|ideapad|vivobook|inspiron|\bxps\b|\blaptop\b|portable", "portable", 30),
+            (r"imac|mac-?mini|optiplex|workstation|^desktop-|\btour\b|^pc-\d", "ordinateur fixe", 22),
+            (r"zyxel|^usg|^nwa|^wax|^wbe|^gs\d|^xs\d|^xmg|mikrotik|routerboard|unifi|^ap-|\bswitch\b", "équipement réseau", 35),
+            (r"sonde|probe|optline|geddev|supervis|^pve|^pbs|mini-?pc|minipc|\bnuc\b|gmktec|beelink|minisforum|^srv|serveur|server", "équipement supervision", 30))
+TYPE_SYSTEME = ((r"ipados", (("tablette", 35),)), (r"iphone|\bios\b", (("mobile", 30),)),
+                (r"android", (("tablette", 12), ("mobile", 12))),
+                (r"windows", (("portable", 14), ("ordinateur fixe", 14))),
+                (r"mac ?os|os ?x|macos", (("portable", 14), ("ordinateur fixe", 10))),
+                (r"linux|ubuntu|debian|raspbian|fedora|centos", (("équipement supervision", 14), ("ordinateur fixe", 10), ("équipement réseau", 6))))
+TYPE_FABRICANT = ((r"meta platforms|oculus|pico|\bhtc\b", (("casque VR", 30),)),
+                  (r"gmktec|beelink|minisforum|aoostar|intel nuc|raspberry", (("équipement supervision", 30),)),
+                  (r"zyxel|mikrotik|ubiquiti|cisco|tp-link|netgear|aruba|ruckus|fortinet|routerboard", (("équipement réseau", 30),)),
+                  (r"samsung", (("tablette", 10), ("mobile", 10))),
+                  (r"apple", (("mobile", 10), ("tablette", 8), ("portable", 8))),
+                  (r"xiaomi|oppo|huawei|oneplus|realme|vivo|motorola", (("mobile", 14), ("tablette", 6))),
+                  (r"google", (("mobile", 10), ("casque VR", 4))),
+                  (r"dell|lenovo|hewlett|hp inc|asustek|\bacer\b|\bmsi\b|micro-star|gigabyte|microsoft", (("portable", 12), ("ordinateur fixe", 12))),
+                  (r"intel|liteon|azurewave|hon hai|foxconn|cloud network technology", (("portable", 8), ("ordinateur fixe", 8), ("équipement supervision", 6))))
+
 
 def plier(s):
     s = unicodedata.normalize("NFD", str(s or "")).encode("ascii", "ignore").decode().lower()
@@ -67,7 +103,7 @@ def comportement(p):
 
 
 def traits(fiche, p):
-    """Valeurs catégorielles d'un client, comparées à la population pour mesurer la singularité."""
+    """Valeurs catégorielles d'un client, comparées à la population pour mesurer la singularité. Communes aux deux axes."""
     v = p.get("volumes") or {} if p else {}
     return {
         "fabricant": plier(fiche.get("manufacturer")) or None,
@@ -110,7 +146,7 @@ def _rarete(pop, attr, val):
 
 
 NIVEAUX = (("confirmée", "confirmée par une personne"), ("forte", "certitude forte (≥ 70 %)"), ("moyenne", "certitude moyenne (40 à 69 %)"),
-           ("faible", "certitude faible (< 40 %)"), ("aucune", "aucune catégorie proposée"))
+           ("faible", "certitude faible (< 40 %)"), ("aucune", "aucune proposition"))
 APPRIS_MAX = 40          # contribution maximale de l'apprentissage à une catégorie (les autres indices gardent la parole)
 APPRIS_SUPPORT = 3       # confirmations pour qu'un trait appris pèse de tout son poids
 
@@ -127,7 +163,8 @@ def niveau(r):
 def apprentissage(decisions):
     """#1004 : décisions humaines [{categorie, proposee, traits}] -> {(attribut, valeur): {"pos": {cat: n}, "neg": {cat: n}}}.
     Une confirmation renforce, pour chacun des traits du client, la catégorie choisie ; une correction affaiblit aussi la
-    catégorie qui avait été proposée à tort. Les autres clients qui partagent ces traits en héritent (certitudes modifiées)."""
+    catégorie qui avait été proposée à tort. Les autres clients qui partagent ces traits en héritent (certitudes modifiées).
+    Générique : vaut pour l'axe catégorie comme pour l'axe type (les décisions sont filtrées par axe en amont)."""
     st = {}
     for d in decisions or []:
         for k, v in (d.get("traits") or {}).items():
@@ -140,16 +177,10 @@ def apprentissage(decisions):
     return st
 
 
-def categoriser(fiche, p=None, pop=None, appris=None, decision=None):
-    """fiche (client vu) + profil d'activité + population du site (+ apprentissage, + décision humaine) ->
-    {categorie, confiance, niveau, hypotheses, singularites}. Une décision humaine fixe la catégorie (niveau « confirmée »)."""
-    t = traits(fiche, p)
-    scores = {c: [] for c in CATEGORIES}
+# ----------------------------------------------------------------- scoreurs (règles propres à chaque axe)
 
-    def ajoute(cat, poids, texte, attr=None):
-        mult = 0.5 + _rarete(pop, attr, t.get(attr)) if attr and pop else 1.0
-        scores[cat].append({"poids": round(poids * mult), "texte": texte + ("" if mult == 1.0 else " (singularité ×%s)" % str(round(mult, 2)).replace(".", ","))})
-
+def _scorer_categorie(fiche, t, p, ajoute, ctx):
+    """Règles de l'axe « catégorie » (#1003) -- inchangées."""
     for rx, cat, poids in SYSTEME:
         if fiche.get("os") and re.search(rx, plier(fiche["os"])):
             ajoute(cat, poids, "système annoncé « %s »" % fiche["os"], "système"); break
@@ -200,6 +231,85 @@ def categoriser(fiche, p=None, pop=None, appris=None, decision=None):
     if v.get("part_descendant") is not None and v.get("mesures", 0) >= 3 and v["part_descendant"] < 0.3:
         ajoute("caméra / objet connecté", 20, "envoie bien plus qu'il ne reçoit (%d %% reçu)" % round(100 * v["part_descendant"]))
 
+
+def _scorer_type(fiche, t, p, ajoute, ctx):
+    """Règles de l'axe « type » (#1007) -- la FORME de l'appareil. Un appareil clairement hors des sept formes
+    (imprimante, caméra…) ne reçoit AUCUN type : la catégorie le couvre déjà."""
+    nom, fab = plier(fiche.get("name")), plier(fiche.get("manufacturer"))
+    pc = re.search(r"windows|mac ?os|linux|ubuntu|debian|^desktop-|^laptop-|macbook|thinkpad|optiplex|latitude", plier("%s %s" % (fiche.get("os"), nom)))
+    if (nom and re.search(TYPE_HORS, nom) or fab and re.search(TYPE_HORS, fab)) and not pc:
+        return            # imprimante / caméra / TV connectée : hors des sept types
+    sup = bool(ctx.get("supervision"))
+    if sup:   # MAC présente dans la flotte des agents : signal décisif
+        ajoute("équipement supervision", 60, "MAC connue de la flotte des agents de supervision")
+        for c in ("mobile", "tablette"):
+            ajoute(c, -20, "MAC d'un agent de supervision : ce n'est pas un terminal personnel")
+        ajoute("casque VR", -15, "MAC d'un agent de supervision")
+    for rx, typ, poids in TYPE_NOM:
+        if nom and re.search(rx, nom):
+            ajoute(typ, poids, "nom annoncé « %s »" % fiche["name"], "famille de nom"); break
+    for rx, cibles in TYPE_SYSTEME:
+        if fiche.get("os") and re.search(rx, plier(fiche["os"])):
+            for typ, poids in cibles:
+                ajoute(typ, poids, "système annoncé « %s »" % fiche["os"], "système")
+            break
+    if fab and re.search(ADAPTATEURS, fab):
+        for c in ("ordinateur fixe", "équipement supervision"):
+            ajoute(c, 4, "fabricant « %s » : adaptateur réseau (souvent USB), pas la marque de la machine" % fiche["manufacturer"])
+    elif fab:
+        for rx, cibles in TYPE_FABRICANT:
+            if re.search(rx, fab):
+                for typ, poids in cibles:
+                    ajoute(typ, poids, "fabricant « %s »" % fiche["manufacturer"], "fabricant")
+                break
+    if t["MAC aléatoire"] == "oui":
+        for typ, poids in (("tablette", 15), ("mobile", 15), ("casque VR", 8), ("ordinateur fixe", -15),
+                           ("équipement réseau", -30), ("équipement supervision", -25)):
+            ajoute(typ, poids, "MAC aléatoire (protection de la vie privée des mobiles)" if poids > 0 else "MAC aléatoire : rare pour ce type", "MAC aléatoire")
+    comp = t["comportement"]
+    if comp == "continu":
+        for c in T_FIXES:
+            ajoute(c, 20, "présent en continu (%s h / jour, week-ends compris)" % str(p.get("heures_par_jour")).replace(".", ","), "comportement")
+        for c in T_PORTES:
+            ajoute(c, -20, "présent en continu : rare pour un appareil porté", "comportement")
+    elif comp == "heures de jour":
+        for c in T_PORTES + ("portable",):
+            ajoute(c, 10, "présent aux heures de jour seulement (nuit %d %%)" % round(100 * (p.get("part_nuit") or 0)), "comportement")
+        ajoute("équipement supervision", -10, "absent la nuit : rare pour une machine de service", "comportement")
+    if t["mobilité"]:
+        fort = t["mobilité"] == "3 bornes ou plus"
+        for c in T_PORTES + ("portable",):
+            ajoute(c, 15 if fort else 5, "passe d'une borne à l'autre (%d équipements)" % len(p.get("bornes") or []), "mobilité")
+        for c in T_FIXES:
+            ajoute(c, -15 if fort else -5, "change de borne : %s pour un équipement fixe" % ("rare" if fort else "possible (bornes voisines)"), "mobilité")
+    if t["raccordement"] == "filaire":
+        for c in T_PORTES:
+            ajoute(c, -25, "raccordé en filaire", "raccordement")
+        for c, poids in (("ordinateur fixe", 8), ("équipement supervision", 8), ("équipement réseau", 5)):
+            ajoute(c, poids, "raccordé en filaire", "raccordement")
+    v = (p or {}).get("volumes") or {}
+    if t["volumes"] == "très réguliers":
+        ajoute("équipement supervision", 15, "volumes très réguliers d'heure en heure", "volumes")
+        ajoute("équipement réseau", 10, "volumes très réguliers d'heure en heure", "volumes")
+    elif t["volumes"] == "par rafales":
+        for c in T_PORTES + ("portable",):
+            ajoute(c, 8, "volumes par rafales (usage humain)", "volumes")
+
+
+# ----------------------------------------------------------------- moteur générique (commun aux deux axes)
+
+def _moteur(categories, scorer, fiche, p=None, pop=None, appris=None, decision=None, ctx=None):
+    t = traits(fiche, p)
+    scores = {c: [] for c in categories}
+
+    def ajoute(cat, poids, texte, attr=None):
+        if cat not in scores:
+            return
+        mult = 0.5 + _rarete(pop, attr, t.get(attr)) if attr and pop else 1.0
+        scores[cat].append({"poids": round(poids * mult), "texte": texte + ("" if mult == 1.0 else " (singularité ×%s)" % str(round(mult, 2)).replace(".", ","))})
+
+    scorer(fiche, t, p, ajoute, ctx or {})
+
     if appris:   # #1004 : ce que les confirmations humaines ont appris sur des traits que ce client partage
         gains = {}
         for k, val in t.items():
@@ -246,11 +356,23 @@ def categoriser(fiche, p=None, pop=None, appris=None, decision=None):
                          "texte": "%s « %s » : %s" % (k, montre, "seul client du site dans ce cas" if part <= 0.002 else "%s %% des clients du site" % pc)})
     r = {"categorie": cat, "confiance": conf, "incertain": bool(hyp) and conf < 40, "hypotheses": hyp[:4], "singularites": sing, "traits": t,
          "proposee": cat, "decision": None}
-    if decision and decision.get("categorie"):
+    if decision and decision.get("categorie") in categories:
         r.update(categorie=decision["categorie"], confiance=100, incertain=False,
                  decision={k: decision.get(k) for k in ("categorie", "par", "at", "proposee")})
     r["niveau"] = niveau(r)
     return r
+
+
+def categoriser(fiche, p=None, pop=None, appris=None, decision=None):
+    """Axe « catégorie » (#1003) -> {categorie, confiance, niveau, hypotheses, singularites, …}. Une décision humaine fixe
+    la catégorie (niveau « confirmée »)."""
+    return _moteur(CATEGORIES, _scorer_categorie, fiche, p, pop, appris, decision)
+
+
+def categoriser_type(fiche, p=None, pop=None, appris=None, decision=None, supervision=False):
+    """Axe « type » (#1007) : la forme de l'appareil -> {categorie (= le type), confiance, niveau, …}. `supervision` :
+    la MAC est connue de la flotte des agents (signal fort « équipement supervision »)."""
+    return _moteur(TYPES, _scorer_type, fiche, p, pop, appris, decision, ctx={"supervision": bool(supervision)})
 
 
 def compatible(type_element, cat):

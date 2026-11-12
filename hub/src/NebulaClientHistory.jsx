@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import IpPing from "./IpPing.jsx";
 import NebulaRelevesCalendrier from "./NebulaRelevesCalendrier.jsx";   // #974 : diodes des relèves
 import { texteNouveautes } from "./relevesLib.js";
-import { resumeActivite, barres, resumeCategorie, texteCategorie, celluleCategorie } from "./activiteLib.js";
+import { resumeActivite, barres, resumeCategorie, texteCategorie, celluleCategorie, celluleType } from "./activiteLib.js";
 import { hubLink } from "./hubLinks.js";
 import BoutonDetail from "./FenetreTexte.jsx";   // #1002 : activité du client (présence, rythme, volumes)
 
@@ -18,7 +18,7 @@ const epoch = (d) => (d ? Math.floor(new Date(d).getTime() / 1000) : "");
 const depuis = (s) => { if (!s) return ""; const h = (Date.now() / 1000 - s) / 3600; return h < 1 ? "en ligne" : h < 48 ? `il y a ${Math.round(h)} h` : `il y a ${Math.round(h / 24)} j`; };
 
 export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = [], login = "" }) {
-  const [f, setF] = useState({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "" });
+  const [f, setF] = useState({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "", type: "", certitude_type: "" });
   const [tri, setTri] = useState({ sort: "last_seen", order: "desc" });
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
@@ -32,7 +32,9 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
   const [cat, setCat] = useState(null);
   const [menus, setMenus] = useState(null);          // #1004 : catégories présentes et niveaux de certitude
   const [choix, setChoix] = useState("");            // catégorie à confirmer / corriger
+  const [choixType, setChoixType] = useState("");    // #1007 : type à confirmer / corriger
   const [decision, setDecision] = useState(null);    // {enCours, erreur, reglage, texte}
+  const [decisionT, setDecisionT] = useState(null);  // #1007 : message de la confirmation de type
   const [page, setPage] = useState(0);
   const [versionCal, setVersionCal] = useState(0);
   const PAGE = 200;
@@ -40,7 +42,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
   const params = useCallback(() => {
     const p = new URLSearchParams({ sort: tri.sort, order: tri.order, limit: PAGE, offset: page * PAGE });
     if (siteId) p.set("site", siteId);
-    for (const k of ["q", "manufacturer", "device", "categorie", "certitude"]) if (f[k].trim()) p.set(k, f[k].trim());
+    for (const k of ["q", "manufacturer", "device", "categorie", "certitude", "type", "certitude_type"]) if (f[k].trim()) p.set(k, f[k].trim());
     for (const k of ["since", "until", "absent_since"]) if (f[k]) p.set(k, epoch(f[k]));
     return p;
   }, [f, tri, page, siteId]);
@@ -61,20 +63,22 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
       .then((r) => r.json()).then(setMenus).catch(() => setMenus(null));
   }, [nebulaApiBase, siteId]);
   const lireCategorie = (row) => fetch(`${nebulaApiBase}/client-history/categorie?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}`, { credentials: "include" })
-    .then((r) => r.json()).then((j) => { setCat(j && !j.error ? j : { erreur: (j && j.error) || "?" }); setChoix((j && j.categorie) || ""); })
+    .then((r) => r.json()).then((j) => { setCat(j && !j.error ? j : { erreur: (j && j.error) || "?" }); setChoix((j && j.categorie) || ""); setChoixType((j && j.type && j.type.categorie) || ""); })
     .catch((e) => setCat({ erreur: e.message }));
-  const decider = async (row, methode) => {
-    setDecision({ enCours: true });
+  const decider = async (row, methode, axe = "categorie") => {
+    const setDec = axe === "type" ? setDecisionT : setDecision;   // #1007 : confirmation par axe
+    const valeur = axe === "type" ? choixType : choix;
+    setDec({ enCours: true });
     try {
       const r = await fetch(`${nebulaApiBase}/client-history/categorie/decision`, { method: methode, credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site: row.site_id, mac: row.mac, categorie: choix, groups, user: login }) });
+        body: JSON.stringify({ site: row.site_id, mac: row.mac, axe, categorie: valeur, groups, user: login }) });
       const j = await r.json();
-      if (!r.ok) { setDecision({ erreur: j.error || `HTTP ${r.status}`, reglage: j.reglage }); return; }
-      setDecision({ texte: methode === "DELETE" ? "Confirmation annulée : la proposition du hub revient, l'apprentissage est retiré."
+      if (!r.ok) { setDec({ erreur: j.error || `HTTP ${r.status}`, reglage: j.reglage }); return; }
+      setDec({ texte: methode === "DELETE" ? "Confirmation annulée : la proposition du hub revient, l'apprentissage est retiré."
         : j.correction ? `Corrigé en « ${j.categorie} » (le hub proposait « ${j.proposee || "rien"} ») : les clients aux traits semblables en tiennent compte.`
           : `Confirmé « ${j.categorie} » : les clients aux traits semblables en tiennent compte.` });
       await lireCategorie(row); load(); loadStatus();
-    } catch (e) { setDecision({ erreur: e.message }); }
+    } catch (e) { setDec({ erreur: e.message }); }
   };
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [load]);
@@ -93,7 +97,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
   };
   const ouvrir = async (row) => {
     if (sel?.mac === row.mac) { setSel(null); return; }
-    setSel(row); setSess(null); setAct(null); setCat(null); setDecision(null);
+    setSel(row); setSess(null); setAct(null); setCat(null); setDecision(null); setDecisionT(null);
     lireCategorie(row);
     fetch(`${nebulaApiBase}/client-history/activite?site=${encodeURIComponent(row.site_id)}&mac=${encodeURIComponent(row.mac)}&jours=14`, { credentials: "include" })
       .then((r) => r.json()).then((j) => setAct(j && !j.error ? j : { erreur: (j && j.error) || "?" })).catch((e) => setAct({ erreur: e.message }));
@@ -133,10 +137,18 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
           <option value="">toutes certitudes</option>
           {(menus?.niveaux || []).map((n) => <option key={n.niveau} value={n.niveau} disabled={!n.n}>{n.libelle} ({n.n})</option>)}
         </select>
+        <select value={f.type} onChange={(e) => setF((x) => ({ ...x, type: e.target.value }))} title="type d'appareil : forme (tablette, mobile, portable, fixe, réseau, supervision) (#1007)">
+          <option value="">tous types</option>
+          {(menus?.types || []).map((c) => <option key={c.type} value={c.type}>{c.type === "aucun" ? "sans type" : c.type} ({c.n})</option>)}
+        </select>
+        <select value={f.certitude_type} onChange={(e) => setF((x) => ({ ...x, certitude_type: e.target.value }))} title="niveau de certitude du type">
+          <option value="">certitude (type)</option>
+          {(menus?.niveaux_type || []).map((n) => <option key={n.niveau} value={n.niveau} disabled={!n.n}>{n.libelle} ({n.n})</option>)}
+        </select>
         <label>vu du {champ("since", { type: "date" })}</label>
         <label>au {champ("until", { type: "date" })}</label>
         <label title="clients disparus : dernière vue avant cette date">plus vu depuis {champ("absent_since", { type: "date" })}</label>
-        <button type="button" className="secondary" onClick={() => setF({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "" })}>Effacer</button>
+        <button type="button" className="secondary" onClick={() => setF({ q: "", manufacturer: "", device: "", since: "", until: "", absent_since: "", categorie: "", certitude: "", type: "", certitude_type: "" })}>Effacer</button>
       </div>
       {err && <p style={{ color: "var(--danger)" }}>{err}</p>}
       <div className="infra-muted">{d ? `${d.total} client(s)` : "lecture…"}{d && d.total > PAGE && <> · page {page + 1}/{Math.ceil(d.total / PAGE)}{" "}
@@ -147,6 +159,7 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
           <thead><tr>
             {COLS.map(([k, l]) => <th key={k} onClick={() => trier(k)} className={tri.sort === k ? "sorted" : ""}>{l}{tri.sort === k ? (tri.order === "asc" ? " ▲" : " ▼") : ""}</th>)}
             <th title="catégorie proposée (confiance) ou confirmée ✔">Catégorie</th>
+            <th title="type d'appareil : forme (tablette, mobile, portable, fixe…) ✔ si confirmé">Type</th>
           </tr></thead>
           <tbody>
             {(d?.rows || []).map((r) => (
@@ -161,9 +174,10 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
                   <td>{fmt(r.last_seen)} <span className="infra-muted">{depuis(r.last_seen)}</span></td>
                   <td>{r.seen_count}</td>
                   <td style={{ color: celluleCategorie(r).couleur, whiteSpace: "nowrap" }}>{celluleCategorie(r).texte}</td>
+                  <td style={{ color: celluleType(r).couleur, whiteSpace: "nowrap" }}>{celluleType(r).texte}</td>
                 </tr>
                 {sel?.mac === r.mac && (
-                  <tr><td colSpan={COLS.length + 1}>
+                  <tr><td colSpan={COLS.length + 2}>
                     <div style={{ marginBottom: 8 }}>
                       {cat === null ? <span className="muted">catégorie : lecture…</span> : cat.erreur ? <span style={{ color: "var(--danger)" }}>catégorie : {cat.erreur}</span> : (
                         <>
@@ -184,6 +198,24 @@ export default function NebulaClientHistory({ nebulaApiBase, siteId, groups = []
                           </div>
                         </>)}
                     </div>
+                    {cat && !cat.erreur && (
+                    <div style={{ marginBottom: 8 }}>
+                      <b>{resumeCategorie(cat.type, "Type")}</b>{" "}
+                      <BoutonDetail titre="Type : hypothèses et preuves" urgence={cat.type && cat.type.incertain ? "alerte" : "info"} texte={texteCategorie(cat.type, "Type")} />
+                      {cat.type && (cat.type.singularites || []).length > 0 && <span className="muted"> — singulier : {cat.type.singularites.map((sg) => sg.texte).join(" ; ")}</span>}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                        <span className="muted">C'est bien :</span>
+                        <select value={choixType} onChange={(e) => setChoixType(e.target.value)}>
+                          <option value="">choisir…</option>
+                          {(menus?.tous_types || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button type="button" disabled={!choixType || decisionT?.enCours} onClick={() => decider(r, "POST", "type")}>
+                          {decisionT?.enCours ? "⏳ en cours…" : choixType && cat.type && cat.type.categorie && choixType !== cat.type.categorie ? "✎ Corriger" : "✔ Confirmer"}</button>
+                        {cat.type && cat.type.decision && <button type="button" className="secondary" disabled={decisionT?.enCours} onClick={() => decider(r, "DELETE", "type")}>Annuler la confirmation</button>}
+                        {decisionT?.texte && <span style={{ color: "var(--ok)" }}>{decisionT.texte}</span>}
+                        {decisionT?.erreur && <span style={{ color: "var(--danger)" }}>{decisionT.erreur}{decisionT.reglage && <> — <a href={hubLink(decisionT.reglage.view)}>régler les droits</a> ({decisionT.reglage.texte})</>}</span>}
+                      </div>
+                    </div>)}
                     <div style={{ marginBottom: 8 }}>
                       <b>Activité sur 14 jours</b>
                       {act === null ? <span className="muted"> — lecture…</span> : act.erreur ? <span style={{ color: "var(--danger)" }}> — {act.erreur}</span> : (

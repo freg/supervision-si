@@ -43,3 +43,11 @@ n'apparaissait qu'après « Aperçu » ; aperçu automatique au collage, « ✔ 
 
 **Freg** : import réussi (17 éléments, 6 repérés). **Claude** (#1006) : deux tablettes reconnues par leur MAC annoncent le nom
 d'une tablette d'un autre lot ; la discordance devient visible (« reconnu, à vérifier ») et passe dans « À traiter ».
+
+**Freg** (12/11) : ajouter un SECOND axe de catégorisation parallèle, « type » : tablette, casque VR, mobile, portable,
+ordi fixe, équipement réseau, équipement supervision (sondes, mini-PC) — sans remplacer la catégorie.
+
+**Claude** (#1007) : moteur factorisé (une grille par axe), axe « type » sur les mêmes indices + comportement ; les
+équipements de supervision reconnus par leur MAC présente dans la flotte des agents (/identites) ; appareils hors des
+sept formes (imprimante, caméra) = « sans type ». Colonne, filtres et confirmation/apprentissage dédiés au type dans
+l'historique des clients, indépendants de l'axe catégorie.

@@ -78,5 +78,60 @@ class Identification(unittest.TestCase):
         self.assertEqual((r2["categorie"], r2["confiance"], r2["niveau"]), ("imprimante", 100, "confirmée"))
 
 
+class TypeAxe(unittest.TestCase):
+    """#1007 : second axe « type » parallèle, reconnaissance des équipements de supervision par la MAC de la flotte."""
+    def setUp(self):
+        idf._cache.clear(); idf.invalider()
+        self.db = os.path.join(tempfile.mkdtemp(), "t.db")
+        now = int(time.time())
+        conn = sqlite3.connect(self.db)
+        cl = [{"mac": "84:9e:56:6e:dc:6b", "name": "pc-numeria", "manufacturer": "Cloud Network Technology", "os": "Debian GNU/Linux 13", "lastSeen": now},
+              {"mac": "6e:00:00:00:00:01", "name": "Galaxy-Tab-A11", "os": "Android", "lastSeen": now},
+              {"mac": "70:49:a2:18:35:16", "name": "WBE660S-EU0101F-4", "manufacturer": "Zyxel Communications", "lastSeen": now}]
+        ch.ingest(conn, "s1", ch.merge(cl, now=now), now=now)
+        conn.close()
+        self.droit = [True]
+        app = Flask(__name__)
+        chr_.register(app, {"conn": lambda: sqlite3.connect(self.db), "client": None, "sites": lambda: [], "db_path": self.db,
+                            "configured": lambda: False, "manage": lambda b: (self.droit[0], None if self.droit[0] else "droit requis"),
+                            "macs_supervision": lambda: {"84:9e:56:6e:dc:6b"}})  # la MAC de pc-numeria est dans la flotte
+        self.c = app.test_client()
+
+    def test_menus_et_colonnes(self):
+        m = self.c.get("/client-history/categories?site=s1").get_json()
+        self.assertEqual(m["tous_types"], list(cg.TYPES))
+        self.assertIn({"type": "tablette", "n": 1}, m["types"])
+        self.assertEqual([n["niveau"] for n in m["niveaux_type"]], ["confirmée", "forte", "moyenne", "faible", "aucune"])
+        rows = {r["mac"]: r for r in self.c.get("/client-history?site=s1").get_json()["rows"]}
+        self.assertEqual(rows["6e:00:00:00:00:01"]["type"], "tablette")
+        self.assertEqual(rows["84:9e:56:6e:dc:6b"]["type"], "équipement supervision")
+        self.assertEqual(rows["70:49:a2:18:35:16"]["type"], "équipement réseau")
+        # les deux axes coexistent : la catégorie reste renseignée
+        self.assertTrue(rows["6e:00:00:00:00:01"]["categorie"])
+
+    def test_filtre_par_type(self):
+        r = self.c.get("/client-history?site=s1&type=%C3%A9quipement%20supervision").get_json()
+        self.assertEqual([x["mac"] for x in r["rows"]], ["84:9e:56:6e:dc:6b"])
+
+    def test_detail_porte_les_deux_axes(self):
+        j = self.c.get("/client-history/categorie?site=s1&mac=6e:00:00:00:00:01").get_json()
+        self.assertTrue(j["categorie"])          # axe catégorie
+        self.assertEqual(j["type"]["categorie"], "tablette")   # axe type imbriqué
+
+    def test_confirmation_du_type_independante(self):
+        # corriger le TYPE ne touche pas la catégorie
+        d = self.c.post("/client-history/categorie/decision", json={"site": "s1", "mac": "6e:00:00:00:00:01", "axe": "type", "categorie": "mobile", "user": "freg"}).get_json()
+        self.assertEqual(d["axe"], "type")
+        self.assertEqual(self.c.get("/client-history?site=s1&certitude_type=confirm%C3%A9e").get_json()["total"], 1)
+        self.assertEqual(self.c.get("/client-history?site=s1&certitude=confirm%C3%A9e").get_json()["total"], 0)
+        j = self.c.get("/client-history/categorie?site=s1&mac=6e:00:00:00:00:01").get_json()
+        self.assertEqual(j["type"]["categorie"], "mobile")
+        self.assertIsNone(j["decision"])         # la catégorie reste proposée, non confirmée
+        self.assertEqual(self.c.delete("/client-history/categorie/decision", json={"site": "s1", "mac": "6e:00:00:00:00:01", "axe": "type"}).get_json()["annule"], 1)
+
+    def test_type_inconnu_refuse(self):
+        self.assertEqual(self.c.post("/client-history/categorie/decision", json={"site": "s1", "mac": "6e:00:00:00:00:01", "axe": "type", "categorie": "poste Windows"}).status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()

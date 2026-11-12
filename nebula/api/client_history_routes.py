@@ -167,13 +167,13 @@ def _filtres():
             "sort": a.get("sort") or "last_seen", "order": a.get("order") or "desc"}
 
 
-def _categories_pour(conn, site_id):
-    """{(site, mac): {categorie, confiance, niveau}} pour un site ou tous."""
+def _categories_pour(conn, site_id, macs_sup=frozenset()):
+    """{(site, mac): {categorie, confiance, niveau, type, confiance_type, niveau_type}} pour un site ou tous."""
     import identification
     sites = [site_id] if site_id else [r[0] for r in conn.execute("SELECT DISTINCT site_id FROM nebula_client_seen")]
     out = {}
     for s in sites:
-        for mac, v in identification.categories_site(conn, s).items():
+        for mac, v in identification.categories_site(conn, s, macs_sup=macs_sup).items():
             out[(s, mac)] = v
     return out
 
@@ -181,22 +181,31 @@ def _categories_pour(conn, site_id):
 def register(app, deps):
     log = deps.get("log") or (lambda m: app.logger.warning(m))
 
+    def _macs_sup():
+        """#1007 : MAC connues de la flotte des agents (signal « équipement supervision ») -- jamais bloquant."""
+        try:
+            return frozenset(deps["macs_supervision"]()) if deps.get("macs_supervision") else frozenset()
+        except Exception:  # noqa: BLE001
+            return frozenset()
+
     @app.route("/client-history", methods=["GET"])
     def client_history_query():
-        """#1004 : &categorie= (une catégorie, ou « aucune ») &certitude= (confirmée | forte | moyenne | faible | aucune) ;
-        chaque ligne porte sa catégorie, sa confiance et son niveau de certitude."""
+        """#1004/#1007 : &categorie= &certitude= (axe catégorie) et &type= &certitude_type= (axe type) ; chaque ligne
+        porte sa catégorie et son type, avec leurs confiances et niveaux de certitude."""
         filt = _filtres()
         cat, niv = request.args.get("categorie") or None, request.args.get("certitude") or None
+        typ, nivt = request.args.get("type") or None, request.args.get("certitude_type") or None
         conn = deps["conn"]()
         try:
             try:
-                cats = _categories_pour(conn, filt["site_id"])
+                cats = _categories_pour(conn, filt["site_id"], _macs_sup())
             except Exception:  # noqa: BLE001 -- la liste reste lisible sans catégories
                 traceback.print_exc()
                 cats = {}
-            if cat or niv:
+            if cat or niv or typ or nivt:
                 filt["cles"] = ["%s|%s" % k for k, v in cats.items()
-                                if (not cat or (v["categorie"] or "aucune") == cat) and (not niv or v["niveau"] == niv)]
+                                if (not cat or (v["categorie"] or "aucune") == cat) and (not niv or v["niveau"] == niv)
+                                and (not typ or (v.get("type") or "aucun") == typ) and (not nivt or v.get("niveau_type") == nivt)]
             res = ch.query(conn, limit=request.args.get("limit", 200), offset=request.args.get("offset", 0), **filt)
             for r in res["rows"]:
                 r.update(cats.get((r["site_id"], r["mac"])) or {})
@@ -206,21 +215,24 @@ def register(app, deps):
 
     @app.route("/client-history/categories", methods=["GET"])
     def client_history_categories():
-        """#1004 : catégories présentes et niveaux de certitude, avec leurs effectifs (menus de filtre)."""
+        """#1004/#1007 : catégories ET types présents + niveaux de certitude, avec leurs effectifs (menus de filtre)."""
         import categorie
         conn = deps["conn"]()
         try:
-            cats = _categories_pour(conn, request.args.get("site") or None)
+            cats = _categories_pour(conn, request.args.get("site") or None, _macs_sup())
         finally:
             conn.close()
-        nc, nn = {}, {}
+        nc, nn, nt, nnt = {}, {}, {}, {}
         for v in cats.values():
-            k = v["categorie"] or "aucune"
-            nc[k] = nc.get(k, 0) + 1
+            nc[v["categorie"] or "aucune"] = nc.get(v["categorie"] or "aucune", 0) + 1
             nn[v["niveau"]] = nn.get(v["niveau"], 0) + 1
-        return jsonify({"categories": [{"categorie": k, "n": n} for k, n in sorted(nc.items(), key=lambda x: (-x[1], x[0]))],
-                        "niveaux": [{"niveau": k, "libelle": lib, "n": nn.get(k, 0)} for k, lib in categorie.NIVEAUX],
-                        "toutes": list(categorie.CATEGORIES)}), 200
+            nt[v.get("type") or "aucun"] = nt.get(v.get("type") or "aucun", 0) + 1
+            nnt[v.get("niveau_type")] = nnt.get(v.get("niveau_type"), 0) + 1
+        niveaux = lambda d: [{"niveau": k, "libelle": lib, "n": d.get(k, 0)} for k, lib in categorie.NIVEAUX]
+        return jsonify({"categories": [{"categorie": k, "n": x} for k, x in sorted(nc.items(), key=lambda a: (-a[1], a[0]))],
+                        "niveaux": niveaux(nn), "toutes": list(categorie.CATEGORIES),
+                        "types": [{"type": k, "n": x} for k, x in sorted(nt.items(), key=lambda a: (-a[1], a[0]))],
+                        "niveaux_type": niveaux(nnt), "tous_types": list(categorie.TYPES)}), 200
 
     @app.route("/client-history/categorie/decision", methods=["POST", "DELETE"])
     def client_history_categorie_decision():
@@ -236,9 +248,10 @@ def register(app, deps):
             return jsonify({"error": "site et MAC requis"}), 400
         conn = deps["conn"]()
         try:
+            axe = body.get("axe") or "categorie"
             if request.method == "DELETE":
-                return jsonify({"annule": identification.annuler(conn, body["site"], mac)}), 200
-            return jsonify(identification.decider(conn, body["site"], mac, body.get("categorie"), par=str(body.get("user") or "")[:64] or None)), 200
+                return jsonify({"annule": identification.annuler(conn, body["site"], mac, axe=axe)}), 200
+            return jsonify(identification.decider(conn, body["site"], mac, body.get("categorie"), par=str(body.get("user") or "")[:64] or None, axe=axe, macs_sup=_macs_sup())), 200
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         except LookupError as e:
@@ -279,7 +292,7 @@ def register(app, deps):
             f = identification.fiche(conn, request.args.get("site", ""), mac)
             if not f:
                 return jsonify({"error": "client jamais vu sur ce site"}), 404
-            return jsonify(identification.categorie_client(conn, request.args.get("site", ""), f, avec_profil=True)), 200
+            return jsonify(identification.categorie_client(conn, request.args.get("site", ""), f, avec_profil=True, macs_sup=_macs_sup())), 200
         finally:
             conn.close()
 
